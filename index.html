@@ -42,6 +42,9 @@
   --img-eq-weapon: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAR0lEQVR42mNgoCVo6Jj0H4TJNmDPoVPkGwDSDDOALENGDRhIA04u8v6PDxM0oCtL7j8yBmlC5pPkDZgBZCdlig2AOZ+mORYAvTySedXg6eEAAAAASUVORK5CYII=");
   --img-eq-armor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAXElEQVR42mNgGJTg2p0n/08u8kbBIDEQJtoAXBivxoqGrv8bdhxC0YBsOwiD5EkyBMRH1gzik2QAsgvIMmAkugDdEJgLiNYMAzADYC4gGP/4XEGy7eiGkKWZWAAABlU1kvGpUecAAAAASUVORK5CYII=");
   --img-eq-accessory: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAXUlEQVR42mNgoCVYden1fxAmS3PeghNgzSAahMkyAIbd8qaR5wqQRrI0f7jS8R8bpkgzUYbgU0iUIYQUEDTg5CLv/yBMrvwgMKArS+4/DJMih1MhNkxUWqBIM6kAAO5RuuRO+IdDAAAAAElFTkSuQmCC");
+  --img-cb-unchecked: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAAIklEQVR42mNgIAdE2Yj8JwajaHh57whePKqBPhpIijhSAACynh5Uo+NIbwAAAABJRU5ErkJggg==");
+  --img-cb-checked: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAARklEQVR42mNgIAdE2Yj8JwajaHh57wheTLSGacW6/08u8iZOA0wxThtgkuiK8WoAKURXjNcPIIXoiglqoCiUcGogKeJIAQDTuxAuIOTWpQAAAABJRU5ErkJggg==");
+  --img-icon-training: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAU0lEQVR42mNgGDTAS1/mP8VqiTGEoJqeGBOcClIclIhz5ZoKj/+kGEzQJUTbjM0QsjXDAoyU2MEZYCT7H5uziTYEn0JssUNyPOO0gJTQJjlMaAoAuZQtpUwhDEYAAAAASUVORK5CYII=");
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%}
@@ -129,6 +132,10 @@ header{
 .eqicon-weapon{background-image:var(--img-eq-weapon)}
 .eqicon-armor{background-image:var(--img-eq-armor)}
 .eqicon-accessory{background-image:var(--img-eq-accessory)}
+.cbicon{display:inline-block;width:13px;height:13px;background-size:contain;background-repeat:no-repeat;image-rendering:pixelated;vertical-align:-2px;margin-right:2px}
+.cbicon.off{background-image:var(--img-cb-unchecked)}
+.cbicon.on{background-image:var(--img-cb-checked)}
+.icon-training{display:inline-block;width:15px;height:15px;background-image:var(--img-icon-training);background-size:contain;background-repeat:no-repeat;image-rendering:pixelated;vertical-align:-3px;margin-right:4px}
 
 /* ── 国力バー ── */
 #stats{cursor:pointer;
@@ -5864,12 +5871,12 @@ function renderTrainingCamp(){
   const eligible=S.units.filter(u=>u.injured<=0&&!u.dungeonBusy&&!u.campUntil);
   let h="";
   if(inCamp.length){
-    h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 8px;letter-spacing:.15em">── 訓練場にいる兵 ──</div>`;
+    h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 8px;letter-spacing:.15em"><i class="icon-training"></i>── 訓練場にいる兵 ──</div>`;
     for(const u of inCamp){
       h+=`<div class="pcard"><div class="nm">${fullName(u)}</div><div class="ds">${JOB_TREES[u.cls].label}・Lv.${u.lv} ／ 帰還まであと${Math.max(0,u.campUntil-S.day)}日</div></div>`;
     }
   }
-  h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 8px;letter-spacing:.15em">── 訓練場へ送る ──</div>`;
+  h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 8px;letter-spacing:.15em"><i class="icon-training"></i>── 訓練場へ送る ──</div>`;
   if(!eligible.length)h+=`<div class="udet-empty">送れる兵がいない(負傷中・出払い中・既に訓練場にいる兵は対象外)。</div>`;
   for(const u of eligible){
     h+=`<div class="pcard"><div class="nm">${fullName(u)}</div><div class="ds">${JOB_TREES[u.cls].label}・Lv.${u.lv}・戦力${Math.round(unitPower(u))}</div>
@@ -5900,7 +5907,7 @@ function renderSquadManager(){
       const picked=squadEditUnitIds.includes(u.id);
       h+=`<div class="pcard" style="${picked?"border-color:var(--gold);background:rgba(201,162,75,.1)":""}">
         <div class="sq-unit-pick" data-id="${u.id}" style="cursor:pointer">
-          <div class="nm">${picked?"☑ ":"☐ "}${fullName(u)} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
+          <div class="nm"><i class="cbicon ${picked?"on":"off"}"></i>${fullName(u)} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
         </div>
       </div>`;
     }
@@ -6618,7 +6625,7 @@ function renderDungeonPanel(){
         const picked=expSelectedUnitIds.includes(u.id);
         h+=`<div class="pcard" style="${picked?`border-color:var(--gold);background:rgba(201,162,75,.1)`:""}">
           <div class="exp-unit-pick" data-id="${u.id}" style="cursor:pointer">
-            <div class="nm">${picked?"☑ ":"☐ "}${fullName(u)} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
+            <div class="nm"><i class="cbicon ${picked?"on":"off"}"></i>${fullName(u)} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
             <div class="ds">戦力${Math.round(unitPower(u))}</div>
           </div>
         </div>`;
@@ -6700,7 +6707,7 @@ function renderDungeonPanel(){
       const aff=d.type?d.type.statFn(u):unitPower(u);
       h+=`<div class="pcard" style="${picked?`border-color:var(--gold);background:rgba(201,162,75,.1)`:""}">
         <div class="dg-unit-pick" data-id="${u.id}" style="cursor:pointer">
-          <div class="nm">${picked?"☑ ":"☐ "}${u.nm} ${u.surname||""} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
+          <div class="nm"><i class="cbicon ${picked?"on":"off"}"></i>${u.nm} ${u.surname||""} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
           <div class="ds">戦力${Math.round(unitPower(u))}${d.type?` ／ ${d.type.label}適性${Math.round(aff)}`:""}</div>
         </div>
         <button class="dg-unit-detail" data-id="${u.id}" style="margin-top:6px;width:100%;background:transparent;border:1px solid rgba(201,162,75,.35);color:var(--dim);border-radius:6px;padding:6px;font-size:11.5px;font-family:'Zen Old Mincho',serif;cursor:pointer">能力の詳細を見る</button>
