@@ -479,14 +479,22 @@ header{
 .trchip.t-epic{background:linear-gradient(135deg,#c98fe8,#8a5ab0);color:#f5eaff;box-shadow:0 0 6px rgba(201,143,232,.5)}
 .trchip.t-legend{background:linear-gradient(120deg,#e8c874,#8fd0e8,#c98fe8,#e8c874);background-size:300% 100%;animation:uniqueflow 4s linear infinite;color:#1a1420;font-weight:800;box-shadow:0 0 10px rgba(201,162,75,.7)}
 .tichip{display:inline-flex;align-items:center;gap:3px;border-radius:5px;padding:2px 8px;font-size:10.5px;font-weight:700;margin:0 5px 5px 0;letter-spacing:.02em;background:linear-gradient(135deg,#4a3f6b,#2e2648);color:#e8dcff;border:1px solid rgba(201,143,232,.4)}
+.tichip.t-common{background:#3b4150;color:#c3c8d2;border-color:transparent}
+.tichip.t-rare{background:linear-gradient(135deg,#6f96c9,#3f5a85);color:#eef3fa;border-color:transparent}
+.tichip.t-epic{background:linear-gradient(135deg,#c98fe8,#8a5ab0);color:#f5eaff;border-color:transparent;box-shadow:0 0 6px rgba(201,143,232,.5)}
+.tichip.t-legend{background:linear-gradient(120deg,#e8c874,#8fd0e8,#c98fe8,#e8c874);background-size:300% 100%;animation:uniqueflow 4s linear infinite;color:#1a1420;font-weight:800;border-color:transparent;box-shadow:0 0 10px rgba(201,162,75,.7)}
 @keyframes uniqueflow{0%{background-position:0% 0}100%{background-position:300% 0}}
 
 /* --- 兵士詳細画面(キャラクターシート風) --- */
 .udet-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid rgba(201,162,75,.25)}
-.udet-portrait{flex:0 0 auto;width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--gold);background:radial-gradient(circle at 35% 30%,#2a3350,#161b2c);border:1.5px solid var(--gold2)}
+.udet-portrait{position:relative;flex:0 0 auto;width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--gold);background:radial-gradient(circle at 35% 30%,#2a3350,#161b2c);border:1.5px solid var(--gold2)}
 .udet-portrait svg{width:26px;height:26px}
 .udet-portrait.rare-epic{border-color:#c9c9d4;box-shadow:0 0 10px rgba(201,201,212,.5)}
 .udet-portrait.rare-legend{border-color:var(--gold);box-shadow:0 0 12px rgba(201,162,75,.75)}
+.udet-portrait.rare-legend::before{content:"";position:absolute;inset:-4px;border-radius:50%;z-index:-1;
+  background:conic-gradient(from 0deg,#e8c874,#8fd0e8,#c98fe8,#e8c874);
+  animation:legendspin 3.2s linear infinite;filter:blur(1.5px)}
+@keyframes legendspin{to{transform:rotate(360deg)}}
 .udet-name{font-family:'Shippori Mincho',serif;font-weight:800;font-size:17px;color:var(--parch);line-height:1.3}
 .udet-name .star{color:var(--gold)}
 .udet-job{font-size:11.5px;color:var(--gold);margin-top:2px}
@@ -610,8 +618,8 @@ header{
     <button id="btnStats">国力</button>
     <button id="btnTroops">兵士<span class="badge" id="volBadge" style="display:none">0</span></button>
     <button id="btnDungeon">ダンジョン<span class="badge" id="dgBadge" style="display:none">0</span></button>
-    <button id="btnHall">殿堂</button>
     <button id="btnItems">アイテム<span class="badge" id="itemBadge" style="display:none">0</span></button>
+    <button id="btnHall">殿堂</button>
   </div>
   <div id="bottombarFade"></div>
 </div>
@@ -4360,7 +4368,7 @@ const ITEMS=[
  // ── コモン(手軽な消耗品) ──
  {key:"coin_small",name:"小さな硬貨袋",rarity:"common",desc:"国庫が少し潤う。",effect:()=>apply({gold:ri(15,30),log:"硬貨袋を使い、国庫がわずかに潤った。"})},
  {key:"grain_sack",name:"穀物の袋",rarity:"common",desc:"食糧が少し増える。",effect:()=>apply({food:ri(20,40),log:"穀物の袋を蔵に運び入れた。"})},
- {key:"tonic",name:"疲労回復の秘薬",rarity:"common",desc:"ランダムな兵の疲労を大きく回復。",effect:()=>{if(!S.units.length)return;const u=S.units[Math.floor(Math.random()*S.units.length)];u.fatigue=Math.max(0,(u.fatigue||0)-50);chron(`${u.nm}が秘薬を使い、疲労が大きく和らいだ。`,"");}},
+ {key:"tonic",name:"疲労回復の秘薬",rarity:"common",desc:"選んだ兵の疲労を大きく回復。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;u.fatigue=Math.max(0,(u.fatigue||0)-50);chron(`${u.nm}が秘薬を使い、疲労が大きく和らいだ。`,"");}},
  {key:"bandage_kit",name:"上等な包帯",rarity:"common",desc:"療養中の兵の回復日数を短縮。",effect:()=>{const c=S.units.filter(u=>u.injured>0);if(!c.length){chron("療養中の兵がおらず、包帯は使われなかった。","");return;}const u=c[Math.floor(Math.random()*c.length)];u.injured=Math.max(0,u.injured-2);chron(`${u.nm}の傷の治りが早まった。`,"");}},
  {key:"charm_luck",name:"幸運のお守り",rarity:"common",desc:"民心が少し上がる。",effect:()=>apply({mood:ri(3,6),log:"幸運のお守りが配られ、民の顔に笑みが戻った。"})},
  {key:"herb_bundle",name:"薬草の束",rarity:"common",desc:"農業が少し上がる。",effect:()=>apply({st:{agriculture:ri(1,3)},log:"薬草の知識が畑仕事に活かされた。"})},
@@ -4402,7 +4410,7 @@ const ITEMS=[
  {key:"star_child_charm",name:"星降りし子の護符",rarity:"legendary",desc:"レジェンド級の逸材(星降りし子)が一人、必ず加わる。",effect:()=>{if(S.units.length>=unitCap()){chron("兵舎が満員のため、護符は使えなかった。","");return;}const u=makeUnit();u.trait="starchild";u.traitTier="legend";const tr=traitInfo("starchild");for(const k of["str","vit","int"])u[k]+=tr[k]||0;u.pw=tr.pw||0;u.gm=tr.gm||1;S.units.push(u);chron(`――星降りし子の護符が光を放ち、${u.nm} ${u.surname}が姿を現した。星に導かれし者だという。`,"big");}},
  // ── コモン追加(第2弾) ──
  {key:"dried_fish",name:"干し魚の束",rarity:"common",desc:"食糧が少し増える。",effect:()=>apply({food:ri(15,28),log:"干し魚が蔵に運び込まれた。"})},
- {key:"wool_blanket",name:"厚手の毛布",rarity:"common",desc:"ランダムな兵の疲労を少し回復。",effect:()=>{if(!S.units.length)return;const u=S.units[Math.floor(Math.random()*S.units.length)];u.fatigue=Math.max(0,(u.fatigue||0)-18);chron(`${u.nm}が毛布にくるまり、ぐっすり眠った。`,"");}},
+ {key:"wool_blanket",name:"厚手の毛布",rarity:"common",desc:"選んだ兵の疲労を少し回復。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;u.fatigue=Math.max(0,(u.fatigue||0)-18);chron(`${u.nm}が毛布にくるまり、ぐっすり眠った。`,"");}},
  {key:"copper_coin",name:"古い銅貨",rarity:"common",desc:"国庫が少し潤う。",effect:()=>apply({gold:ri(8,20),log:"古い銅貨が見つかり、いくらかの足しになった。"})},
  {key:"paper_lantern",name:"紙灯籠",rarity:"common",desc:"民心が少し上がる。",effect:()=>apply({mood:ri(2,4),log:"夜、紙灯籠が谷を淡く照らした。"})},
  {key:"sharpening_oil",name:"研ぎ油",rarity:"common",desc:"軍事が少し上がる。",effect:()=>apply({st:{military:ri(1,3)},log:"武具の手入れが行き届いた。"})},
@@ -4415,7 +4423,7 @@ const ITEMS=[
  {key:"pressed_flower",name:"押し花のしおり",rarity:"common",desc:"ランダムな兵の士気が少し上がる。",effect:()=>{if(!S.units.length)return;const u=S.units[Math.floor(Math.random()*S.units.length)];u.moral=Math.min(100,u.moral+ri(5,10));chron(`${u.nm}が押し花のしおりを大切そうにしまった。`,"");}},
  {key:"clay_pot",name:"素焼きの壺",rarity:"common",desc:"食糧が少し増える。",effect:()=>apply({food:ri(15,28),log:"素焼きの壺に、日々の蓄えが詰められた。"})},
  {key:"iron_nail",name:"鉄釘の袋",rarity:"common",desc:"経済が少し上がる。",effect:()=>apply({st:{economy:ri(1,3)},log:"鉄釘が建築に一役買った。"})},
- {key:"wild_herb",name:"野草の一束",rarity:"common",desc:"ランダムな兵の疲労を少し回復。",effect:()=>{if(!S.units.length)return;const u=S.units[Math.floor(Math.random()*S.units.length)];u.fatigue=Math.max(0,(u.fatigue||0)-18);chron(`${u.nm}が野草を煎じて飲んだ。`,"");}},
+ {key:"wild_herb",name:"野草の一束",rarity:"common",desc:"選んだ兵の疲労を少し回復。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;u.fatigue=Math.max(0,(u.fatigue||0)-18);chron(`${u.nm}が野草を煎じて飲んだ。`,"");}},
  {key:"traveling_map",name:"旅の地図",rarity:"common",desc:"外交が少し上がる。",effect:()=>apply({st:{diplomacy:ri(1,3)},log:"旅の地図が、思わぬ交渉の助けになった。"})},
  // ── アンコモン追加(第2弾) ──
  {key:"silver_bell",name:"銀の鈴",rarity:"uncommon",desc:"民心がまとまって上がる。",effect:()=>apply({mood:ri(8,14),log:"銀の鈴の音が、谷に静かな安らぎをもたらした。"})},
@@ -4464,7 +4472,7 @@ const ITEMS=[
  {key:"eq_lead_rare",name:"統率の腕輪",rarity:"rare",desc:"選んだ兵の統率を+7する装備品(消耗品)。",needsTarget:true,statKey:"lead",amount:7,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;u.lead+=7;unitHistory(u,`「統率の腕輪」を身につけ、統率が高まった。`);chron(`${u.nm}が「統率の腕輪」を身につけ、統率が高まった。`,"big");}},
  {key:"eq_lead_epic",name:"統率の秘宝",rarity:"epic",desc:"選んだ兵の統率を+13する装備品(消耗品)。",needsTarget:true,statKey:"lead",amount:13,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;u.lead+=13;unitHistory(u,`「統率の秘宝」を身につけ、統率が高まった。`);chron(`${u.nm}が「統率の秘宝」を身につけ、統率が高まった。`,"big");}},
  {key:"bread_basket",name:"焼きたてパンの籠",rarity:"common",desc:"民心が少し上がる。",effect:()=>apply({mood:ri(2,5),log:"焼きたてのパンが配られ、良い匂いが広場を満たした。"})},
- {key:"whetstone",name:"研磨用の砥石",rarity:"common",desc:"ランダムな兵の疲労を少し回復。",effect:()=>{if(!S.units.length)return;const u=S.units[Math.floor(Math.random()*S.units.length)];u.fatigue=Math.max(0,(u.fatigue||0)-20);chron(`${u.nm}が武具の手入れをして、気分を新たにした。`,"");}},
+ {key:"whetstone",name:"研磨用の砥石",rarity:"common",desc:"選んだ兵の疲労を少し回復。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;u.fatigue=Math.max(0,(u.fatigue||0)-20);chron(`${u.nm}が武具の手入れをして、気分を新たにした。`,"");}},
  {key:"fishing_net",name:"上等な漁網",rarity:"common",desc:"食糧が少し増える。",effect:()=>apply({food:ri(15,30),log:"上等な漁網のおかげで、水揚げが増えた。"})},
  {key:"lucky_coin",name:"縁起の良い古銭",rarity:"common",desc:"国庫が少し潤う。",effect:()=>apply({gold:ri(10,25),log:"古銭を売り払い、いくらかの足しになった。"})},
  {key:"salve",name:"軟膏の壺",rarity:"common",desc:"療養中の兵の回復日数を短縮。",effect:()=>{const c=S.units.filter(u=>u.injured>0);if(!c.length){chron("療養中の兵がおらず、軟膏は使われなかった。","");return;}const u=c[Math.floor(Math.random()*c.length)];u.injured=Math.max(0,u.injured-1);chron(`${u.nm}に軟膏が塗られた。`,"");}},
@@ -4476,7 +4484,7 @@ const ITEMS=[
  {key:"lens_shard",name:"透明な硝子片",rarity:"common",desc:"魔導が少し上がる。",effect:()=>apply({st:{magic:ri(1,3)},log:"硝子片を用いた実験が、興味深い結果を示した。"})},
  {key:"dried_meat",name:"燻製肉の束",rarity:"common",desc:"食糧が少し増える。",effect:()=>apply({food:ri(15,30),log:"燻製肉が蔵に運び込まれた。"})},
  {key:"tin_whistle",name:"錫の小笛",rarity:"common",desc:"ランダムな兵に少量の経験値。",effect:()=>{if(!S.units.length)return;const u=S.units[Math.floor(Math.random()*S.units.length)];u.exp+=ri(6,12);processLevelUps(u);chron(`${u.nm}が錫の小笛で気を紛らわせながら、鍛錬に励んだ。`,"");}},
- {key:"quiet_cloak",name:"物静かな外套",rarity:"common",desc:"ランダムな兵の疲労を少し回復。",effect:()=>{if(!S.units.length)return;const u=S.units[Math.floor(Math.random()*S.units.length)];u.fatigue=Math.max(0,(u.fatigue||0)-20);chron(`${u.nm}が外套にくるまり、しばし休んだ。`,"");}},
+ {key:"quiet_cloak",name:"物静かな外套",rarity:"common",desc:"選んだ兵の疲労を少し回復。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;u.fatigue=Math.max(0,(u.fatigue||0)-20);chron(`${u.nm}が外套にくるまり、しばし休んだ。`,"");}},
  {key:"pocket_almanac",name:"懐中暦",rarity:"common",desc:"経済が少し上がる。",effect:()=>apply({st:{economy:ri(1,3)},log:"懐中暦が、商いの段取りに重宝された。"})},
  // ── アンコモン追加 ──
  {key:"iron_ration",name:"携行食の樽",rarity:"uncommon",desc:"食糧がまとまって増える。",effect:()=>apply({food:ri(50,90),log:"携行食の樽が、備蓄をぐっと押し上げた。"})},
@@ -5294,11 +5302,33 @@ function skillBadges(u){
     return `<span class="skchip t-${s.tier}">${s.name}</span>`;
   }).join("");
 }
+// 称号ごとにtierフィールドを持たせる代わりに、効果の大きさから難易度相当のtierを判定する
+function titleTier(t){
+  if(t.effect==="expMult"){
+    if(t.value>=1.1)return"legend";
+    if(t.value>=1.07)return"epic";
+    if(t.value>=1.05)return"rare";
+    return"common";
+  }
+  if(t.effect==="loyaltyGrow"||t.effect==="moralGrow"){
+    if(t.value>=0.2)return"legend";
+    if(t.value>=0.15)return"epic";
+    if(t.value>=0.1)return"rare";
+    return"common";
+  }
+  if(t.effect==="injuryMult"){
+    if(t.value<=0.8)return"legend";
+    if(t.value<=0.85)return"epic";
+    if(t.value<=0.9)return"rare";
+    return"common";
+  }
+  return"common";
+}
 function titleBadges(u){
   if(!u.titles||!u.titles.length)return "";
   return u.titles.map(k=>{
     const t=TITLE_DB.find(x=>x.key===k);if(!t)return"";
-    return `<span class="tichip">${t.name}</span>`;
+    return `<span class="tichip t-${titleTier(t)}">${t.name}</span>`;
   }).join("");
 }
 function findAnyUnit(uid){return S.units.find(x=>x.id===uid)||S.instructors.find(x=>x.id===uid);}
@@ -5541,7 +5571,7 @@ function renderTroops(){
           <span class="un"><span class="untext">${u.captain?"★ ":""}${u.nm}${u.surname?" "+u.surname:""}</span>${statusIcons?`<span class="ustatus" style="color:${acc.tone}">${statusIcons}</span>`:""}</span>
           ${rankStars(acc.stars)}
         </div>
-        ${nick}${reserveTag}${u.founder?`<span style="font-size:9.5px;color:var(--gold2);border:1px solid var(--gold2);border-radius:3px;padding:0 4px;margin-left:4px">建国の志士</span>`:""}${(u.titles&&u.titles.length)?`<span style="font-size:9.5px;color:var(--dim);margin-left:4px">称号×${u.titles.length}</span>`:""}${traitBadge(u)}
+        ${nick}${reserveTag}${u.captain?`<span style="font-size:9.5px;color:#1a1420;background:linear-gradient(135deg,#e8c874,#b8892c);border-radius:3px;padding:0 5px;margin-left:4px;font-weight:800">★ 騎士団長</span>`:""}${u.founder?`<span style="font-size:9.5px;color:var(--gold2);border:1px solid var(--gold2);border-radius:3px;padding:0 4px;margin-left:4px">建国の志士</span>`:""}${(u.titles&&u.titles.length)?`<span style="font-size:9.5px;color:var(--dim);margin-left:4px">称号×${u.titles.length}</span>`:""}${traitBadge(u)}
         <div class="usub"><span>${JOB_TREES[u.cls].label}・${displayJobName(u)}${u.awakened?"":"Lv."+u.lv}・${stage.label}${stageTimingLabel(u)?`(${stageTimingLabel(u)})`:""}(${Math.floor(u.age)}歳)</span><span class="upw">戦力 ${Math.round(unitPower(u))}</span></div>
         <div class="usub" style="margin-top:2px"><span style="color:${cond.color}">調子:${cond.label}</span></div>
         <div class="usub" style="margin-top:1px"><span style="color:#d9b56a">疲労:${Math.round(u.fatigue||0)}/100</span></div>
@@ -5599,6 +5629,7 @@ function renderUnitDetail(uid){
   const chain=JOB_TREES[u.cls].chain;
   const isInstructor=u.role==="instructor";
   const portraitCls=u.traitTier==="legend"?"rare-legend":u.traitTier==="epic"?"rare-epic":"";
+  const cond=conditionInfo(u);
 
   // ── ヘッダー(肖像・名前・ジョブ・種族チップ) ──
   const origin=ORIGINS.find(o=>o.key===u.origin);
@@ -5659,6 +5690,7 @@ function renderUnitDetail(uid){
       <div class="hairline"></div>
       <div class="ustatbar"><span class="lbl" style="width:44px">士気</span><div class="bar"><i style="width:${u.moral}%;background:linear-gradient(90deg,#8fbf6f99,#8fbf6f)"></i></div><span class="val">${Math.round(u.moral)}</span></div>
       <div class="ustatbar"><span class="lbl" style="width:44px">忠誠</span><div class="bar"><i style="width:${u.loyalty}%;background:linear-gradient(90deg,#c9a24b99,#c9a24b)"></i></div><span class="val">${Math.round(u.loyalty)}</span></div>
+      <div style="font-size:10.5px;color:var(--dim);margin-top:3px">士気は戦力に${cond.pwMult>=1?"+":""}${Math.round((cond.pwMult-1)*100)}%(${cond.label})${u.loyalty<25?` ／ 忠誠が低く戦力-15%`:""}</div>
     </div>`;
   }
 
@@ -5845,16 +5877,26 @@ function renderItemsPanel(){
   });
 }
 const STAT_LABEL_JA={str:"腕力",vit:"体力",int:"魔力",agi:"敏捷",wis:"知力",lead:"統率"};
-function openItemTargetSelect(itemKey){
+let itemTargetItemKey=null, itemTargetSearch="", itemTargetSort="power";
+function renderItemTargetSelect(){
+  const itemKey=itemTargetItemKey;
   const def=ITEMS.find(i=>i.key===itemKey);
   if(!def)return;
   $("#itemTargetTitle").textContent=`${def.name}の対象を選ぶ`;
-  let h=`<div class="ds" style="margin-bottom:10px">${def.desc}</div>`;
-  if(!S.units.length)h+=`<div class="udet-empty">対象となる兵がいない。</div>`;
-  for(const u of S.units){
+  let list=S.units;
+  if(itemTargetSearch.trim())list=list.filter(u=>fullName(u).includes(itemTargetSearch.trim()));
+  if(itemTargetSort==="power")list=[...list].sort((a,b)=>unitPower(b)-unitPower(a));
+  else if(itemTargetSort==="lv")list=[...list].sort((a,b)=>b.lv-a.lv);
+  else if(itemTargetSort==="fatigue")list=[...list].sort((a,b)=>(b.fatigue||0)-(a.fatigue||0));
+  const sortBtn=(key,label)=>`<button class="itg-sort-btn" data-s="${key}" style="flex:1;background:${itemTargetSort===key?"var(--gold)":"transparent"};color:${itemTargetSort===key?"var(--ink)":"var(--dim)"};border:1px solid var(--gold2);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${label}</button>`;
+  let h=`<div class="ds" style="margin-bottom:8px">${def.desc}</div>`;
+  h+=`<input id="itemTargetSearchInput" type="text" placeholder="名前で検索..." value="${itemTargetSearch.replace(/"/g,"&quot;")}" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,.25);border:1px solid rgba(201,162,75,.35);color:var(--parch);border-radius:6px;padding:8px 10px;font-family:'Zen Old Mincho',serif;margin-bottom:8px">`;
+  h+=`<div style="display:flex;gap:6px;margin-bottom:10px">${sortBtn("power","戦力順")}${sortBtn("lv","Lv順")}${sortBtn("fatigue","疲労順")}</div>`;
+  if(!list.length)h+=`<div class="udet-empty">対象となる兵がいない。</div>`;
+  for(const u of list){
     h+=`<button class="item-target-pick" data-id="${u.id}" style="display:block;width:100%;text-align:left;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--parch);border-radius:6px;padding:10px;margin-bottom:6px;font-family:'Zen Old Mincho',serif;cursor:pointer">
-      ${u.nm} ${u.surname||""} <span style="font-size:11px;color:var(--dim)">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span><br>
-      <span style="font-size:11px;color:var(--dim)">現在の${STAT_LABEL_JA[def.statKey]||""}:${u[def.statKey]}${def.amount?` → ${u[def.statKey]+def.amount}`:""}</span>
+      ${fullName(u)} <span style="font-size:11px;color:var(--dim)">${JOB_TREES[u.cls].label}・Lv.${u.lv}・戦力${Math.round(unitPower(u))}・疲労${u.fatigue||0}</span><br>
+      ${def.statKey?`<span style="font-size:11px;color:var(--dim)">現在の${STAT_LABEL_JA[def.statKey]||""}:${u[def.statKey]}${def.amount?` → ${u[def.statKey]+def.amount}`:""}</span>`:""}
     </button>`;
   }
   $("#itemTargetBody").innerHTML=h;
@@ -5863,6 +5905,22 @@ function openItemTargetSelect(itemKey){
     $("#panelItemTarget").classList.remove("show");
     renderItemsPanel();
   });
+  $("#itemTargetBody").querySelectorAll(".itg-sort-btn").forEach(b=>b.onclick=()=>{itemTargetSort=b.dataset.s;renderItemTargetSelect();});
+  const searchInput=$("#itemTargetSearchInput");
+  if(searchInput){
+    searchInput.oninput=()=>{
+      itemTargetSearch=searchInput.value;
+      const pos=searchInput.selectionStart;
+      renderItemTargetSelect();
+      const again=$("#itemTargetSearchInput");
+      if(again){again.focus();again.setSelectionRange(pos,pos);}
+    };
+  }
+}
+function openItemTargetSelect(itemKey){
+  itemTargetItemKey=itemKey;
+  itemTargetSearch="";
+  renderItemTargetSelect();
   $("#panelItemTarget").classList.add("show");
 }
 function renderDungeonPanel(){
