@@ -1185,6 +1185,78 @@ const SKILL_DB=[
  {key:"skn_s03",name:"統率の号令",tier:"silver",desc:"一声で部隊の士気を大きく引き上げる",lead:5},
  {key:"skn_s04",name:"一閃の剣技",tier:"silver",desc:"一瞬で相手の間合いを断つ剣の冴え",str:4,agi:3},
 ];
+/* ==================== 装備制度(ハクスラ要素):武器・防具・装飾品の3スロット ==================== */
+const EQUIPMENT_DB=[
+ // ── 武器(腕力・敏捷寄り) ──
+ {key:"eqp_sword_common",name:"粗末な剣",slot:"weapon",rarity:"common",statBonus:{str:4}},
+ {key:"eqp_sword_uncommon",name:"鍛えの良い剣",slot:"weapon",rarity:"uncommon",statBonus:{str:7,agi:2}},
+ {key:"eqp_sword_rare",name:"名工の剣",slot:"weapon",rarity:"rare",statBonus:{str:12,agi:4}},
+ {key:"eqp_sword_epic",name:"魔剣ヴァルグレン",slot:"weapon",rarity:"epic",statBonus:{str:18,agi:7}},
+ {key:"eqp_sword_legendary",name:"星喰らいの剣",slot:"weapon",rarity:"legendary",statBonus:{str:26,agi:12,lead:6}},
+ // ── 防具(体力・魔力寄り) ──
+ {key:"eqp_armor_common",name:"粗末な鎧",slot:"armor",rarity:"common",statBonus:{vit:4}},
+ {key:"eqp_armor_uncommon",name:"鎖帷子",slot:"armor",rarity:"uncommon",statBonus:{vit:7,int:2}},
+ {key:"eqp_armor_rare",name:"名工の板金鎧",slot:"armor",rarity:"rare",statBonus:{vit:12,int:4}},
+ {key:"eqp_armor_epic",name:"竜鱗の鎧",slot:"armor",rarity:"epic",statBonus:{vit:18,int:7}},
+ {key:"eqp_armor_legendary",name:"星屑の聖鎧",slot:"armor",rarity:"legendary",statBonus:{vit:26,int:12,wis:6}},
+ // ── 装飾品(知力・統率寄り、全体的にバランス型) ──
+ {key:"eqp_charm_common",name:"粗末なお守り",slot:"accessory",rarity:"common",statBonus:{wis:4}},
+ {key:"eqp_charm_uncommon",name:"知恵の指輪",slot:"accessory",rarity:"uncommon",statBonus:{wis:6,lead:2}},
+ {key:"eqp_charm_rare",name:"賢者の首飾り",slot:"accessory",rarity:"rare",statBonus:{wis:10,lead:4,int:3}},
+ {key:"eqp_charm_epic",name:"王家の指輪",slot:"accessory",rarity:"epic",statBonus:{wis:15,lead:7,int:5}},
+ {key:"eqp_charm_legendary",name:"星冠の宝珠",slot:"accessory",rarity:"legendary",statBonus:{wis:22,lead:12,int:8}},
+];
+const EQUIP_SLOT_LABEL={weapon:"武器",armor:"防具",accessory:"装飾品"};
+function equipmentEffects(u){
+  const e={str:0,vit:0,int:0,agi:0,wis:0,lead:0};
+  if(!u.equipment)return e;
+  for(const slot of["weapon","armor","accessory"]){
+    const inst=u.equipment[slot];
+    if(!inst)continue;
+    const def=EQUIPMENT_DB.find(x=>x.key===inst.key);
+    if(!def)continue;
+    for(const k in def.statBonus)e[k]+=def.statBonus[k];
+  }
+  return e;
+}
+/* レア度に応じた装備を1件生成しS.equipmentInventoryに追加する(ダンジョン/遠征のドロップから呼ぶ) */
+function rollEquipmentDrop(maxRarityKey){
+  const order=["common","uncommon","rare","epic","legendary"];
+  const maxIdx=Math.max(0,order.indexOf(maxRarityKey));
+  const weights={common:40,uncommon:28,rare:18,epic:10,legendary:4};
+  const cands=EQUIPMENT_DB.filter(d=>order.indexOf(d.rarity)<=maxIdx);
+  if(!cands.length)return null;
+  const tot=cands.reduce((a,d)=>a+(weights[d.rarity]||1),0);
+  let r=Math.random()*tot;
+  for(const d of cands){r-=(weights[d.rarity]||1);if(r<=0)return d;}
+  return cands[cands.length-1];
+}
+function addEquipment(defKey){
+  S.equipmentInventory=S.equipmentInventory||[];
+  S.equipmentInventory.push({id:Math.random().toString(36).slice(2,9),key:defKey});
+}
+function equipItem(unitId,instanceId){
+  const u=findAnyUnit(unitId);
+  if(!u)return;
+  const idx=(S.equipmentInventory||[]).findIndex(x=>x.id===instanceId);
+  if(idx<0)return;
+  const inst=S.equipmentInventory[idx];
+  const def=EQUIPMENT_DB.find(x=>x.key===inst.key);
+  if(!def)return;
+  u.equipment=u.equipment||{weapon:null,armor:null,accessory:null};
+  const prev=u.equipment[def.slot];
+  if(prev)S.equipmentInventory.push(prev);
+  S.equipmentInventory.splice(idx,1);
+  u.equipment[def.slot]=inst;
+  chron(`${fullName(u)}が「${def.name}」を装備した。`,"");
+}
+function unequipItem(unitId,slot){
+  const u=findAnyUnit(unitId);
+  if(!u||!u.equipment||!u.equipment[slot])return;
+  S.equipmentInventory=S.equipmentInventory||[];
+  S.equipmentInventory.push(u.equipment[slot]);
+  u.equipment[slot]=null;
+}
 function skillTierWeight(){return[["red",9],["gray",44],["blue",30],["silver",13],["gold",4]];}
 /* ジョブ系統の昇格時専用の重み(灰〜銀中心、赤は低確率、金は3段階目以降の昇格でのみ解放) */
 function promotionTierWeight(includeGold){
@@ -1261,6 +1333,8 @@ function skillEffects(u){
     if(s.ageResist)e.ageResist=Math.max(e.ageResist,s.ageResist);
     if(s.instructorMult)e.instructorMult*=s.instructorMult;
   }
+  const eq=equipmentEffects(u);
+  for(const k of["str","vit","int","agi","wis","lead"])e[k]+=eq[k];
   return e;
 }
 const SKILL_TIER_LABEL={gold:"金",silver:"銀",blue:"青",gray:"灰",red:"赤",unique:"固有"};
@@ -1510,6 +1584,7 @@ function makeUnit(){
     history:[],
     awakened:false, awakenTitle:null,
     fatigue:0, favorite:false, birthDay:ri(1,AGE_YEAR_DAYS), skillCapBase:ri(1,10),
+    equipment:{weapon:null,armor:null,accessory:null},
   };
   u.skills=initSkills(u);
   return u;
@@ -1802,6 +1877,7 @@ function newState(){
   facilities:[],
   longExpeditions:[],
   squads:[],
+  equipmentInventory:[],
   units:founders,
   instructors:[],
   flags:{}, pendingEvents:[], eventOpen:false,
@@ -4814,6 +4890,8 @@ function resolveDungeonRun(dungeonId){
     if(bossWin){
       itemGained=rollItemDrop(dungeon.rarity.key);
       if(itemGained)addItem(itemGained.key);
+      let equipGained=null;
+      if(Math.random()<0.3){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained)addEquipment(equipGained.key);}
       S.dungeonsCleared=(S.dungeonsCleared||0)+1;
       tryUnlockDemonLordDungeon();
       for(const u of squad){
@@ -4824,7 +4902,7 @@ function resolveDungeonRun(dungeonId){
       }
       goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult);
       apply({gold:goldGained,mood:2});
-      chron(`――「${dungeon.name}」を踏破し、ボス「${dungeon.bossName}」を打ち破った!${itemGained?`「${itemGained.name}」を手に入れた。`:""}`,"big");
+      chron(`――「${dungeon.name}」を踏破し、ボス「${dungeon.bossName}」を打ち破った!${itemGained?`「${itemGained.name}」を手に入れた。`:""}${equipGained?`さらに「${equipGained.name}」を入手した。`:""}`,"big");
       if(dungeon.isFinal){
         for(const u of squad)grantTitle(u,"t_demonslayer");
         S.flags.demonLordDefeated=true;
@@ -5432,6 +5510,32 @@ function renderFacilityAssignSelect(){
     chron(`${fullName(findAnyUnit(b.dataset.id))}が「${ft.name}」の担当に任じられた。`,"");
     $("#panelItemTarget").classList.remove("show");
     renderProjects();save();
+  });
+  $("#panelItemTarget").classList.add("show");
+}
+let equipSelectUnitId=null, equipSelectSlot=null;
+function equipBonusText(def){
+  return Object.entries(def.statBonus).map(([k,v])=>`${(USTAT_DEF[k]||{lbl:k}).lbl}+${v}`).join("・");
+}
+function renderEquipSelect(){
+  const unitId=equipSelectUnitId, slot=equipSelectSlot;
+  const u=findAnyUnit(unitId);
+  if(!u)return;
+  $("#itemTargetTitle").textContent=`${fullName(u)}の${EQUIP_SLOT_LABEL[slot]}を選ぶ`;
+  const cands=(S.equipmentInventory||[]).map(inst=>({inst,def:EQUIPMENT_DB.find(d=>d.key===inst.key)})).filter(x=>x.def&&x.def.slot===slot);
+  let h=`<div class="ds" style="margin-bottom:8px">所持している${EQUIP_SLOT_LABEL[slot]}から選んで装備させる。既に何か装備している場合は自動的に外され、手持ちに戻る。</div>`;
+  if(!cands.length)h+=`<div class="udet-empty">所持している${EQUIP_SLOT_LABEL[slot]}がない。ダンジョンや遠征の報酬で手に入ることがある。</div>`;
+  for(const{inst,def}of cands){
+    h+=`<button class="eq-target-pick" data-id="${inst.id}" style="display:block;width:100%;text-align:left;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--parch);border-radius:6px;padding:10px;margin-bottom:6px;font-family:'Zen Old Mincho',serif;cursor:pointer">
+      <span class="trchip t-${def.rarity==="legendary"?"legend":def.rarity==="epic"?"epic":def.rarity==="rare"?"rare":"normal"}" style="font-size:10px">${def.rarity}</span> ${def.name}<br>
+      <span style="font-size:11px;color:var(--dim)">${equipBonusText(def)}</span>
+    </button>`;
+  }
+  $("#itemTargetBody").innerHTML=h;
+  $("#itemTargetBody").querySelectorAll(".eq-target-pick").forEach(b=>b.onclick=()=>{
+    equipItem(unitId,b.dataset.id);
+    $("#panelItemTarget").classList.remove("show");
+    renderUnitDetail(unitId);refreshOpenPanels();save();
   });
   $("#panelItemTarget").classList.add("show");
 }
@@ -6133,6 +6237,24 @@ function renderUnitDetail(uid){
       :`<div class="udet-empty">まだ特筆すべき出来事はない。</div>`)+
     `</div>`;
 
+  // ── 装備 ──
+  if(!isInstructor){
+    h+=`<div class="udet-sec"><h4>装備</h4>`;
+    for(const slot of["weapon","armor","accessory"]){
+      const inst=u.equipment&&u.equipment[slot];
+      const def=inst?EQUIPMENT_DB.find(d=>d.key===inst.key):null;
+      h+=`<div class="pcard" style="margin-bottom:6px">
+        <div class="nm" style="font-size:12.5px">${EQUIP_SLOT_LABEL[slot]}</div>
+        <div class="ds">${def?`${def.name}(${equipBonusText(def)})`:"未装備"}</div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="eq-open-btn" data-slot="${slot}" style="flex:1;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:6px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${def?"付け替える":"装備する"}</button>
+          ${def?`<button class="eq-remove-btn" data-slot="${slot}" style="flex:1;background:transparent;border:1px solid rgba(217,122,122,.5);color:#d97a7a;border-radius:6px;padding:6px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">外す</button>`:""}
+        </div>
+      </div>`;
+    }
+    h+=`</div>`;
+  }
+
   // ── 会話記録 ──
   if(!isInstructor){
     const talks=u.talks||[];
@@ -6187,6 +6309,12 @@ function renderUnitDetail(uid){
   if(favBtn)favBtn.onclick=()=>{u.favorite=!u.favorite;renderUnitDetail(uid);refreshOpenPanels();};
   const talkBtn=$("#btnTalk");
   if(talkBtn)talkBtn.onclick=()=>{talkToUnit(u);renderUnitDetail(uid);save();};
+  $("#unitDetailBody").querySelectorAll(".eq-open-btn").forEach(b=>b.onclick=()=>{
+    equipSelectUnitId=uid;equipSelectSlot=b.dataset.slot;renderEquipSelect();
+  });
+  $("#unitDetailBody").querySelectorAll(".eq-remove-btn").forEach(b=>b.onclick=()=>{
+    unequipItem(uid,b.dataset.slot);renderUnitDetail(uid);refreshOpenPanels();save();
+  });
   const reBtn=$("#btnReactivate");
   if(reBtn)reBtn.onclick=()=>{reactivateInstructor(u);$("#panelUnitDetail").classList.remove("show");};
   const dismissBtn=$("#btnDismiss");
@@ -6354,13 +6482,14 @@ function resolveLongExpedition(id){
   const journal=[];
   const jn=ri(3,4);
   for(let i=0;i<jn&&jpool.length;i++)journal.push(jpool.splice(Math.floor(Math.random()*jpool.length),1)[0]);
-  let goldGain=0,itemGained=null,dungeonFound=null,died=null;
+  let goldGain=0,itemGained=null,equipGained=null,dungeonFound=null,died=null;
   if(tier==="great"||tier==="success"){
     goldGain=Math.round((tier==="great"?ri(180,320):ri(90,180))*(1+avgLv/80));
     apply({gold:goldGain,st:{economy:1},mood:2});
     for(const u of squad){const g=Math.round((tier==="great"?ri(20,32):ri(10,18))*(1+avgLv/60));u.exp+=g;processLevelUps(u);}
     const dropCount=tier==="great"?ri(1,2):(Math.random()<0.5?1:0);
     for(let i=0;i<dropCount;i++){const it=rollItemDrop(tier==="great"?"rare":"uncommon");if(it){addItem(it.key);itemGained=it;}}
+    if(Math.random()<(tier==="great"?0.35:0.15)){const eq=rollEquipmentDrop(tier==="great"?"rare":"uncommon");if(eq){addEquipment(eq.key);equipGained=eq;}}
     if(Math.random()<(tier==="great"?0.5:0.25))dungeonFound=checkDungeonDiscovery(1.4,squad[0]);
     chron(`――遠征部隊が無事に帰還した。${squad.map(fullName).join("・")}が、${goldGain}Gと共に戻ってきた。`,"big");
   }else{
@@ -6379,7 +6508,7 @@ function resolveLongExpedition(id){
     chron(`遠征部隊が苦難の末に帰還した。${tier==="critical"?"多くの犠牲を払うこととなった。":"当初の見込みほどの成果は得られなかった。"}`,"grave");
   }
   const rIdx=longExpResultQueue.length;
-  longExpResultQueue.push({squad,tier,goldGain,itemGained,dungeonFound,journal,died});
+  longExpResultQueue.push({squad,tier,goldGain,itemGained,equipGained,dungeonFound,journal,died});
   pushEvent("__longexp_result__"+rIdx);
   clamp();render();renderTroops();refreshOpenPanels();save();
 }
@@ -6389,6 +6518,7 @@ function buildLongExpeditionResultEvent(idx){
   const tierLabel={great:"大成功",success:"成功",fail:"苦戦",critical:"大失敗"}[r.tier];
   let body=`道中日誌:\n${r.journal.map(j=>"・"+j).join("\n")}\n\n結果:${tierLabel}\n獲得ゴールド:${r.goldGain}G`;
   if(r.itemGained)body+=`\n持ち帰ったアイテム:「${r.itemGained.name}」`;
+  if(r.equipGained)body+=`\n持ち帰った装備:「${r.equipGained.name}」`;
   if(r.dungeonFound)body+=`\n道中、新たな「${r.dungeonFound.name}」への入口も見つけたという。`;
   if(r.died)body+=`\n――${fullName(r.died)}は、ついに帰らぬ人となった。`;
   return{tag:"遠征帰還",title:`遠征部隊、帰還(${tierLabel})`,body,choices:[{label:"分かった",fx:{}}]};
