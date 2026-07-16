@@ -1213,6 +1213,15 @@ function skillCap(u){
   if(u.trait==="reborn")cap+=10;
   return Math.min(cap,20);
 }
+/* アイテムによるスキル付与専用の重み(最上位の金クラスは対象外にする) */
+function itemSkillTierWeight(){return[["red",10],["gray",48],["blue",32],["silver",10]];}
+function trySkillUpItem(u){
+  if(u.skills.length>=skillCap(u))return null;
+  const k=pickSkillFor(u,u.skills,itemSkillTierWeight);
+  if(!k)return null;
+  u.skills.push(k);
+  return SKILL_DB.find(s=>s.key===k);
+}
 function trySkillUp(u){
   if(u.skills.length>=skillCap(u))return null;
   const k=pickSkillFor(u,u.skills);
@@ -4393,6 +4402,16 @@ function jobChangeItemEffect(newCls,targetId){
     chron(`${u.nm}に秘薬を与えたが、体質に合わなかったようだ。秘薬は失われた。`,"grave");
   }
 }
+/* アイテムで新規兵士を仲間に加える共通処理。rankLabelで大まかな粒(質)を指定する */
+function itemRecruitUnit(rankLabel,flavorText){
+  if(S.units.length>=unitCap()){chron("兵舎が満員のため、新たな仲間を迎えられなかった。","sys");return null;}
+  const u=makeRecruitCandidate();
+  if(rankLabel)fitUnitToRank(u,rankLabel);
+  S.units.push(u);
+  unitHistory(u,flavorText||"アイテムの縁で、アルヴェインの一員となった。");
+  chron(`${fullName(u)}が仲間に加わった。「よろしくお願いします」`,"big");
+  return u;
+}
 const ITEMS=[
  // ── コモン(手軽な消耗品) ──
  {key:"coin_small",name:"小さな硬貨袋",rarity:"common",desc:"国庫が少し潤う。",effect:()=>apply({gold:ri(15,30),log:"硬貨袋を使い、国庫がわずかに潤った。"})},
@@ -4411,7 +4430,7 @@ const ITEMS=[
  {key:"coin_pouch",name:"重い金貨袋",rarity:"uncommon",desc:"国庫がまとまって潤う。",effect:()=>apply({gold:ri(60,110),log:"金貨袋の中身が国庫に納められた。"})},
  {key:"stat_tonic",name:"成長の霊薬",rarity:"uncommon",desc:"ランダムな兵の全ステータスが少し上昇。",effect:()=>{if(!S.units.length)return;const u=S.units[Math.floor(Math.random()*S.units.length)];const b=ri(2,4);for(const k of["str","vit","int","agi","wis","lead"])u[k]+=b;chron(`${u.nm}が霊薬を服用し、力がみなぎるのを感じた。`,"big");}},
  {key:"full_heal",name:"完全治癒の秘薬",rarity:"uncommon",desc:"療養中の兵を即座に全回復させる。",effect:()=>{const c=S.units.filter(u=>u.injured>0);if(!c.length){chron("療養中の兵がおらず、秘薬は温存された。","");return;}const u=c[Math.floor(Math.random()*c.length)];u.injured=0;u.injurySeverity=null;chron(`${u.nm}の傷が、たちどころに癒えた。`,"big");}},
- {key:"skillbook",name:"技伝授の書",rarity:"uncommon",desc:"ランダムな兵にスキルを1つ授ける。",effect:()=>{if(!S.units.length)return;const u=S.units[Math.floor(Math.random()*S.units.length)];const learned=trySkillUp(u);if(learned)chron(`${u.nm}が技伝授の書から「${learned.name}」を学んだ。`,"big");else chron("技伝授の書を開いたが、これ以上学べることはなかったようだ。","");}},
+ {key:"skillbook",name:"技伝授の書",rarity:"uncommon",desc:"選んだ兵にランダムなスキルを1つ授ける(最上位クラスのスキルは対象外)。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;const learned=trySkillUpItem(u);if(learned)chron(`${fullName(u)}が技伝授の書から「${learned.name}」を学んだ。`,"big");else chron("技伝授の書を開いたが、これ以上学べることはなかったようだ。","");}},
  {key:"morale_banner",name:"鼓舞の軍旗",rarity:"uncommon",desc:"全兵士の士気が上がる。",effect:()=>{for(const u of S.units)u.moral=Math.min(100,u.moral+ri(10,18));chron("鼓舞の軍旗が掲げられ、全軍の士気が高まった。","big");}},
  {key:"recruit_ticket",name:"人材紹介状",rarity:"uncommon",desc:"やや優秀な人材が一人加わる。",effect:()=>{if(S.units.length>=unitCap()){chron("兵舎が満員のため、人材紹介状は使えなかった。","");return;}const u=makeUnit();const targetLv=ri(3,6);for(let i=1;i<targetLv;i++)u.exp+=i*10;processLevelUps(u,true);S.units.push(u);chron(`人材紹介状により、${u.nm} ${u.surname}が加わった。`,"big");}},
  {key:"forge_stone",name:"強化の砥石",rarity:"uncommon",desc:"軍事がまとまって上がる。",effect:()=>apply({st:{military:ri(3,6)},log:"武具が念入りに研ぎ澄まされた。"})},
@@ -4474,7 +4493,7 @@ const ITEMS=[
  {key:"forbidden_tome",name:"禁書の写し",rarity:"rare",desc:"魔導が大きく上がる。",effect:()=>apply({st:{magic:8},log:"禁書に記された術式の一端が解読された。"})},
  {key:"veteran_gathering",name:"古参兵の集い",rarity:"rare",desc:"全兵士の経験値がまとまって上がる。",effect:()=>{for(const u of S.units){u.exp+=ri(6,12);processLevelUps(u);}chron("古参兵の集いが開かれ、若手も大いに学んだ。","big");}},
  {key:"grand_bounty",name:"豊穣の恵み",rarity:"rare",desc:"食糧・国庫がまとまって増える。",effect:()=>apply({food:80,gold:60,log:"豊穣の恵みが、蔵と国庫の双方を潤した。"})},
- {key:"skill_master_book",name:"技能大全",rarity:"rare",desc:"ランダムな兵にスキルを1つ授ける。",effect:()=>{if(!S.units.length)return;const u=S.units[Math.floor(Math.random()*S.units.length)];const learned=trySkillUp(u);if(learned)chron(`${u.nm}が技能大全から「${learned.name}」を学んだ。`,"big");else chron("技能大全を開いたが、これ以上学べることはなかったようだ。","");}},
+ {key:"skill_master_book",name:"技能大全",rarity:"rare",desc:"選んだ兵にランダムなスキルを1つ授ける(最上位クラスのスキルは対象外)。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;const learned=trySkillUpItem(u);if(learned)chron(`${fullName(u)}が技能大全から「${learned.name}」を学んだ。`,"big");else chron("技能大全を開いたが、これ以上学べることはなかったようだ。","");}},
  // ── エピック追加(第2弾) ──
  {key:"phoenix_egg",name:"不死鳥の卵",rarity:"epic",desc:"戦没を防ぐお守りが2つ手に入る。",type:"permanent",effect:()=>{S.flags.phoenixCharm=(S.flags.phoenixCharm||0)+2;chron("不死鳥の卵を懐に忍ばせた。いざという時、二度まで命を救うだろう。","big");}},
  {key:"grand_library",name:"大図書館の蔵書",rarity:"epic",desc:"全兵士に経験値、魔導・知識面の国力も上がる。",effect:()=>{for(const u of S.units){u.exp+=ri(8,15);processLevelUps(u);}apply({st:{magic:6,diplomacy:4}});chron("大図書館の蔵書が、国全体に知の恩恵をもたらした。","big");}},
@@ -4545,6 +4564,28 @@ const ITEMS=[
  // ── レジェンド追加 ──
  {key:"kings_regalia",name:"王家の宝器",rarity:"legendary",desc:"民心・忠誠・全国力が大きく上昇する永続の宝。",type:"permanent",effect:()=>{apply({mood:25,st:{military:8,economy:8,agriculture:8,magic:8,order:8,diplomacy:8},log:"――王家の宝器が、玉座の間に安置された。以後、国のあらゆる面に加護が宿るという。",logCls:"big"});for(const u of S.units)u.loyalty=Math.min(100,u.loyalty+10);S.flags.kingsRegalia=true;}},
  {key:"legend_child_charm",name:"伝説の落し子の証",rarity:"legendary",desc:"レジェンド級の逸材(伝説の落し子)が一人、必ず加わる。",effect:()=>{if(S.units.length>=unitCap()){chron("兵舎が満員のため、証は使えなかった。","");return;}const u=makeUnit();u.trait="legendchild";u.traitTier="legend";const tr=traitInfo("legendchild");for(const k of["str","vit","int"])u[k]+=tr[k]||0;u.pw=tr.pw||0;u.gm=tr.gm||1;S.units.push(u);chron(`――伝説の落し子の証が輝き、${u.nm} ${u.surname}が姿を現した。伝承にしか語られぬ存在だという。`,"big");}},
+ // ── 兵士強化系(追加10種) ──
+ {key:"loyalty_seal",name:"忠義の証",rarity:"common",desc:"選んだ兵の忠誠が上がる。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;u.loyalty=Math.min(100,u.loyalty+ri(8,14));chron(`${fullName(u)}が忠義の証を受け取り、忠誠を新たにした。`,"");}},
+ {key:"morale_medal",name:"士気鼓舞の徽章",rarity:"common",desc:"選んだ兵の士気が上がる。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;u.moral=Math.min(100,u.moral+ri(8,14));chron(`${fullName(u)}が徽章を授けられ、大いに奮い立った。`,"");}},
+ {key:"youth_spring",name:"若返りの泉水",rarity:"uncommon",desc:"選んだ兵の年齢が少し若返る。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;const y=ri(1,3);u.age=Math.max(1,u.age-y);chron(`${fullName(u)}が若返りの泉水を飲み、${y}歳分若返ったように見える。`,"big");}},
+ {key:"discipline_creed",name:"鍛錬の心得書",rarity:"uncommon",desc:"選んだ兵のスキル所有上限が1つ増える。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;u.skillCapBase=Math.min(20,(u.skillCapBase||3)+1);chron(`${fullName(u)}が鍛錬の心得を学び、より多くの技を修められるようになった。`,"");}},
+ {key:"brawn_tonic",name:"剛体の秘薬",rarity:"uncommon",desc:"選んだ兵の腕力・体力が上がる。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;const b=ri(4,7);u.str+=b;u.vit+=b;chron(`${fullName(u)}が剛体の秘薬を服し、肉体が一回り逞しくなった。`,"big");}},
+ {key:"clarity_tonic",name:"明晰の秘薬",rarity:"uncommon",desc:"選んだ兵の魔力・知力が上がる。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;const b=ri(4,7);u.int+=b;u.wis+=b;chron(`${fullName(u)}が明晰の秘薬を服し、思考が冴え渡るのを感じた。`,"big");}},
+ {key:"tempest_tonic",name:"疾風の秘薬",rarity:"rare",desc:"選んだ兵の敏捷・統率が上がる。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;const b=ri(5,9);u.agi+=b;u.lead+=b;chron(`${fullName(u)}が疾風の秘薬を服し、身のこなしが目に見えて鋭くなった。`,"big");}},
+ {key:"hero_medal",name:"英雄の勲章",rarity:"rare",desc:"選んだ兵の忠誠・士気が大きく上がる。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;const b=ri(10,18);u.loyalty=Math.min(100,u.loyalty+b);u.moral=Math.min(100,u.moral+b);chron(`${fullName(u)}に英雄の勲章が授けられた。誇らしげな表情を浮かべている。`,"big");}},
+ {key:"royal_sash",name:"王家の紋章帯",rarity:"rare",desc:"選んだ兵のスキル所有上限が増え、新たなスキルを1つ授かる。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;u.skillCapBase=Math.min(20,(u.skillCapBase||3)+2);const learned=trySkillUpItem(u);chron(`${fullName(u)}が王家の紋章帯を賜った。${learned?`新たに「${learned.name}」を会得した。`:"研鑽を積む糧となるだろう。"}`,"big");}},
+ {key:"omni_relic",name:"全能の秘宝",rarity:"epic",desc:"選んだ兵の全ステータスが上がる。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;const b=ri(3,6);for(const k of["str","vit","int","agi","wis","lead"])u[k]+=b;chron(`――${fullName(u)}が全能の秘宝に触れ、あらゆる力が底上げされた。`,"big");}},
+ // ── 仲間になる系(追加10種) ──
+ {key:"join_traveler",name:"旅の若者の紹介状",rarity:"common",desc:"旅の若者が一人、仲間に加わる。",effect:()=>itemRecruitUnit("D","旅の若者として村を訪れ、紹介状を手にそのままアルヴェインの一員となった。")},
+ {key:"join_mercenary",name:"流れの傭兵の証",rarity:"common",desc:"流れの傭兵が一人、仲間に加わる。",effect:()=>itemRecruitUnit("C","流れの傭兵として腕に覚えがあり、証を手に入団した。")},
+ {key:"join_troupe",name:"旅芸人一座の推薦状",rarity:"common",desc:"旅芸人一座の一人が、仲間に加わる。",effect:()=>itemRecruitUnit("D","旅芸人一座の中にいた者で、推薦状を携えて入団した。")},
+ {key:"join_volunteer",name:"義勇兵の志願状",rarity:"uncommon",desc:"義勇兵が一人、仲間に加わる。",effect:()=>itemRecruitUnit("C","義勇兵として志願状を提出し、正式に入団した。")},
+ {key:"join_hermit",name:"隠棲の武人の手紙",rarity:"uncommon",desc:"隠棲していた武人が一人、仲間に加わる。",effect:()=>itemRecruitUnit("B","山中に隠棲していたという武人で、手紙を通じて入団した。")},
+ {key:"join_mercband",name:"傭兵団長の紹介状",rarity:"uncommon",desc:"傭兵団出身の腕利きが一人、仲間に加わる。",effect:()=>itemRecruitUnit("B","かつて傭兵団に属していたという腕利きで、団長の紹介状を携えていた。")},
+ {key:"join_foreigner",name:"異国の剣士の来訪状",rarity:"rare",desc:"異国から来た剣士が一人、仲間に加わる。",effect:()=>itemRecruitUnit("A","異国からはるばる訪れた剣士で、来訪状と共に入団を決めた。")},
+ {key:"join_hidden_talent",name:"隠れた逸材の噂",rarity:"rare",desc:"隠れた逸材が一人、仲間に加わる(稀に並外れた素質を見せる)。",effect:()=>{const u=itemRecruitUnit("A","噂に聞く隠れた逸材で、素性を明かさぬまま入団した。");if(u){const bonus=rollHiddenPotential(u);if(bonus>0)chron(`――${fullName(u)}は、噂通りの並外れた素質を見せた(全ステータス+${bonus})。`,"big");}}},
+ {key:"join_noble_son",name:"名家の子息の使者状",rarity:"epic",desc:"名家の子息が一人、仲間に加わる。",effect:()=>itemRecruitUnit("S","とある名家の子息だという者で、使者状と共に鳴り物入りで入団した。")},
+ {key:"join_royal_knight",name:"王国騎士団の推薦状",rarity:"epic",desc:"名のある騎士が一人、忠誠・士気の高い状態で仲間に加わる。",effect:()=>{const u=itemRecruitUnit("S","王国騎士団に籍を置いていたという歴戦の騎士で、推薦状と共に入団した。");if(u){u.loyalty=Math.min(100,Math.max(u.loyalty,80));u.moral=Math.min(100,Math.max(u.moral,80));}}},
  // ── 転職の秘薬(特定ジョブへの転職・対象はランダム選出) ──
  {key:"job_change_warrior",name:"剣術指南の秘薬",rarity:"uncommon",desc:"選んだ兵を戦士系へ転職させる(成功率65%)。",needsTarget:true,effect:(targetId)=>{jobChangeItemEffect("warrior",targetId);}},
  {key:"job_change_mage",name:"魔導開眼の秘薬",rarity:"uncommon",desc:"選んだ兵を魔法系へ転職させる(成功率65%)。",needsTarget:true,effect:(targetId)=>{jobChangeItemEffect("mage",targetId);}},
