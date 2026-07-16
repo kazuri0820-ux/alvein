@@ -641,6 +641,7 @@ header{
   <div id="troopSummary" style="font-size:12px;color:var(--dim);margin-bottom:8px"></div>
   <button id="btnTrain" style="width:100%;background:var(--gold);color:var(--ink);border:none;font-family:'Shippori Mincho',serif;font-weight:800;letter-spacing:.15em;padding:11px;border-radius:6px;cursor:pointer;margin-bottom:10px">訓練を行う(国庫消費)</button>
   <button id="btnVolunteerToggle" style="width:100%;background:transparent;border:1px solid var(--gold2);color:var(--gold);font-family:'Shippori Mincho',serif;font-weight:700;letter-spacing:.1em;padding:9px;border-radius:6px;cursor:pointer;margin-bottom:10px">志願書を見る</button>
+  <button id="btnCampToggle" style="width:100%;background:transparent;border:1px solid var(--gold2);color:var(--gold);font-family:'Shippori Mincho',serif;font-weight:700;letter-spacing:.1em;padding:9px;border-radius:6px;cursor:pointer;margin-bottom:10px">特別訓練場を見る</button>
   <div style="display:flex;gap:6px;margin-bottom:8px">
     <input id="troopSearch" type="text" placeholder="名前で検索…" style="flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(201,162,75,.3);border-radius:6px;color:var(--parch);padding:8px 10px;font-size:13px;font-family:'Zen Old Mincho',serif">
     <button id="btnFavFilter" style="flex:0 0 auto;background:transparent;border:1px solid rgba(201,162,75,.4);color:var(--dim);border-radius:6px;padding:0 14px;font-size:16px;cursor:pointer">☆</button>
@@ -3391,7 +3392,7 @@ function checkFixedDayEvents(){
   if(!fired&&S.units.length&&trainingCooldownLeft()<=0){pushEvent("__training_grade__");fired=true;}
   if(!fired&&weeklyExpeditionCooldownLeft()<=0){
     S.lastWeeklyExpDay=S.day;
-    const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<60&&!u.dungeonBusy);
+    const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<60&&!u.dungeonBusy&&!u.campUntil);
     if(eligible.length>=3){pushEvent("__expedition__");fired=true;}
     else chron("今週はミッションに出せるだけの兵が揃わず、見送られた。","sys");
   }
@@ -3410,7 +3411,7 @@ function checkFixedDayEvents(){
 function rollRandomTurnEvent(){
   const earlyPhase=S.day<70;
   // 個別ミッションのみ引き続き低確率のランダム(週次の柱とは別枠の小さな小話)
-  if(S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy).length>=2&&Math.random()<0.05){pushEvent("__mission__");return;}
+  if(S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy&&!u.campUntil).length>=2&&Math.random()<0.05){pushEvent("__mission__");return;}
   checkUniqueEvents();
   checkPendingRouteBranch();
   checkDemonInvasion();
@@ -3503,6 +3504,7 @@ function dailyEconomySettle(){
   checkStatSMilestone();
   checkRecords();
   checkAging();
+  checkCampReturns();
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
     const loyaltyDrift=S.mood>=70?(S.mood-70)*0.006:-(30-S.mood)*0.01;
@@ -4254,7 +4256,7 @@ function buildOldEquipmentEvent(){
    choices};
 }
 function buildMissionEvent(){
-  const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy);
+  const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy&&!u.campUntil);
   if(eligible.length<1)return null;
   const m=MISSIONS[Math.floor(Math.random()*MISSIONS.length)];
   const rarity=missionRarity();
@@ -4619,7 +4621,7 @@ function squadEffectivePower(squad,type){
   return (rawAvg*0.5+affinityAvg*0.5)*squadSynergyMult(squad)*5;
 }
 function estimateDungeonSuccess(dungeon){
-  const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy);
+  const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy&&!u.campUntil);
   const size=Math.min(5,eligible.length);
   if(size<1)return{squad:[],pct:0,pctGreat:0,pctCriticalFail:100};
   const squad=[...eligible].sort((a,b)=>(dungeon.type?dungeon.type.statFn(b):unitPower(b))-(dungeon.type?dungeon.type.statFn(a):unitPower(a))).slice(0,size);
@@ -4635,7 +4637,7 @@ function dispatchDungeon(dungeonId,manualIds){
   const idx=(S.availableDungeons||[]).findIndex(d=>d.id===dungeonId);
   if(idx<0)return;
   const dungeon=S.availableDungeons[idx];
-  const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy);
+  const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy&&!u.campUntil);
   let squad;
   if(manualIds&&manualIds.length){
     squad=manualIds.map(id=>eligible.find(u=>u.id===id)).filter(Boolean).slice(0,5);
@@ -4785,7 +4787,7 @@ const DEMON_INVASION_FLAVORS=[
  "魔王軍の斥候と思しき影が、たびたび目撃されるようになった。",
 ];
 function buildDemonInvasionEvent(){
-  const eligible=S.units.filter(u=>u.injured<=0&&!u.dungeonBusy);
+  const eligible=S.units.filter(u=>u.injured<=0&&!u.dungeonBusy&&!u.campUntil);
   if(!eligible.length){
     apply({mood:-4,gold:-ri(20,50)});
     chron("魔物の襲撃を防ぐ兵がおらず、村に被害が出た。","grave");
@@ -4884,7 +4886,7 @@ function missionLevelForExpedition(){
   return Math.max(1,Math.min(100,base+ri(-4,4)));
 }
 function buildExpeditionEvent(){
-  const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<60&&!u.dungeonBusy);
+  const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<60&&!u.dungeonBusy&&!u.campUntil);
   if(eligible.length<3)return null;
   const theme=EXPEDITION_THEMES[Math.floor(Math.random()*EXPEDITION_THEMES.length)];
   const rarity=expeditionRarity();
@@ -5512,6 +5514,57 @@ function cardAccent(u){
   return{tone,material,tierIdx,stars,aura,circumference:circumference.toFixed(1),dashoffset};
 }
 function rankStars(n){let s="";for(let i=0;i<n;i++)s+=STAR_SVG;return `<span class="rankmark">${s}</span>`;}
+/* ---------- 特別訓練場:一定期間ダンジョン/ミッション/遠征に出せなくなる代わりに、帰還時に大きく成長する ---------- */
+const CAMP_MIN_DAYS=30, CAMP_MAX_DAYS=60;
+function sendToCamp(unitId){
+  const u=S.units.find(x=>x.id===unitId);
+  if(!u||u.campUntil||u.injured>0||u.dungeonBusy)return;
+  const dur=ri(CAMP_MIN_DAYS,CAMP_MAX_DAYS);
+  u.campUntil=S.day+dur;
+  u.campDuration=dur;
+  chron(`${fullName(u)}が特別訓練場へ入った。${dur}日後に戻る予定。`,"big");
+}
+function checkCampReturns(){
+  for(const u of S.units){
+    if(u.campUntil&&S.day>=u.campUntil){
+      u.campUntil=null;u.campDuration=null;
+      const pr=statPriorityFor(u);
+      for(const k of["str","vit","int","agi","wis","lead"]){
+        const g=(k===pr.main)?ri(10,18):(k===pr.sub)?ri(6,12):ri(3,7);
+        u[k]+=g;
+      }
+      const learned=trySkillUp(u);
+      unitHistory(u,"特別訓練場での修練を終え、大きく成長して戻ってきた。");
+      chron(`――${fullName(u)}が特別訓練場から帰還した。見違えるほど鍛え上げられている。${learned?`新たに「${learned.name}」を習得した。`:""}`,"big");
+    }
+  }
+}
+function renderTrainingCamp(){
+  $("#troopSummary").textContent="特別訓練場:兵士を一定期間(30〜60日)預けると、その間ダンジョン・ミッション・遠征には出せなくなるが、帰還時に大きく成長する。";
+  $("#troopFilterRow").innerHTML="";
+  $("#troopSortRow").innerHTML="";
+  const inCamp=S.units.filter(u=>u.campUntil);
+  const eligible=S.units.filter(u=>u.injured<=0&&!u.dungeonBusy&&!u.campUntil);
+  let h="";
+  if(inCamp.length){
+    h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 8px;letter-spacing:.15em">── 訓練場にいる兵 ──</div>`;
+    for(const u of inCamp){
+      h+=`<div class="pcard"><div class="nm">${fullName(u)}</div><div class="ds">${JOB_TREES[u.cls].label}・Lv.${u.lv} ／ 帰還まであと${Math.max(0,u.campUntil-S.day)}日</div></div>`;
+    }
+  }
+  h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 8px;letter-spacing:.15em">── 訓練場へ送る ──</div>`;
+  if(!eligible.length)h+=`<div class="udet-empty">送れる兵がいない(負傷中・出払い中・既に訓練場にいる兵は対象外)。</div>`;
+  for(const u of eligible){
+    h+=`<div class="pcard"><div class="nm">${fullName(u)}</div><div class="ds">${JOB_TREES[u.cls].label}・Lv.${u.lv}・戦力${Math.round(unitPower(u))}</div>
+      <button class="camp-send-btn" data-id="${u.id}" style="margin-top:6px;width:100%;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">訓練場へ送る</button>
+    </div>`;
+  }
+  $("#troopList").innerHTML=h;
+  $("#troopList").querySelectorAll(".camp-send-btn").forEach(b=>b.onclick=()=>{
+    sendToCamp(b.dataset.id);
+    clamp();render();renderTrainingCamp();save();
+  });
+}
 function renderVolunteers(){
   $("#troopSummary").textContent=`志願中:${(S.volunteers||[]).length}名 ／ 週に1〜2名、新たな志願が届く(3ヶ月経つと自然消滅)`;
   $("#troopFilterRow").innerHTML="";
@@ -5614,8 +5667,17 @@ function renderTroops(){
     const vn=(S.volunteers||[]).length;
     volBtn.textContent=troopViewMode==="volunteers"?"兵士名簿に戻る":`志願書を見る${vn?`(${vn})`:""}`;
   }
+  const campBtn=$("#btnCampToggle");
+  if(campBtn){
+    const cn=S.units.filter(u=>u.campUntil).length;
+    campBtn.textContent=troopViewMode==="camp"?"兵士名簿に戻る":`特別訓練場を見る${cn?`(${cn})`:""}`;
+  }
   if(troopViewMode==="volunteers"){
     renderVolunteers();
+    return;
+  }
+  if(troopViewMode==="camp"){
+    renderTrainingCamp();
     return;
   }
   const cap=S.units.find(u=>u.captain);
@@ -5648,6 +5710,7 @@ function renderTroops(){
     h+=`<div class="ucard mat-${acc.material}" data-uid="${u.id}" style="cursor:pointer;--m-tone:${cc};${u.injured>0?"filter:saturate(.55) brightness(.85);":""}">
       ${u.injured>0?`<div class="injbanner">${ICON_INJURED}${(INJURY_TIERS[u.injurySeverity]||INJURY_TIERS.moderate).label}・あと${u.injured}日</div>`:""}
       ${!u.injured&&u.dungeonBusy?`<div class="injbanner" style="background:rgba(150,90,200,.85)">⛏ ダンジョン探索中・あと${Math.max(0,u.dungeonBusy-S.day)}日</div>`:""}
+      ${!u.injured&&u.campUntil?`<div class="injbanner" style="background:rgba(90,150,120,.85)">特別訓練場・あと${Math.max(0,u.campUntil-S.day)}日</div>`:""}
       ${acc.material==="silver"||acc.material==="gold"||acc.material==="awakened"?'<div class="sweep"></div>':""}
       <svg class="crestwm" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="33" stroke="#c9a24b" stroke-width="2"/><path d="M18 46 L22 26 L30 38 L36 20 L42 38 L50 26 L54 46 Z" stroke="#c9a24b" stroke-width="2.5" fill="none" stroke-linejoin="round"/></svg>
       <div class="portrait-wrap${acc.aura?" aura-"+acc.aura:""}">
@@ -6033,7 +6096,7 @@ function renderDungeonPanel(){
   if(dgSelectingDungeonId){
     const d=(S.availableDungeons||[]).find(x=>x.id===dgSelectingDungeonId);
     if(!d){dgSelectingDungeonId=null;renderDungeonPanel();return;}
-    const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy);
+    const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy&&!u.campUntil);
     const selSquad=dgSelectedUnitIds.map(id=>eligible.find(u=>u.id===id)).filter(Boolean);
     const synergy=squadSynergyMult(selSquad);
     const selCombined=squadEffectivePower(selSquad,d.type);
@@ -6119,7 +6182,7 @@ function renderDungeonPanel(){
   $("#dgBody").querySelectorAll(".dg-go-btn").forEach(b=>b.onclick=()=>{
     dgSelectingDungeonId=b.dataset.id;
     const d=(S.availableDungeons||[]).find(x=>x.id===b.dataset.id);
-    const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy);
+    const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy&&!u.campUntil);
     const size=Math.min(5,eligible.length);
     dgSelectedUnitIds=d?[...eligible].sort((a,b2)=>(d.type?d.type.statFn(b2):unitPower(b2))-(d.type?d.type.statFn(a):unitPower(a))).slice(0,size).map(u=>u.id):[];
     renderDungeonPanel();
@@ -6251,7 +6314,7 @@ function buildTrainingGradeEvent(){
 let trainingCostPaid=0;
 function buildTrainingPickEvent(){
   if(!trainingGradeChoice){S.lastTrainDay=S.day;return null;}
-  const eligible=S.units.filter(u=>u.injured<=0&&!u.dungeonBusy);
+  const eligible=S.units.filter(u=>u.injured<=0&&!u.dungeonBusy&&!u.campUntil);
   const pool=[...eligible];
   const cands=[];
   while(cands.length<5&&pool.length)cands.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]); // 重点指導の候補は毎回抽選(特定の兵に偏らないように)
@@ -6279,7 +6342,7 @@ function resolveTraining(pickUnit,grade,costPaid){
   const nationBonus=1+Math.min(0.6,(S.st.military+S.st.economy)/2*0.006); // 国力・軍事力が高いほど訓練効果が伸びる
   const results=[];
   for(const u of S.units){
-    if(u.injured>0||u.dungeonBusy)continue;
+    if(u.injured>0||u.dungeonBusy||u.campUntil)continue;
     const eff=skillEffects(u);
     const tr=traitInfo(u.trait);
     const isPick=pickUnit&&u.id===pickUnit.id;
@@ -6386,6 +6449,7 @@ $("#btnTrain").onclick=null;
 $("#btnHall").onclick=()=>{renderHall();$("#panelHall").classList.add("show");};
 $("#btnDungeon").onclick=()=>{renderDungeonPanel();$("#panelDungeon").classList.add("show");};
 $("#btnVolunteerToggle").onclick=()=>{troopViewMode=troopViewMode==="volunteers"?"roster":"volunteers";volunteerConfirmId=null;volunteerInsufficientId=null;renderTroops();};
+$("#btnCampToggle").onclick=()=>{troopViewMode=troopViewMode==="camp"?"roster":"camp";renderTroops();};
 $("#btnItems").onclick=()=>{renderItemsPanel();$("#panelItems").classList.add("show");};
 document.querySelectorAll("[data-close]").forEach(x=>x.onclick=()=>{
   $("#"+x.dataset.close).classList.remove("show");
