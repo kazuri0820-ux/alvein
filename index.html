@@ -1761,6 +1761,7 @@ function newState(){
   availableDungeons:[], activeDungeons:[], dungeonsCleared:0, demonArmyLevel:0, items:[],
   volunteers:[], lastVolunteerDay:-10,
   facilities:[],
+  longExpeditions:[],
   units:founders,
   instructors:[],
   flags:{}, pendingEvents:[], eventOpen:false,
@@ -3604,6 +3605,8 @@ function resolveEventId(id){
   if(id==="__expedition_risk__")return buildExpeditionRiskEvent();
   if(id==="__demon_invasion__")return buildDemonInvasionEvent();
   if(id.startsWith("__dungeon_resolve_")){resolveDungeonRun(id.slice(18));return null;}
+  if(id.startsWith("__expedition_long_resolve__")){resolveLongExpedition(id.slice("__expedition_long_resolve__".length));return null;}
+  if(id.startsWith("__longexp_result__"))return buildLongExpeditionResultEvent(+id.slice("__longexp_result__".length));
   if(id.startsWith("statmilestone_"))return buildStatSMilestoneEvent(id.slice(14));
   if(id==="__training_grade__")return buildTrainingGradeEvent();
   if(id==="__training_pick__")return buildTrainingPickEvent();
@@ -5996,6 +5999,7 @@ function reactivateInstructor(u){
 /* ---------- ダンジョン・アイテムパネル ---------- */
 let dgTab="available";
 let dgSelectingDungeonId=null, dgSelectedUnitIds=[];
+let expSelecting=false, expSelectedUnitIds=[];
 let itemRarityFilter="all";
 function renderItemsPanel(){
   const items=S.items||[];
@@ -6079,6 +6083,88 @@ function openItemTargetSelect(itemKey){
   renderItemTargetSelect();
   $("#panelItemTarget").classList.add("show");
 }
+
+/* ---------- 遠征(長期派遣):5人編成で60〜90日派遣し、道中日誌と共にまとまった報酬を得る ---------- */
+const EXPEDITION_LONG_MIN_DAYS=60, EXPEDITION_LONG_MAX_DAYS=90;
+const EXPEDITION_JOURNAL_LINES=[
+ "見知らぬ街道を進み、小さな宿場町で一晩を明かした。","山越えの途中、思わぬ近道を見つけて時間を稼いだ。",
+ "旅の商人と道連れになり、道中の話に花が咲いた。","急な雨に見舞われたが、洞窟で雨宿りをしてやり過ごした。",
+ "廃墟となった旧街道の跡地で、奇妙な遺物を目にした。","国境の関所で足止めを食らったが、無事に通過できた。",
+ "野営の夜、遠くから獣の遠吠えが聞こえてきた。","地元の猟師から、この先の道について助言をもらった。",
+ "橋が流されており、迂回路を探すことになった。","見晴らしのいい丘に出て、しばし旅の疲れを癒やした。",
+ "見知らぬ集落で、思いがけず歓待を受けた。","荷が重くなり、交代しながら担いで進んだ。",
+];
+let longExpResultQueue=[];
+function dispatchLongExpedition(unitIds){
+  const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<60&&!u.dungeonBusy&&!u.campUntil);
+  const squad=unitIds.map(id=>eligible.find(u=>u.id===id)).filter(Boolean).slice(0,5);
+  if(squad.length<5){chron("遠征には5人の部隊が必要。","sys");return;}
+  const dur=ri(EXPEDITION_LONG_MIN_DAYS,EXPEDITION_LONG_MAX_DAYS);
+  const id=Math.random().toString(36).slice(2,9);
+  const resolveDay=S.day+dur;
+  for(const u of squad)u.dungeonBusy=resolveDay;
+  S.longExpeditions=S.longExpeditions||[];
+  S.longExpeditions.push({id,squadIds:squad.map(u=>u.id),resolveDay,duration:dur});
+  (S.scheduled[resolveDay]=S.scheduled[resolveDay]||[]).push("__expedition_long_resolve__"+id);
+  chron(`${squad.map(fullName).join("・")}が遠征に出発した。${dur}日後に戻る予定。`,"big");
+  clamp();render();renderTroops();refreshOpenPanels();save();
+}
+function resolveLongExpedition(id){
+  const idx=(S.longExpeditions||[]).findIndex(x=>x.id===id);
+  if(idx<0)return;
+  const exp=S.longExpeditions[idx];
+  const squad=(exp.squadIds||[]).map(uid=>S.units.find(u=>u.id===uid)).filter(Boolean);
+  for(const u of squad)u.dungeonBusy=null;
+  S.longExpeditions.splice(idx,1);
+  if(!squad.length){chron("遠征に出た部隊と、連絡が取れなくなっている。","grave");save();return;}
+  const power=squadEffectivePower(squad,null);
+  const avgLv=squad.reduce((a,u)=>a+u.lv,0)/squad.length;
+  const threshold=40+avgLv*3.2;
+  const roll=power/threshold*100+rnd(-20,20);
+  const tier=roll>=165?"great":roll>=105?"success":roll>=60?"fail":"critical";
+  const jpool=[...EXPEDITION_JOURNAL_LINES];
+  const journal=[];
+  const jn=ri(3,4);
+  for(let i=0;i<jn&&jpool.length;i++)journal.push(jpool.splice(Math.floor(Math.random()*jpool.length),1)[0]);
+  let goldGain=0,itemGained=null,dungeonFound=null,died=null;
+  if(tier==="great"||tier==="success"){
+    goldGain=Math.round((tier==="great"?ri(180,320):ri(90,180))*(1+avgLv/80));
+    apply({gold:goldGain,st:{economy:1},mood:2});
+    for(const u of squad){const g=Math.round((tier==="great"?ri(20,32):ri(10,18))*(1+avgLv/60));u.exp+=g;processLevelUps(u);}
+    const dropCount=tier==="great"?ri(1,2):(Math.random()<0.5?1:0);
+    for(let i=0;i<dropCount;i++){const it=rollItemDrop(tier==="great"?"rare":"uncommon");if(it){addItem(it.key);itemGained=it;}}
+    if(Math.random()<(tier==="great"?0.5:0.25))dungeonFound=checkDungeonDiscovery(1.4,squad[0]);
+    chron(`――遠征部隊が無事に帰還した。${squad.map(fullName).join("・")}が、${goldGain}Gと共に戻ってきた。`,"big");
+  }else{
+    goldGain=Math.round(ri(10,30));
+    apply({gold:goldGain,mood:-2});
+    const hurtOnes=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*(tier==="critical"?0.6:0.3))));
+    for(const u of hurtOnes)inflictInjury(u,tier==="critical"?[0.2,0.4,0.4]:[0.6,0.3,0.1]);
+    if(tier==="critical"){
+      const deathChance=0.12*(1-Math.min(0.55,S.st.order*0.0055));
+      if(Math.random()<deathChance){
+        const victim=squad[Math.floor(Math.random()*squad.length)];
+        died=victim;removeUnitById(victim.id,"loss");
+        chron(`――遠征部隊に悲報が届いた。${fullName(victim)}は、ついに帰らぬ人となった。`,"grave");
+      }
+    }
+    chron(`遠征部隊が苦難の末に帰還した。${tier==="critical"?"多くの犠牲を払うこととなった。":"当初の見込みほどの成果は得られなかった。"}`,"grave");
+  }
+  const rIdx=longExpResultQueue.length;
+  longExpResultQueue.push({squad,tier,goldGain,itemGained,dungeonFound,journal,died});
+  pushEvent("__longexp_result__"+rIdx);
+  clamp();render();renderTroops();refreshOpenPanels();save();
+}
+function buildLongExpeditionResultEvent(idx){
+  const r=longExpResultQueue[idx];
+  if(!r)return null;
+  const tierLabel={great:"大成功",success:"成功",fail:"苦戦",critical:"大失敗"}[r.tier];
+  let body=`道中日誌:\n${r.journal.map(j=>"・"+j).join("\n")}\n\n結果:${tierLabel}\n獲得ゴールド:${r.goldGain}G`;
+  if(r.itemGained)body+=`\n持ち帰ったアイテム:「${r.itemGained.name}」`;
+  if(r.dungeonFound)body+=`\n道中、新たな「${r.dungeonFound.name}」への入口も見つけたという。`;
+  if(r.died)body+=`\n――${fullName(r.died)}は、ついに帰らぬ人となった。`;
+  return{tag:"遠征帰還",title:`遠征部隊、帰還(${tierLabel})`,body,choices:[{label:"分かった",fx:{}}]};
+}
 function renderDungeonPanel(){
   const cleared=S.dungeonsCleared||0;
   let summary=`累計踏破:${cleared}件`;
@@ -6086,13 +6172,78 @@ function renderDungeonPanel(){
   else if(S.flags.demonLordDungeonUnlocked)summary+=` ／ <span style="color:#d97a7a">「魔王の玉座」出現中</span>`;
   else if(S.flags.demonNoticed)summary+=` ／ 魔王軍対応Lv.${S.demonArmyLevel||0}`;
   $("#dgSummary").innerHTML=summary;
-  const tabs=[["available","探索可能"],["active","進行中"]];
+  const tabs=[["available","探索可能"],["active","進行中"],["expedition","遠征"]];
   $("#dgTabRow").innerHTML=tabs.map(([k,l])=>{
-    const n=k==="available"?(S.availableDungeons||[]).length:(S.activeDungeons||[]).length;
+    const n=k==="available"?(S.availableDungeons||[]).length:k==="active"?(S.activeDungeons||[]).length:(S.longExpeditions||[]).length;
     return `<button data-t="${k}" class="${dgTab===k?"on":""}">${l}${n?`(${n})`:""}</button>`;
   }).join("");
   $("#dgTabRow").querySelectorAll("button").forEach(b=>b.onclick=()=>{dgTab=b.dataset.t;renderDungeonPanel();});
   let h="";
+  if(dgTab==="expedition"&&!dgSelectingDungeonId){
+    if(expSelecting){
+      const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<60&&!u.dungeonBusy&&!u.campUntil);
+      const selSquad=expSelectedUnitIds.map(id=>eligible.find(u=>u.id===id)).filter(Boolean);
+      h+=`<div class="pcard" style="border-color:var(--gold2)">
+        <div class="nm" style="color:var(--gold)">遠征部隊の編成</div>
+        <div class="ds">5人ちょうどで編成し、60〜90日の長期派遣に出す。ゴールド・アイテム・新規ダンジョン発見を狙う。期間中は他の任務に出せない。</div>
+        <div class="ds">選択中:${selSquad.length}/5人</div>
+      </div>`;
+      if(!eligible.length)h+=`<div class="udet-empty">派遣できる兵がいない(全員が負傷中・疲労・出払い中)。</div>`;
+      for(const u of eligible){
+        const picked=expSelectedUnitIds.includes(u.id);
+        h+=`<div class="pcard" style="${picked?`border-color:var(--gold);background:rgba(201,162,75,.1)`:""}">
+          <div class="exp-unit-pick" data-id="${u.id}" style="cursor:pointer">
+            <div class="nm">${picked?"☑ ":"☐ "}${fullName(u)} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
+            <div class="ds">戦力${Math.round(unitPower(u))}</div>
+          </div>
+        </div>`;
+      }
+      h+=`<div style="display:flex;gap:6px;margin-top:10px">
+        <button id="expDispatchConfirm" ${selSquad.length===5?"":"disabled"} style="flex:1;background:${selSquad.length===5?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${selSquad.length===5?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:10px;font-family:'Shippori Mincho',serif;font-weight:800;cursor:${selSquad.length===5?"pointer":"default"}">この5人で遠征に出す</button>
+        <button id="expDispatchCancel" style="flex:1;background:transparent;border:1px solid var(--dim);color:var(--dim);border-radius:6px;padding:10px;font-family:'Shippori Mincho',serif;cursor:pointer">戻る</button>
+      </div>`;
+      $("#dgBody").innerHTML=h;
+      $("#dgBody").querySelectorAll(".exp-unit-pick").forEach(el=>el.onclick=()=>{
+        const id=el.dataset.id;
+        const i=expSelectedUnitIds.indexOf(id);
+        if(i>=0)expSelectedUnitIds.splice(i,1);
+        else if(expSelectedUnitIds.length<5)expSelectedUnitIds.push(id);
+        renderDungeonPanel();
+      });
+      const confirmBtn=$("#expDispatchConfirm");
+      if(confirmBtn)confirmBtn.onclick=()=>{
+        const ids=[...expSelectedUnitIds];
+        expSelecting=false;expSelectedUnitIds=[];
+        dispatchLongExpedition(ids);
+        renderDungeonPanel();
+      };
+      $("#expDispatchCancel").onclick=()=>{expSelecting=false;expSelectedUnitIds=[];renderDungeonPanel();};
+      return;
+    }
+    const list=S.longExpeditions||[];
+    const eligibleCount=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<60&&!u.dungeonBusy&&!u.campUntil).length;
+    h+=`<div class="pcard" style="border-color:var(--gold2)">
+      <div class="nm" style="color:var(--gold)">遠征</div>
+      <div class="ds">5人編成で60〜90日の長期派遣に出し、ゴールド・アイテム・新規ダンジョン発見を狙う。期間中、部隊は他の任務に出せない。</div>
+      <button id="expStartBtn" ${eligibleCount>=5?"":"disabled"} style="margin-top:8px;width:100%;background:${eligibleCount>=5?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${eligibleCount>=5?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:800;cursor:${eligibleCount>=5?"pointer":"default"}">5人編成で遠征に出す${eligibleCount<5?"(派遣可能な兵が5人未満)":""}</button>
+    </div>`;
+    if(!list.length)h+=`<div class="udet-empty">現在、遠征中の部隊はいない。</div>`;
+    for(const ex of list){
+      const squad=(ex.squadIds||[]).map(id=>S.units.find(u=>u.id===id)).filter(Boolean);
+      const total=ex.duration||1;
+      const left=Math.max(0,ex.resolveDay-S.day);
+      const pct=Math.min(100,Math.round((total-left)/total*100));
+      h+=`<div class="pcard">
+        <div class="nm">遠征部隊</div>
+        <div class="ds">帰還まであと${left}日 ／ 派遣部隊:${squad.map(fullName).join("・")||"(不明)"}</div>
+        <div class="uexp" style="margin-top:8px"><i style="width:${pct}%;background:linear-gradient(90deg,#8fbf6f99,#8fbf6f)"></i></div>
+      </div>`;
+    }
+    $("#dgBody").innerHTML=h;
+    const startBtn=$("#expStartBtn");
+    if(startBtn)startBtn.onclick=()=>{expSelecting=true;expSelectedUnitIds=[];renderDungeonPanel();};
+    return;
+  }
   if(dgSelectingDungeonId){
     const d=(S.availableDungeons||[]).find(x=>x.id===dgSelectingDungeonId);
     if(!d){dgSelectingDungeonId=null;renderDungeonPanel();return;}
