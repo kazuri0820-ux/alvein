@@ -1759,6 +1759,7 @@ function newState(){
   lastWeeklyExpDay:-10, lastWeeklyEvtDay:-10, lastCouncilDay:-30, policyFocus:null, weekSnapshot:{gold:130,food:180,pop:46,mood:64,units:4},
   availableDungeons:[], activeDungeons:[], dungeonsCleared:0, demonArmyLevel:0, items:[],
   volunteers:[], lastVolunteerDay:-10,
+  facilities:[],
   units:founders,
   instructors:[],
   flags:{}, pendingEvents:[], eventOpen:false,
@@ -2526,6 +2527,26 @@ const RANDOM_CHOICE_EXTRA=[
    {label:"軍備に回す",hint:"軍事↑ 経済↓",fx:{st:{military:4,economy:-2},log:"予算は軍備に重点的に割り振られた。"}},
    {label:"インフラに回す",hint:"経済↑ 治安↓",fx:{st:{economy:4,order:-2},log:"予算は経済基盤の整備に割り振られた。"}},
    {label:"福祉に回す",hint:"民心↑ 軍事↓",fx:{mood:4,st:{military:-2},log:"予算は民の暮らしを支える施策に割り振られた。"}},
+  ]},
+ /* ── 国庫が直接潤うイベント ── */
+ {tag:"発 見",title:"先代の隠し財",
+  body:"宝物庫の改修中、壁の裏から先代の頃に隠されたとおぼしき金貨の壺が見つかった。今の国庫に組み込んでよいものか。",
+  speaker:"ガレオン「先代の遺したものです。今を生きる我らのために使うのが供養にもなりましょう」",
+  choices:[
+   {label:"国庫に組み入れる",hint:"国庫↑↑",fx:{gold:ri(50,90),log:"隠し財は国庫に組み入れられた。思いがけない実入りに、大臣たちも顔をほころばせた。"}},
+   {label:"手をつけず、そのまま供養として納める",hint:"民心↑",fx:{mood:3,log:"金貨の壺には手をつけず、先代の供養として静かに納めることにした。"}},
+  ]},
+ {tag:"謝 礼",title:"行商人からの謝礼",
+  body:"以前、便宜を図ってやった行商人が、商売がうまくいったからと謝礼を届けてきた。受け取るか、固辞するか。",
+  choices:[
+   {label:"ありがたく受け取る",hint:"国庫↑",fx:{gold:ri(30,55),log:"行商人からの謝礼を、ありがたく国庫に加えた。"}},
+   {label:"固辞し、次の商売の元手にするよう言う",hint:"外交↑",fx:{st:{diplomacy:2},log:"謝礼は固辞した。行商人は恐縮しながらも、深々と頭を下げて去っていった。"}},
+  ]},
+ {tag:"発 見",title:"小さな鉱脈の発見",
+  body:"領内の外れで、小さな金の鉱脈が見つかったという報告が届いた。すぐに採掘して現金化するか、じっくり時間をかけて開発するか。",
+  choices:[
+   {label:"すぐに採掘して現金化する",hint:"国庫↑↑ 経済への影響は小",fx:{gold:ri(45,80),log:"鉱脈はすぐさま採掘され、金貨となって国庫に収められた。"}},
+   {label:"時間をかけてじっくり開発する",hint:"経済↑(継続的な効果を見込む)",fx:{st:{economy:3},log:"鉱脈の開発は、時間をかけてじっくり進めることにした。将来への投資である。"}},
   ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
@@ -3476,6 +3497,7 @@ function dailyEconomySettle(){
     p.p+=p.rate*(0.7+Math.random()*0.7);
     if(p.p>=100){p.p=100;p.done=true;p.fx&&p.fx();}
   }
+  facilityDailyProduce();
   clamp();
   checkMilestone();
   checkStatSMilestone();
@@ -5219,6 +5241,48 @@ function openNextPatched(){
 }
 openNext=openNextPatched;
 
+/* ---------- 施設(商業施設・畑):担当を配置すると日々じわじわ産出する ---------- */
+const FACILITY_PRODUCE_MULT=0.13;
+const FACILITY_TYPES=[
+ {key:"market",name:"商業施設",desc:"担当を置くと、その知力・統率に応じて毎日わずかな国庫収入を生む。",cost:150,produce:"gold",statFn:u=>u.int*0.6+u.lead*0.4},
+ {key:"farm",name:"畑",desc:"担当を置くと、その体力・知力に応じて毎日わずかな食糧を生む。",cost:100,produce:"food",statFn:u=>u.vit*0.5+u.wis*0.5},
+];
+function facilityDailyProduce(){
+  for(const f of(S.facilities||[])){
+    const ft=FACILITY_TYPES.find(t=>t.key===f.typeKey);
+    if(!ft||!f.managerId)continue;
+    const u=findAnyUnit(f.managerId);
+    if(!u){f.managerId=null;continue;}
+    const amount=ft.statFn(u)*FACILITY_PRODUCE_MULT*rnd(0.85,1.15);
+    if(ft.produce==="gold")S.gold+=amount;else S.food+=amount;
+  }
+}
+let facilityAssignKey=null;
+function renderFacilityAssignSelect(){
+  const ft=FACILITY_TYPES.find(f=>f.key===facilityAssignKey);
+  if(!ft)return;
+  $("#itemTargetTitle").textContent=`${ft.name}の担当を選ぶ`;
+  const eligible=S.units.filter(u=>u.injured<=0);
+  let h=`<div class="ds" style="margin-bottom:8px">${ft.desc}</div>`;
+  if(!eligible.length)h+=`<div class="udet-empty">配置できる兵がいない。</div>`;
+  for(const u of eligible){
+    h+=`<button class="fac-target-pick" data-id="${u.id}" style="display:block;width:100%;text-align:left;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--parch);border-radius:6px;padding:10px;margin-bottom:6px;font-family:'Zen Old Mincho',serif;cursor:pointer">
+      ${fullName(u)} <span style="font-size:11px;color:var(--dim)">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span><br>
+      <span style="font-size:11px;color:var(--dim)">見込み産出:1日あたり${ft.produce==="gold"?"国庫":"食糧"}+${Math.round(ft.statFn(u)*FACILITY_PRODUCE_MULT)}</span>
+    </button>`;
+  }
+  $("#itemTargetBody").innerHTML=h;
+  $("#itemTargetBody").querySelectorAll(".fac-target-pick").forEach(b=>b.onclick=()=>{
+    let f=S.facilities.find(x=>x.typeKey===facilityAssignKey);
+    if(!f){f={typeKey:facilityAssignKey,managerId:null};S.facilities.push(f);}
+    f.managerId=b.dataset.id;
+    chron(`${fullName(findAnyUnit(b.dataset.id))}が「${ft.name}」の担当に任じられた。`,"");
+    $("#panelItemTarget").classList.remove("show");
+    renderProjects();save();
+  });
+  $("#panelItemTarget").classList.add("show");
+}
+
 /* ---------- パネル ---------- */
 function renderProjects(){
   let h="";
@@ -5237,6 +5301,22 @@ function renderProjects(){
   }
   if(fin.length){h+=`<div style="font-size:11px;color:var(--dim);margin:12px 0 6px;letter-spacing:.15em">── 完了した事業 ──</div>`;
    for(const p of fin)h+=`<div class="pcard prj" style="opacity:.55"><div class="nm">${p.nm} ✓</div></div>`;}
+  h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 6px;letter-spacing:.15em">── 施設 ──</div>`;
+  for(const ft of FACILITY_TYPES){
+    const built=S.facilities.find(f=>f.typeKey===ft.key);
+    if(!built){
+      h+=`<div class="pcard"><div class="nm">${ft.name}</div><div class="ds" style="margin:2px 0 6px">${ft.desc}</div>
+        <button class="fac-build-btn" data-k="${ft.key}" style="width:100%;background:transparent;border:1px solid var(--gold2);color:${S.gold>=ft.cost?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">建設する(${ft.cost}G)</button>
+      </div>`;
+    }else{
+      const manager=built.managerId?findAnyUnit(built.managerId):null;
+      const produce=manager?Math.round(ft.statFn(manager)*FACILITY_PRODUCE_MULT):0;
+      h+=`<div class="pcard"><div class="nm">${ft.name}</div><div class="ds" style="margin:2px 0 6px">${ft.desc}</div>
+        <div class="ds">担当:${manager?fullName(manager):"未配置"}${manager?` ／ 1日あたり${ft.produce==="gold"?"国庫":"食糧"}+${produce}`:""}</div>
+        <button class="fac-assign-btn" data-k="${ft.key}" style="margin-top:6px;width:100%;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${manager?"担当を変更する":"担当を配置する"}</button>
+      </div>`;
+    }
+  }
   $("#prjList").innerHTML=h;
   $("#prjList").querySelectorAll(".prj-boost-btn").forEach(b=>b.onclick=()=>{
     const p=S.projects.find(x=>x.id===b.dataset.id);
@@ -5248,6 +5328,19 @@ function renderProjects(){
     chron(`「${p.nm}」に資金を投じ、事業を後押しした。`,"");
     if(p.p>=100){p.p=100;p.done=true;p.fx&&p.fx();}
     clamp();render();renderProjects();save();
+  });
+  $("#prjList").querySelectorAll(".fac-build-btn").forEach(b=>b.onclick=()=>{
+    const ft=FACILITY_TYPES.find(x=>x.key===b.dataset.k);
+    if(!ft)return;
+    if(S.gold<ft.cost){chron(`「${ft.name}」の建設には資金(${ft.cost})が足りない。`,"sys");return;}
+    S.gold-=ft.cost;
+    S.facilities.push({typeKey:ft.key,managerId:null});
+    chron(`「${ft.name}」が建設された。担当を配置すると産出が始まる。`,"big");
+    clamp();render();renderProjects();save();
+  });
+  $("#prjList").querySelectorAll(".fac-assign-btn").forEach(b=>b.onclick=()=>{
+    facilityAssignKey=b.dataset.k;
+    renderFacilityAssignSelect();
   });
 }
 function renderPeople(){
