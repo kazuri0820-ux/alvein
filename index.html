@@ -1430,14 +1430,16 @@ const PERSONALITY_FRAG={
 };
 /* 生い立ち文書(出身×性格×特性の組み合わせ) */
 const ORIGIN_INTRO_TMPL=["${o}――幼い頃をそこで過ごしたという。","${o}の生まれで、物心つく前からその土地を知っていた。","出は${o}。今もその土地の訛りが少し残っている。","${o}で育ち、その空気を吸って大きくなったという。","小さい頃の記憶の多くは、${o}での日々だという。"];
+const REBORN_INTRO_TMPL=["この世界の生まれではないと、本人だけが知っている。それでも${o}の暮らしに馴染もうと努めてきたという。","前世の記憶を微かに抱えたまま、気づけば${o}で生を受けていたという。","なぜか${o}に生を受けたが、脳裏に浮かぶ景色は、どこか異なる世界のものだという。","${o}の者として育てられたが、時折見せる知識は明らかにこの世界のものではない。"];
 const TRAIT_FRAG={
  normal:["どこにでもいる、ありふれた一人だったという。","特別な逸話は残っていないが、それもまた人生だろう。"],
  rare:["ただ、人並み以上の何かを秘めているという評判もある。","並の者とは一線を画す素質を、幼い頃から示していたらしい。","周囲が驚くような一面を、時折覗かせていたという。"],
  epic:["その力の片鱗は、既に周囲の目を引いていた。","只者ではない何かを纏っている、と古老は言う。","幼い頃から、どこか浮世離れした雰囲気があったらしい。"],
  legend:["世界にも稀な、桁外れの器を持って生まれたのだという。","伝承にしか語られぬような存在だと、まことしやかに囁かれている。","生まれた日、空に見慣れぬ光が差したという言い伝えがある。"],
 };
-function makeBackstory(originName,personality,traitTier){
-  const introTmpl=ORIGIN_INTRO_TMPL[Math.floor(Math.random()*ORIGIN_INTRO_TMPL.length)];
+function makeBackstory(originName,personality,traitTier,traitKey){
+  const pool=traitKey==="reborn"?REBORN_INTRO_TMPL:ORIGIN_INTRO_TMPL;
+  const introTmpl=pool[Math.floor(Math.random()*pool.length)];
   const intro=introTmpl.replace("${o}",originName);
   const pers=PERSONALITY_FRAG[personality][Math.floor(Math.random()*PERSONALITY_FRAG[personality].length)];
   let s=intro+pers;
@@ -1461,7 +1463,7 @@ function makeUnit(){
   const personality=PERSONALITIES[Math.floor(Math.random()*PERSONALITIES.length)];
   const startAge=race.key==="elf"?ri(60,140):race.key==="dwarf"?ri(20,45):ri(16,27);
   const ob=origin.bonus||{};
-  const backstory=makeBackstory(origin.name,personality,trait.tier);
+  const backstory=makeBackstory(origin.name,personality,trait.tier,trait.key);
   const u={
     id:Math.random().toString(36).slice(2,9),
     nm, surname, personality, backstory,
@@ -2329,6 +2331,14 @@ const EARLY_GROWTH=[
 ];
 /* ---------- レアイベント:通常より低頻度・高インパクト ---------- */
 const RANDOM_RARE=[
+ {tag:"信 仰",title:"祈りの奉納",
+  body:"村外れの古い祠に、収穫の一部を奉納してはどうかという声が上がっている。祈りが天に届くかどうかは、今はまだ知れない。",
+  speaker:"老師ユグ「祈りというのは、すぐに答えが出るものではない。気長に待つとしよう」",
+  choices:[
+   {label:"盛大に奉納する(50G)",hint:"3日後に御利益が判明する",fx:{gold:-50,schedule:[[3,"__faith_reveal__big"]],log:"祠に盛大な奉納がなされた。あとは天のみぞ知る。"}},
+   {label:"ささやかに奉納する(15G)",hint:"3日後に御利益が判明する",fx:{gold:-15,schedule:[[3,"__faith_reveal__small"]],log:"祠にささやかな奉納がなされた。"}},
+   {label:"今回は見送る",fx:{log:"祠への奉納は、今回は見送られた。"}},
+  ]},
  {tag:"レ ア",title:"夜空に落ちた光",
   body:"夜半、空を裂いて光る筋が北の丘に落ちた。翌朝、丘の頂に見慣れぬ黒い石が突き刺さっているのが見つかった。",
   speaker:"老師ユグ「隕石、にしては様子がおかしい。魔力を帯びておるようじゃ」",
@@ -2419,7 +2429,7 @@ const RANDOM_RARE=[
  {tag:"レ ア",title:"満月の夜の異変",
   body:"満月の夜、村はずれの古井戸から不思議な光が漏れているのが目撃された。井戸を覗いた者は「底に何かがいる」と口を揃える。",
   choices:[
-   {label:"井戸を調べさせる",hint:"稀に大当たり、稀に危険",fx:{call:()=>{const r=Math.random();if(r<0.2){apply({gold:90,mood:3,log:"井戸の底から、古い時代の宝物が発見された。村は大いに沸いた。",logCls:"big"});}else if(r<0.7){apply({log:"井戸の底には、ただの発光する苔があるだけだった。少し拍子抜けである。"});}else{apply({mood:-3,st:{order:-2},log:"井戸を調べた者が原因不明の高熱を出した。村人たちは井戸に近寄らなくなった。",logCls:"grave"});}}}},
+   {label:"井戸を調べさせる",hint:"稀に大当たり、稀に危険",fx:{call:()=>{const r=Math.random();if(r<0.2){apply({gold:90,mood:3,log:"井戸の底から、古い時代の宝物が発見された。村は大いに沸いた。",logCls:"big"});const d=checkDungeonDiscovery(1.5);if(d)chron(`さらに、宝物と共に古い地図が見つかった。そこには「${d.name}」への道筋が記されていたという。`,"big");}else if(r<0.7){apply({log:"井戸の底には、ただの発光する苔があるだけだった。少し拍子抜けである。"});}else{apply({mood:-3,st:{order:-2},log:"井戸を調べた者が原因不明の高熱を出した。村人たちは井戸に近寄らなくなった。",logCls:"grave"});}}}},
    {label:"井戸に蓋をして封じる",hint:"安全策",fx:{st:{order:1},log:"井戸は蓋をされ、以後誰も近づかなくなった。"}},
   ]},
  {tag:"レ ア",title:"巡り巡った手紙",
@@ -2510,6 +2520,32 @@ function buildOutbreakDeadlineResult(){
   if(S.flags.outbreakContained){S.flags.outbreakContained=false;return null;}
   apply({mood:-5,food:-30,log:"――対応が遅れたことで、病はじわじわと広がってしまった。神殿は今、対応に追われている。","logCls":"grave"});
   return null;
+}
+/* ---------- 信仰イベント:奉納してから数日後に御利益が判明する、じわじわとした演出 ---------- */
+function buildFaithRevealEvent(scale){
+  const big=scale==="big";
+  const r=Math.random();
+  let title,body,fx;
+  if(r<(big?0.12:0.05)){
+    title="大いなる御利益";
+    const statKeys=["military","economy","agriculture","magic","order","diplomacy"];
+    const sk=statKeys[Math.floor(Math.random()*statKeys.length)];
+    body="――祠の奉納から3日。夜明けと共に、村中が言葉を失うような出来事が起きた。まるで天が応えたかのようだった。";
+    fx={mood:8,gold:ri(40,80),st:{[sk]:ri(4,7)},log:body,logCls:"big"};
+  }else if(r<(big?0.55:0.35)){
+    title="御利益あり";
+    body="祠の奉納から3日。特に何かが起きたわけではないが、村の空気が心なしか和らいだように感じられる。";
+    fx={mood:ri(3,6),gold:ri(10,25),log:body};
+  }else if(r<(big?0.85:0.75)){
+    title="特に何も";
+    body="祠の奉納から3日。結局、これといった変化は訪れなかった。それもまた、信仰というものかもしれない。";
+    fx={log:body};
+  }else{
+    title="不穏な兆し";
+    body="祠の奉納から3日。空模様が妙に悪く、なんとなく落ち着かない日々が続いている。気のせいだと思いたいところだ。";
+    fx={mood:-2,log:body};
+  }
+  return{tag:"信 仰",title,body,choices:[{label:"見守る",fx}]};
 }
 const RANDOM_CHOICE_EXTRA=[
  /* ── 期限付きイベント(先送りすると数日後に自動で悪い結果) ── */
@@ -3617,6 +3653,7 @@ function resolveEventId(id){
   if(id==="__demon_invasion__")return buildDemonInvasionEvent();
   if(id.startsWith("__dungeon_resolve_")){resolveDungeonRun(id.slice(18));return null;}
   if(id.startsWith("__expedition_long_resolve__")){resolveLongExpedition(id.slice("__expedition_long_resolve__".length));return null;}
+  if(id.startsWith("__faith_reveal__"))return buildFaithRevealEvent(id.slice("__faith_reveal__".length));
   if(id.startsWith("__longexp_result__"))return buildLongExpeditionResultEvent(+id.slice("__longexp_result__".length));
   if(id.startsWith("statmilestone_"))return buildStatSMilestoneEvent(id.slice(14));
   if(id==="__training_grade__")return buildTrainingGradeEvent();
@@ -4190,8 +4227,16 @@ function buildRecruitEvent(){
     };
   });
   choices.push({label:"今回は全員見送る",hint:"様子を見る",fx:{call:()=>{stashEchoes(recruitPool);recruitPool=[];}}});
-  return{tag:"募 集",title:fromEcho?"見覚えのある顔":"新兵の応募",
-   body:fromEcho?"以前、支度金が足りず見送った顔ぶれの中に見覚えのある者がいる。あの時の若者が、また村を訪れたようだ。":"村の噂を聞きつけたという者たちが、入団を志願してきた。誰を迎えるか、長の裁量にかかっている。",
+  const freshVariants=[
+   {title:"新兵の応募",body:"村の噂を聞きつけたという者たちが、入団を志願してきた。誰を迎えるか、長の裁量にかかっている。"},
+   {title:"市場での出会い",body:"市場で腕っぷしを見込まれたという者たちが、長への目通りを願い出た。品定めをする良い機会かもしれない。"},
+   {title:"街道からの一団",body:"街道を渡り歩いてきたという一団が、この地に腰を据えたいと申し出てきた。人となりはガレオンが軽く調べている。"},
+   {title:"酒場での噂話",body:"酒場で腕自慢をしていた者たちが、酔った勢いか正気か、入団を願い出てきた。話半分に聞いておくのがよさそうだ。"},
+   {title:"隣村からの紹介",body:"隣村の顔役から、腕に覚えのある者を紹介したいという文が届いた。わざわざの紹介とあれば、無下にもしがたい。"},
+  ];
+  const variant=fromEcho?null:freshVariants[Math.floor(Math.random()*freshVariants.length)];
+  return{tag:"募 集",title:fromEcho?"見覚えのある顔":variant.title,
+   body:fromEcho?"以前、支度金が足りず見送った顔ぶれの中に見覚えのある者がいる。あの時の若者が、また村を訪れたようだ。":variant.body,
    choices};
 }
 function stashEchoes(list){
