@@ -39,6 +39,9 @@
   --img-icon-pop: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAARElEQVR42mNgGL5gz7Ka/w/OzINjEJ+2BmDTQIhPOwPKfAz+T0txQcFEeQmfASCMbACKRnQNhPjI4oPUAHQFtDdgQAEAySRQMe5sH0kAAAAASUVORK5CYII=");
   --img-icon-troops: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAYklEQVR42mM4ucj7PwOlAGTItGJd8g0Cab714AXlLtmw4xDYJbgwQQMqGrrALsGGQYYTZQBIIQhTZABMEyhwyTYApBnEhhlCfxeg+58iA2CYpPRAcgzgcg2IJjtlUqSZbgAAN1b0k3CX5xkAAAAASUVORK5CYII=");
   --img-icon-mood: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAUklEQVR42mNgoDU4ucj7P0WaYZgi2ylyBX1Bn77+f3SMTxyrASeiouAY2QBs4lhtR1eISxyrAXlycnANhNh4w4AYg4gKTKJtxgYo0oxu0OBOfADNxJZTa6C6dgAAAABJRU5ErkJggg==");
+  --img-eq-weapon: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAR0lEQVR42mNgoCVo6Jj0H4TJNmDPoVPkGwDSDDOALENGDRhIA04u8v6PDxM0oCtL7j8yBmlC5pPkDZgBZCdlig2AOZ+mORYAvTySedXg6eEAAAAASUVORK5CYII=");
+  --img-eq-armor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAXElEQVR42mNgGJTg2p0n/08u8kbBIDEQJtoAXBivxoqGrv8bdhxC0YBsOwiD5EkyBMRH1gzik2QAsgvIMmAkugDdEJgLiNYMAzADYC4gGP/4XEGy7eiGkKWZWAAABlU1kvGpUecAAAAASUVORK5CYII=");
+  --img-eq-accessory: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAXUlEQVR42mNgoCVYden1fxAmS3PeghNgzSAahMkyAIbd8qaR5wqQRrI0f7jS8R8bpkgzUYbgU0iUIYQUEDTg5CLv/yBMrvwgMKArS+4/DJMih1MhNkxUWqBIM6kAAO5RuuRO+IdDAAAAAElFTkSuQmCC");
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%}
@@ -123,6 +126,9 @@ header{
 .ricon-pop{background-image:var(--img-icon-pop)}
 .ricon-troop{background-image:var(--img-icon-troops)}
 .ricon-mood{background-image:var(--img-icon-mood)}
+.eqicon-weapon{background-image:var(--img-eq-weapon)}
+.eqicon-armor{background-image:var(--img-eq-armor)}
+.eqicon-accessory{background-image:var(--img-eq-accessory)}
 
 /* ── 国力バー ── */
 #stats{cursor:pointer;
@@ -456,6 +462,11 @@ header{
 
 /* 肖像:蝋印風バッジ+円形戦力ゲージ */
 .portrait-wrap{flex:0 0 auto;position:relative;width:52px;height:52px;overflow:visible}
+.portrait-wrap::after{
+  content:"";position:absolute;inset:-5px;border-radius:50%;pointer-events:none;z-index:2;
+  background-image:var(--img-seal);background-size:100% 100%;image-rendering:pixelated;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
+}
 .portrait-wrap .iconclip{position:absolute;inset:0;overflow:hidden;border-radius:50%}
 /* 特性のレア度による後光(オーラ)。枠(素材)とは独立した演出 */
 .portrait-wrap.aura-epic::before{
@@ -485,7 +496,7 @@ header{
 }
 .sealbadge span{display:flex;align-items:center;justify-content:center;width:19px;height:19px;flex:0 0 auto}
 .sealbadge svg{display:block;width:19px!important;height:19px!important;max-width:19px;max-height:19px;position:relative;z-index:1;opacity:.95}
-.agegem{position:absolute;right:0;bottom:0;width:9px;height:9px;border-radius:50%;border:2px solid var(--ink2);z-index:2}
+.agegem{position:absolute;right:-1px;bottom:-1px;width:11px;height:11px;border:2px solid var(--ink2);z-index:2;clip-path:polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)}
 
 .rankmark{display:flex;gap:2px;align-items:center;flex:0 0 auto}
 .rankmark svg{width:8px;height:8px;fill:var(--gold)}
@@ -6295,7 +6306,7 @@ function renderUnitDetail(uid){
       const inst=u.equipment&&u.equipment[slot];
       const def=inst?EQUIPMENT_DB.find(d=>d.key===inst.key):null;
       h+=`<div class="pcard" style="margin-bottom:6px">
-        <div class="nm" style="font-size:12.5px">${EQUIP_SLOT_LABEL[slot]}</div>
+        <div class="nm" style="font-size:12.5px"><i class="ricon eqicon-${slot}" style="width:15px;height:15px;margin-right:3px"></i>${EQUIP_SLOT_LABEL[slot]}</div>
         <div class="ds">${def?`${def.name}(${equipBonusText(def)})`:"未装備"}</div>
         <div style="display:flex;gap:6px;margin-top:6px">
           <button class="eq-open-btn" data-slot="${slot}" style="flex:1;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:6px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${def?"付け替える":"装備する"}</button>
