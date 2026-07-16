@@ -242,6 +242,8 @@ header{
   align-items:flex-end;justify-content:center;
 }
 .panel.show{display:flex}
+#panelUnitDetail{z-index:65}
+#panelItemTarget{z-index:66}
 .panel .sheet{
   width:min(720px,100%);max-height:82vh;overflow-y:auto;background:var(--ink2);
   background-image:linear-gradient(180deg, rgba(255,255,255,.03), transparent 120px);
@@ -441,7 +443,8 @@ header{
 
 .ucard .ubody{flex:1;min-width:0}
 .ucard .uh{display:flex;justify-content:space-between;align-items:center;gap:6px}
-.ucard .un{font-weight:700;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.02em;display:flex;align-items:center;gap:4px}
+.ucard .un{font-weight:700;font-size:14.5px;letter-spacing:.02em;display:flex;align-items:center;gap:4px;min-width:0}
+.ucard .untext{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1 1 auto}
 .ucard .ustatus{display:inline-flex;gap:4px;flex:0 0 auto}
 .ucard .uicon{display:inline-flex;width:12px;height:12px}
 .ucard .uicon svg{width:100%;height:100%}
@@ -1482,6 +1485,7 @@ function statPriorityFor(u){
   }
   return CLASS_STAT_PRIORITY[u.cls]||CLASS_STAT_PRIORITY.warrior;
 }
+function fullName(u){return u.nm+(u.surname?" "+u.surname:"");}
 function unitPower(u){
   const j=jobFor(u.cls,u.lv,u.route);
   const eff=skillEffects(u);
@@ -3549,7 +3553,7 @@ function resolveEventId(id){
   if(id==="__random__")return pickFresh(RANDOM_CHOICE);
   if(id==="__rare__")return pickFresh(RANDOM_RARE);
   if(id==="__cave_rescue_result__")return buildCaveRescueResult();
-  if(id==="__item_result__")return buildItemResultEvent();
+  if(id.startsWith("__item_result__"))return buildItemResultEvent(+id.slice("__item_result__".length));
   if(id==="__border_deadline__")return buildBorderDeadlineResult();
   if(id==="__outbreak_deadline__")return buildOutbreakDeadlineResult();
   if(id==="__merchant_visit__")return buildMerchantVisitEvent();
@@ -4014,7 +4018,8 @@ function makeVolunteer(){
   fitUnitToRank(u,rank.label);
   const cost=Math.round(recruitCost(u)*rank.costMult);
   const hiddenPotential=Math.random()<0.03; // 3%でこの一言が付く
-  return{id:u.id,unit:u,postedDay:S.day,cost,rank,hiddenPotential};
+  const comment=recruitAtmosphere(u);
+  return{id:u.id,unit:u,postedDay:S.day,cost,rank,hiddenPotential,comment};
 }
 function checkWeeklyVolunteers(){
   if(S.day-(S.lastVolunteerDay||-10)>=7){
@@ -4031,7 +4036,7 @@ function checkWeeklyVolunteers(){
       newNames.push(v);
     }
     if(newNames.length===1)chron(`${newNames[0].unit.nm} ${newNames[0].unit.surname}が志願書を出してきた。`,"big");
-    else if(newNames.length>1)chron(`${newNames.map(v=>v.unit.nm).join("・")}が志願書を出してきた。`,"big");
+    else if(newNames.length>1)chron(`${newNames.map(v=>fullName(v.unit)).join("・")}が志願書を出してきた。`,"big");
   }
   S.volunteers=(S.volunteers||[]).filter(v=>{
     if(S.day-v.postedDay>=90){
@@ -4065,6 +4070,7 @@ function hireVolunteer(volId){
     return;
   }
   S.gold-=v.cost;
+  v.unit.joinDay=S.day;
   let potentialBonus=null;
   if(v.hiddenPotential)potentialBonus=rollHiddenPotential(v.unit);
   S.units.push(v.unit);
@@ -4319,7 +4325,10 @@ function checkDungeonDiscovery(rewardMult,discoverer){
     const d=generateDungeon();
     S.availableDungeons=S.availableDungeons||[];
     S.availableDungeons.push(d);
-    if(S.availableDungeons.length>5)S.availableDungeons.shift();
+    if(S.availableDungeons.length>5){
+      const dropIdx=S.availableDungeons.findIndex(x=>!x.isFinal);
+      if(dropIdx>=0)S.availableDungeons.splice(dropIdx,1);
+    }
     chron(`ミッションの道中、${d.rarity.label?`【${d.rarity.label}】`:""}「${d.name}」への入口が見つかったという。`,"big");
     if(discoverer)grantTitle(discoverer,"t_pioneer");
     return d;
@@ -4523,10 +4532,11 @@ function addItem(itemKey){
   if(existing)existing.count++;
   else S.items.push({key:itemKey,count:1});
 }
-let itemUseResultText="", itemUseResultName="";
-function buildItemResultEvent(){
-  return{tag:"使 用",title:`「${itemUseResultName}」を使用`,
-   body:itemUseResultText||"特に変化はなかった。",
+let itemResultQueue=[];
+function buildItemResultEvent(idx){
+  const r=itemResultQueue[idx]||{name:"",text:""};
+  return{tag:"使 用",title:`「${r.name}」を使用`,
+   body:r.text||"特に変化はなかった。",
    choices:[{label:"分かった",fx:{}}]};
 }
 function useItem(itemKey,targetId){
@@ -4542,9 +4552,9 @@ function useItem(itemKey,targetId){
   clamp();render();refreshOpenPanels();save();
   const newLogs=S.log.slice(beforeLogLen);
   if(newLogs.length){
-    itemUseResultText=newLogs.map(l=>l.t).join("<br><br>");
-    itemUseResultName=def.name;
-    pushEvent("__item_result__");
+    const qIdx=itemResultQueue.length;
+    itemResultQueue.push({text:newLogs.map(l=>l.t).join("<br><br>"),name:def.name});
+    pushEvent("__item_result__"+qIdx);
   }
 }
 
@@ -4599,7 +4609,7 @@ function dispatchDungeon(dungeonId,manualIds){
   S.activeDungeons.push(dungeon);
   S.availableDungeons.splice(idx,1);
   (S.scheduled[dungeon.resolveDay]=S.scheduled[dungeon.resolveDay]||[]).push("__dungeon_resolve_"+dungeon.id);
-  chron(`${squad.map(u=>u.nm).join("・")}が「${dungeon.name}」へと出発した。${dungeon.duration}日後に結果が分かるだろう。`,"big");
+  chron(`${squad.map(fullName).join("・")}が「${dungeon.name}」へと出発した。${dungeon.duration}日後に結果が分かるだろう。`,"big");
   clamp();render();renderTroops();refreshOpenPanels();save();
 }
 function removeActiveDungeon(dungeonId){
@@ -4858,7 +4868,7 @@ function buildExpeditionRiskEvent(){
   const members=leaderCands.filter(u=>u.id!==leader.id);
   expeditionState.squad=[leader,...members];
   return{tag:"ミッション:方針",title:`${leader.nm}率いる部隊、出立前`,
-   body:`部隊編成(${expeditionState.squad.length}名):${expeditionState.squad.map(u=>u.nm).join("・")}\nリーダー:${leader.nm}\n\nどのように攻めるか、方針を決める。`,
+   body:`部隊編成(${expeditionState.squad.length}名):${expeditionState.squad.map(fullName).join("・")}\nリーダー:${fullName(leader)}\n\nどのように攻めるか、方針を決める。`,
    choices:[
     {label:"慎重に進む",hint:"安全策・ブレ幅が狭く安定/報酬控えめ",fx:{call:()=>resolveExpedition("cautious",0.6)}},
     {label:"標準的に進む",hint:"バランス型",fx:{call:()=>resolveExpedition("standard",1.0)}},
@@ -5127,6 +5137,7 @@ function changeJobCore(u,newCls,note){
   u.cls=newCls;
   u.route=null; // ジョブチェンジでルートはリセット、新しい職で改めて選び直す
   u.hasJobChanged=true;
+  u.awakened=false;u.awakenTitle=null; // 転職により覚醒状態はリセットし、新しい職名が表示されるようにする
   grantTitle(u,"t_jobchange");
   // Lv20以上での転職は、新しい道の熟練度としてLv20まで巻き戻す(ステータスの伸びはそのまま維持)。
   // これによりLv25の分岐も自然な形(通常のレベルアップ)で再度発生する
@@ -5138,7 +5149,7 @@ function changeJobCore(u,newCls,note){
     unitHistory(u,note||`${oldLabel}から${JOB_TREES[newCls].label}へ転職した。`);
   }
 }
-let jobChangeUIOpen=false, jobChangeConfirmCls=null;
+let jobChangeUIOpen=false, jobChangeConfirmCls=null, dismissConfirmId=null;
 function performChurchJobChange(uid,newCls){
   const u=findAnyUnit(uid);
   if(!u)return;
@@ -5396,7 +5407,7 @@ function renderVolunteers(){
     h+=`<div class="pcard${rank.label==="Z"?" mat-awakened-glow":""}" style="border-color:${rank.color};border-width:${rankStyle.bw};box-shadow:${rankStyle.glow};background:${rankStyle.bg};${muted}">
       <div class="nm" style="color:${rank.color}">${rankStyle.badge?rankStyle.badge+" ":""}${u.nm} ${u.surname} <span style="font-size:11px;color:var(--dim);font-weight:400">推定ランク ${rank.label}</span></div>
       <div class="ds">${race.name}・${origin?origin.name:""}・${u.personality} ／ ${JOB_TREES[u.cls].label}志望</div>
-      <div class="ds" style="font-style:italic">${recruitAtmosphere(u)}</div>
+      <div class="ds" style="font-style:italic">${v.comment||recruitAtmosphere(u)}</div>
       ${v.hiddenPotential?`<div class="ds" style="font-style:italic;color:var(--gold)">……こいつは想像以上に期待できるかもしれない。</div>`:""}
       <div class="ds">支度金:${v.cost}G ／ 期限まであと${Math.max(0,daysLeft)}日</div>
       ${volunteerInsufficientId===v.id&&v.cost>S.gold?`<div class="ds" style="color:#d97a7a;font-weight:700;margin-top:2px">資金が足りません(あと${Math.round(v.cost-S.gold)}G不足)</div>`:""}
@@ -5479,10 +5490,10 @@ function renderTroops(){
   let list=S.units.filter(u=>troopFilter==="all"||u.cls===troopFilter);
   if(troopFavOnly)list=list.filter(u=>u.favorite);
   if(troopSearch.trim())list=list.filter(u=>(u.nm+" "+(u.surname||"")).includes(troopSearch.trim()));
-  if(troopSort==="power")list=[...list].sort((a,b)=>(b.captain?1:0)-(a.captain?1:0)||(unitPower(b)-unitPower(a))*troopSortDir);
-  else if(troopSort==="lv")list=[...list].sort((a,b)=>(b.captain?1:0)-(a.captain?1:0)||(b.lv-a.lv)*troopSortDir);
-  else if(troopSort==="age")list=[...list].sort((a,b)=>(b.age-a.age)*troopSortDir);
-  else if(troopSort==="tenure")list=[...list].sort((a,b)=>((a.joinDay||1)-(b.joinDay||1))*troopSortDir);
+  if(troopSort==="power")list=[...list].sort((a,b)=>((b.captain?1:0)-(a.captain?1:0))*troopSortDir||(unitPower(b)-unitPower(a))*troopSortDir);
+  else if(troopSort==="lv")list=[...list].sort((a,b)=>((b.captain?1:0)-(a.captain?1:0))*troopSortDir||(b.lv-a.lv)*troopSortDir);
+  else if(troopSort==="age")list=[...list].sort((a,b)=>((b.captain?1:0)-(a.captain?1:0))*troopSortDir||(b.age-a.age)*troopSortDir);
+  else if(troopSort==="tenure")list=[...list].sort((a,b)=>((b.captain?1:0)-(a.captain?1:0))*troopSortDir||((a.joinDay||1)-(b.joinDay||1))*troopSortDir);
   if(!S.units.length)h=`<div class="ucard mat-wood"><div class="ustats">まだ兵はいない。徴兵イベントや定例閣議で加わる。</div></div>`;
   else if(!list.length)h=`<div class="ucard mat-wood"><div class="ustats">この職系統の兵はまだいない。</div></div>`;
   for(const u of list){
@@ -5516,7 +5527,7 @@ function renderTroops(){
       </div>
       <div class="ubody">
         <div class="uh">
-          <span class="un">${u.captain?"★ ":""}${u.nm}${u.surname?" "+u.surname:""}${statusIcons?`<span class="ustatus" style="color:${acc.tone}">${statusIcons}</span>`:""}</span>
+          <span class="un"><span class="untext">${u.captain?"★ ":""}${u.nm}${u.surname?" "+u.surname:""}</span>${statusIcons?`<span class="ustatus" style="color:${acc.tone}">${statusIcons}</span>`:""}</span>
           ${rankStars(acc.stars)}
         </div>
         ${nick}${reserveTag}${u.founder?`<span style="font-size:9.5px;color:var(--gold2);border:1px solid var(--gold2);border-radius:3px;padding:0 4px;margin-left:4px">建国の志士</span>`:""}${(u.titles&&u.titles.length)?`<span style="font-size:9.5px;color:var(--dim);margin-left:4px">称号×${u.titles.length}</span>`:""}${traitBadge(u)}
@@ -5714,7 +5725,7 @@ function renderUnitDetail(uid){
     const dc=dismissCost(u);
     const jc=churchJobChangeCost(u);
     h+=`<button id="btnJobChange" style="flex:1;min-width:120px;background:transparent;color:${S.gold>=jc?"var(--gold)":"var(--dim)"};border:1px solid ${S.gold>=jc?"var(--gold2)":"rgba(255,255,255,.15)"};border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:700;font-size:12px;cursor:pointer">教会で転職させる(費用${jc})</button>`;
-    h+=`<button id="btnDismiss" style="flex:1;min-width:120px;background:transparent;color:#d97a7a;border:1px solid rgba(217,122,122,.5);border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:700;font-size:12px;cursor:pointer">解雇する(解雇金${dc}・民心-)</button>`;
+    if(dismissConfirmId!==u.id)h+=`<button id="btnDismiss" style="flex:1;min-width:120px;background:transparent;color:#d97a7a;border:1px solid rgba(217,122,122,.5);border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:700;font-size:12px;cursor:pointer">解雇する(解雇金${dc}・民心-)</button>`;
     if(jobChangeUIOpen&&!jobChangeConfirmCls){
       const others=Object.keys(JOB_TREES).filter(k=>k!==u.cls);
       h+=`<div style="width:100%;display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">`+
@@ -5732,6 +5743,16 @@ function renderUnitDetail(uid){
         </div>
       </div>`;
     }
+    if(dismissConfirmId===u.id){
+      h+=`<div class="pcard" style="width:100%;border-color:#d97a7a;margin-top:4px">
+        <div class="nm" style="color:#d97a7a">本当に${u.nm} ${u.surname||""}を解雇しますか?</div>
+        <div class="ds">この操作は取り消せません。解雇金${dc}Gがかかり、民心も下がります。</div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button id="dismissConfirmYes" style="flex:1;background:linear-gradient(180deg,#d97a7a,#a85454);color:#fff;border:none;border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:800;cursor:pointer">解雇する</button>
+          <button id="dismissConfirmNo" style="flex:1;background:transparent;border:1px solid var(--dim);color:var(--dim);border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;cursor:pointer">やめておく</button>
+        </div>
+      </div>`;
+    }
   }
   h+=`</div>`;
   $("#unitDetailBody").innerHTML=h;
@@ -5740,7 +5761,11 @@ function renderUnitDetail(uid){
   const reBtn=$("#btnReactivate");
   if(reBtn)reBtn.onclick=()=>{reactivateInstructor(u);$("#panelUnitDetail").classList.remove("show");};
   const dismissBtn=$("#btnDismiss");
-  if(dismissBtn)dismissBtn.onclick=()=>{dismissUnit(u);$("#panelUnitDetail").classList.remove("show");};
+  if(dismissBtn)dismissBtn.onclick=()=>{dismissConfirmId=u.id;renderUnitDetail(uid);};
+  const dismissYes=$("#dismissConfirmYes");
+  if(dismissYes)dismissYes.onclick=()=>{dismissConfirmId=null;dismissUnit(u);$("#panelUnitDetail").classList.remove("show");};
+  const dismissNo=$("#dismissConfirmNo");
+  if(dismissNo)dismissNo.onclick=()=>{dismissConfirmId=null;renderUnitDetail(uid);};
   const jcBtn=$("#btnJobChange");
   if(jcBtn)jcBtn.onclick=()=>{jobChangeUIOpen=!jobChangeUIOpen;jobChangeConfirmCls=null;renderUnitDetail(uid);};
   $("#unitDetailBody").querySelectorAll(".jc-pick-btn").forEach(b=>b.onclick=()=>{jobChangeConfirmCls=b.dataset.cls;renderUnitDetail(uid);});
@@ -5856,7 +5881,7 @@ function renderDungeonPanel(){
     h+=`<div class="pcard" style="border-color:${d.rarity.color||"var(--gold2)"}">
       <div class="nm" style="color:${d.rarity.color||"var(--gold)"}">${d.rarity.label?`【${d.rarity.label}】`:""}${d.name}</div>
       <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span> ／ `:""}目安戦力:${d.requiredPower} ／ 所要日数:${d.duration}日</div>
-      <div class="ds">選択中:${selSquad.length}/5人 ${selSquad.length?`／ <span style="color:${estPct>=50?"#8fbf6f":"#d9b56a"}">推定成功率 約${estPct}%</span>`:""}${synergy>1.001?` <span style="color:var(--gold)">(連携+${Math.round((synergy-1)*100)}%)</span>`:synergy<0.999?` <span style="color:#d97a7a">(連携乱れ${Math.round((synergy-1)*100)}%)</span>`:""}</div>
+      <div class="ds">選択中:${selSquad.length}/5人 ${selSquad.length?`／ この編成での<span style="color:${estPct>=50?"#8fbf6f":"#d9b56a"}">推定成功率 約${estPct}%</span>`:""}${synergy>1.001?` <span style="color:var(--gold)">(連携+${Math.round((synergy-1)*100)}%)</span>`:synergy<0.999?` <span style="color:#d97a7a">(連携乱れ${Math.round((synergy-1)*100)}%)</span>`:""}</div>
     </div>`;
     h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 8px">派遣する兵を最大5人まで選べます(タップで選択/解除)</div>`;
     if(!eligible.length)h+=`<div class="udet-empty">派遣できる兵がいない(全員が負傷中・疲労・出払い中)。</div>`;
@@ -5910,7 +5935,7 @@ function renderDungeonPanel(){
         <div class="nm" style="${c?`color:${c}`:""}">${d.rarity.label?`【${d.rarity.label}】`:""}${d.name}</div>
         <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span> ／ `:""}推奨レベル目安:${d.level} ／ 目安戦力:${d.requiredPower} ／ 所要日数:${d.duration}日</div>
         <div class="ds">ボス:${d.bossName}(戦力${d.bossPower})</div>
-        ${est.squad.length?`<div class="ds" style="margin-top:4px;padding-top:6px;border-top:1px dotted rgba(154,122,47,.25)">派遣候補(自動選抜時):${est.squad.map(u=>u.nm).join("・")}<br><span style="color:${rateColor};font-weight:700">推定成功率 約${est.pct}%</span>${est.pctGreat>5?` <span style="color:var(--gold)">(大成功 約${est.pctGreat}%)</span>`:""}${est.pctCriticalFail>10?` <span style="color:#d97a7a">(大失敗 約${est.pctCriticalFail}%)</span>`:""}</div>`:`<div class="ds" style="color:#d97a7a;margin-top:4px">派遣できる兵がいない</div>`}
+        ${est.squad.length?`<div class="ds" style="margin-top:4px;padding-top:6px;border-top:1px dotted rgba(154,122,47,.25)">派遣候補(自動選抜時):${est.squad.map(fullName).join("・")}<br><span style="color:${rateColor};font-weight:700">推定成功率 約${est.pct}%</span>${est.pctGreat>5?` <span style="color:var(--gold)">(大成功 約${est.pctGreat}%)</span>`:""}${est.pctCriticalFail>10?` <span style="color:#d97a7a">(大失敗 約${est.pctCriticalFail}%)</span>`:""}</div>`:`<div class="ds" style="color:#d97a7a;margin-top:4px">派遣できる兵がいない</div>`}
         <button class="dg-go-btn" data-id="${d.id}" ${est.squad.length?"":"disabled"} style="margin-top:8px;width:100%;background:${est.squad.length?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${est.squad.length?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:800;cursor:${est.squad.length?"pointer":"default"}">派遣する兵を選ぶ</button>
       </div>`;
     }
@@ -5925,7 +5950,7 @@ function renderDungeonPanel(){
       const c=d.rarity&&d.rarity.color;
       h+=`<div class="pcard" style="${c?`border-color:${c}`:""}">
         <div class="nm" style="${c?`color:${c}`:""}">${d.rarity&&d.rarity.label?`【${d.rarity.label}】`:""}${d.name}</div>
-        <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span> ／ `:""}帰還まであと${left}日 ／ 派遣部隊:${squad.map(u=>u.nm).join("・")||"(不明)"}</div>
+        <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span> ／ `:""}帰還まであと${left}日 ／ 派遣部隊:${squad.map(fullName).join("・")||"(不明)"}</div>
         <div class="uexp" style="margin-top:8px"><i style="width:${pct}%;background:linear-gradient(90deg,${c||"#8fbf6f"}99,${c||"#8fbf6f"})"></i></div>
       </div>`;
     }
@@ -6067,7 +6092,9 @@ let trainingCostPaid=0;
 function buildTrainingPickEvent(){
   if(!trainingGradeChoice){S.lastTrainDay=S.day;return null;}
   const eligible=S.units.filter(u=>u.injured<=0&&!u.dungeonBusy);
-  const cands=[...eligible].sort((a,b)=>unitPower(b)-unitPower(a)).slice(0,5);
+  const pool=[...eligible];
+  const cands=[];
+  while(cands.length<5&&pool.length)cands.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]); // 重点指導の候補は毎回抽選(特定の兵に偏らないように)
   const choices=cands.map(u=>({
     label:`${u.nm} ${u.surname||""}を重点的に指導する`,
     hint:`${JOB_TREES[u.cls].label}・Lv.${u.lv}・戦力${Math.round(unitPower(u))}`,
