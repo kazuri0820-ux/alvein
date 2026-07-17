@@ -361,29 +361,24 @@ const CLASS_COLOR={warrior:"#8a4550",mage:"#3a5a85",archer:"#3a7a5a",monk:"#a579
 const CLASS_TABS=[["all","全員"],["warrior","戦士"],["mage","魔法"],["archer","弓術"],["monk","拳法"],["priest","神官"],["hunter","狩人"]];
 const SORT_TABS=[["power","戦力順"],["lv","Lv順"],["age","年齢順"],["tenure","在籍順"]];
 const AGE_TONE={young:"#8fbf6f",peak:"#c9a24b",mid:"#c9c9d4",old:"#9aa0ac",venerable:"#76839a"};
-const POWER_GAUGE_MAX=140; // 円形ゲージの満タン目安値(演出上の相対値)
-const STAR_SVG=`<svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2 L14.5 9 L22 9.5 L16 14.5 L18 22 L12 17.5 L6 22 L8 14.5 L2 9.5 L9.5 9 Z"/></svg>`;
 function cardAccent(u){
   const stage=ageStageOf(u).key;
-  const tone=AGE_TONE[stage]||"#c9a24b";
-  const chain=JOB_TREES[u.cls].chain;
-  const tierIdx=Math.max(0,chain.findIndex(c=>c.key===jobFor(u.cls,u.lv,u.route).key));
-  // フレーム素材:純粋に育成段階のみで決まる(新兵/兵士=木、古参兵/精鋭兵=石、隊長格=鉄、英雄格=銀)
-  let material="wood";
-  if(tierIdx>=5)material="silver";
-  else if(tierIdx>=4)material="iron";
-  else if(tierIdx>=2)material="stone";
-  if(u.awakened)material="awakened"; // 覚醒者は段階を問わず最上位の専用枠
-  // 特性のレア度は枠とは別に、肖像の後光(オーラ)で表現
-  const aura=(u.traitTier==="epic"||u.traitTier==="legend")?u.traitTier:null;
-  const stars=tierIdx+1; // 1〜6
-  const pw=unitPower(u);
-  const pct=Math.max(3,Math.min(100,pw/POWER_GAUGE_MAX*100));
-  const circumference=2*Math.PI*28; // r=28のsvg円周(.pgauge viewBox 0 0 64 64に対応)
-  const dashoffset=(circumference*(1-pct/100)).toFixed(1);
-  return{tone,material,tierIdx,stars,aura,circumference:circumference.toFixed(1),dashoffset};
+  return{tone:AGE_TONE[stage]||"#c9a24b"};
 }
-function rankStars(n){let s="";for(let i=0;i<n;i++)s+=STAR_SVG;return `<span class="rankmark">${s}</span>`;}
+/* 兵士カードのレアリティ枠:志願書と同じF〜Zランクを3段階(COMMON/RARE/EPIC)に集約する */
+const RARITY_TIER_BY_RANK={F:"common",E:"common",D:"common",C:"common",B:"rare",A:"rare",S:"epic",SS:"epic",Z:"epic"};
+const RARITY_TIER_LABEL={common:"COMMON",rare:"RARE",epic:"EPIC"};
+function unitRarity(u){
+  const rank=volunteerRankLabel(u);
+  const tier=RARITY_TIER_BY_RANK[rank.label]||"common";
+  return{tier,tierLabel:RARITY_TIER_LABEL[tier],rankLabel:rank.label};
+}
+/* 6能力ドット用の円環マークアップ(半径7、周長43.98) */
+function statDot(color,val,max){
+  const pct=Math.max(0,Math.min(1,val/max));
+  const dashoffset=(43.98*(1-pct)).toFixed(1);
+  return `<svg viewBox="0 0 18 18"><circle class="bg" cx="9" cy="9" r="7"/><circle class="fg" cx="9" cy="9" r="7" stroke="${color}" stroke-dasharray="43.98" stroke-dashoffset="${dashoffset}"/></svg>`;
+}
 /* ---------- 特別訓練場:一定期間ダンジョン/ミッション/遠征に出せなくなる代わりに、帰還時に大きく成長する ---------- */
 const CAMP_MIN_DAYS=30, CAMP_MAX_DAYS=60;
 function sendToCamp(unitId){
@@ -512,7 +507,7 @@ function renderVolunteers(){
   $("#troopSortRow").innerHTML="";
   const list=S.volunteers||[];
   let h="";
-  if(!list.length)h=`<div class="ucard mat-wood"><div class="ustats">今は志願者がいない。しばらく待てば、また誰かが訪れるだろう。</div></div>`;
+  if(!list.length)h=`<div class="ucard"><div class="ustats">今は志願者がいない。しばらく待てば、また誰かが訪れるだろう。</div></div>`;
   for(const v of list){
     const u=v.unit;
     const race=RACES.find(r=>r.key===u.race);
@@ -647,59 +642,54 @@ function renderTroops(){
   else if(troopSort==="lv")list=[...list].sort((a,b)=>((b.captain?1:0)-(a.captain?1:0))*troopSortDir||(b.lv-a.lv)*troopSortDir);
   else if(troopSort==="age")list=[...list].sort((a,b)=>((b.captain?1:0)-(a.captain?1:0))*troopSortDir||(b.age-a.age)*troopSortDir);
   else if(troopSort==="tenure")list=[...list].sort((a,b)=>((b.captain?1:0)-(a.captain?1:0))*troopSortDir||((a.joinDay||1)-(b.joinDay||1))*troopSortDir);
-  if(!S.units.length)h=`<div class="ucard mat-wood"><div class="ustats">まだ兵はいない。徴兵イベントや定例閣議で加わる。</div></div>`;
-  else if(!list.length)h=`<div class="ucard mat-wood"><div class="ustats">この職系統の兵はまだいない。</div></div>`;
+  if(!S.units.length)h=`<div class="ucard"><div class="ustats">まだ兵はいない。徴兵イベントや定例閣議で加わる。</div></div>`;
+  else if(!list.length)h=`<div class="ucard"><div class="ustats">この職系統の兵はまだいない。</div></div>`;
   for(const u of list){
     const need=u.lv*10;
-    const acc=cardAccent(u);
     const tr=traitInfo(u.trait);
     const stage=ageStageOf(u);
     const race=RACES.find(r=>r.key===u.race);
     const cc=CLASS_COLOR[u.cls];
     const j=jobFor(u.cls,u.lv,u.route);
     const cond=conditionInfo(u);
+    const rarity=unitRarity(u);
     const statusIcons=(u.favorite?`<span class="uicon" title="お気に入り" style="color:var(--gold)">★</span>`:"")+(u.injured>0?`<span class="uicon" title="療養中">${ICON_INJURED}</span>`:"")+(u.dungeonBusy?`<span class="uicon" title="ダンジョン探索中" style="color:#c98fe8">⛏</span>`:"")+(u.bondWith?`<span class="uicon" title="戦友あり">${ICON_BOND}</span>`:"");
     const reserveTag=(S.flags.knightOrder&&!isInRoster(u))?`<span class="reservetag">控え</span>`:"";
     const nick=nicknameSpan(u);
     const statmax=500;
     const cardSkillEff=skillEffects(u);
-    const mini=(key,lbl,v)=>{
+    const dot=(key,lbl,v)=>{
       const c=(USTAT_DEF[key]||{}).color||"var(--gold)";
-      return `<div class="col"><div class="lbl">${lbl}</div><div class="bar"><i style="width:${Math.min(100,v/statmax*100)}%;background:linear-gradient(90deg,${c}99,${c})"></i></div></div>`;
+      return `<div class="dot-item"><div class="dot">${statDot(c,v,statmax)}</div><div class="dot-lbl">${lbl}</div></div>`;
     };
-    h+=`<div class="ucard mat-${acc.material}" data-uid="${u.id}" style="cursor:pointer;--m-tone:${cc};${u.injured>0?"filter:saturate(.55) brightness(.85);":""}">
+    h+=`<div class="ucard rarity-${rarity.tier}" data-uid="${u.id}" style="cursor:pointer;${u.injured>0?"filter:saturate(.55) brightness(.85);":""}">
       ${u.injured>0?`<div class="injbanner">${ICON_INJURED}${(INJURY_TIERS[u.injurySeverity]||INJURY_TIERS.moderate).label}・あと${u.injured}日</div>`:""}
       ${!u.injured&&u.dungeonBusy?`<div class="injbanner" style="background:rgba(150,90,200,.85)">⛏ ダンジョン探索中・あと${Math.max(0,u.dungeonBusy-S.day)}日</div>`:""}
       ${!u.injured&&u.campUntil?`<div class="injbanner" style="background:rgba(90,150,120,.85)">特別訓練場・あと${Math.max(0,u.campUntil-S.day)}日</div>`:""}
-      ${acc.material==="silver"||acc.material==="gold"||acc.material==="awakened"?'<div class="sweep"></div>':""}
+      ${rarity.tier==="epic"?`<div class="sweep"></div><svg class="flourish fl-tl" viewBox="0 0 16 16"><path d="M1 1 Q1 8 8 8 M1 1 Q8 1 8 8"/></svg><svg class="flourish fl-tr" viewBox="0 0 16 16"><path d="M1 1 Q1 8 8 8 M1 1 Q8 1 8 8"/></svg><svg class="flourish fl-bl" viewBox="0 0 16 16"><path d="M1 1 Q1 8 8 8 M1 1 Q8 1 8 8"/></svg><svg class="flourish fl-br" viewBox="0 0 16 16"><path d="M1 1 Q1 8 8 8 M1 1 Q8 1 8 8"/></svg>`:""}
       <svg class="crestwm" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="33" stroke="#c9a24b" stroke-width="2"/><path d="M18 46 L22 26 L30 38 L36 20 L42 38 L50 26 L54 46 Z" stroke="#c9a24b" stroke-width="2.5" fill="none" stroke-linejoin="round"/></svg>
-      <div class="ucard-band" style="background:linear-gradient(135deg, ${cc}, rgba(20,27,43,.72))">
-        <div class="portrait-wrap${acc.aura?" aura-"+acc.aura:""}">
-          <div class="iconclip">
-            <svg class="pgauge" viewBox="0 0 64 64"><circle class="bg" cx="32" cy="32" r="28"/><circle class="fg" cx="32" cy="32" r="28" stroke="${acc.tone}" stroke-dasharray="${acc.circumference}" stroke-dashoffset="${acc.dashoffset}"/></svg>
-            <div class="sealbadge" style="background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">
-              ${classpicHtml(u)}
-            </div>
-            <span class="agegem" style="background:${acc.tone}"></span>
-          </div>
+      <div class="ucard-band">
+        <div class="ucard-portrait-col">
+          <div class="ucard-portrait" style="background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">${classpicHtml(u)}</div>
+          <div class="ucard-ribbon" style="background:${cc}">${JOB_TREES[u.cls].label}</div>
         </div>
         <div class="ucard-band-info">
           <div class="ucard-band-nm">
             <span class="untext">${u.captain?"★ ":""}${u.nm}${u.surname?" "+u.surname:""}</span>
-            ${rankStars(acc.stars)}
+            <span class="ucard-rank tier-${rarity.tier}">${rarity.tierLabel}・${rarity.rankLabel}</span>
             ${statusIcons?`<span class="ustatus">${statusIcons}</span>`:""}
           </div>
+          <div class="usub"><span>${displayJobName(u)}${u.awakened?"":"Lv."+u.lv}・${stage.label}${stageTimingLabel(u)?`(${stageTimingLabel(u)})`:""}(${Math.floor(u.age)}歳)</span></div>
+          <div class="ucard-power">戦力<b>${Math.round(unitPower(u))}</b></div>
         </div>
-        <div class="ucard-power"><span class="ucard-power-lbl">戦力</span><span class="ucard-power-val">${Math.round(unitPower(u))}</span></div>
       </div>
       <div class="ucard-body-pad">
         ${nick}${reserveTag}${u.captain?`<span style="font-size:9.5px;color:#1a1420;background:linear-gradient(135deg,#e8c874,#b8892c);border-radius:3px;padding:0 5px;margin-left:4px;font-weight:800">★ 騎士団長</span>`:""}${u.founder?`<span style="font-size:9.5px;color:var(--gold2);border:1px solid var(--gold2);border-radius:3px;padding:0 4px;margin-left:4px">建国の志士</span>`:""}${(u.titles&&u.titles.length)?`<span style="font-size:9.5px;color:var(--dim);margin-left:4px" title="${u.titles.map(k=>{const t=TITLE_DB.find(x=>x.key===k);return t?t.name:"";}).filter(Boolean).join("・")}">称号×${u.titles.length}</span>`:""}${traitBadge(u)}
-        <div class="usub"><span>${JOB_TREES[u.cls].label}・${displayJobName(u)}${u.awakened?"":"Lv."+u.lv}・${stage.label}${stageTimingLabel(u)?`(${stageTimingLabel(u)})`:""}(${Math.floor(u.age)}歳)</span></div>
         <div class="ucard-condrow">
           <div class="ucard-condbox"><span class="ccb-lbl">調子</span><span class="ccb-val" style="color:${cond.color}">${cond.label}</span></div>
           <div class="ucard-condbox"><span class="ccb-lbl">疲労</span><span class="ccb-val" style="color:#d9b56a">${Math.round(u.fatigue||0)}/100</span></div>
         </div>
-        <div class="ministat">${mini("str","腕",u.str+cardSkillEff.str)}${mini("vit","体",u.vit+cardSkillEff.vit)}${mini("int","魔",u.int+cardSkillEff.int)}${mini("agi","敏",u.agi+cardSkillEff.agi)}${mini("wis","知",u.wis+cardSkillEff.wis)}${mini("lead","統",u.lead+cardSkillEff.lead)}</div>
+        <div class="dots-row">${dot("str","腕",u.str+cardSkillEff.str)}${dot("vit","体",u.vit+cardSkillEff.vit)}${dot("int","魔",u.int+cardSkillEff.int)}${dot("agi","敏",u.agi+cardSkillEff.agi)}${dot("wis","知",u.wis+cardSkillEff.wis)}${dot("lead","統",u.lead+cardSkillEff.lead)}</div>
         <div class="uexp" title="次の昇進までの経験値"><i style="width:${Math.min(100,u.exp/need*100)}%"></i></div>
       </div>
     </div>`;
@@ -707,20 +697,17 @@ function renderTroops(){
   if(S.instructors.length){
     h+=`<div style="font-size:11px;color:var(--dim);margin:12px 0 6px;letter-spacing:.15em">── 指南役(教官) ──</div>`;
     for(const u of S.instructors){
-      const acc=cardAccent(u);
       const cc=CLASS_COLOR[u.cls];
-      h+=`<div class="ucard mat-${acc.material}" data-uid="${u.id}" style="opacity:.9;cursor:pointer;--m-tone:${cc}">
-        <svg class="crestwm" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="33" stroke="#c9a24b" stroke-width="2"/><path d="M18 46 L22 26 L30 38 L36 20 L42 38 L50 26 L54 46 Z" stroke="#c9a24b" stroke-width="2.5" fill="none" stroke-linejoin="round"/></svg>
-        <div class="ucard-band" style="background:linear-gradient(135deg, ${cc}, rgba(20,27,43,.72))">
-          <div class="portrait-wrap">
-            <div class="sealbadge" style="inset:0;background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">${classpicHtml(u)}</div>
+      h+=`<div class="ucard" data-uid="${u.id}" style="opacity:.9;cursor:pointer">
+        <div class="ucard-band">
+          <div class="ucard-portrait-col">
+            <div class="ucard-portrait" style="background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">${classpicHtml(u)}</div>
+            <div class="ucard-ribbon" style="background:${cc}">${JOB_TREES[u.cls].label}</div>
           </div>
           <div class="ucard-band-info">
             <div class="ucard-band-nm"><span class="untext">${u.nm}${u.surname?" "+u.surname:""}</span></div>
+            <div class="usub">教官(元Lv.${u.lv})</div>
           </div>
-        </div>
-        <div class="ucard-body-pad" style="padding-top:9px;padding-bottom:9px">
-          <div class="usub">${JOB_TREES[u.cls].label}出身・教官(元Lv.${u.lv})</div>
         </div>
       </div>`;
     }
