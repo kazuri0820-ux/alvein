@@ -657,25 +657,32 @@ function renderTroops(){
       ${!u.injured&&u.campUntil?`<div class="injbanner" style="background:rgba(90,150,120,.85)">特別訓練場・あと${Math.max(0,u.campUntil-S.day)}日</div>`:""}
       ${acc.material==="silver"||acc.material==="gold"||acc.material==="awakened"?'<div class="sweep"></div>':""}
       <svg class="crestwm" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="33" stroke="#c9a24b" stroke-width="2"/><path d="M18 46 L22 26 L30 38 L36 20 L42 38 L50 26 L54 46 Z" stroke="#c9a24b" stroke-width="2.5" fill="none" stroke-linejoin="round"/></svg>
-      <div class="portrait-wrap${acc.aura?" aura-"+acc.aura:""}">
-        <div class="iconclip">
-          <svg class="pgauge" viewBox="0 0 64 64"><circle class="bg" cx="32" cy="32" r="28"/><circle class="fg" cx="32" cy="32" r="28" stroke="${acc.tone}" stroke-dasharray="${acc.circumference}" stroke-dashoffset="${acc.dashoffset}"/></svg>
-          <div class="sealbadge" style="background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">
-            ${classpicHtml(u)}
+      <div class="ucard-band" style="background:linear-gradient(135deg, ${cc}, rgba(20,27,43,.72))">
+        <div class="portrait-wrap${acc.aura?" aura-"+acc.aura:""}">
+          <div class="iconclip">
+            <svg class="pgauge" viewBox="0 0 64 64"><circle class="bg" cx="32" cy="32" r="28"/><circle class="fg" cx="32" cy="32" r="28" stroke="${acc.tone}" stroke-dasharray="${acc.circumference}" stroke-dashoffset="${acc.dashoffset}"/></svg>
+            <div class="sealbadge" style="background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">
+              ${classpicHtml(u)}
+            </div>
+            <span class="agegem" style="background:${acc.tone}"></span>
           </div>
-          <span class="agegem" style="background:${acc.tone}"></span>
         </div>
+        <div class="ucard-band-info">
+          <div class="ucard-band-nm">
+            <span class="untext">${u.captain?"★ ":""}${u.nm}${u.surname?" "+u.surname:""}</span>
+            ${rankStars(acc.stars)}
+            ${statusIcons?`<span class="ustatus">${statusIcons}</span>`:""}
+          </div>
+        </div>
+        <div class="ucard-power"><span class="ucard-power-lbl">戦力</span><span class="ucard-power-val">${Math.round(unitPower(u))}</span></div>
       </div>
-      <div class="ubody">
-        <div class="uh">
-          <span class="un"><span class="untext">${u.captain?"★ ":""}${u.nm}${u.surname?" "+u.surname:""}</span>${statusIcons?`<span class="ustatus" style="color:${acc.tone}">${statusIcons}</span>`:""}</span>
-          ${rankStars(acc.stars)}
-        </div>
+      <div class="ucard-body-pad">
         ${nick}${reserveTag}${u.captain?`<span style="font-size:9.5px;color:#1a1420;background:linear-gradient(135deg,#e8c874,#b8892c);border-radius:3px;padding:0 5px;margin-left:4px;font-weight:800">★ 騎士団長</span>`:""}${u.founder?`<span style="font-size:9.5px;color:var(--gold2);border:1px solid var(--gold2);border-radius:3px;padding:0 4px;margin-left:4px">建国の志士</span>`:""}${(u.titles&&u.titles.length)?`<span style="font-size:9.5px;color:var(--dim);margin-left:4px" title="${u.titles.map(k=>{const t=TITLE_DB.find(x=>x.key===k);return t?t.name:"";}).filter(Boolean).join("・")}">称号×${u.titles.length}</span>`:""}${traitBadge(u)}
-        <div class="usub"><span>${JOB_TREES[u.cls].label}・${displayJobName(u)}${u.awakened?"":"Lv."+u.lv}・${stage.label}${stageTimingLabel(u)?`(${stageTimingLabel(u)})`:""}(${Math.floor(u.age)}歳)</span><span class="upw">戦力 ${Math.round(unitPower(u))}</span></div>
-        <div class="usub" style="margin-top:2px"><span style="color:${cond.color}">調子:${cond.label}</span></div>
-        <div class="usub" style="margin-top:1px"><span style="color:#d9b56a">疲労:${Math.round(u.fatigue||0)}/100</span></div>
-        <div class="hairline"></div>
+        <div class="usub"><span>${JOB_TREES[u.cls].label}・${displayJobName(u)}${u.awakened?"":"Lv."+u.lv}・${stage.label}${stageTimingLabel(u)?`(${stageTimingLabel(u)})`:""}(${Math.floor(u.age)}歳)</span></div>
+        <div class="ucard-condrow">
+          <div class="ucard-condbox"><span class="ccb-lbl">調子</span><span class="ccb-val" style="color:${cond.color}">${cond.label}</span></div>
+          <div class="ucard-condbox"><span class="ccb-lbl">疲労</span><span class="ccb-val" style="color:#d9b56a">${Math.round(u.fatigue||0)}/100</span></div>
+        </div>
         <div class="ministat">${mini("str","腕",u.str+cardSkillEff.str)}${mini("vit","体",u.vit+cardSkillEff.vit)}${mini("int","魔",u.int+cardSkillEff.int)}${mini("agi","敏",u.agi+cardSkillEff.agi)}${mini("wis","知",u.wis+cardSkillEff.wis)}${mini("lead","統",u.lead+cardSkillEff.lead)}</div>
         <div class="uexp" title="次の昇進までの経験値"><i style="width:${Math.min(100,u.exp/need*100)}%"></i></div>
       </div>
