@@ -155,10 +155,13 @@ header{
 .daybadge-num{font-family:'Cinzel',serif;font-weight:700;font-size:var(--fs-xl);color:var(--parch);line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.5)}
 /* ── ヘッダー2段目: 治世表記 / 時刻・速度操作 ── */
 .hdr-row2{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.kera-wrap{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px}
 .kera{
   font-size:11px;color:#c7cbd8;letter-spacing:.18em;text-shadow:0 1px 2px rgba(0,0,0,.9),0 0 4px rgba(0,0,0,.6);
-  flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
+.rankbar{height:3px;max-width:150px;background:rgba(0,0,0,.4);border-radius:2px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.5)}
+.rankbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold2),var(--gold));transition:width .6s var(--ease-chronicle,ease)}
 .hdr-row2-right{display:flex;align-items:center;gap:9px;flex:0 0 auto}
 .turnwrap{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .turnbadge{
@@ -866,7 +869,10 @@ header{
       </div>
     </div>
     <div class="hdr-row2">
-      <div class="kera" id="eraLabel">建国歴 元年</div>
+      <div class="kera-wrap">
+        <div class="kera" id="eraLabel">建国歴 元年</div>
+        <div class="rankbar" id="rankbarWrap"><i id="rankbarFill"></i></div>
+      </div>
       <div class="hdr-row2-right">
         <div class="turnwrap">
           <div class="turnbadge"><span class="ic" id="turnIcon">☀</span><span id="turnLabel">朝</span></div>
@@ -2268,6 +2274,13 @@ function render(){
   if(si!==S.stage)S.stage=si;
   const stg=STAGES[S.stage];
   $("#eraLabel").textContent="Rank "+stg.rank+"・"+stg.era;
+  const rankbarFill=$("#rankbarFill");
+  if(rankbarFill){
+    const nextStg=STAGES[S.stage+1];
+    const prog=nextStg?Math.max(0,Math.min(100,(S.pop-stg.min)/(nextStg.min-stg.min)*100)):100;
+    rankbarFill.style.width=prog+"%";
+    $("#rankbarWrap").title=nextStg?`次の段階まで人口${Math.max(0,nextStg.min-S.pop)}人`:"最高段階に到達";
+  }
   const knameEl=document.querySelector(".kname");
   if(knameEl)knameEl.textContent=stg.name;
   const heroBannerEl=$("#heroBanner");

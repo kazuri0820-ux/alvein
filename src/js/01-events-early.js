@@ -260,6 +260,13 @@ function render(){
   if(si!==S.stage)S.stage=si;
   const stg=STAGES[S.stage];
   $("#eraLabel").textContent="Rank "+stg.rank+"・"+stg.era;
+  const rankbarFill=$("#rankbarFill");
+  if(rankbarFill){
+    const nextStg=STAGES[S.stage+1];
+    const prog=nextStg?Math.max(0,Math.min(100,(S.pop-stg.min)/(nextStg.min-stg.min)*100)):100;
+    rankbarFill.style.width=prog+"%";
+    $("#rankbarWrap").title=nextStg?`次の段階まで人口${Math.max(0,nextStg.min-S.pop)}人`:"最高段階に到達";
+  }
   const knameEl=document.querySelector(".kname");
   if(knameEl)knameEl.textContent=stg.name;
   const heroBannerEl=$("#heroBanner");
