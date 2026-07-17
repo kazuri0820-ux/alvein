@@ -500,6 +500,14 @@ header{
   transform:translateX(-120%);animation:sweep 2.4s ease-in-out infinite;
 }
 .pcard .nm{font-weight:700;font-size:var(--fs-md)}
+/* 志願書カード等で使う小型の職業ポートレート */
+.pcard-portrait{
+  position:relative;flex:0 0 auto;width:40px;height:40px;border-radius:50%;
+  overflow:hidden;border:1.5px solid rgba(var(--gold-rgb),.5);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 4px rgba(0,0,0,.4);
+}
+.pcard-portrait .classpic{transform:scale(.6);transform-origin:center bottom}
 .pcard .rl{font-size:11px;color:var(--gold);letter-spacing:.1em}
 .pcard .ds{font-size:12px;color:var(--dim);margin-top:3px;line-height:1.6}
 .prj .pbar{height:5px;background:rgba(0,0,0,.35);border-radius:3px;margin-top:6px;overflow:hidden}
@@ -6235,9 +6243,15 @@ function renderVolunteers(){
       F:{glow:"none",bw:"1px",bg:"transparent",badge:""},
     }[rank.label]||{glow:"none",bw:"1px",bg:"transparent",badge:""};
     const muted=(rank.label==="D"?"opacity:.8":rank.label==="C"?"opacity:.85":rank.label==="E"?"opacity:.7":rank.label==="F"?"opacity:.6":"");
+    const vcc=CLASS_COLOR[u.cls];
     h+=`<div class="pcard${rank.label==="Z"?" mat-awakened-glow":""}" style="border-color:${rank.color};border-width:${rankStyle.bw};box-shadow:${rankStyle.glow};background:${rankStyle.bg};${muted}">
-      <div class="nm" style="color:${rank.color}">${rankStyle.badge?rankStyle.badge+" ":""}${u.nm} ${u.surname} <span style="font-size:11px;color:var(--dim);font-weight:400">推定ランク ${rank.label}</span></div>
-      <div class="ds">${race.name}・${origin?origin.name:""}・${u.personality} ／ ${JOB_TREES[u.cls].label}志望</div>
+      <div style="display:flex;align-items:center;gap:9px">
+        <div class="pcard-portrait" style="background:radial-gradient(circle at 35% 30%, ${vcc}, ${vcc}88 70%, #1c2030)">${classpicHtml(u)}</div>
+        <div style="flex:1;min-width:0">
+          <div class="nm" style="color:${rank.color}">${rankStyle.badge?rankStyle.badge+" ":""}${u.nm} ${u.surname} <span style="font-size:11px;color:var(--dim);font-weight:400">推定ランク ${rank.label}</span></div>
+          <div class="ds" style="margin-top:0">${race.name}・${origin?origin.name:""}・${u.personality} ／ ${JOB_TREES[u.cls].label}志望</div>
+        </div>
+      </div>
       <div class="ds" style="font-style:italic">${v.comment||recruitAtmosphere(u)}</div>
       ${v.hiddenPotential?`<div class="ds" style="font-style:italic;color:var(--gold)">……見た目以上の器を、秘めているやもしれぬ。</div>`:""}
       <div class="ds">支度金:${v.cost}G ／ 期限まであと${Math.max(0,daysLeft)}日</div>
@@ -6406,14 +6420,18 @@ function renderTroops(){
     for(const u of S.instructors){
       const acc=cardAccent(u);
       const cc=CLASS_COLOR[u.cls];
-      h+=`<div class="ucard mat-${acc.material}" data-uid="${u.id}" style="opacity:.88;cursor:pointer;--m-tone:${cc}">
+      h+=`<div class="ucard mat-${acc.material}" data-uid="${u.id}" style="opacity:.9;cursor:pointer;--m-tone:${cc}">
         <svg class="crestwm" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="33" stroke="#c9a24b" stroke-width="2"/><path d="M18 46 L22 26 L30 38 L36 20 L42 38 L50 26 L54 46 Z" stroke="#c9a24b" stroke-width="2.5" fill="none" stroke-linejoin="round"/></svg>
-        <div class="portrait-wrap">
-          <div class="sealbadge" style="inset:0;background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">${classpicHtml(u)}</div>
+        <div class="ucard-band" style="background:linear-gradient(135deg, ${cc}, rgba(20,27,43,.72))">
+          <div class="portrait-wrap">
+            <div class="sealbadge" style="inset:0;background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">${classpicHtml(u)}</div>
+          </div>
+          <div class="ucard-band-info">
+            <div class="ucard-band-nm"><span class="untext">${u.nm}${u.surname?" "+u.surname:""}</span></div>
+          </div>
         </div>
-        <div class="ubody">
-          <div class="uh"><span class="un">${u.nm}${u.surname?" "+u.surname:""}</span></div>
-          <div class="usub" style="margin-top:6px"><span>${JOB_TREES[u.cls].label}出身・教官(元Lv.${u.lv})</span></div>
+        <div class="ucard-body-pad" style="padding-top:9px;padding-bottom:9px">
+          <div class="usub">${JOB_TREES[u.cls].label}出身・教官(元Lv.${u.lv})</div>
         </div>
       </div>`;
     }
