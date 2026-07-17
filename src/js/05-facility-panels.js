@@ -419,14 +419,22 @@ function renderTrainingCamp(){
   if(inCamp.length){
     h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 8px;letter-spacing:.15em"><i class="icon-training"></i>── 訓練場にいる兵 ──</div>`;
     for(const u of inCamp){
-      h+=`<div class="pcard"><div class="nm">${fullName(u)}</div><div class="ds">${JOB_TREES[u.cls].label}・Lv.${u.lv} ／ 帰還まであと${Math.max(0,u.campUntil-S.day)}日</div></div>`;
+      const cc=CLASS_COLOR[u.cls];
+      h+=`<div class="pcard"><div style="display:flex;align-items:center;gap:9px">
+        <div class="pcard-portrait" style="background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">${classpicHtml(u)}</div>
+        <div style="flex:1;min-width:0"><div class="nm">${fullName(u)}</div><div class="ds" style="margin-top:0">${JOB_TREES[u.cls].label}・Lv.${u.lv} ／ 帰還まであと${Math.max(0,u.campUntil-S.day)}日</div></div>
+      </div></div>`;
     }
   }
   h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 8px;letter-spacing:.15em"><i class="icon-training"></i>── 訓練場へ送る ──</div>`;
   if(!eligible.length)h+=`<div class="udet-empty">送れる兵がいない(負傷中・出払い中・既に訓練場にいる兵は対象外)。</div>`;
   for(const u of eligible){
-    h+=`<div class="pcard"><div class="nm">${fullName(u)}</div><div class="ds">${JOB_TREES[u.cls].label}・Lv.${u.lv}・戦力${Math.round(unitPower(u))}</div>
-      <button class="camp-send-btn" data-id="${u.id}" style="margin-top:6px;width:100%;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">訓練場へ送る</button>
+    const cc=CLASS_COLOR[u.cls];
+    h+=`<div class="pcard"><div style="display:flex;align-items:center;gap:9px">
+      <div class="pcard-portrait" style="background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">${classpicHtml(u)}</div>
+      <div style="flex:1;min-width:0"><div class="nm">${fullName(u)}</div><div class="ds" style="margin-top:0">${JOB_TREES[u.cls].label}・Lv.${u.lv}・戦力${Math.round(unitPower(u))}</div></div>
+    </div>
+      <button class="camp-send-btn" data-id="${u.id}" style="margin-top:8px;width:100%;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">訓練場へ送る</button>
     </div>`;
   }
   $("#troopList").innerHTML=h;
@@ -451,9 +459,11 @@ function renderSquadManager(){
     if(!eligible.length)h+=`<div class="udet-empty">編成できる兵がいない。</div>`;
     for(const u of eligible){
       const picked=squadEditUnitIds.includes(u.id);
+      const cc=CLASS_COLOR[u.cls];
       h+=`<div class="pcard" style="${picked?"border-color:var(--gold);background:rgba(201,162,75,.1)":""}">
-        <div class="sq-unit-pick" data-id="${u.id}" style="cursor:pointer">
-          <div class="nm"><i class="cbicon ${picked?"on":"off"}"></i>${fullName(u)} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
+        <div class="sq-unit-pick" data-id="${u.id}" style="cursor:pointer;display:flex;align-items:center;gap:9px">
+          <div class="pcard-portrait" style="background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">${classpicHtml(u)}</div>
+          <div class="nm" style="flex:1;min-width:0"><i class="cbicon ${picked?"on":"off"}"></i>${fullName(u)} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
         </div>
       </div>`;
     }

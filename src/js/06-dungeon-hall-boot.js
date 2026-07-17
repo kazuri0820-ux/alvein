@@ -201,10 +201,14 @@ function renderDungeonPanel(){
       if(!eligible.length)h+=`<div class="udet-empty">派遣できる兵がいない(全員が負傷中・疲労・出払い中)。</div>`;
       for(const u of eligible){
         const picked=expSelectedUnitIds.includes(u.id);
+        const cc=CLASS_COLOR[u.cls];
         h+=`<div class="pcard" style="${picked?`border-color:var(--gold);background:rgba(201,162,75,.1)`:""}">
-          <div class="exp-unit-pick" data-id="${u.id}" style="cursor:pointer">
-            <div class="nm"><i class="cbicon ${picked?"on":"off"}"></i>${fullName(u)} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
-            <div class="ds">戦力${Math.round(unitPower(u))}</div>
+          <div class="exp-unit-pick" data-id="${u.id}" style="cursor:pointer;display:flex;align-items:center;gap:9px">
+            <div class="pcard-portrait" style="background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">${classpicHtml(u)}</div>
+            <div style="flex:1;min-width:0">
+              <div class="nm"><i class="cbicon ${picked?"on":"off"}"></i>${fullName(u)} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
+              <div class="ds">戦力${Math.round(unitPower(u))}</div>
+            </div>
           </div>
         </div>`;
       }
@@ -283,10 +287,14 @@ function renderDungeonPanel(){
     for(const u of eligible){
       const picked=dgSelectedUnitIds.includes(u.id);
       const aff=d.type?d.type.statFn(u):unitPower(u);
+      const cc=CLASS_COLOR[u.cls];
       h+=`<div class="pcard" style="${picked?`border-color:var(--gold);background:rgba(201,162,75,.1)`:""}">
-        <div class="dg-unit-pick" data-id="${u.id}" style="cursor:pointer">
-          <div class="nm"><i class="cbicon ${picked?"on":"off"}"></i>${u.nm} ${u.surname||""} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
-          <div class="ds">戦力${Math.round(unitPower(u))}${d.type?` ／ ${d.type.label}適性${Math.round(aff)}`:""}</div>
+        <div class="dg-unit-pick" data-id="${u.id}" style="cursor:pointer;display:flex;align-items:center;gap:9px">
+          <div class="pcard-portrait" style="background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">${classpicHtml(u)}</div>
+          <div style="flex:1;min-width:0">
+            <div class="nm"><i class="cbicon ${picked?"on":"off"}"></i>${u.nm} ${u.surname||""} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
+            <div class="ds">戦力${Math.round(unitPower(u))}${d.type?` ／ ${d.type.label}適性${Math.round(aff)}`:""}</div>
+          </div>
         </div>
         <button class="dg-unit-detail" data-id="${u.id}" style="margin-top:6px;width:100%;background:transparent;border:1px solid rgba(201,162,75,.35);color:var(--dim);border-radius:6px;padding:6px;font-size:11.5px;font-family:'Zen Old Mincho',serif;cursor:pointer">能力の詳細を見る</button>
       </div>`;
