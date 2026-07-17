@@ -223,6 +223,7 @@ function stageOf(pop){let i=0;for(let k=0;k<STAGES.length;k++)if(pop>=STAGES[k].
 
 /* ---------- 表示 ---------- */
 const STATDEF=[["military","軍事"],["economy","経済"],["agriculture","農業"],["magic","魔導"],["order","治安"],["diplomacy","外交"]];
+const STAT_COLOR={military:"#b5646a",economy:"#c9a24b",agriculture:"#74a563",magic:"#8f74c9",order:"#5f8fc4",diplomacy:"#5fb3ac"};
 const STAT_ICON={
  military:`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 19 L11 13 M13 11 L19 5"/><path d="M3 7 L7 3 L9 5 L5 9 Z"/><path d="M15 15 L19 19 L21 17 L17 13 Z"/></svg>`,
  economy:`<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 7.5 v9 M9.5 9.5 h4.2 a1.8 1.8 0 0 1 0 3.6 h-3.4 a1.8 1.8 0 0 0 0 3.6 h4.2" stroke-linecap="round"/></svg>`,
@@ -279,7 +280,7 @@ function render(){
   for(const[k,label]of STATDEF){
     const v=Math.round(S.st[k]),pv=Math.round(S.prev[k]??v),d=v-pv;
     const dh=d?`<span class="delta ${d>0?'up':'down'}">${d>0?'▲':'▼'}${Math.abs(d)}</span>`:"";
-    h+=`<div class="stat"><div class="sthead"><span class="sealwrap"><span class="sticon">${STAT_ICON[k]}</span></span>${label}</div><b>${v}<span style="font-size:10px;color:var(--gold2);margin-left:2px">${grade(v)}</span>${dh}</b><div class="bar"><i style="width:${v}%"></i></div></div>`;
+    h+=`<div class="stat" style="--tone:${STAT_COLOR[k]}"><div class="sthead"><span class="sealwrap"><span class="sticon">${STAT_ICON[k]}</span></span>${label}</div><b>${v}<span style="font-size:10px;color:var(--gold2);margin-left:2px">${grade(v)}</span>${dh}</b><div class="bar"><i style="width:${v}%"></i></div></div>`;
   }
   $("#stats").innerHTML=h;
   const n=S.pendingEvents.length;
