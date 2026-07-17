@@ -250,7 +250,7 @@ function flashIfChanged(sel,val){
 function render(){
  try{
   $("#dayNum").textContent=S.day;
-  $("#turnIcon").textContent=TURN_ICON[S.turn];
+  $("#turnIcon").innerHTML=TURN_ICON[S.turn];
   $("#turnLabel").textContent=TURN_NAMES[S.turn];
   for(let i=0;i<3;i++)$("#td"+i).classList.toggle("on",i===S.turn);
   document.body.classList.remove("turn-0","turn-1","turn-2");
@@ -293,14 +293,23 @@ function render(){
   $("#volBadge").style.display=voln?"inline-block":"none";$("#volBadge").textContent=voln;$("#volBadge").classList.toggle("pulse",voln>0);
  }catch(e){console.error("render() failed:",e);}
 }
-const LOG_ICONS={big:"★",grave:"⚠",sys:"⚙",dungeon:"⛏",mission:"⚔",people:"◆"};
+/* 年代記ログの区分アイコン。STAT_ICON/USTAT_DEFと同じ線画SVG様式(stroke=currentColor)で統一 */
+const LOG_ICONS={
+  big:`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M8 1.5 L9.8 6 L14.5 6.4 L10.9 9.4 L12 14 L8 11.3 L4 14 L5.1 9.4 L1.5 6.4 L6.2 6 Z"/></svg>`,
+  grave:`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 L14.5 13.5 L1.5 13.5 Z"/><line x1="8" y1="6.5" x2="8" y2="10"/><circle cx="8" cy="11.8" r="0.5" fill="currentColor" stroke="none"/></svg>`,
+  sys:`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="8" cy="8" r="2.6"/><path d="M8 2v1.6M8 12.4V14M2 8h1.6M12.4 8H14M4 4l1.1 1.1M10.9 10.9L12 12M12 4l-1.1 1.1M5.1 10.9L4 12"/></svg>`,
+  dungeon:`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3 C6 2 10 2 13 5 C10 8 6 8 3 3Z"/><line x1="9" y1="6" x2="14" y2="14"/></svg>`,
+  mission:`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="2" y1="2" x2="14" y2="14"/><line x1="14" y1="2" x2="2" y2="14"/><path d="M2 2 L4 2 M2 2 L2 4"/><path d="M14 2 L12 2 M14 2 L14 4"/></svg>`,
+  people:`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="5" r="2.4"/><path d="M3 14c0-3 2.2-5 5-5s5 2 5 5"/></svg>`,
+};
+const LOG_ICON_FALLBACK=`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M8 1.5 L14.5 8 L8 14.5 L1.5 8 Z"/></svg>`;
 const LOG_CAP=400;
 function chron(text,cls){
   S.log.push({d:S.day,t:text,c:cls||""});
   if(S.log.length>LOG_CAP)S.log.shift();
   const el=document.createElement("div");
   el.className="entry "+(cls||"");
-  const icon=LOG_ICONS[cls]||"◇";
+  const icon=LOG_ICONS[cls]||LOG_ICON_FALLBACK;
   el.innerHTML=`<span class="eicon">${icon}</span><span class="ed">DAY ${S.day}</span>${text}`;
   $("#chronicle").appendChild(el);
   $("#chronicle").scrollTop=$("#chronicle").scrollHeight;

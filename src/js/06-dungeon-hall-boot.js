@@ -617,7 +617,7 @@ function boot(fromSave){
     while(S.log.length>LOG_CAP)S.log.shift();
     for(const e of S.log.slice(-40)){
       const el=document.createElement("div");el.className="entry "+(e.c||"");
-      const icon=LOG_ICONS[e.c]||"◇";
+      const icon=LOG_ICONS[e.c]||LOG_ICON_FALLBACK;
       el.innerHTML=`<span class="eicon">${icon}</span><span class="ed">DAY ${e.d}</span>${e.t}`;$("#chronicle").appendChild(el);
     }
     chron("――王国記を再開する。","sys");

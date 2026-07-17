@@ -6,6 +6,25 @@ let S=null;
 function rnd(a,b){return a+Math.random()*(b-a);}
 function ri(a,b){return Math.floor(rnd(a,b+1));}
 
+/* ---------- 兵士ポートレート(スプライトシート) ---------- */
+const ICON_VARIANTS_PER_CLASS=3; // 1職業あたりの見た目バリエーション数(units.pngの行数)
+// 文字列から安定した0〜mod-1の整数を得る(旧セーブにiconVariantが無い場合のフォールバック用)
+function hashInt(str,mod){
+  let h=0;
+  for(let i=0;i<str.length;i++)h=(h*31+str.charCodeAt(i))|0;
+  return Math.abs(h)%mod;
+}
+// ユニットの見た目バリエーション(0〜ICON_VARIANTS_PER_CLASS-1)を解決する。
+// 新規生成分はu.iconVariantを直接使い、無い場合(旧セーブ等)はu.idから決定論的に導出する。
+function iconVariantOf(u){
+  if(u&&Number.isInteger(u.iconVariant)&&u.iconVariant>=0&&u.iconVariant<ICON_VARIANTS_PER_CLASS)return u.iconVariant;
+  return hashInt((u&&(u.id||u.nm))||"?",ICON_VARIANTS_PER_CLASS);
+}
+// 兵士の職業アイコン(スプライトシート切り出し)のHTML片を生成する共通ヘルパー
+function classpicHtml(u){
+  return `<div class="classpic classpic-${u.cls}-${iconVariantOf(u)}"></div>`;
+}
+
 /* ジョブ(職系統)・レア度・種族・個別兵士 ―― 栄冠ナイン式の個人管理 */
 const JOB_TREES={
  warrior:{label:"戦士系",chain:[
@@ -869,6 +888,7 @@ function makeUnit(){
     awakened:false, awakenTitle:null,
     fatigue:0, favorite:false, birthDay:ri(1,AGE_YEAR_DAYS), skillCapBase:ri(1,10),
     equipment:{weapon:null,armor:null,accessory:null},
+    iconVariant:ri(0,ICON_VARIANTS_PER_CLASS-1),
   };
   u.skills=initSkills(u);
   return u;

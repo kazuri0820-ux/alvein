@@ -379,7 +379,7 @@ function cardAccent(u){
   const stars=tierIdx+1; // 1〜6
   const pw=unitPower(u);
   const pct=Math.max(3,Math.min(100,pw/POWER_GAUGE_MAX*100));
-  const circumference=2*Math.PI*23; // r=23のsvg円周
+  const circumference=2*Math.PI*28; // r=28のsvg円周(.pgauge viewBox 0 0 64 64に対応)
   const dashoffset=(circumference*(1-pct/100)).toFixed(1);
   return{tone,material,tierIdx,stars,aura,circumference:circumference.toFixed(1),dashoffset};
 }
@@ -647,7 +647,10 @@ function renderTroops(){
     const nick=nicknameSpan(u);
     const statmax=500;
     const cardSkillEff=skillEffects(u);
-    const mini=(lbl,v)=>`<div class="col"><div class="lbl">${lbl}</div><div class="bar"><i style="width:${Math.min(100,v/statmax*100)}%"></i></div></div>`;
+    const mini=(key,lbl,v)=>{
+      const c=(USTAT_DEF[key]||{}).color||"var(--gold)";
+      return `<div class="col"><div class="lbl">${lbl}</div><div class="bar"><i style="width:${Math.min(100,v/statmax*100)}%;background:linear-gradient(90deg,${c}99,${c})"></i></div></div>`;
+    };
     h+=`<div class="ucard mat-${acc.material}" data-uid="${u.id}" style="cursor:pointer;--m-tone:${cc};${u.injured>0?"filter:saturate(.55) brightness(.85);":""}">
       ${u.injured>0?`<div class="injbanner">${ICON_INJURED}${(INJURY_TIERS[u.injurySeverity]||INJURY_TIERS.moderate).label}・あと${u.injured}日</div>`:""}
       ${!u.injured&&u.dungeonBusy?`<div class="injbanner" style="background:rgba(150,90,200,.85)">⛏ ダンジョン探索中・あと${Math.max(0,u.dungeonBusy-S.day)}日</div>`:""}
@@ -656,9 +659,9 @@ function renderTroops(){
       <svg class="crestwm" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="33" stroke="#c9a24b" stroke-width="2"/><path d="M18 46 L22 26 L30 38 L36 20 L42 38 L50 26 L54 46 Z" stroke="#c9a24b" stroke-width="2.5" fill="none" stroke-linejoin="round"/></svg>
       <div class="portrait-wrap${acc.aura?" aura-"+acc.aura:""}">
         <div class="iconclip">
-          <svg class="pgauge" viewBox="0 0 52 52"><circle class="bg" cx="26" cy="26" r="23"/><circle class="fg" cx="26" cy="26" r="23" stroke="${acc.tone}" stroke-dasharray="${acc.circumference}" stroke-dashoffset="${acc.dashoffset}"/></svg>
+          <svg class="pgauge" viewBox="0 0 64 64"><circle class="bg" cx="32" cy="32" r="28"/><circle class="fg" cx="32" cy="32" r="28" stroke="${acc.tone}" stroke-dasharray="${acc.circumference}" stroke-dashoffset="${acc.dashoffset}"/></svg>
           <div class="sealbadge" style="background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">
-            <div class="classpic classpic-${u.cls}"></div>
+            ${classpicHtml(u)}
           </div>
           <span class="agegem" style="background:${acc.tone}"></span>
         </div>
@@ -673,7 +676,7 @@ function renderTroops(){
         <div class="usub" style="margin-top:2px"><span style="color:${cond.color}">調子:${cond.label}</span></div>
         <div class="usub" style="margin-top:1px"><span style="color:#d9b56a">疲労:${Math.round(u.fatigue||0)}/100</span></div>
         <div class="hairline"></div>
-        <div class="ministat">${mini("腕",u.str+cardSkillEff.str)}${mini("体",u.vit+cardSkillEff.vit)}${mini("魔",u.int+cardSkillEff.int)}${mini("敏",u.agi+cardSkillEff.agi)}${mini("知",u.wis+cardSkillEff.wis)}${mini("統",u.lead+cardSkillEff.lead)}</div>
+        <div class="ministat">${mini("str","腕",u.str+cardSkillEff.str)}${mini("vit","体",u.vit+cardSkillEff.vit)}${mini("int","魔",u.int+cardSkillEff.int)}${mini("agi","敏",u.agi+cardSkillEff.agi)}${mini("wis","知",u.wis+cardSkillEff.wis)}${mini("lead","統",u.lead+cardSkillEff.lead)}</div>
         <div class="uexp" title="次の昇進までの経験値"><i style="width:${Math.min(100,u.exp/need*100)}%"></i></div>
       </div>
     </div>`;
@@ -686,7 +689,7 @@ function renderTroops(){
       h+=`<div class="ucard mat-${acc.material}" data-uid="${u.id}" style="opacity:.88;cursor:pointer;--m-tone:${cc}">
         <svg class="crestwm" viewBox="0 0 72 72" fill="none"><circle cx="36" cy="36" r="33" stroke="#c9a24b" stroke-width="2"/><path d="M18 46 L22 26 L30 38 L36 20 L42 38 L50 26 L54 46 Z" stroke="#c9a24b" stroke-width="2.5" fill="none" stroke-linejoin="round"/></svg>
         <div class="portrait-wrap">
-          <div class="sealbadge" style="inset:0;background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)"><div class="classpic classpic-${u.cls}"></div></div>
+          <div class="sealbadge" style="inset:0;background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">${classpicHtml(u)}</div>
         </div>
         <div class="ubody">
           <div class="uh"><span class="un">${u.nm}${u.surname?" "+u.surname:""}</span></div>
@@ -739,7 +742,7 @@ function renderUnitDetail(uid){
   const origin=ORIGINS.find(o=>o.key===u.origin);
   const expNeed=u.lv*10*(tr.expMult||1);
   let h=`<div class="udet-head">
-    <div class="udet-portrait ${portraitCls}"><div class="classpic classpic-${u.cls}"></div></div>
+    <div class="udet-portrait ${portraitCls}">${classpicHtml(u)}</div>
     <div>
       <div class="udet-name">${u.captain?'<span class="star">★</span> ':""}${u.nm}${u.surname?" "+u.surname:""}${isInstructor?"(教官)":""}${!isInstructor?`<span id="btnFavHeader" title="お気に入り" style="cursor:pointer;margin-left:6px;color:${u.favorite?"var(--gold)":"var(--dim)"}">${u.favorite?"★":"☆"}</span>`:""}</div>
       ${nicknameSpan(u)}
