@@ -279,7 +279,7 @@ function render(){
   for(const[k,label]of STATDEF){
     const v=Math.round(S.st[k]),pv=Math.round(S.prev[k]??v),d=v-pv;
     const dh=d?`<span class="delta ${d>0?'up':'down'}">${d>0?'▲':'▼'}${Math.abs(d)}</span>`:"";
-    h+=`<div class="stat" style="--tone:${STAT_COLOR[k]}"><div class="sthead"><span class="sealwrap" style="background-image:var(--img-icon-${k})"></span>${label}</div><b>${v}<span style="font-size:10px;color:var(--gold2);margin-left:2px">${grade(v)}</span>${dh}</b><div class="bar"><i style="width:${v}%"></i></div></div>`;
+    h+=`<div class="stat" data-k="${k}" style="--tone:${STAT_COLOR[k]}"><div class="sthead"><span class="sealwrap" style="background-image:var(--img-icon-${k})"></span>${label}</div><b>${v}<span style="font-size:10px;color:var(--gold2);margin-left:2px">${grade(v)}</span>${dh}</b><div class="bar"><i style="width:${v}%"></i></div></div>`;
   }
   $("#stats").innerHTML=h;
   const n=S.pendingEvents.length;
