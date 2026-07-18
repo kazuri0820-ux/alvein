@@ -851,7 +851,7 @@ header{
 
 /* ================= RESKIN: 執務室ルーム(ホーム) ================= */
 body,body.turn-0,body.turn-1,body.turn-2{background:#241811!important;background-image:var(--img-wood)!important;background-size:cover!important;background-position:center top!important;background-attachment:fixed!important;color:var(--parch)}
-#app{max-width:400px!important;margin:0 auto!important;background:none!important;box-shadow:none!important;border:0!important;padding-bottom:78px!important}
+#app{max-width:400px!important;margin:0 auto!important;background:none!important;box-shadow:none!important;border:0!important;padding-top:env(safe-area-inset-top,0px)!important;padding-bottom:78px!important}
 #bottombarFade{display:none!important}
 /* ---- 上部ルーム ---- */
 .roomtop{position:relative;width:100%;aspect-ratio:1254/1254;margin:0 0 2px}
@@ -867,8 +867,14 @@ body,body.turn-0,body.turn-1,body.turn-2{background:#241811!important;background
 .wallbar .turndots i{width:5px;height:5px;border-radius:50%;background:rgba(201,162,75,.3);display:block}
 .wallbar .turndots i.on{background:var(--rk-gold);box-shadow:0 0 4px var(--rk-gold)}
 .wallbar .speed{display:flex;gap:4px;flex:0 0 auto}
-.wallbar .speed button{width:24px;height:23px;border-radius:5px;border:1px solid var(--rk-gold-dk);color:var(--rk-gold-hi);background:linear-gradient(180deg,#3a2817,#160f0a);font-size:10px;display:grid;place-items:center;padding:0;cursor:pointer;font-family:inherit}
+.wallbar .speed button{width:24px;height:23px;border-radius:5px;border:1px solid var(--rk-gold-dk);color:var(--rk-gold-hi);background:linear-gradient(180deg,#3a2817,#160f0a);font-size:0!important;display:grid;place-items:center;padding:0;cursor:pointer;font-family:inherit;position:relative}
 .wallbar .speed button.on{background:linear-gradient(180deg,var(--rk-gold-hi),var(--rk-gold-dk));color:#1a120a;border-color:var(--rk-gold-hi)}
+/* 速度アイコンをCSS図形で(絵文字回避・金色統一) */
+.wallbar #sp1::before{content:"";width:0;height:0;border-style:solid;border-width:5px 0 5px 9px;border-color:transparent transparent transparent currentColor;margin-left:1px}
+.wallbar #spPause::before,.wallbar #spPause::after{content:"";position:absolute;top:50%;transform:translateY(-50%);width:3px;height:11px;background:currentColor;border-radius:1px}
+.wallbar #spPause::before{left:7px}.wallbar #spPause::after{right:7px}
+.wallbar #sp2::before,.wallbar #sp2::after{content:"";position:absolute;top:50%;transform:translateY(-50%);width:0;height:0;border-style:solid;border-width:4px 0 4px 7px;border-color:transparent transparent transparent currentColor}
+.wallbar #sp2::before{left:4px}.wallbar #sp2::after{right:6px}
 .daybadge2{position:absolute;top:18.5%;right:12px;z-index:4;border-style:solid;border-color:transparent;border-width:9px 12px;border-image-source:var(--img-plate);border-image-slice:28 fill;border-image-width:9px 12px;border-image-outset:0;border-image-repeat:stretch;display:flex;gap:5px;align-items:baseline;padding:0 3px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.6))}
 .daybadge2 .daybadge-lbl{font-family:'Cinzel',serif;font-size:8px;color:var(--rk-gold);letter-spacing:.15em}
 .daybadge2 .daybadge-num{font-family:'Cinzel',serif;font-size:18px;color:var(--rk-gold-hi);font-weight:700;text-shadow:0 1px 2px #000}
