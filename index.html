@@ -1028,6 +1028,33 @@ html,body{height:auto!important;min-height:100%!important}
 #troopList .pcard.pgen-petition .pgen-seal.pgen-seal-hi{width:60px;height:60px;top:4px;right:6px;
   filter:drop-shadow(0 0 6px rgba(232,200,116,.55)) drop-shadow(0 2px 3px rgba(0,0,0,.5))}
 
+
+/* ===== 志願書 レア演出 (高ランクの金箔シマー・後光・粒子でガチャSSR感) ===== */
+#troopList .pcard.pgen-petition.pgen-hi{overflow:visible!important}
+#troopList .pcard.pgen-petition.pgen-hi::before{content:"";position:absolute;inset:2px;pointer-events:none;z-index:2;
+  background:linear-gradient(112deg,
+    transparent 33%,rgba(255,196,120,.42) 42%,rgba(255,118,186,.5) 46%,
+    rgba(140,198,255,.52) 50%,rgba(150,255,200,.5) 54%,rgba(255,222,120,.42) 58%,transparent 67%);
+  background-size:260% 100%;background-repeat:no-repeat;mix-blend-mode:overlay;
+  animation:pgenFoil 3.2s linear infinite}
+@keyframes pgenFoil{0%{background-position:180% 0}100%{background-position:-80% 0}}
+#troopList .pcard.pgen-petition.pgen-rk-S{animation:pgenGlowS 2.6s ease-in-out infinite}
+#troopList .pcard.pgen-petition.pgen-rk-SS{animation:pgenGlowG 2.4s ease-in-out infinite}
+#troopList .pcard.pgen-petition.pgen-rk-Z{animation:pgenGlowZ 2.1s ease-in-out infinite}
+@keyframes pgenGlowS{0%,100%{box-shadow:0 0 8px rgba(201,143,232,.4),0 2px 6px rgba(0,0,0,.5)}50%{box-shadow:0 0 20px rgba(201,143,232,.82),0 2px 6px rgba(0,0,0,.5)}}
+@keyframes pgenGlowG{0%,100%{box-shadow:0 0 9px rgba(232,200,116,.45),0 2px 6px rgba(0,0,0,.5)}50%{box-shadow:0 0 24px rgba(255,220,130,.88),0 2px 6px rgba(0,0,0,.5)}}
+@keyframes pgenGlowZ{0%,100%{box-shadow:0 0 12px rgba(255,240,200,.55),0 0 4px rgba(255,255,255,.4),0 2px 6px rgba(0,0,0,.5)}50%{box-shadow:0 0 32px rgba(255,246,220,.98),0 0 12px rgba(255,255,255,.65),0 2px 6px rgba(0,0,0,.5)}}
+/* mythic Z = rainbow holo sweep */
+#troopList .pcard.pgen-petition.pgen-rk-Z::before{
+  background:linear-gradient(115deg,rgba(255,180,220,0) 36%,rgba(255,190,225,.5) 45%,rgba(190,225,255,.58) 50%,rgba(200,255,210,.5) 55%,rgba(255,240,180,0) 64%)!important;
+  background-size:280% 100%!important;background-repeat:no-repeat!important}
+#troopList .pcard.pgen-petition .pgen-spark{position:absolute;z-index:5;pointer-events:none;width:13px;height:13px;opacity:0;
+  background:radial-gradient(circle,#fff 0,rgba(255,246,214,.9) 22%,transparent 62%);
+  animation:pgenSpark 2.1s ease-in-out infinite}
+#troopList .pcard.pgen-petition .pgen-spark::before{content:"";position:absolute;inset:0;
+  background:linear-gradient(0deg,transparent 45%,#fff 50%,transparent 55%),linear-gradient(90deg,transparent 45%,#fff 50%,transparent 55%);opacity:.85}
+@keyframes pgenSpark{0%,100%{opacity:0;transform:scale(.25) rotate(0deg)}50%{opacity:1;transform:scale(1) rotate(45deg)}}
+
 </style>
 </head>
 <body>
@@ -7685,6 +7712,25 @@ window.PGEN_PORTRAITS=["data:image/webp;base64,UklGRvIoAABXRUJQVlA4IOYoAABQsACdA
     var id=btn.getAttribute('data-id');var v=null;try{v=(S.volunteers||[]).find(function(x){return x.id===id;});}catch(e){}
     if(!v||!v.rank)return;var out=sealSVG(v.rank);
     var d=document.createElement('div');d.className='pgen-seal'+(out.high?' pgen-seal-hi':'');d.innerHTML=out.svg;pc.appendChild(d);}
+  function scan(root){var pcs=root.querySelectorAll?root.querySelectorAll('.pcard'):[];for(var i=0;i<pcs.length;i++)apply(pcs[i]);}
+  function boot(){var list=document.getElementById('troopList');
+    if(list){new MutationObserver(function(){scan(list);}).observe(list,{childList:true,subtree:true});scan(list);}}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+<script>
+/* ===== 志願書 レア演出: 高ランクに rank class + 粒子 を付与 (追加DOMのみ・ゲームJS不可侵) ===== */
+(function(){
+  var HIGH={S:1,SS:1,Z:1};
+  var SPOT=[['9%','16%'],['66%','12%'],['26%','74%'],['82%','58%']];
+  function apply(pc){
+    var btn=pc.querySelector('.vol-hire-btn[data-id],.vol-yes-btn[data-id]');if(!btn)return;
+    var id=btn.getAttribute('data-id');var v=null;try{v=(S.volunteers||[]).find(function(x){return x.id===id;});}catch(e){}
+    if(!v||!v.rank)return;var lab=v.rank.label;var rc='pgen-rk-'+lab;
+    if(!pc.classList.contains(rc))pc.classList.add(rc);
+    if(HIGH[lab]){if(!pc.classList.contains('pgen-hi'))pc.classList.add('pgen-hi');
+      if(!pc.querySelector('.pgen-spark')){for(var i=0;i<SPOT.length;i++){var s=document.createElement('i');s.className='pgen-spark';s.style.left=SPOT[i][0];s.style.top=SPOT[i][1];s.style.animationDelay=(i*0.5)+'s';pc.appendChild(s);}}}
+  }
   function scan(root){var pcs=root.querySelectorAll?root.querySelectorAll('.pcard'):[];for(var i=0;i<pcs.length;i++)apply(pcs[i]);}
   function boot(){var list=document.getElementById('troopList');
     if(list){new MutationObserver(function(){scan(list);}).observe(list,{childList:true,subtree:true});scan(list);}}
