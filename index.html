@@ -1016,6 +1016,18 @@ html,body{height:auto!important;min-height:100%!important}
 #troopList .pcard.pgen-petition .ds{color:#5c4426!important;text-shadow:none!important}
 #troopList .pcard.pgen-petition .cbicon{filter:none!important}
 
+
+/* ===== 志願書 蝋封 (推定ランクを封蝋スタンプで表現・高ランクは金装飾) ===== */
+#troopList .pcard.pgen-petition .nm span{display:none!important}
+#troopList .pcard.pgen-petition .nm{padding-right:56px!important}
+#troopList .pcard.pgen-petition > div:first-child{padding-right:56px!important}
+#troopList .pcard.pgen-petition > .ds:first-of-type{padding-right:56px!important}
+#troopList .pcard.pgen-petition .pgen-seal{position:absolute;top:8px;right:10px;width:50px;height:50px;z-index:3;pointer-events:none;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+#troopList .pcard.pgen-petition .pgen-seal svg{width:100%;height:100%;display:block;overflow:visible}
+#troopList .pcard.pgen-petition .pgen-seal.pgen-seal-hi{width:60px;height:60px;top:4px;right:6px;
+  filter:drop-shadow(0 0 6px rgba(232,200,116,.55)) drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+
 </style>
 </head>
 <body>
@@ -7643,6 +7655,39 @@ window.PGEN_PORTRAITS=["data:image/webp;base64,UklGRvIoAABXRUJQVlA4IOYoAABQsACdA
     else if(pc.classList.contains('pgen-petition')){pc.classList.remove('pgen-petition');}}}
   function boot(){var list=document.getElementById('troopList');
     if(list){new MutationObserver(function(){tag(list);}).observe(list,{childList:true,subtree:true});tag(list);}}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+<script>
+/* ===== 志願書 蝋封スタンプ (ランク色の封蝋・追加DOMのみ・ゲームJS不可侵) ===== */
+(function(){
+  var HIGH={S:1,SS:1,Z:1}, seq=0;
+  function shade(hex,f){var n=parseInt(hex.replace('#',''),16);var r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+    r=Math.max(0,Math.min(255,Math.round(r*f)));g=Math.max(0,Math.min(255,Math.round(g*f)));b=Math.max(0,Math.min(255,Math.round(b*f)));
+    return 'rgb('+r+','+g+','+b+')';}
+  function rays(){var s='';for(var i=0;i<12;i++){var a=i*30*Math.PI/180;var x1=50+40*Math.cos(a),y1=50+40*Math.sin(a),x2=50+52*Math.cos(a),y2=50+52*Math.sin(a);
+    s+='<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="#f0d488" stroke-width="3" stroke-linecap="round"/>';}return s;}
+  function sealSVG(rank){var c=rank.color,lab=rank.label,high=!!HIGH[lab];var id=seq++;
+    var light=shade(c,1.4),dark=shade(c,0.55),darker=shade(c,0.42);
+    var svg='<svg viewBox="0 0 100 100">'
+      +'<defs><radialGradient id="wx'+id+'" cx="40%" cy="34%" r="72%"><stop offset="0%" stop-color="'+light+'"/><stop offset="62%" stop-color="'+c+'"/><stop offset="100%" stop-color="'+dark+'"/></radialGradient></defs>'
+      +(high?'<g opacity=".92">'+rays()+'</g>':'')
+      +'<circle cx="50" cy="50" r="41" fill="url(#wx'+id+')" stroke="'+darker+'" stroke-width="1.5"/>'
+      +(high?'<circle cx="50" cy="50" r="41" fill="none" stroke="#e8c874" stroke-width="2.4"/>':'')
+      +'<circle cx="50" cy="50" r="32" fill="none" stroke="'+darker+'" stroke-width="1.5" opacity=".5"/>'
+      +'<ellipse cx="38" cy="31" rx="15" ry="9" fill="#ffffff" opacity=".18"/>'
+      +'<text x="50" y="52" text-anchor="middle" dominant-baseline="central" font-family="Georgia,serif" font-weight="800" font-size="'+(lab.length>1?27:36)+'" fill="'+darker+'" opacity=".92">'+lab+'</text>'
+      +'</svg>';
+    return {svg:svg,high:high};
+  }
+  function apply(pc){if(pc.querySelector('.pgen-seal'))return;
+    var btn=pc.querySelector('.vol-hire-btn[data-id],.vol-yes-btn[data-id]');if(!btn)return;
+    var id=btn.getAttribute('data-id');var v=null;try{v=(S.volunteers||[]).find(function(x){return x.id===id;});}catch(e){}
+    if(!v||!v.rank)return;var out=sealSVG(v.rank);
+    var d=document.createElement('div');d.className='pgen-seal'+(out.high?' pgen-seal-hi':'');d.innerHTML=out.svg;pc.appendChild(d);}
+  function scan(root){var pcs=root.querySelectorAll?root.querySelectorAll('.pcard'):[];for(var i=0;i<pcs.length;i++)apply(pcs[i]);}
+  function boot(){var list=document.getElementById('troopList');
+    if(list){new MutationObserver(function(){scan(list);}).observe(list,{childList:true,subtree:true});scan(list);}}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
 </script>
