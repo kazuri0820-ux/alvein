@@ -1081,6 +1081,23 @@ html,body{height:auto!important;min-height:100%!important}
   background:linear-gradient(180deg,rgba(255,240,190,.9),transparent);animation:pcRay .6s ease-out forwards}
 @keyframes pcRay{0%{opacity:0;transform:translate(-50%,0) scaleY(.1)}30%{opacity:.95}100%{opacity:0;transform:translate(-50%,0) scaleY(1.6)}}
 
+/* ===== 重要イベントのトースト(可読性向上) ===== */
+#toastLayer{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);
+  z-index:9000;display:flex;flex-direction:column;gap:6px;align-items:stretch;pointer-events:none;width:min(92vw,430px)}
+.chron-toast{display:flex;align-items:flex-start;gap:8px;padding:9px 12px;border-radius:9px;
+  font-family:'Shippori Mincho','Zen Old Mincho',serif;font-size:12.5px;line-height:1.5;color:#2a1e10;
+  background:linear-gradient(180deg,#efe0bd,#e3cf9f);border:1px solid rgba(140,110,60,.6);
+  border-left:4px solid #9a7a2f;box-shadow:0 6px 18px rgba(40,26,12,.4),inset 0 1px 0 rgba(255,255,255,.4);
+  opacity:0;transform:translateY(-12px) scale(.98);transition:opacity .35s ease,transform .35s cubic-bezier(.2,.8,.3,1)}
+.chron-toast.show{opacity:1;transform:translateY(0) scale(1)}
+.chron-toast.hide{opacity:0;transform:translateY(-8px) scale(.99)}
+.chron-toast.grave{background:linear-gradient(180deg,#eccdc4,#dcb0a6);border-left-color:#8c3a2e}
+.chron-toast .ct-icon{flex:0 0 auto;width:15px;height:15px;color:#8c3a2e;margin-top:1px}
+.chron-toast .ct-icon svg{width:100%;height:100%;display:block}
+.chron-toast .ct-text{flex:1;min-width:0}
+.chron-toast .ct-text b{color:#8c3a2e}
+@media (prefers-reduced-motion:reduce){.chron-toast{transition:opacity .2s}}
+
 </style>
 </head>
 <body>
@@ -2693,6 +2710,21 @@ function chron(text,cls){
   el.innerHTML=`<span class="eicon">${icon}</span><span class="ed">DAY ${S.day}</span>${text}`;
   $("#chronicle").appendChild(el);
   $("#chronicle").scrollTop=$("#chronicle").scrollHeight;
+  if(cls==="big"||cls==="grave")showChronToast(text,cls,icon); // 重要な出来事は見逃さぬよう、画面上部に少しの間ハイライト表示する
+}
+/* 重要イベントのトースト:big/grave の出来事を画面上部に一定時間そっと掲示し、
+   流れて消える年代記だけでは見落としやすかった「今なにが起きたか」を掴みやすくする(可読性向上)。 */
+function showChronToast(text,cls,icon){
+  let layer=document.getElementById("toastLayer");
+  if(!layer){layer=document.createElement("div");layer.id="toastLayer";document.body.appendChild(layer);}
+  const t=document.createElement("div");
+  t.className="chron-toast "+(cls||"");
+  t.innerHTML=`<span class="ct-icon">${icon||""}</span><span class="ct-text">${text}</span>`;
+  layer.appendChild(t);
+  while(layer.children.length>4)layer.removeChild(layer.firstChild);
+  requestAnimationFrame(()=>t.classList.add("show"));
+  const dur=cls==="grave"?6200:4800;
+  setTimeout(()=>{t.classList.remove("show");t.classList.add("hide");setTimeout(()=>{if(t.parentNode)t.parentNode.removeChild(t);},650);},dur);
 }
 
 /* ---------- 効果適用 ---------- */
