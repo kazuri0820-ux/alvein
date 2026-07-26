@@ -4469,8 +4469,29 @@ function councilHonors(){
     {label:"今は褒賞を見送る",hint:"出費なし(民心わずかに↓)",fx:{mood:-1,log:"論功行賞は今回見送られた。功ある兵は口には出さねど、どこか物足りなげであった。"}},
    ]};
 }
+/* 司法の裁定:民の間に持ち上がった諍いを、長がいかに裁くか。厳格・寛容・仲裁のいずれを選ぶかで
+   治安・民心・外交が少しずつ振れる。統治者としての"裁きの姿勢"に選択の色を与える(国政の彩り)。 */
+const COUNCIL_JUSTICE_CASES=[
+ "市場の商人同士が、境界の露店を巡って激しく争っているという。",
+ "隣り合う二つの村が、共有の井戸の使い方を巡って対立しているという。",
+ "旅の者が村の掟を破ったとして、引き立てられてきたという。",
+ "収穫の分け前を巡り、地主と小作の間で諍いが起きているという。",
+];
+function councilJustice(){
+  const caseText=COUNCIL_JUSTICE_CASES[Math.floor(Math.random()*COUNCIL_JUSTICE_CASES.length)];
+  const opts=[
+   {label:"掟に従い、厳格に裁く",hint:"治安+3 / 民心わずかに↓",fx:{st:{order:3},mood:-1,log:"長は掟に従い、厳格な裁きを下した。秩序は保たれたが、民の間には少しばかり畏れも広がった。"}},
+   {label:"情状を汲み、寛容に裁く",hint:"民心+3 / 治安わずかに↓",fx:{mood:3,st:{order:-1},log:"長は情状を汲み、寛容な裁きを下した。民は長の慈悲を慕ったが、掟の重みは少し緩んだ。"}},
+   {label:"双方を呼び、仲裁で和解させる",hint:"外交+2 民心+1(出費)",fx:{gold:-25,st:{diplomacy:2},mood:1,log:"長は双方を呼び、粘り強い仲裁の末に和解させた。角を立てぬ裁きに、双方が矛を収めた。"}},
+   {label:"重臣に一任する",hint:"様子見",fx:{log:"裁きは重臣に一任された。長は結果だけを聞き届けた。"}},
+  ];
+  return{tag:"司法会議",title:"第"+Math.floor(S.day/7)+"回 定例閣議(裁定)",
+   body:`今週は司法の議題。${caseText}長の裁きが待たれている。`,
+   speaker:"ガレオン「陛下の裁きひとつで、国の在り方が民に伝わりましょう」",
+   choices:opts};
+}
 function councilAction(){
-  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors];
+  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice];
   return types[Math.floor(Math.random()*types.length)]();
 }
 function councilEvent(){return councilPolicy();}
