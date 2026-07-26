@@ -7465,6 +7465,7 @@ const FACILITY_TYPES=[
  {key:"infirmary",name:"療養所",desc:"担当を置くと、その知力・体力に応じて負傷兵の療養が日々早まる(怪我人の回復を支え、戦線復帰を早める)。",cost:130,produce:"heal",statFn:u=>u.wis*0.5+u.int*0.3+u.vit*0.2},
  {key:"chapel",name:"祈祷所",desc:"担当を置くと、その知力・統率に応じて毎日わずかに民心が高まる(民の心の拠り所)。",cost:130,produce:"mood",statFn:u=>u.wis*0.3+u.lead*0.2},
  {key:"forge",name:"鍛冶場",desc:"担当を置くと、その腕力・知力に応じて時おり武具を打ち上げる(武具庫に加わる)。",cost:160,produce:"equip",statFn:u=>u.str*0.4+u.int*0.4+u.vit*0.2},
+ {key:"academy",name:"学舎",desc:"担当を置くと、その知力・知恵に応じて、日々の研鑽の中で時おり新たな技を会得する(戦場に出さずとも兵の芸を磨ける)。",cost:170,produce:"skill",statFn:u=>u.int*0.5+u.wis*0.3+u.lead*0.2},
 ];
 /* 施設の増改築:改築を重ねるほど産出が伸びる(Lv1=等倍→Lv4で2.5倍)。ゴールドの使い道と施設育成のやり込みを追加 */
 function facilityLevelMult(f){return 1+(((f&&f.level)||1)-1)*0.5;}
@@ -7492,10 +7493,13 @@ function facilityDailyProduce(){
         if(eq){addEquipment(eq.key);chron(`鍛冶場で${u.nm}が「${eq.name}」を打ち上げた。武具庫に加えられた。`,"");}
       }
     }
+    else if(ft.produce==="skill"){ // 学舎:担当が日々の研鑽で時おり新たな技を会得する(trySkillUpが上限判定と習得演出を担う)
+      if((u.skills||[]).length<skillCap(u)&&Math.random()<Math.min(0.2,amount*0.028)){trySkillUp(u);}
+    }
     else S.food+=amount;
   }
 }
-const FACILITY_PRODUCE_LABEL={gold:"国庫",food:"食糧",exp:"経験値",heal:"療養支援",mood:"民心",equip:"鍛冶"};
+const FACILITY_PRODUCE_LABEL={gold:"国庫",food:"食糧",exp:"経験値",heal:"療養支援",mood:"民心",equip:"鍛冶",skill:"技の研鑽"};
 let facilityAssignKey=null;
 function renderFacilityAssignSelect(){
   const ft=FACILITY_TYPES.find(f=>f.key===facilityAssignKey);
