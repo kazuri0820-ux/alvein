@@ -7224,6 +7224,10 @@ const EXPEDITION_ROADSIDE=[
  {t:"川辺で見事な大魚を釣り上げ、その夜は久々の馳走にありついた。",fx:(sq)=>{apply({food:ri(8,16)});for(const u of sq)u.fatigue=Math.max(0,(u.fatigue||0)-6);}},
  {t:"廃村の井戸端で、旅の絵師が置いていったという一枚の風景画を見つけた。隊の気晴らしになった。",fx:()=>apply({mood:2})},
  {t:"急な雨に見舞われたが、古い地蔵堂の軒を借りてしのいだ。雨宿りの間、隊はよもやま話に花を咲かせた。",fx:(sq)=>{for(const u of sq)u.moral=Math.min(100,u.moral+2);}},
+ {t:"峠の茶屋で古老から土地の武芸譚を聞き、隊のひとりが目を輝かせて聞き入っていた。",fx:(sq)=>{if(sq&&sq.length){const u=sq[Math.floor(Math.random()*sq.length)];u.exp+=ri(6,12);processLevelUps(u);}}},
+ {t:"行き倒れの旅商人を助け起こすと、礼にと欠けた宝石をひとつ握らせてくれた。",fx:()=>apply({gold:ri(20,40)})},
+ {t:"街道沿いの畑仕事を手伝うと、村人たちが握り飯と笑顔で見送ってくれた。",fx:(sq)=>{apply({food:ri(8,16),mood:1});for(const u of sq)u.moral=Math.min(100,u.moral+1);}},
+ {t:"夜営の見張りに立った兵が、流れ星に願いをかけていた。翌朝、その背はどこか凛としていた。",fx:(sq)=>{if(sq&&sq.length){const u=sq[Math.floor(Math.random()*sq.length)];u.moral=Math.min(100,(u.moral||0)+4);u.loyalty=Math.min(100,(u.loyalty||0)+2);}}},
 ];
 function expeditionRarity(){
   const kRank=STAGES[S.stage].rank;
