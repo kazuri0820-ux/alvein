@@ -5142,6 +5142,13 @@ function dungeonLevelRange(){
   const spread=Math.min(20,6+cleared*1.5); // 序盤は幅も狭く、徐々に広がっていく
   return[Math.max(1,base),Math.min(100,base+spread)];
 }
+/* ボスの個性(一部のダンジョンのボスが持つ特性。踏破報酬や難度に妙味を与え、挑む判断を面白くする) */
+const BOSS_TRAITS={
+  unyielding:{label:"不屈",color:"#d47a7a",desc:"手強いが、討てば実入りが大きい"},
+  greedy:{label:"貪欲",color:"#e8c874",desc:"財宝を溜め込んでいる"},
+  hoarder:{label:"宝物狂い",color:"#8fd0e8",desc:"珍しい装備を必ず持っている"},
+};
+const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
 function generateDungeon(){
   const[lo,hi]=dungeonLevelRange();
   const level=ri(lo,hi);
@@ -5149,10 +5156,13 @@ function generateDungeon(){
   const type=DUNGEON_TYPES[Math.floor(Math.random()*DUNGEON_TYPES.length)];
   const requiredPower=Math.round((20+level*4.0)*rarity.mult); // シビアすぎるとの声を受け、目安戦力の要求値を緩和
   const duration=Math.max(3,Math.round(level/6)+Math.round((rarity.mult-1)*2.2));
+  let bossPower=Math.round(requiredPower*1.3);
+  let bossTrait=null;
+  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="unyielding")bossPower=Math.round(bossPower*1.25);} // 不屈は手強い(=要戦力up)
   return{
     id:Math.random().toString(36).slice(2,9),
     name:dungeonName(),level,rarity,type,requiredPower,duration,
-    bossName:generateBossName(rarity.key),bossPower:Math.round(requiredPower*1.3),
+    bossName:generateBossName(rarity.key),bossPower,bossTrait,
     treasureVault:Math.random()<0.12, // 稀に「財宝の間」を秘める(踏破で追加の宝)
     discoveredDay:S.day,
   };
@@ -5617,6 +5627,11 @@ function resolveDungeonRun(dungeonId){
         const tGold=Math.round(ri(30,60)*dungeon.rarity.mult*levelMult);
         apply({gold:tGold,mood:2});
         chron(`奥には「財宝の間」が隠されていた！${tItem?`「${tItem.name}」と`:""}${tGold}の財貨を持ち帰った。`,"big");
+      }
+      if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
+        if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
+        else if(dungeon.bossTrait==="greedy"){const g=Math.round(ri(45,85)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「貪欲」なボスが溜め込んでいた財貨${g}を回収した。`,"big");}
+        else if(dungeon.bossTrait==="hoarder"){const eq=rollEquipmentDrop(dungeon.rarity.key);if(eq){addEquipment(eq.key);chron(`「宝物狂い」のボスの蒐集品から、「${eq.name}」を手に入れた。`,"big");}}
       }
       if(dungeon.isFinal){
         for(const u of squad)grantTitle(u,"t_demonslayer");
@@ -7384,7 +7399,7 @@ function renderDungeonPanel(){
     const selCombined=squadEffectivePower(selSquad,d.type);
     const estPct=selSquad.length?Math.max(0,Math.min(100,Math.round((selCombined/d.requiredPower*100-105+20)/40*100))):0;
     h+=`<div class="pcard" style="border-color:${d.rarity.color||"var(--gold2)"}">
-      <div class="nm" style="color:${d.rarity.color||"var(--gold)"}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${d.name}</div>
+      <div class="nm" style="color:${d.rarity.color||"var(--gold)"}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${d.bossTrait&&BOSS_TRAITS[d.bossTrait]?`<span style="color:${BOSS_TRAITS[d.bossTrait].color};font-weight:800">【${BOSS_TRAITS[d.bossTrait].label}】</span>`:""}${d.name}</div>
       <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span> ／ `:""}目安戦力:${d.requiredPower} ／ 所要日数:${d.duration}日</div>
       <div class="ds">選択中:${selSquad.length}/5人 ${selSquad.length?`／ この編成での<span style="color:${estPct>=50?"#8fbf6f":"#d9b56a"}">推定成功率 約${estPct}%</span>`:""}${synergy>1.001?` <span style="color:var(--gold)">(連携+${Math.round((synergy-1)*100)}%)</span>`:synergy<0.999?` <span style="color:#d97a7a">(連携乱れ${Math.round((synergy-1)*100)}%)</span>`:""}</div>
     </div>`;
