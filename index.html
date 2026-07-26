@@ -4848,6 +4848,7 @@ const NATIONAL_DOCTRINES=[
  {key:"commerce",name:"商の国",desc:"商を重んじる国是。日々の国庫収入が永続的に増える。"},
  {key:"wisdom",name:"智の国",desc:"知を重んじる国是。ダンジョン・任務の経験値効率が永続的に高まる。"},
  {key:"people",name:"民の国",desc:"民を重んじる国是。民心と兵の忠誠が日々わずかに育つ。"},
+ {key:"inquiry",name:"探究の国",desc:"学びを重んじる国是。兵が昇格の折に新たな技を会得しやすくなる。"},
 ];
 function doctrineIs(k){return !!(S.flags&&S.flags.doctrine===k);}
 function doctrineName(){const d=NATIONAL_DOCTRINES.find(x=>x.key===(S.flags&&S.flags.doctrine));return d?d.name:null;}
@@ -8832,7 +8833,7 @@ function processLevelUps(u,silent){
           const routes=JOB_ROUTES[u.cls]||[];
           if(routes.length)u.route=routes[Math.floor(Math.random()*routes.length)].key;
         }
-        if(newJob.key!=="hero"&&newJob.key!=="captain"&&Math.random()<(tr.skillUpChance||0.7)){
+        if(newJob.key!=="hero"&&newJob.key!=="captain"&&Math.random()<Math.min(0.98,(tr.skillUpChance||0.7)+(doctrineIs("inquiry")?0.15:0))){
           const tierIndex=JOB_TREES[u.cls].chain.findIndex(c=>c.key===newJob.key)+1;
           trySkillUpOnPromotion(u,tierIndex);
         }
@@ -8849,7 +8850,7 @@ function processLevelUps(u,silent){
       else if(newJob.key==="elite"&&!u.route){if(u.age<20)grantTitle(u,"t_youngelite");pushEvent("routebranch_"+u.id);}
       else{
         chron(`${u.nm}が${newJob.name}に昇進した。`,"big");
-        if(Math.random()<(tr.skillUpChance||0.7)){
+        if(Math.random()<Math.min(0.98,(tr.skillUpChance||0.7)+(doctrineIs("inquiry")?0.15:0))){
           const tierIndex=JOB_TREES[u.cls].chain.findIndex(c=>c.key===newJob.key)+1;
           const learned=trySkillUpOnPromotion(u,tierIndex);
           if(learned&&(learned.tier==="gold"||learned.tier==="silver"))chron(`${u.nm}が「${learned.name}」(${SKILL_TIER_LABEL[learned.tier]})を身につけた。`,"big");
