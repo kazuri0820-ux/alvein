@@ -2131,6 +2131,7 @@ const TITLE_DB=[
  {key:"t_dreamer",name:"夢を叶えし者",desc:"かねて抱いた夢を、その手で成し遂げた",effect:"moralGrow",value:0.12},
  {key:"t_dungeonveteran",name:"迷宮の古強者",desc:"数多の迷宮を踏破し、暗がりを知り尽くしている",effect:"expMult",value:1.05},
  {key:"t_fullset",name:"揃いの武具の使い手",desc:"格の揃った武具一式を、隙なく身につけている",effect:"injuryMult",value:0.92},
+ {key:"t_grandset",name:"至宝の一式",desc:"エピック級以上の武具を隙なく揃えた、装備の極みに至った者",effect:"injuryMult",value:0.86},
  {key:"t_prideofrealm",name:"王国の誇り",desc:"士気も忠誠も、常に高く保ち続けている",effect:"loyaltyGrow",value:0.15},
  {key:"t_duelvictor",name:"決闘の覇者",desc:"諸国の武芸者との果たし合いを、真っ向から制した",effect:"expMult",value:1.05},
  {key:"t_warchiefslayer",name:"覇者殺し",desc:"圧倒的な強者「覇者」を討ち取った",effect:"injuryMult",value:0.9},
@@ -2616,7 +2617,7 @@ function checkDailyTitles(u){
   if((u.dungeonClearCount||0)>=15)grantTitle(u,"t_dungeonmaster"); // 迷宮の覇者:同じ兵で踏破を重ねる投資に、より高い到達点を用意
   if(u.lv>=30)grantTitle(u,"t_grandveteran"); // 練達:レベルの積み重ね=長期育成の到達点を讃える
   if(u.lv>=45)grantTitle(u,"t_peerless"); // 一代の英傑:さらなる高みへの深い育成に報いる
-  if(typeof equipSetTier==="function"&&equipSetTier(u))grantTitle(u,"t_fullset");
+  if(typeof equipSetTier==="function"){const _st=equipSetTier(u);if(_st)grantTitle(u,"t_fullset");if(_st==="epic"||_st==="legendary")grantTitle(u,"t_grandset");} // 至宝の一式:エピック級以上の揃いは装備収集の頂として別格に讃える
   if((u.skills||[]).length>=5)grantTitle(u,"t_skillful"); // 多芸:集めた技の数を讃える
   if((u.skills||[]).length>=9)grantTitle(u,"t_polymath");
   if(u.loyalty>=90&&u.moral>=90)grantTitle(u,"t_prideofrealm");
