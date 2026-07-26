@@ -1979,6 +1979,7 @@ const TITLE_DB=[
  {key:"t_epicborn",name:"稀代の逸材",desc:"エピック級の特性を持って生まれた",effect:"expMult",value:1.07},
  {key:"t_legendborn",name:"伝説そのもの",desc:"レジェンド級の特性を持って生まれた",effect:"expMult",value:1.12},
  {key:"t_pillar",name:"王国の柱石",desc:"覚醒・英雄・固有のうち複数を成し遂げた",effect:"loyaltyGrow",value:0.2},
+ {key:"t_veteran",name:"古豪",desc:"長きにわたり隊を支え続けた古参",effect:"loyaltyGrow",value:0.15},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 function grantTitle(u,key){
@@ -4404,6 +4405,18 @@ const UNIQUE_EVENTS=[
     {label:"大規模な投資に回す",hint:"経済+6 / 国庫の半分を投入",fx:{call:()=>{const spend=Math.round(S.gold*0.5);S.gold-=spend;S.st.economy+=6*statDiminish(S.st.economy);chron(`国庫から${spend}が大規模投資に回された。ネロは「これでこそ」と満足げだった。`,"big");},flag:{uq_richTreasury:true}}},
     {label:"備蓄として蔵に眠らせておく",hint:"民心+2 / 手堅く温存",fx:{mood:2,flag:{uq_richTreasury:true},log:"蓄えはそのまま蔵に眠ることになった。もしもの時への備えである。"}},
    ]})},
+ {key:"veteranPride",
+  cond:()=>!S.flags.uq_veteranPride&&S.units.some(u=>u.role==="active"&&(S.day-(u.joinDay||S.day))>=300),
+  build:()=>{
+   const v=S.units.filter(u=>u.role==="active"&&(S.day-(u.joinDay||S.day))>=300).sort((a,b)=>(a.joinDay||0)-(b.joinDay||0))[0];
+   return{tag:"固 有",title:`${v.nm}、変わらぬ背中`,
+    body:`${v.nm}が、この地に来てから長い月日が経った。若い兵が幾度も入れ替わる中、その背中はずっと隊の支えであり続けている。長として、この古参にどう報いるか。`,
+    speaker:`ガレオン「ああいう者が一人いるだけで、隊は締まるものです」`,
+    choices:[
+     {label:"武功を称え、称号を贈る",hint:`${v.nm}の忠誠+ / 称号「古豪」`,fx:{flag:{uq_veteranPride:true},call:()=>{v.loyalty=Math.min(100,v.loyalty+18);grantTitle(v,"t_veteran");unitHistory(v,"長きにわたる勤めを称えられ、古参としての誇りを新たにした。");chron(`${v.nm}の長年の勤めが称えられた。古参の誇りが、静かに隊全体へ伝わっていく。`,"big");}}},
+     {label:"若手の手本として語らせる",hint:"新兵の士気+",fx:{flag:{uq_veteranPride:true},call:()=>{const rookies=S.units.filter(u=>u.role==="active"&&(S.day-(u.joinDay||S.day))<60);for(const u of rookies)u.moral=Math.min(100,u.moral+10);chron(`${v.nm}が若い兵たちに、これまでの歩みを語って聞かせた。新兵の目に、憧れの色が宿った。`,"big");}}},
+    ]};
+  }},
  {key:"allClasses",
   cond:()=>{const set=new Set(S.units.map(u=>u.cls));return set.size>=4&&!S.flags.uq_allClasses;},
   build:()=>({tag:"固 有",title:"四つの道、揃う",
