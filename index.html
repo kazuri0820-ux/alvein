@@ -5206,6 +5206,22 @@ const ITEMS=[
  {key:"war_horn",name:"古の戦角",rarity:"rare",desc:"軍事が大きく上がる。",effect:()=>apply({st:{military:8},log:"古の戦角の音が谷に響き渡った。"})},
  {key:"star_chart",name:"星読みの図",rarity:"rare",desc:"魔導が大きく上がる。",effect:()=>apply({st:{magic:8},log:"星々の配置から、新たな真理が読み解かれた。"})},
  {key:"envoy_ring",name:"使節の指輪",rarity:"rare",desc:"外交が大きく上がる。",effect:()=>apply({st:{diplomacy:8},log:"使節の指輪を示すと、相手方の態度が目に見えて変わった。"})},
+ {key:"oath_cup",name:"契りの杯",rarity:"rare",desc:"選んだ兵が、最も気の合う仲間と戦友の契りを結ぶ。",needsTarget:true,effect:(targetId)=>{
+   const a=findAnyUnit(targetId);if(!a)return;
+   if(a.role!=="active"){chron(`${a.nm}は今、契りを交わせる立場にない。`,"");return;}
+   if(a.bondWith){chron(`${a.nm}には既に戦友がいる。杯は静かに置かれた。`,"");return;}
+   const cands=S.units.filter(u=>u.id!==a.id&&!u.bondWith&&u.role==="active");
+   if(!cands.length){chron(`${a.nm}と契りを結べる相手が、今はいなかった。`,"");return;}
+   // 同職・同時期入団ほど気が合う(絆形成と同じ親近感の重み付け)
+   const scored=cands.map(u=>{let w=1;if(u.cls===a.cls)w+=2.5;const dj=Math.abs((u.joinDay||0)-(a.joinDay||0));if(dj<=10)w+=2;else if(dj<=30)w+=1;return{u,w};});
+   let total=scored.reduce((s,x)=>s+x.w,0),r=Math.random()*total,b=scored[scored.length-1].u;
+   for(const x of scored){r-=x.w;if(r<=0){b=x.u;break;}}
+   a.bondWith=b.id;b.bondWith=a.id;
+   a.moral=Math.min(100,a.moral+8);b.moral=Math.min(100,b.moral+8);
+   grantTitle(a,"t_bonded");grantTitle(b,"t_bonded");
+   unitHistory(a,`契りの杯を交わし、${b.nm}と戦友となった。`);unitHistory(b,`契りの杯を交わし、${a.nm}と戦友となった。`);
+   chron(`${a.nm}と${b.nm}が契りの杯を交わし、戦友となった。末永く背中を預け合うだろう。`,"big");
+ }},
  // ── エピック ──
  {key:"dragon_scale",name:"竜の逆鱗",rarity:"epic",desc:"全兵士のステータスが上昇する。",effect:()=>{for(const u of S.units){const b=ri(1,3);for(const k of["str","vit","int","agi","wis","lead"])u[k]+=b;}chron("竜の逆鱗の力が、全軍に行き渡った。伝説はまことだったようだ。","big");}},
  {key:"reborn_elixir",name:"転生者の秘薬",rarity:"epic",desc:"レジェンド級の逸材(転生者)が一人、必ず加わる。",effect:()=>{if(S.units.length>=unitCap()){chron("兵舎が満員のため、秘薬は使えなかった。","");return;}const u=makeUnit();u.trait="reborn";u.traitTier="legend";const tr=traitInfo("reborn");u.str+=tr.str||0;u.vit+=tr.vit||0;u.int+=tr.int||0;u.pw=tr.pw||0;u.gm=tr.gm||1;S.units.push(u);chron(`――転生者の秘薬が輝き、${u.nm} ${u.surname}という名の者が姿を現した。ただ者ではない気配がする。`,"big");}},
