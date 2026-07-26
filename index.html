@@ -3331,22 +3331,38 @@ const RANDOM_CHOICE_EXTRA=[
 function buildMerchantVisitEvent(){
   const visits=(S.flags.merchantVisits||0)+1;
   S.flags.merchantVisits=visits;
+  // 稀に掘り出し物を仕入れている(「今回は何を売っているか」の楽しみ＋金の使い道)
+  let wareChoice=null;
+  if(Math.random()<0.45){
+    const pool=ITEMS.filter(i=>i.rarity==="uncommon"||i.rarity==="rare");
+    if(pool.length){
+      const ware=pool[Math.floor(Math.random()*pool.length)];
+      const price=ware.rarity==="rare"?ri(90,170):ri(40,75);
+      wareChoice={label:`掘り出し物「${ware.name}」を買い取る(${price}G)`,hint:ware.desc||"珍しい品",fx:{call:()=>{
+        if(S.gold>=price){S.gold-=price;addItem(ware.key);chron(`行商人から掘り出し物「${ware.name}」を買い取った。`,"big");}
+        else{chron(`「${ware.name}」に心惹かれたが、国庫が足りず見送った。`,"");}
+      }}};
+    }
+  }
+  let ev;
   if(visits===1){
-    return{tag:"来 訪",title:"見知らぬ行商人",
+    ev={tag:"来 訪",title:"見知らぬ行商人",
      body:"一人の行商人が、初めてこの国を訪れた。品揃えはまだ慎ましいが、人当たりの良い男だ。",
      choices:[{label:"品を見る",hint:"経済↑(小)",fx:{gold:-15,st:{economy:1},log:"いくつかの品を買い付けた。悪くない品揃えだった。"}},
               {label:"素通りする",fx:{log:"行商人には特に用がなく、素通りした。"}}]};
   }else if(visits<5){
-    return{tag:"来 訪",title:"顔なじみの行商人",
+    ev={tag:"来 訪",title:"顔なじみの行商人",
      body:`あの行商人が、また訪れた。${visits}度目の来訪になる。少しずつ品揃えが豊かになってきているようだ。`,
      choices:[{label:"贔屓にする",hint:"経済↑",fx:{gold:-25,st:{economy:2},log:"行商人との付き合いも板についてきた。"}},
               {label:"軽く挨拶だけする",fx:{mood:1,log:"軽い世間話だけして別れた。"}}]};
   }else{
-    return{tag:"来 訪",title:"大商会を築いた行商人",
+    ev={tag:"来 訪",title:"大商会を築いた行商人",
      body:`かつての行商人は、今や立派な商会を築き上げていた。${visits}度目の来訪、その眼差しにはかつての面影と共に、確かな貫禄が宿っている。`,
      choices:[{label:"特別な取引を持ちかける",hint:"経済↑↑ 外交↑",fx:{gold:-60,st:{economy:5,diplomacy:2},log:"かつての行商人との縁が、大きな実を結んだ。「あの頃からのお付き合いですから」と、彼は笑った。",logCls:"big"}},
               {label:"変わらぬ様子に安堵する",hint:"民心↑",fx:{mood:3,log:"変わらぬ人柄に、思わず頬が緩んだ。"}}]};
   }
+  if(wareChoice)ev.choices.splice(ev.choices.length-1,0,wareChoice); // 「素通り/挨拶」の前に掘り出し物を差し込む
+  return ev;
 }
 
 const RANDOM_CHOICE=[
