@@ -1549,6 +1549,7 @@ const SKILL_DB=[
  {key:"nsk_latebloom",name:"大器の風格",tier:"gold",desc:"歳を重ねてなお、伸び続ける稀有な器",trainMult:1.25,onlyNotYoung:true,wis:8},
  {key:"nsk_ironsoul",name:"不滅の闘魂",tier:"gold",desc:"死地でこそ燃える、決して折れぬ魂",deathMult:0.55,vit:12,lead:8},
  {key:"nsk_mentor",name:"名伯楽",tier:"gold",desc:"人を見抜き、才を伸ばす天与の指導力",instructorMult:1.4,wis:8},
+ {key:"nsk_evasion",name:"見切りの達人",tier:"gold",desc:"あらゆる攻撃を紙一重で見切り、めったに傷を負わない",injuryMult:0.65,agi:8},
  // 銀(レア・強力)
  {key:"mousho", name:"猛将",     tier:"silver",desc:"前に出れば出るほど輝く性分",str:10,vit:6},
  {key:"maryoku",name:"魔力循環", tier:"silver",cls:"mage",desc:"魔力の巡りが良く、伸びしろが大きい",trainMult:1.2},
@@ -2495,7 +2496,7 @@ const INJURY_TIERS={
 function inflictInjury(u,weights){
   let w=weights||[0.6,0.3,0.1]; // 軽傷/重傷/重体
   const teff=titleEffectsFor(u);
-  const effInjuryMult=teff.injuryMult*(RACE_INJURY_MULT[u.race]||1)*(u.seasonedShown?0.92:1); // 称号＋種族＋円熟の余裕(老練の危険回避)を合成
+  const effInjuryMult=teff.injuryMult*(skillEffects(u).injuryMult||1)*(RACE_INJURY_MULT[u.race]||1)*(u.seasonedShown?0.92:1); // 称号＋スキル(見切り等)＋種族＋円熟の余裕(老練の危険回避)を合成
   if(effInjuryMult<1){
     // 怪我率軽減効果:重傷・重体の比率を減らし、軽傷側に寄せる
     const shift=Math.min(0.5,(1-effInjuryMult))*(w[1]+w[2]);
@@ -7364,6 +7365,7 @@ function skillEffectText(s){
     parts.push(`訓練効率×${s.trainMult}${cond}`);
   }
   if(s.instructorMult&&s.instructorMult!==1)parts.push(`教官時の指導効果×${s.instructorMult}`);
+  if(s.injuryMult&&s.injuryMult!==1)parts.push(`負傷率×${s.injuryMult}`);
   if(s.onlyCaptain)parts.push("(団長のみ有効)");
   if(s.condFlag==="dragonPact")parts.push(`竜盟約締結中はさらに体力+${s.condVit}・腕力+${s.condStr}`);
   return parts.length?parts.join(" / "):"目立った効果はない";
