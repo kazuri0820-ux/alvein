@@ -2545,7 +2545,7 @@ const INJURY_TIERS={
 function inflictInjury(u,weights){
   let w=weights||[0.6,0.3,0.1]; // 軽傷/重傷/重体
   const teff=titleEffectsFor(u);
-  const effInjuryMult=teff.injuryMult*(skillEffects(u).injuryMult||1)*(RACE_INJURY_MULT[u.race]||1)*(u.seasonedShown?0.92:1); // 称号＋スキル(見切り等)＋種族＋円熟の余裕(老練の危険回避)を合成
+  const effInjuryMult=teff.injuryMult*(skillEffects(u).injuryMult||1)*(RACE_INJURY_MULT[u.race]||1)*(u.seasonedShown?0.92:1)*((typeof doctrineIs==="function"&&doctrineIs("fortress"))?0.9:1); // 称号＋スキル(見切り等)＋種族＋円熟の余裕＋「鉄壁の国」の国是を合成
   if(effInjuryMult<1){
     // 怪我率軽減効果:重傷・重体の比率を減らし、軽傷側に寄せる
     const shift=Math.min(0.5,(1-effInjuryMult))*(w[1]+w[2]);
@@ -4894,6 +4894,7 @@ const NATIONAL_DOCTRINES=[
  {key:"wisdom",name:"智の国",desc:"知を重んじる国是。ダンジョン・任務の経験値効率が永続的に高まる。"},
  {key:"people",name:"民の国",desc:"民を重んじる国是。民心と兵の忠誠が日々わずかに育つ。"},
  {key:"inquiry",name:"探究の国",desc:"学びを重んじる国是。兵が昇格の折に新たな技を会得しやすくなる。"},
+ {key:"fortress",name:"鉄壁の国",desc:"守りを重んじる国是。兵が傷を負いにくくなり、脱落が永続的に減る。"},
 ];
 function doctrineIs(k){return !!(S.flags&&S.flags.doctrine===k);}
 function doctrineName(){const d=NATIONAL_DOCTRINES.find(x=>x.key===(S.flags&&S.flags.doctrine));return d?d.name:null;}
