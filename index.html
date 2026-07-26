@@ -7083,6 +7083,7 @@ const EXPEDITION_THEMES=[
  {name:"妖精の隠れ里",flavor:"霧の晴れ間にだけ現れるという、妖精の隠れ里への道が見つかったという。",statFn:u=>u.wis*0.4+u.agi*0.35+u.int*0.25,bonus:()=>{apply({st:{magic:1},mood:2});const it=rollItemDrop("rare");if(it){addItem(it.key);chron(`妖精たちが礼にと「${it.name}」を授けてくれた。里の空気に触れ、皆の心も晴れやかだ。`,"")}}},
  {name:"辺境の開拓村",flavor:"王国の辺境で、痩せた土地にしがみつく小さな開拓村が助けを求めているという。手を差し伸べれば、王国の版図はまた少し広がる。",statFn:u=>u.lead*0.4+u.wis*0.35+u.vit*0.25,bonus:()=>{apply({st:{agriculture:2,diplomacy:1},mood:2});chron("開拓村は隊の助けを得て息を吹き返し、新たな畑と、王国への深い恩義が根を張った(農業+2 外交+1)。","");}},
  {name:"囚われの傭兵団",flavor:"名うての傭兵団が、街道筋の砦に囚われているという噂がある。助け出せれば、腕利きが恩義に報いてくれるかもしれない。",statFn:u=>u.str*0.4+u.agi*0.3+u.lead*0.3,bonus:()=>{const g=ri(30,60);apply({gold:g});chron(`砦に囚われていた傭兵団を解き放った。彼らが隠していた財貨${g}も回収した。`,"");itemRecruitUnit("B","囚われの身を救われた恩義から、アルヴェインに剣を捧げることにした傭兵。");}},
+ {name:"古の修練場跡",flavor:"山深くに、名だたる武人たちが腕を磨いたという古い修練場の跡が見つかった。今もなお、研ぎ澄まされた気配が色濃く残っているらしい。",statFn:u=>u.str*0.35+u.agi*0.3+u.wis*0.35,bonus:(sq)=>{const cands=(sq||[]).filter(u=>u&&(u.skills||[]).length<skillCap(u));const learner=cands.length?cands[Math.floor(Math.random()*cands.length)]:null;const learned=learner?trySkillUp(learner):null;if(learned)chron(`古の修練場跡に残る型を体で会得し、${learner.nm}が新たに「${learned.name}」を身につけた。`,"big");else apply({st:{military:2},mood:1});}},
 ];
 /* 遠征の道中の小さな出来事(彩りと、ささやかな驚き) */
 const EXPEDITION_ROADSIDE=[
