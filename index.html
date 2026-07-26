@@ -8053,7 +8053,7 @@ function renderUnitDetail(uid){
   let h=`<div class="udet-head">
     <div class="udet-portrait ${portraitCls}">${classpicHtml(u)}</div>
     <div>
-      <div class="udet-name">${u.captain?'<span class="star">★</span> ':""}${u.nm}${u.surname?" "+u.surname:""}${isInstructor?"(教官)":""}${!isInstructor?`<span id="btnFavHeader" title="お気に入り" style="cursor:pointer;margin-left:6px;color:${u.favorite?"var(--gold)":"var(--dim)"}">${u.favorite?"★":"☆"}</span>`:""}</div>
+      <div class="udet-name">${u.captain?'<span class="star">★</span> ':""}${u.nm}${u.surname?" "+u.surname:""}${isInstructor?"(教官)":""}${!isInstructor?`<span id="btnFavHeader" title="お気に入り(長の期待に応え、訓練の伸びが少し上がる)" style="cursor:pointer;margin-left:6px;color:${u.favorite?"var(--gold)":"var(--dim)"}">${u.favorite?"★":"☆"}</span>`:""}</div>
       ${nicknameSpan(u)}
       <div class="udet-job">${JOB_TREES[u.cls].label}・${displayJobName(u)}${u.awakened?"":" Lv."+u.lv}</div>
       ${!isInstructor&&!u.awakened?`<div class="uexp" style="margin-top:5px;max-width:180px" title="次のレベルまでの経験値"><i style="width:${Math.min(100,u.exp/expNeed*100)}%"></i></div><div style="font-size:10px;color:var(--dim);margin-top:2px">経験値 ${Math.round(u.exp)} / ${Math.round(expNeed)}</div>`:""}
@@ -8900,6 +8900,7 @@ function resolveTraining(pickUnit,grade,costPaid){
     if(u.trait==="quick")gain*=1.15;
     if(u.trait==="clumsy")gain*=0.65;
     if(u.trait==="lucky"&&Math.random()<0.25)gain*=2;
+    if(u.favorite)gain*=1.08; // 長が目をかける兵は、その期待に応えるように少し伸びる(お気に入りの育成効果=愛着が成長に還元される)
     const greatChance=(isPick?0.05:0.01)*(g.key==="special"?1.5:1);
     let great=false, learnedSkill=null, inheritedFrom=null;
     if(Math.random()<greatChance){
