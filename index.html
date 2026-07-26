@@ -2115,6 +2115,7 @@ const TITLE_DB=[
  {key:"t_warchiefslayer",name:"覇者殺し",desc:"圧倒的な強者「覇者」を討ち取った",effect:"injuryMult",value:0.9},
  {key:"t_skillful",name:"多芸の兵",desc:"数多の技を身につけ、あらゆる戦場に応じてみせる",effect:"expMult",value:1.04},
  {key:"t_polymath",name:"百芸の達人",desc:"ありとあらゆる技を極めた、まさに歩く武芸の宝庫",effect:"expMult",value:1.08},
+ {key:"t_legendsquad",name:"伝説の小隊の一員",desc:"幾多の出撃を共にし、伝説と讃えられた小隊の一員",effect:"loyaltyGrow",value:0.12},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -6340,7 +6341,7 @@ function recordSquadSortie(squad){
     matched.sortieCount=(matched.sortieCount||0)+1;
     const c=matched.sortieCount; // 出撃を重ねた小隊は"歴戦→精鋭→伝説"と讃えられる(小隊育成の到達目標)
     const tiers=[[50,"伝説の小隊"],[25,"精鋭小隊"],[10,"歴戦の小隊"]];
-    for(const t of tiers){ if(c===t[0]){ matched.honor=t[1]; chron(`${matched.name}が${t[0]}度目の出撃を果たし、「${t[1]}」と讃えられるようになった。`,"big"); break; } }
+    for(const t of tiers){ if(c===t[0]){ matched.honor=t[1]; chron(`${matched.name}が${t[0]}度目の出撃を果たし、「${t[1]}」と讃えられるようになった。`,"big"); if(t[1]==="伝説の小隊")for(const u of squad)grantTitle(u,"t_legendsquad"); break; } }
     // 同じ顔ぶれで出撃を重ねるほど、隊員同士に戦友の絆が芽生えていく(固定編成を続けるご褒美)
     if(c>=4&&Math.random()<0.16)forgeSquadBond(squad,matched.name);
   }
