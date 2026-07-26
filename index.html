@@ -2362,7 +2362,7 @@ const INJURY_TIERS={
 function inflictInjury(u,weights){
   let w=weights||[0.6,0.3,0.1]; // 軽傷/重傷/重体
   const teff=titleEffectsFor(u);
-  const effInjuryMult=teff.injuryMult*(RACE_INJURY_MULT[u.race]||1); // 称号＋種族の危険回避を合成
+  const effInjuryMult=teff.injuryMult*(RACE_INJURY_MULT[u.race]||1)*(u.seasonedShown?0.92:1); // 称号＋種族＋円熟の余裕(老練の危険回避)を合成
   if(effInjuryMult<1){
     // 怪我率軽減効果:重傷・重体の比率を減らし、軽傷側に寄せる
     const shift=Math.min(0.5,(1-effInjuryMult))*(w[1]+w[2]);
@@ -2469,6 +2469,19 @@ function checkAging(){
     if((stage.key==="old"||stage.key==="venerable")&&u.retiredAskedStage!==stage.key){
       u.retiredAskedStage=stage.key;
       pushEvent("retire_"+u.id);
+    }
+    // 円熟の境地:武勲ある兵が現役のまま老境に入ると、衰えと引き換えに円熟の落ち着きを得る。
+    // 加齢を"退場圧力"だけにせず、老兵を抱え続ける価値=情と実利を与える(年齢の物語に光を添える)。
+    if((stage.key==="old"||stage.key==="venerable")&&!u.seasonedShown){
+      const distinguished=((u.titles||[]).length>=2)||u.lv>=18||u.wasCaptain;
+      if(distinguished){
+        u.seasonedShown=true;
+        u.moral=Math.min(100,u.moral+10);u.loyalty=Math.min(100,u.loyalty+10);
+        const young=S.units.filter(x=>x.id!==u.id&&x.role==="active"&&(S.day-(x.joinDay||S.day))<120);
+        for(const y of young)y.moral=Math.min(100,y.moral+4);
+        unitHistory(u,"老境に入り、衰えと引き換えに円熟の落ち着きを身につけた。");
+        chron(`${u.nm}は老境に入り、かえって円熟の境地に達した。その泰然とした佇まいが、隊の若い兵たちに静かな安心をもたらしている。`,"big");
+      }
     }
     if(stage.key==="venerable"&&Math.random()<0.004*(u.age-stage.cap+15>0?2:1)*eff.deathMult){
       chron(`――${u.nm}が、天寿を全うして静かに息を引き取った。長きにわたる働きに、村中が頭を垂れた。`,"grave");
