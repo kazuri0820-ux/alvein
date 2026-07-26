@@ -6128,9 +6128,30 @@ function resolveExpedition(riskKey,rewardMult){
     }
     apply({mood:-5,gold:-Math.round(ri(10,30))});
   }
+  // 遠征の連戦記録:成功を重ねるほど武名が高まり、途切れると士気に影を落とす
+  if(tier==="great"||tier==="success"){
+    S.missionStreak=(S.missionStreak||0)+1;
+    if(S.missionStreak>(S.missionStreakBest||0))S.missionStreakBest=S.missionStreak;
+    checkMissionStreak(S.missionStreak);
+  }else{
+    const broken=S.missionStreak||0;
+    if(broken>=3)chron(`${broken}連勝で沸いていた遠征部隊が、ついに手痛い一撃を受けた。連戦の記録はここで途切れた。`,"grave");
+    S.missionStreak=0;
+  }
   clamp();render();renderTroops();refreshOpenPanels();save();
   showExpeditionResult(theme,rarity,tier,leader,log,goldGain,died,uniqueLearned,diedWasHallWorthy,itemGained,dungeonFound);
   expeditionState=null;
+}
+/* 遠征の連戦マイルストーン:一定の連勝ごとに国威が高まり、国中が武名に沸く。
+   個々のミッション報酬とは別に「連勝を守り抜く」緊張と誇りを生む(遠征の手応え)。 */
+function checkMissionStreak(n){
+  const milestones={3:3,5:5,8:7,12:9};
+  let mood=milestones[n];
+  if(!mood&&n>12&&(n-12)%5===0)mood=9;
+  if(!mood)return;
+  apply({mood});
+  for(const u of S.units)u.moral=Math.min(100,u.moral+2);
+  chron(`遠征部隊が${n}連勝を成し遂げた。連戦連勝の武名が国中に轟き、民も兵も誇りに沸いている。`,"big");
 }
 function showExpeditionResult(theme,rarity,tier,leader,log,goldGain,died,uniqueLearned,diedWasHallWorthy,itemGained,dungeonFound){
   const tierLabel={great:"大成功",success:"成功",fail:"失敗",critical:"大失敗"}[tier];
@@ -6139,6 +6160,7 @@ function showExpeditionResult(theme,rarity,tier,leader,log,goldGain,died,uniqueL
     <div class="rplabel">${rarity.label?`【${rarity.label}】`:""}${theme.name}</div>
     <div class="rpsummary" style="color:${tierColor};font-size:20px;font-weight:800;font-family:'Shippori Mincho',serif">${tierLabel}</div>
     ${goldGain?`<div style="font-size:13px;color:var(--gold);margin-top:4px">獲得:${goldGain}G</div>`:""}
+    ${(tier==="great"||tier==="success")&&(S.missionStreak||0)>=2?`<div style="font-size:12px;color:#e8c874;margin-top:3px">🔥 ${S.missionStreak}連勝中${S.missionStreak>=(S.missionStreakBest||0)&&S.missionStreak>=3?"(最高記録更新!)":""}</div>`:""}
   </div>`;
   if(uniqueLearned)h+=`<div class="pcard" style="border-color:var(--gold);box-shadow:0 0 10px rgba(201,162,75,.3)"><div class="nm">◆固有スキル習得</div><div class="ds">${leader.nm} ${leader.surname||""}が「${uniqueLearned.name}」を会得した。歴史に残る瞬間だ。</div></div>`;
   if(itemGained){const c=RARITY_COLOR[itemGained.rarity];h+=`<div class="pcard" style="border-color:${c}"><div class="nm" style="color:${c}">◆アイテム入手:${itemGained.name}</div><div class="ds">${itemGained.desc}</div></div>`;}
