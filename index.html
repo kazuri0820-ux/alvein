@@ -4805,12 +4805,18 @@ function volunteerRankIndex(u){
 function volunteerRankLabel(u){
   return VOL_RANKS[volunteerRankIndex(u)];
 }
+/* 地味な志願書ほど「掘り出し物(隠れた逸材)」が眠りやすい＝安いカードもめくる価値がある。
+   高ランクは元から強いので低め。志願書ガチャの"堀り"としてのやり込みを増す。 */
+function hiddenPotentialChance(rankLabel){
+  const t={F:0.075,E:0.07,D:0.06,C:0.04,B:0.035,A:0.025,S:0.02,SS:0.018,Z:0.015};
+  return t[rankLabel]!=null?t[rankLabel]:0.03;
+}
 function makeVolunteer(){
   const rank=pickVolunteerRank();
   const u=makeRecruitCandidate();
   fitUnitToRank(u,rank.label);
   const cost=Math.round(recruitCost(u)*rank.costMult);
-  const hiddenPotential=Math.random()<0.03; // 3%でこの一言が付く
+  const hiddenPotential=Math.random()<hiddenPotentialChance(rank.label);
   const comment=recruitAtmosphere(u);
   return{id:u.id,unit:u,postedDay:S.day,cost,rank,hiddenPotential,comment};
 }
@@ -4842,9 +4848,10 @@ function checkWeeklyVolunteers(){
 function rollHiddenPotential(u){
   const r=Math.random();
   let bonus;
-  if(r<0.05)bonus=10;
-  else if(r<0.25)bonus=5;
-  else if(r<0.75)bonus=1;
+  if(r<0.015)bonus=15;      // 大当たり(大掘り出し物)
+  else if(r<0.07)bonus=10;
+  else if(r<0.27)bonus=5;
+  else if(r<0.77)bonus=1;
   else bonus=0;
   if(bonus>0)for(const k of["str","vit","int","agi","wis","lead"])u[k]+=bonus;
   if(bonus>=10)grantTitle(u,"t_starchosen");
@@ -4894,8 +4901,8 @@ function showVolunteerHireResult(u,potentialBonus){
   let h=`<div class="resultplate"><div class="rplabel">採用完了</div><div class="rpsummary">${u.nm} ${u.surname}が仲間になった</div></div>`;
   if(potentialBonus!==null&&potentialBonus!==undefined){
     const good=potentialBonus>0;
-    h+=`<div class="pcard" style="border-color:${good?"var(--gold)":"rgba(154,122,47,.3)"};${potentialBonus>=10?"box-shadow:0 0 14px rgba(201,162,75,.5)":""}">
-      <div class="nm" style="color:${good?"var(--gold)":"var(--dim)"}">${good?"◆期待株、開花":"期待株……だったが"}</div>
+    h+=`<div class="pcard" style="border-color:${good?"var(--gold)":"rgba(154,122,47,.3)"};${potentialBonus>=15?"box-shadow:0 0 22px rgba(255,224,130,.75)":potentialBonus>=10?"box-shadow:0 0 14px rgba(201,162,75,.5)":""}">
+      <div class="nm" style="color:${good?"var(--gold)":"var(--dim)"}">${potentialBonus>=15?"◆◆ 大掘り出し物！":good?"◆期待株、開花":"期待株……だったが"}</div>
       <div class="ds">${potentialBonus>0?`全ステータス+${potentialBonus}`:"目立った上乗せはなかった"}</div>
     </div>`;
   }
