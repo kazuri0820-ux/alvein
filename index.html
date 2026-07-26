@@ -6454,18 +6454,22 @@ function openNext(){
 
 /* ---------- 施設(商業施設・畑):担当を配置すると日々じわじわ産出する ---------- */
 const FACILITY_PRODUCE_MULT=0.13;
+const FACILITY_MAX_LEVEL=4;
 const FACILITY_TYPES=[
  {key:"market",name:"商業施設",desc:"担当を置くと、その知力・統率に応じて毎日わずかな国庫収入を生む。",cost:150,produce:"gold",statFn:u=>u.int*0.6+u.lead*0.4},
  {key:"farm",name:"畑",desc:"担当を置くと、その体力・知力に応じて毎日わずかな食糧を生む。",cost:100,produce:"food",statFn:u=>u.vit*0.5+u.wis*0.5},
  {key:"huntground",name:"狩場",desc:"担当を置くと、その腕力・敏捷に応じて毎日わずかな食糧(獲物)を得る。",cost:120,produce:"food",statFn:u=>u.str*0.5+u.agi*0.5},
 ];
+/* 施設の増改築:改築を重ねるほど産出が伸びる(Lv1=等倍→Lv4で2.5倍)。ゴールドの使い道と施設育成のやり込みを追加 */
+function facilityLevelMult(f){return 1+(((f&&f.level)||1)-1)*0.5;}
+function facilityUpgradeCost(ft,f){return Math.round(ft.cost*((f&&f.level)||1)*0.9);}
 function facilityDailyProduce(){
   for(const f of(S.facilities||[])){
     const ft=FACILITY_TYPES.find(t=>t.key===f.typeKey);
     if(!ft||!f.managerId)continue;
     const u=findAnyUnit(f.managerId);
     if(!u){f.managerId=null;continue;}
-    const amount=ft.statFn(u)*FACILITY_PRODUCE_MULT*rnd(0.85,1.15);
+    const amount=ft.statFn(u)*FACILITY_PRODUCE_MULT*facilityLevelMult(f)*rnd(0.85,1.15);
     if(ft.produce==="gold")S.gold+=amount;else S.food+=amount;
   }
 }
@@ -6552,10 +6556,13 @@ function renderProjects(){
       </div>`;
     }else{
       const manager=built.managerId?findAnyUnit(built.managerId):null;
-      const produce=manager?Math.round(ft.statFn(manager)*FACILITY_PRODUCE_MULT):0;
-      h+=`<div class="pcard"><div class="nm"><i class="${ficon}"></i>${ft.name}</div><div class="ds" style="margin:2px 0 6px">${ft.desc}</div>
+      const lv=built.level||1;
+      const produce=manager?Math.round(ft.statFn(manager)*FACILITY_PRODUCE_MULT*facilityLevelMult(built)):0;
+      const upCost=facilityUpgradeCost(ft,built);
+      h+=`<div class="pcard"><div class="nm"><i class="${ficon}"></i>${ft.name}<span style="font-size:10px;color:var(--gold);margin-left:6px">Lv.${lv}</span></div><div class="ds" style="margin:2px 0 6px">${ft.desc}</div>
         <div class="ds">担当:${manager?fullName(manager):"未配置"}${manager?` ／ 1日あたり${ft.produce==="gold"?"国庫":"食糧"}+${produce}`:""}</div>
         <button class="fac-assign-btn" data-k="${ft.key}" style="margin-top:6px;width:100%;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${manager?"担当を変更する":"担当を配置する"}</button>
+        ${lv<FACILITY_MAX_LEVEL?`<button class="fac-upgrade-btn" data-k="${ft.key}" style="margin-top:6px;width:100%;background:transparent;border:1px solid var(--gold2);color:${S.gold>=upCost?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">増改築してLv.${lv+1}に(${upCost}G・産出+50%)</button>`:`<div class="ds" style="margin-top:6px;color:var(--gold);font-size:11px">最大まで増改築済み(産出${Math.round(facilityLevelMult(built)*100)}%)</div>`}
       </div>`;
     }
   }
@@ -6583,6 +6590,19 @@ function renderProjects(){
   $("#prjList").querySelectorAll(".fac-assign-btn").forEach(b=>b.onclick=()=>{
     facilityAssignKey=b.dataset.k;
     renderFacilityAssignSelect();
+  });
+  $("#prjList").querySelectorAll(".fac-upgrade-btn").forEach(b=>b.onclick=()=>{
+    const ft=FACILITY_TYPES.find(x=>x.key===b.dataset.k);
+    const f=S.facilities.find(x=>x.typeKey===b.dataset.k);
+    if(!ft||!f)return;
+    const lv=f.level||1;
+    if(lv>=FACILITY_MAX_LEVEL)return;
+    const cost=facilityUpgradeCost(ft,f);
+    if(S.gold<cost){chron(`「${ft.name}」の増改築には資金(${cost})が足りない。`,"sys");return;}
+    S.gold-=cost;
+    f.level=lv+1;
+    chron(`「${ft.name}」の増改築が成り、Lv.${f.level}になった。産出がさらに増える。`,"big");
+    clamp();render();renderProjects();save();
   });
 }
 function renderPeople(){
