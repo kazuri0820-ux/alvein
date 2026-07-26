@@ -2082,15 +2082,26 @@ const TITLE_DB=[
  {key:"t_prideofrealm",name:"王国の誇り",desc:"士気も忠誠も、常に高く保ち続けている",effect:"loyaltyGrow",value:0.15},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
+/* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
+   讃えられる晴れ舞台(big演出＋民心の高揚)を持つ。称号集めの中に"格の違う到達点"を作り、
+   偉業の重みを実感させる(称号の見せ場)。史上初の授与にはさらに特別な一節を添える。 */
+const PRESTIGE_TITLES=new Set(["t_demonslayer","t_awakened","t_hero","t_legendborn","t_starchosen","t_unscathed","t_lastfounder","t_pillar"]);
 function grantTitle(u,key){
   if(!u.titles)u.titles=[];
   if(u.titles.includes(key))return;
   const t=TITLE_DB.find(x=>x.key===key);
   if(!t)return;
+  const firstInRealm=!S.units.some(o=>o.id!==u.id&&(o.titles||[]).includes(key));
   u.titles.push(key);
   const valTxt=t.effect==="injuryMult"?`×${t.value}`:t.effect==="expMult"?`×${t.value}`:`+${t.value}/日`;
   unitHistory(u,`称号「${t.name}」を得た(${TITLE_EFFECT_LABEL[t.effect]}${valTxt})。`);
-  chron(`${u.nm}が称号「${t.name}」を得た。`,"");
+  if(PRESTIGE_TITLES.has(key)){
+    u.moral=Math.min(100,(u.moral||0)+4);
+    S.mood=Math.min(100,(S.mood||0)+1); // 偉業の証は国全体を少しだけ沸かせる
+    chron(`${firstInRealm?"――王国史上初、":"――"}${typeof fullName==="function"?fullName(u):u.nm}が誉れ高き称号「${t.name}」を帯びた。${t.desc}――その名は、長く語り継がれることだろう。`,"big");
+  }else{
+    chron(`${u.nm}が称号「${t.name}」を得た。`,"");
+  }
 }
 function titleEffectsFor(u){
   const e={loyaltyGrow:0,moralGrow:0,injuryMult:1,expMult:1};
