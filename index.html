@@ -3321,6 +3321,20 @@ const EARLY_GROWTH=[
 ];
 /* ---------- レアイベント:通常より低頻度・高インパクト ---------- */
 const RANDOM_RARE=[
+ {tag:"災 い",title:"疫病の兆し",
+  body:"谷のあちこちで、原因の知れぬ熱病に倒れる者が出始めた。今はまだ数人だが、放置すれば兵にも広がりかねない。早めに手を打つべきだろうか。",
+  speaker:"老師ユグ「病は気から、とも申しますが……これは、そうも言っておれませんな」",
+  choices:[
+   {label:"薬を手配し、隔離を徹底する(70G)",hint:"確実に抑える(出費)",fx:{gold:-70,mood:-1,log:"薬が手配され、患者は速やかに隔離された。疫病は谷に広がる前に抑え込まれた。"}},
+   {label:"神官と薬師に治療を託す",hint:"魔導が高いほど上手くいく",fx:{call:()=>{
+     if(S.st.magic>=45||Math.random()<0.5){apply({mood:2,st:{magic:1},log:"神官と薬師の献身により、病は思いのほか早く鎮まった。民は彼らの働きを讃えた。",logCls:"big"});}
+     else{const cands=S.units.filter(u=>u.injured<=0);if(cands.length){const v=cands[Math.floor(Math.random()*cands.length)];inflictInjury(v,[0.85,0.13,0.02]);unitHistory(v,"疫病にかかり、しばし床に伏せることになった。");}apply({mood:-4,log:"治療は追いつかず、病はついに兵にも及んだ。数名が床に伏せることになった。",logCls:"grave"});}
+   }}},
+   {label:"自然に治まるのを待つ",hint:"賭け(出費なし/悪化の恐れ)",fx:{call:()=>{
+     if(Math.random()<0.45){apply({mood:1,log:"幸い、病は大事に至らず、いつしか自然に治まっていった。"});}
+     else{apply({mood:-5,food:-15,log:"病は谷に広がり、しばらくは畑仕事も滞った。民心が沈んでいる。",logCls:"grave"});}
+   }}},
+  ]},
  {tag:"外 交",title:"隣国からの使者",
   body:"隣接する小国から、丁重な使者が遣わされてきた。「両国のよしみのため、交易の便宜と、いくばくかの貢納を」との申し出である。応じれば友好が深まるが、どこか足元を見られているようでもある。",
   speaker:"セラ「相手は本気で誼を通じたいのか、それとも品定めか……ご判断を、陛下」",
