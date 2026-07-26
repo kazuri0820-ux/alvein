@@ -5041,6 +5041,18 @@ function checkYearTurn(){
   const refl=YEAR_REFLECTIONS[(yr-1)%YEAR_REFLECTIONS.length];
   chron(`――${yr}年目の暮れ。${stg.name}の王国に兵${S.units.length}名が仕え、国庫${Math.round(S.gold)}・民${S.pop}を数える。${cleared?`踏破したダンジョンは${cleared}件、`:""}${hall?`${hall}名が殿堂に名を刻んだ。`:""}${eldest?`最古参は${eldest.nm}(${Math.floor(eldest.age)}歳)。`:""}${refl}`,"big");
 }
+/* 栄華の只中:民心・国庫・食糧がそろって潤う日々が続くと、稀に王国の栄華を年代記に讃える。
+   危機や別れの一節が多い年代記に、良き統治が報われる"満ち足りた時代"の手応えを添える(演出)。 */
+function checkGoldenAge(){
+  const prosperous=(S.mood>=85)&&(S.gold>=400)&&(S.food>=150)&&(S.units.length>=6);
+  if(!prosperous){S._goldenAgeStreak=0;return;}
+  S._goldenAgeStreak=(S._goldenAgeStreak||0)+1;
+  if(S._goldenAgeStreak>=20&&(S.day-(S._goldenAgeLastDay||-999))>=120){
+    S._goldenAgeLastDay=S.day;S._goldenAgeStreak=0;
+    apply({mood:2});
+    chron("――民は満ち足り、蔵は潤い、谷には笑い声が絶えない。今この時、アルヴェインはまごうことなき栄華の只中にある。","big");
+  }
+}
 /* 国是(こくぜ):王国が中盤に一度だけ定める永続的な国の在り方。以後の歩みを長く方向づける
    (一周ごとの戦略アイデンティティ=リプレイ性と大きな決断の手応え)。 */
 const NATIONAL_DOCTRINES=[
@@ -5104,6 +5116,7 @@ function dailyEconomySettle(){
   checkSeasonTurn();
   checkYearTurn();
   checkFestival();
+  checkGoldenAge(); // 栄華の只中を稀に讃える(良き統治への手応え)
   checkDoctrineUnlock(); // 中盤の節目に国是を定める
   checkFavoriteMoment(); // 推しの日常の一幕
   checkSoldierVignette(); // 名のある兵の何気ない日常
