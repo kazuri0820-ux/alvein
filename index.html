@@ -2386,7 +2386,17 @@ function checkAging(){
     u.fatigue=Math.max(0,(u.fatigue||0)-8);
     if(u.injured>0){
       u.injured--;
-      if(u.injured<=0){u.injured=0;u.injurySeverity=null;chron(`${u.nm}の傷が癒え、療養が明けた。`,"");}
+      if(u.injured<=0){
+        const wasSevere=u.injurySeverity==="severe"; // 重体からの生還は、看病して連れ戻した甲斐のある"不屈の帰還"にする
+        u.injured=0;u.injurySeverity=null;
+        if(wasSevere){
+          u.loyalty=Math.min(100,u.loyalty+6);u.moral=Math.min(100,u.moral+8);
+          unitHistory(u,"重体から生還し、以前にも増して腹の据わった面構えになった。");
+          chron(`${u.nm}が重体から立ち直り、戦列に復帰した。死線をくぐった者の面構えになっている。`,"big");
+        }else{
+          chron(`${u.nm}の傷が癒え、療養が明けた。`,"");
+        }
+      }
     }
     if(S.day%AGE_YEAR_DAYS===(u.birthDay||1)){
       chron(`${u.nm}が${Math.floor(u.age)}歳の誕生日を迎えた。`,"");
