@@ -4647,7 +4647,7 @@ function councilEvent(){return councilPolicy();}
 function weeklyUnitSpotlight(){
   const active=S.units.filter(u=>u.role==="active"||!u.role);
   if(!active.length)return "";
-  const mode=Math.floor(S.day/7)%3;
+  const mode=Math.floor(S.day/7)%4;
   let u,note;
   if(mode===0){
     u=active.reduce((a,b)=>(((b.titles||[]).length*100+(b.lv||0))>((a.titles||[]).length*100+(a.lv||0)))?b:a);
@@ -4655,9 +4655,25 @@ function weeklyUnitSpotlight(){
   }else if(mode===1){
     u=active.reduce((a,b)=>((S.day-(b.joinDay||S.day))>(S.day-(a.joinDay||S.day)))?b:a);
     note="最古参の一人として、若い兵たちの静かな支柱になっている。";
-  }else{
+  }else if(mode===2){
     u=active.reduce((a,b)=>((b.joinDay||0)>(a.joinDay||0))?b:a);
     note="加わって間もないが、少しずつ隊に馴染んできたようだ。";
+  }else{
+    // 戦友の絆・推しにも光を当てる(人と人の関係の温かみ)
+    const idx=Math.floor(S.day/7);
+    const bonded=active.filter(x=>x.bondWith&&active.some(o=>o.id===x.bondWith));
+    const favs=active.filter(x=>x.favorite);
+    if(bonded.length){
+      u=bonded[idx%bonded.length];
+      const mate=active.find(o=>o.id===u.bondWith);
+      note=`戦友${mate?mate.nm:"の相棒"}と背中を預け合い、変わらぬ絆で隊を支えている。`;
+    }else if(favs.length){
+      u=favs[idx%favs.length];
+      note="長が目をかける一人として、期待に応えようと日々励んでいる。";
+    }else{
+      u=active.reduce((a,b)=>((b.moral||0)>(a.moral||0))?b:a);
+      note="隊いちばんの明るさで、周りの空気をふっと軽くしている。";
+    }
   }
   const m=u.moral||0;
   const cond=m>=80?"すこぶる意気軒昂":m>=55?"落ち着いた様子":m>=30?"やや元気がない":"沈んだ面持ち";
