@@ -2100,6 +2100,8 @@ const TITLE_DB=[
  {key:"t_dungeonveteran",name:"迷宮の古強者",desc:"数多の迷宮を踏破し、暗がりを知り尽くしている",effect:"expMult",value:1.05},
  {key:"t_fullset",name:"揃いの武具の使い手",desc:"格の揃った武具一式を、隙なく身につけている",effect:"injuryMult",value:0.92},
  {key:"t_prideofrealm",name:"王国の誇り",desc:"士気も忠誠も、常に高く保ち続けている",effect:"loyaltyGrow",value:0.15},
+ {key:"t_duelvictor",name:"決闘の覇者",desc:"諸国の武芸者との果たし合いを、真っ向から制した",effect:"expMult",value:1.05},
+ {key:"t_warchiefslayer",name:"覇者殺し",desc:"圧倒的な強者「覇者」を討ち取った",effect:"injuryMult",value:0.9},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -3322,6 +3324,7 @@ const RANDOM_RARE=[
      if(power>=bar){
        champ.moral=Math.min(100,(champ.moral||0)+12);champ.loyalty=Math.min(100,(champ.loyalty||0)+8);
        apply({mood:5});
+       grantTitle(champ,"t_duelvictor");
        unitHistory(champ,"諸国の武芸者との果たし合いを制し、その武名を国中に轟かせた。");
        chron(`――${fullName(champ)}が果たし合いを制した！武芸者は深く頭を垂れ、「見事」とだけ言い残して去った。${champ.nm}の名は、国中に轟いた。`,"big");
      }else{
@@ -6465,7 +6468,7 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="ancient"){const it=rollItemDrop("epic");if(it){addItem(it.key);chron(`「古の守護者」を討ち、守られていた秘蔵の「${it.name}」を手に入れた。`,"big");}}
         else if(dungeon.bossTrait==="swift"){for(const u of squad){const g=ri(9,17);u.exp+=g;processLevelUps(u);}chron(`「疾影」との緊迫した攻防で、部隊は多くを学んだ。皆が確かな経験を積んでいる。`,"big");}
         else if(dungeon.bossTrait==="venomous"){for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(8,15));const g=Math.round(ri(50,90)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「猛毒」のボスは部隊を疲弊させたが、溜め込んでいた財貨${g}を吐き出させた。`,"big");}
-        else if(dungeon.bossTrait==="warchief"){for(const u of squad){u.moral=Math.min(100,(u.moral||0)+8);u.loyalty=Math.min(100,(u.loyalty||0)+4);}apply({mood:4});chron(`圧倒的な強者「覇者」を討ち取った部隊は、国中から英雄として讃えられた。隊の誰もが誇りに胸を張っている。`,"big");}
+        else if(dungeon.bossTrait==="warchief"){for(const u of squad){u.moral=Math.min(100,(u.moral||0)+8);u.loyalty=Math.min(100,(u.loyalty||0)+4);grantTitle(u,"t_warchiefslayer");}apply({mood:4});chron(`圧倒的な強者「覇者」を討ち取った部隊は、国中から英雄として讃えられた。隊の誰もが誇りに胸を張っている。`,"big");}
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
