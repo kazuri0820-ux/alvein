@@ -5875,6 +5875,7 @@ const DUNGEON_CONDITIONS={
   cursed:{label:"呪詛の澱み",color:"#9a6bb0",desc:"澱んだ気が兵を疲れさせるが、呪物の財貨が眠る"},
   blessed:{label:"古の祝福",color:"#8fd0e8",desc:"古の加護が宿り、失敗しても深手を負いにくい"},
   treasure:{label:"財宝の霊気",color:"#e8c874",desc:"守りは堅く手強いが、討ち果たせば莫大な財と秘宝が眠る"},
+  eliteden:{label:"精鋭の巣",color:"#c98f6f",desc:"手強い強敵の巣。討ち果たせば、その死闘が部隊を大きく成長させる"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 function generateDungeon(){
@@ -5889,6 +5890,7 @@ function generateDungeon(){
   if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
   const condition=Math.random()<0.3?DUNGEON_CONDITION_KEYS[Math.floor(Math.random()*DUNGEON_CONDITION_KEYS.length)]:null; // 稀に環境の異変を宿す
   if(condition==="treasure")bossPower=Math.round(bossPower*1.18); // 財宝の霊気は守りが堅く、ボスが手強い
+  if(condition==="eliteden")bossPower=Math.round(bossPower*1.16); // 精鋭の巣は強敵揃いで、ボスが手強い
   return{
     id:Math.random().toString(36).slice(2,9),
     name:dungeonName(),level,rarity,type,requiredPower,duration,
@@ -6571,6 +6573,10 @@ function resolveDungeonRun(dungeonId){
         const tItem=rollItemDrop(upKey); if(tItem)addItem(tItem.key);
         apply({gold:tGold,mood:3});
         chron(`「${dungeon.name}」に満ちた財宝の霊気は伊達ではなかった。堅い守りを破った先には、${tItem?`秘宝「${tItem.name}」と`:""}莫大な財貨${tGold}が眠っていた。`,"big");
+      }
+      if(cond==="eliteden"){ // 精鋭の巣: 手強い分、死闘が部隊を大きく成長させる(経験値の大盤振る舞い)
+        for(const u of squad){const g=Math.round(ri(22,42)*levelMult);u.exp+=g;processLevelUps(u);}
+        chron(`「${dungeon.name}」の強敵ひしめく巣での死闘は、部隊にとって何よりの修練となった。隊の誰もが、一回り大きくなって帰ってきた。`,"big");
       }
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
