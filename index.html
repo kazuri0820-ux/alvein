@@ -4505,6 +4505,27 @@ function checkFestival(){
   apply({mood:ri(4,7)});
   chron(FESTIVAL_FLAVORS[yr%FESTIVAL_FLAVORS.length]+"皆の士気が高まっている。","big");
 }
+/* お気に入り兵との語らい:長が目をかける兵は、折に触れて個人的な一面を見せる。
+   推しの日常の一幕を拾い上げ、絆を静かに深める(栄冠の精神=特定の兵に愛着を持てるように)。 */
+const FAVORITE_MOMENTS=[
+ u=>`${u.nm}が、ふと長のそばに来て、遠い故郷の話を静かに語った。`,
+ u=>`${u.nm}が「長のもとで戦えることが、何よりの誇りです」と、はにかみながら言った。`,
+ u=>`訓練の合間、${u.nm}が「一手、稽古をつけてください」と長にねだってきた。`,
+ u=>`${u.nm}が、いつか叶えたい夢のことを、少し照れながら長に打ち明けた。`,
+ u=>`${u.nm}が長のために、不器用ながら心のこもった差し入れを持ってきた。`,
+ u=>`夜更け、見回りの${u.nm}と長が、篝火のそばで他愛もない話に花を咲かせた。`,
+ u=>`${u.nm}が、初陣の日の緊張を懐かしそうに振り返った。「あの頃が、嘘のようです」`,
+ u=>`${u.nm}が、長の何気ない一言に救われたことがある、と静かに打ち明けた。`,
+ u=>`${u.nm}が、隊のみんなと過ごす日々が好きだと、屈託なく笑った。`,
+];
+function checkFavoriteMoment(){
+  if(Math.random()>=0.02)return; // 稀に訪れる、静かな一幕
+  const favs=S.units.filter(u=>u.favorite&&u.role==="active"&&u.injured<=0);
+  if(!favs.length)return;
+  const u=favs[Math.floor(Math.random()*favs.length)];
+  u.loyalty=Math.min(100,(u.loyalty||0)+2);u.moral=Math.min(100,(u.moral||0)+2);
+  chron(FAVORITE_MOMENTS[Math.floor(Math.random()*FAVORITE_MOMENTS.length)](u),"big");
+}
 /* 四季と収穫期の巡り:一年(25日)を春夏秋冬に分け、食糧生産に季節の波を与える。
    実りの秋(豊穣期)に蓄え、端境の冬に食いつなぐ——備蓄と農業への投資に意味の綾を添える。
    一年平均はほぼ等倍に保ち、既存の収支バランスは崩さない。 */
@@ -4589,6 +4610,7 @@ function dailyEconomySettle(){
   checkSeasonTurn();
   checkYearTurn();
   checkFestival();
+  checkFavoriteMoment(); // 推しの日常の一幕
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
     const loyaltyDrift=S.mood>=70?(S.mood-70)*0.006:-(30-S.mood)*0.01;
