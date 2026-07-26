@@ -6343,6 +6343,15 @@ const ITEMS=[
    unitHistory(u,`特訓の書のもとで自らを追い込み、力を大きく伸ばした${u.lv>before?`(Lv.${before}→${u.lv})`:""}。`);
    chron(`${u.nm}が特訓の書のもとで己を追い込み、力を大きく伸ばした。${u.lv>before?`(Lv.${before}→${u.lv})`:""}${learned?` 「${learned.name}」を会得した。`:""}だいぶ疲れが溜まっている。`,"big");
  }},
+ {key:"reroute_scroll",name:"進路変更の書",rarity:"rare",desc:"選んだ兵の専門の道(ルート)を選び直せる。得意迷宮を変え、別の専門へと進ませる。",needsTarget:true,effect:(targetId)=>{
+   const u=findAnyUnit(targetId);if(!u)return;
+   if(!u.route){chron(`${u.nm}はまだ専門の道を定めていない。書は静かにしまわれた。`,"");return;}
+   const oldR=routeInfo(u.cls,u.route);
+   u.route=null;
+   unitHistory(u,`進路変更の書を紐解き、${oldR?`「${oldR.label}」の道`:"これまでの道"}を捨て、新たな専門を選び直すことにした。`);
+   chron(`${u.nm}が進路変更の書を紐解いた。歩む道を、今一度選び直す時が来た。`,"big");
+   pushEvent("routebranch_"+u.id);
+ }},
  {key:"youth_elixir",name:"若返りの霊薬",rarity:"rare",desc:"選んだ兵の年齢を数年巻き戻す。積み上げた技はそのままに、盛りの力を取り戻す(老兵を惜しむ長のための一品)。",needsTarget:true,effect:(targetId)=>{
    const u=findAnyUnit(targetId);if(!u)return;
    const before=Math.floor(u.age);
