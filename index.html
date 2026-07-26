@@ -5297,6 +5297,13 @@ const BOSS_TRAITS={
   hoarder:{label:"宝物狂い",color:"#8fd0e8",desc:"珍しい装備を必ず持っている"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
+/* ダンジョンの環境(異変):一部のダンジョンに宿る特性。挑む前に見え、危険と実入りの綾を変える(ダンジョンの個性) */
+const DUNGEON_CONDITIONS={
+  richaura:{label:"豊穣の気",color:"#8fbf6f",desc:"満ちた気が糧となり、踏破で得る経験値が増える"},
+  cursed:{label:"呪詛の澱み",color:"#9a6bb0",desc:"澱んだ気が兵を疲れさせるが、呪物の財貨が眠る"},
+  blessed:{label:"古の祝福",color:"#8fd0e8",desc:"古の加護が宿り、失敗しても深手を負いにくい"},
+};
+const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 function generateDungeon(){
   const[lo,hi]=dungeonLevelRange();
   const level=ri(lo,hi);
@@ -5312,6 +5319,7 @@ function generateDungeon(){
     name:dungeonName(),level,rarity,type,requiredPower,duration,
     bossName:generateBossName(rarity.key),bossPower,bossTrait,
     treasureVault:Math.random()<0.12, // 稀に「財宝の間」を秘める(踏破で追加の宝)
+    condition:Math.random()<0.3?DUNGEON_CONDITION_KEYS[Math.floor(Math.random()*DUNGEON_CONDITION_KEYS.length)]:null, // 稀に環境の異変を宿す
     discoveredDay:S.day,
   };
 }
@@ -5790,11 +5798,20 @@ function resolveDungeonRun(dungeonId){
   const levelMult=1+level/28; // レベルが上がるほど報酬が伸びる(後半でも報酬が目減りしないよう伸び幅を強化)
   const magicExpBonus=(1+Math.min(0.45,S.st.magic*0.0045))*(S.flags.statS_magic?1.05:1); // 魔導が高いほど経験値効率が上がる。魔導Sで恒久的にさらに上乗せ
   const rarityRewardMult=Math.sqrt(dungeon.rarity.mult); // レア度は緩やかに反映
+  const cond=dungeon.condition; // 環境の異変
+  const condExpMult=cond==="richaura"?1.25:1;
   let itemGained=null, goldGained=0, died=null, diedWasHallWorthy=false, bossWin=false, dungeonFound=null;
   const memberLog=[];
   if(tier==="critical_success"||tier==="success"){
     bossWin=squadPower*(tier==="critical_success"?1.3:1.0)>=dungeon.bossPower*rnd(0.8,1.2);
-    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus);u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
+    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult);u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
+    if(cond==="richaura")chron(`「${dungeon.name}」に満ちた豊穣の気が兵たちの糧となり、いつも以上の経験を持ち帰った。`,"");
+    if(cond==="cursed"){ // 呪詛の澱み: 兵を疲れさせるが、呪物の財貨が眠る
+      for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(10,20));
+      const g=Math.round(ri(30,60)*dungeon.rarity.mult*levelMult);
+      apply({gold:g});
+      chron(`「${dungeon.name}」の呪詛の澱みは兵たちを深く疲れさせたが、奥に眠っていた呪物の財貨${g}を持ち帰った。`,"");
+    }
     if(bossWin){
       const crit=tier==="critical_success"; // 大成功はジャックポット扱い(強い部隊を組んだ手応えに報酬で応える)
       itemGained=rollItemDrop(dungeon.rarity.key);
@@ -5852,14 +5869,16 @@ function resolveDungeonRun(dungeonId){
     }
   }else if(tier==="fail"){
     const hurtOnes=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*0.4)));
-    for(const u of hurtOnes){inflictInjury(u,[0.4,0.4,0.2]);unitHistory(u,`「${dungeon.name}」で${INJURY_TIERS[u.injurySeverity].label}を負った。`);memberLog.push({u,gain:0,note:INJURY_TIERS[u.injurySeverity].label});}
+    const failW=cond==="blessed"?[0.7,0.25,0.05]:[0.4,0.4,0.2]; // 古の祝福: 深手を負いにくい
+    for(const u of hurtOnes){inflictInjury(u,failW);unitHistory(u,`「${dungeon.name}」で${INJURY_TIERS[u.injurySeverity].label}を負った。`);memberLog.push({u,gain:0,note:INJURY_TIERS[u.injurySeverity].label});}
     for(const u of squad.filter(x=>!hurtOnes.includes(x)))memberLog.push({u,gain:0,note:"無傷で撤退"});
     apply({mood:-2});
     chron(`「${dungeon.name}」への挑戦は失敗に終わった。部隊は撤退した。`,"grave");
   }else{ // critical_fail
     const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1); // 治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる
     const hurtOnes=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*0.6)));
-    for(const u of hurtOnes){inflictInjury(u,[0.1,0.3,0.6]);unitHistory(u,`「${dungeon.name}」で${INJURY_TIERS[u.injurySeverity].label}を負った。`);memberLog.push({u,gain:0,note:INJURY_TIERS[u.injurySeverity].label});}
+    const critW=cond==="blessed"?[0.4,0.4,0.2]:[0.1,0.3,0.6]; // 古の祝福: 大失敗でも深手を和らげる
+    for(const u of hurtOnes){inflictInjury(u,critW);unitHistory(u,`「${dungeon.name}」で${INJURY_TIERS[u.injurySeverity].label}を負った。`);memberLog.push({u,gain:0,note:INJURY_TIERS[u.injurySeverity].label});}
     for(const u of squad.filter(x=>!hurtOnes.includes(x)))memberLog.push({u,gain:0,note:"無傷で撤退"});
     apply({mood:-5,gold:-Math.round(ri(10,30))});
     if(Math.random()<deathChance){
@@ -7667,7 +7686,8 @@ function renderDungeonPanel(){
     const selCombined=squadEffectivePower(selSquad,d.type);
     const estPct=selSquad.length?Math.max(0,Math.min(100,Math.round((selCombined/d.requiredPower*100-105+20)/40*100))):0;
     h+=`<div class="pcard" style="border-color:${d.rarity.color||"var(--gold2)"}">
-      <div class="nm" style="color:${d.rarity.color||"var(--gold)"}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${d.bossTrait&&BOSS_TRAITS[d.bossTrait]?`<span style="color:${BOSS_TRAITS[d.bossTrait].color};font-weight:800">【${BOSS_TRAITS[d.bossTrait].label}】</span>`:""}${d.name}</div>
+      <div class="nm" style="color:${d.rarity.color||"var(--gold)"}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${d.bossTrait&&BOSS_TRAITS[d.bossTrait]?`<span style="color:${BOSS_TRAITS[d.bossTrait].color};font-weight:800">【${BOSS_TRAITS[d.bossTrait].label}】</span>`:""}${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<span style="color:${DUNGEON_CONDITIONS[d.condition].color};font-weight:800">〔${DUNGEON_CONDITIONS[d.condition].label}〕</span>`:""}${d.name}</div>
+      ${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<div class="ds" style="color:${DUNGEON_CONDITIONS[d.condition].color};font-size:11px">環境:${DUNGEON_CONDITIONS[d.condition].desc}</div>`:""}
       <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span> ／ `:""}目安戦力:${d.requiredPower} ／ 所要日数:${d.duration}日</div>
       <div class="ds">選択中:${selSquad.length}/5人 ${selSquad.length?`／ この編成での<span style="color:${estPct>=50?"#8fbf6f":"#d9b56a"}">推定成功率 約${estPct}%</span>`:""}${synergy>1.001?` <span style="color:var(--gold)">(連携+${Math.round((synergy-1)*100)}%)</span>`:synergy<0.999?` <span style="color:#d97a7a">(連携乱れ${Math.round((synergy-1)*100)}%)</span>`:""}</div>
     </div>`;
@@ -7735,8 +7755,9 @@ function renderDungeonPanel(){
       const est=estimateDungeonSuccess(d);
       const rateColor=est.pct>=60?"#8fbf6f":est.pct>=35?"#d9b56a":"#d97a7a";
       h+=`<div class="pcard" style="${c?`border-color:${c};box-shadow:0 0 10px ${c}55`:""}">
-        <div class="nm" style="${c?`color:${c}`:""}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.name}</div>
+        <div class="nm" style="${c?`color:${c}`:""}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<span style="color:${DUNGEON_CONDITIONS[d.condition].color};font-weight:800">〔${DUNGEON_CONDITIONS[d.condition].label}〕</span>`:""}${d.name}</div>
         <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span> ／ `:""}推奨レベル目安:${d.level} ／ 目安戦力:${d.requiredPower} ／ 所要日数:${d.duration}日</div>
+        ${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<div class="ds" style="color:${DUNGEON_CONDITIONS[d.condition].color};font-size:11px">環境:${DUNGEON_CONDITIONS[d.condition].desc}</div>`:""}
         <div class="ds"><i class="icon-boss"></i>ボス:${d.bossName}(戦力${d.bossPower})</div>
         ${est.squad.length?`<div class="ds" style="margin-top:4px;padding-top:6px;border-top:1px dotted rgba(154,122,47,.25)">派遣候補(自動選抜時):${est.squad.map(fullName).join("・")}<br><span style="color:${rateColor};font-weight:700">推定成功率 約${est.pct}%</span>${est.pctGreat>5?` <span style="color:var(--gold)">(大成功 約${est.pctGreat}%)</span>`:""}${est.pctCriticalFail>10?` <span style="color:#d97a7a">(大失敗 約${est.pctCriticalFail}%)</span>`:""}</div>`:`<div class="ds" style="color:#d97a7a;margin-top:4px">派遣できる兵がいない</div>`}
         <button class="dg-go-btn" data-id="${d.id}" ${est.squad.length?"":"disabled"} style="margin-top:8px;width:100%;background:${est.squad.length?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${est.squad.length?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:800;cursor:${est.squad.length?"pointer":"default"}">派遣する兵を選ぶ</button>
