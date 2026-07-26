@@ -8851,6 +8851,11 @@ function processLevelUps(u,silent){
         }
       }
     }
+    // 成長の節目:昇格以外で区切りのレベル(10/20/30)に達したら、控えめに年代記へ刻む(成長実感)
+    if(!silent&&oldTier===newJob.key&&(u.lv===10||u.lv===20||u.lv===30)&&(u.lvMilestone||0)<u.lv){
+      u.lvMilestone=u.lv;
+      chron(`${fullName(u)}がレベル${u.lv}に到達した。日々の研鑽が、確かな力になっている。`,"sys");
+    }
   }
 }
 /* ---------- 訓練システム(週1回・全体適用・ピックアップ選抜・大成功) ---------- */
