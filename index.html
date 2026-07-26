@@ -5424,6 +5424,17 @@ function hiddenPotentialChance(rankLabel){
   if(S.flags&&S.flags.renownBanner)c*=1.3; // 名声の旗印: 掘り出し物が眠りやすくなる永続効果
   return c;
 }
+/* 志願兵の来歴:一部の志願者は、志願書に「前歴」を記してくる。前歴は志願書で見て取れ、採用すると
+   その経歴に応じた小さな贈り物(実戦の勘・忠義・携えた武具・座を和ませる人柄など)をもたらす。
+   誰を採るかに「経歴で選ぶ」意味ある指針と、入団時の発見・彩りを加える(志願兵の個性)。 */
+const VOLUNTEER_BACKGROUNDS=[
+ {key:"mercenary",label:"元傭兵くずれ",hint:"実戦の経験を積み、入団時から一歩進んでいる",apply:(u)=>{u.exp=(u.exp||0)+(u.lv||1)*10;processLevelUps(u);return "長年の実戦で培った勘が、早くも頭角を現している。";}},
+ {key:"noble",label:"名家の末子",hint:"誇り高く、はじめから忠義に篤い",apply:(u)=>{u.loyalty=Math.min(100,(u.loyalty||0)+18);return "名家の誇りゆえか、忠義は初めから篤い。";}},
+ {key:"smith",label:"元・鍛冶職人",hint:"得物を携えて志願してくる(装備1点)",apply:(u)=>{const eq=rollEquipmentDrop(Math.random()<0.25?"rare":"uncommon");if(eq){addEquipment(eq.key);return `携えてきた「${eq.name}」を武具庫に加えた。`;}return "";}},
+ {key:"bard",label:"旅の吟遊詩人",hint:"座を和ませ、入団で王国がひととき沸く",apply:(u)=>{for(const o of S.units)o.moral=Math.min(100,(o.moral||0)+2);S.mood=Math.min(100,(S.mood||0)+3);return "陽気な人柄が、たちまち隊の空気を明るくした。";}},
+ {key:"hunter",label:"辺境の狩人あがり",hint:"野伏せりの勘を備える(敏捷・知力に見どころ)",apply:(u)=>{u.agi+=4;u.wis+=3;return "辺境仕込みの勘の良さが光る。";}},
+ {key:"acolyte",label:"元・寺院の徒弟",hint:"穏やかで、はじめから士気が高い",apply:(u)=>{u.moral=Math.min(100,(u.moral||0)+15);return "祈りの日々で培った穏やかさを湛えている。";}},
+];
 function makeVolunteer(){
   const rank=pickVolunteerRank();
   const u=makeRecruitCandidate();
@@ -5432,6 +5443,7 @@ function makeVolunteer(){
   const hiddenPotential=Math.random()<hiddenPotentialChance(rank.label);
   const comment=recruitAtmosphere(u);
   const v={id:u.id,unit:u,postedDay:S.day,cost,rank,hiddenPotential,comment};
+  if(Math.random()<0.35)v.background=VOLUNTEER_BACKGROUNDS[Math.floor(Math.random()*VOLUNTEER_BACKGROUNDS.length)].key; // 一部の志願者は前歴を持つ
   // 紹介状:忠義ある現役兵が、知人を推挙してくることがある(採用すると縁が繋がる)
   const referrers=(S.units||[]).filter(x=>x.role==="active"&&(x.loyalty||0)>=60);
   if(referrers.length&&Math.random()<0.22){
@@ -5502,6 +5514,11 @@ function hireVolunteer(volId){
     chron(`――${v.unit.nm}は、噂通りの逸材だった。全ステータスが+${potentialBonus}された。`,"big");
   }else if(potentialBonus===0){
     unitHistory(v.unit,"期待されていたようだが、今のところ目立った成果はない。");
+  }
+  // 来歴の贈り物:前歴を持つ志願者は、採用時にその経歴に応じた小さな恵みをもたらす
+  if(v.background){
+    const bg=VOLUNTEER_BACKGROUNDS.find(b=>b.key===v.background);
+    if(bg){const msg=bg.apply(v.unit);if(msg){unitHistory(v.unit,`【${bg.label}】${msg}`);chron(`${v.unit.nm}は「${bg.label}」の前歴を持っていた。${msg}`,"");}}
   }
   // 紹介での入団:推挙した戦友との縁が、新兵を早くから隊に馴染ませる
   if(v.referrerId){
@@ -7648,6 +7665,7 @@ function renderVolunteers(){
         </div>
       </div>
       <div class="ds" style="font-style:italic">${v.comment||recruitAtmosphere(u)}</div>
+      ${v.background?(()=>{const bg=VOLUNTEER_BACKGROUNDS.find(b=>b.key===v.background);return bg?`<div class="ds" style="color:var(--gold2)">◈ 前歴:${bg.label} ― ${bg.hint}</div>`:"";})():""}
       ${v.referrerName?`<div class="ds" style="color:var(--gold)">✉ ${v.referrerName}の紹介 ― 採用すれば旧知の縁が繋がる</div>`:""}
       ${v.hiddenPotential?`<div class="ds" style="font-style:italic;color:var(--gold)">……見た目以上の器を、秘めているやもしれぬ。</div>`:""}
       <div class="ds">支度金:${v.cost}G ／ 期限まであと${Math.max(0,daysLeft)}日</div>
