@@ -7723,16 +7723,28 @@ function resolveLongExpedition(id){
   const journal=[];
   const jn=ri(3,4);
   for(let i=0;i<jn&&jpool.length;i++)journal.push(jpool.splice(Math.floor(Math.random()*jpool.length),1)[0]);
-  let goldGain=0,itemGained=null,equipGained=null,dungeonFound=null,died=null;
+  let goldGain=0,itemGained=null,equipGained=null,dungeonFound=null,died=null,recruit=null;
+  const gainedItems=[],gainedEquips=[];
   if(tier==="great"||tier==="success"){
-    goldGain=Math.round((tier==="great"?ri(180,320):ri(90,180))*(1+avgLv/80));
-    apply({gold:goldGain,st:{economy:1},mood:2});
-    for(const u of squad){const g=Math.round((tier==="great"?ri(20,32):ri(10,18))*(1+avgLv/60));u.exp+=g;processLevelUps(u);}
-    const dropCount=tier==="great"?ri(1,2):(Math.random()<0.5?1:0);
-    for(let i=0;i<dropCount;i++){const it=rollItemDrop(tier==="great"?"rare":"uncommon");if(it){addItem(it.key);itemGained=it;}}
-    if(Math.random()<(tier==="great"?0.35:0.15)){const eq=rollEquipmentDrop(tier==="great"?"rare":"uncommon");if(eq){addEquipment(eq.key);equipGained=eq;}}
-    if(Math.random()<(tier==="great"?0.5:0.25))dungeonFound=checkDungeonDiscovery(1.4,squad[0]);
-    chron(`――遠征部隊が無事に帰還した。${squad.map(fullName).join("・")}が、${goldGain}Gと共に戻ってきた。`,"big");
+    // 60〜90日ぶんの成果。5人の精鋭を長く拘束する重さに見合うよう、報酬を日数と練度で大きく伸ばす
+    goldGain=Math.round((tier==="great"?ri(7,11):ri(4,7))*exp.duration*(1+avgLv/70));
+    apply({gold:goldGain,st:{economy:2,diplomacy:2},mood:tier==="great"?4:2}); // 遠方との交易・見聞で経済と外交も伸び、名声が民心を高める
+    for(const u of squad){
+      const g=Math.round((tier==="great"?ri(9,13):ri(6,9))*(exp.duration/10)*(1+avgLv/55)); // 長い野戦の日々で部隊は大きく成長して帰る
+      u.exp+=g;processLevelUps(u);
+      unitHistory(u,`${exp.duration}日に及ぶ遠征を戦い抜き、ひと回り大きくなって帰還した。`);
+    }
+    const dropCount=tier==="great"?ri(2,4):ri(1,2); // 戦利品は数も質も厚く(遠征ならではの実入り)
+    for(let i=0;i<dropCount;i++){const it=rollItemDrop(tier==="great"?"epic":"rare");if(it){addItem(it.key);itemGained=it;gainedItems.push(it.name);}}
+    {const eq=rollEquipmentDrop(tier==="great"?"epic":"rare");if(eq){addEquipment(eq.key);equipGained=eq;gainedEquips.push(eq.name);}} // 装備は確定で持ち帰る
+    if(tier==="great"&&Math.random()<0.5){const eq2=rollEquipmentDrop("epic");if(eq2){addEquipment(eq2.key);gainedEquips.push(eq2.name);}}
+    if(Math.random()<(tier==="great"?0.7:0.4))dungeonFound=checkDungeonDiscovery(1.6,squad[0]);
+    // 遠征でしか結べぬ縁:道中で腕利きの流れ者と出会い、共に王国へ帰ることがある(遠征だけの特典)
+    if(S.units.length<unitCap()&&Math.random()<(tier==="great"?0.45:0.2)){
+      recruit=makeRecruitCandidate();recruit.joinDay=S.day;S.units.push(recruit);
+      unitHistory(recruit,"遠征部隊が道中で見出し、共に王国へ帰った流れ者。");
+    }
+    chron(`――遠征部隊が凱旋した。${squad.map(fullName).join("・")}が${goldGain}Gと戦利品を携え、見違えるほど逞しくなって戻った。${recruit?`道中で見出した${fullName(recruit)}も隊に加わった。`:""}`,"big");
   }else{
     goldGain=Math.round(ri(10,30));
     apply({gold:goldGain,mood:-2});
@@ -7749,7 +7761,7 @@ function resolveLongExpedition(id){
     chron(`遠征部隊が苦難の末に帰還した。${tier==="critical"?"多くの犠牲を払うこととなった。":"当初の見込みほどの成果は得られなかった。"}`,"grave");
   }
   const rIdx=longExpResultQueue.length;
-  longExpResultQueue.push({squad,tier,goldGain,itemGained,equipGained,dungeonFound,journal,died});
+  longExpResultQueue.push({squad,tier,goldGain,itemGained,equipGained,dungeonFound,journal,died,recruit,gainedItems,gainedEquips});
   pushEvent("__longexp_result__"+rIdx);
   clamp();render();renderTroops();refreshOpenPanels();save();
 }
@@ -7758,8 +7770,10 @@ function buildLongExpeditionResultEvent(idx){
   if(!r)return null;
   const tierLabel={great:"大成功",success:"成功",fail:"苦戦",critical:"大失敗"}[r.tier];
   let body=`道中日誌:\n${r.journal.map(j=>"・"+j).join("\n")}\n\n結果:${tierLabel}\n獲得ゴールド:${r.goldGain}G`;
-  if(r.itemGained)body+=`\n持ち帰ったアイテム:「${r.itemGained.name}」`;
-  if(r.equipGained)body+=`\n持ち帰った装備:「${r.equipGained.name}」`;
+  if(r.tier==="great"||r.tier==="success")body+=`\n遠方との交易・見聞で、経済と外交も上向いた。部隊も見違えるほど成長している。`;
+  if(r.gainedItems&&r.gainedItems.length)body+=`\n持ち帰ったアイテム:${r.gainedItems.map(n=>`「${n}」`).join("、")}`;
+  if(r.gainedEquips&&r.gainedEquips.length)body+=`\n持ち帰った装備:${r.gainedEquips.map(n=>`「${n}」`).join("、")}`;
+  if(r.recruit)body+=`\n道中で見出した${fullName(r.recruit)}が、隊に加わった。`;
   if(r.dungeonFound)body+=`\n道中、新たな「${r.dungeonFound.name}」への入口も見つけたという。`;
   if(r.died)body+=`\n――${fullName(r.died)}は、ついに帰らぬ人となった。`;
   return{tag:"遠征帰還",title:`遠征部隊、帰還(${tierLabel})`,body,choices:[{label:"分かった",fx:{}}]};
@@ -7784,7 +7798,7 @@ function renderDungeonPanel(){
       const selSquad=expSelectedUnitIds.map(id=>eligible.find(u=>u.id===id)).filter(Boolean);
       h+=`<div class="pcard" style="border-color:var(--gold2)">
         <div class="nm" style="color:var(--gold)">遠征部隊の編成</div>
-        <div class="ds">5人ちょうどで編成し、60〜90日の長期派遣に出す。ゴールド・アイテム・新規ダンジョン発見を狙う。期間中は他の任務に出せない。</div>
+        <div class="ds">5人ちょうどで編成し、60〜90日の長期派遣に出す。多額のゴールド・上質な装備やアイテム・部隊の大きな成長・経済/外交の向上、道中で仲間を見出すことも。期間中は他の任務に出せない。</div>
         <div class="ds">選択中:${selSquad.length}/5人</div>
       </div>`;
       if((S.squads||[]).some(s=>s.unitIds&&s.unitIds.length===5)){
@@ -7838,7 +7852,7 @@ function renderDungeonPanel(){
     const eligibleCount=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<60&&!u.dungeonBusy&&!u.campUntil).length;
     h+=`<div class="pcard" style="border-color:var(--gold2)">
       <div class="nm" style="color:var(--gold)"><i class="icon-expedition"></i>遠征</div>
-      <div class="ds">5人編成で60〜90日の長期派遣に出し、ゴールド・アイテム・新規ダンジョン発見を狙う。期間中、部隊は他の任務に出せない。</div>
+      <div class="ds">5人編成で60〜90日の長期派遣に出す。多額のゴールド・上質な装備やアイテム・部隊の大きな成長・経済/外交の向上に加え、道中で新たな仲間やダンジョンを見出すことも。期間中、部隊は他の任務に出せない。</div>
       <button id="expStartBtn" ${eligibleCount>=5?"":"disabled"} style="margin-top:8px;width:100%;background:${eligibleCount>=5?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${eligibleCount>=5?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:800;cursor:${eligibleCount>=5?"pointer":"default"}">5人編成で遠征に出す${eligibleCount<5?"(派遣可能な兵が5人未満)":""}</button>
     </div>`;
     if(!list.length)h+=`<div class="udet-empty">現在、遠征中の部隊はいない。</div>`;
