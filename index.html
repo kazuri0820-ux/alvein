@@ -4323,6 +4323,27 @@ function checkFestival(){
   apply({mood:ri(4,7)});
   chron(FESTIVAL_FLAVORS[yr%FESTIVAL_FLAVORS.length]+"皆の士気が高まっている。","big");
 }
+/* 四季と収穫期の巡り:一年(25日)を春夏秋冬に分け、食糧生産に季節の波を与える。
+   実りの秋(豊穣期)に蓄え、端境の冬に食いつなぐ——備蓄と農業への投資に意味の綾を添える。
+   一年平均はほぼ等倍に保ち、既存の収支バランスは崩さない。 */
+const SEASONS=[
+  {key:"spring",name:"芽吹きの春",foodMult:0.95,omen:"雪が解け、畑に鍬入れが始まった。"},
+  {key:"summer",name:"実りゆく夏",foodMult:1.0,omen:"日差しが強まり、作物がぐんぐん背を伸ばしている。"},
+  {key:"autumn",name:"黄金の秋",foodMult:1.35,omen:"畑は黄金色に染まり、蔵が実りで満ちてゆく。今こそ蓄えの時だ。"},
+  {key:"winter",name:"静寂の冬",foodMult:0.72,omen:"畑は雪に眠り、端境の季節が来た。蓄えを頼りに冬を越さねばならない。"},
+];
+function currentSeason(){
+  const d=S.day%AGE_YEAR_DAYS;
+  const idx=Math.min(3,Math.floor(d/(AGE_YEAR_DAYS/4)));
+  return SEASONS[idx];
+}
+function checkSeasonTurn(){
+  const s=currentSeason();
+  if(S.seasonSeen===s.key)return;
+  const first=S.seasonSeen===undefined;
+  S.seasonSeen=s.key;
+  if(!first)chron(`季節は移ろい、${s.name}が訪れた。${s.omen}`,"");
+}
 function dailyEconomySettle(){
   S.prev={...S.st};
   const noise=rnd(0.75,1.35);
@@ -4337,7 +4358,8 @@ function dailyEconomySettle(){
   const unitUpkeep=S.units.reduce((a,u)=>a+0.1+u.lv*0.018,0);
   const upkeep=(2+S.st.military*0.12+unitUpkeep+(S.flags.dragonPact?3:0))*(1-Math.min(0.15,S.st.economy*0.0015))*(1-Math.min(0.12,S.st.diplomacy*0.0012))*(S.flags.statS_military?0.94:1)*(S.flags.statS_diplomacy?0.94:1); // 経済・外交(同盟網)が高いほど維持費が軽くなる。軍事/外交がSに達すると恒久的にさらに軽くなる
   S.gold+=income-upkeep;
-  S.food+=S.st.agriculture*0.7*noise-S.pop*0.085*(1-Math.min(0.3,S.st.agriculture*0.003))*(S.flags.statS_agriculture?0.95:1); // 農業が高いほど備蓄・分配も効率化し消費が抑えられる。農業Sで恒久的にさらに抑制
+  const seasonMult=currentSeason().foodMult; // 収穫期の巡り:秋は実り豊か、冬は端境で生産が細る
+  S.food+=S.st.agriculture*0.7*noise*seasonMult-S.pop*0.085*(1-Math.min(0.3,S.st.agriculture*0.003))*(S.flags.statS_agriculture?0.95:1); // 農業が高いほど備蓄・分配も効率化し消費が抑えられる。農業Sで恒久的にさらに抑制
   const growChance=0.16+Math.max(0,(S.food-20)/700)+Math.max(0,(S.mood-45)/400)+Math.max(0,(S.st.agriculture-40)/900); // 農業が豊かなほど人口増加率も上がる
   if(S.food>15&&S.mood>38&&Math.random()<Math.min(0.55,growChance))S.pop+=ri(1,3);
   if(S.food<0){S.food=0;S.mood-=2;if(S.day%3===0)chron("食糧が底を突きつつある。配給に長い列ができている。","grave");}
@@ -4360,6 +4382,7 @@ function dailyEconomySettle(){
   checkRecords();
   checkAging();
   checkCampReturns();
+  checkSeasonTurn();
   checkFestival();
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
