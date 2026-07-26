@@ -1580,6 +1580,7 @@ const SKILL_DB=[
  {key:"sks_12",name:"鬼神の如き膂力",tier:"silver",desc:"鬼神と称される膂力を持つ",str:10},
  {key:"sks_13",name:"賢者の知恵",tier:"silver",desc:"賢者と呼ぶに相応しい知恵を持つ",int:8,wis:8},
  // 銀(効能系:生存・忠義・育成の型を支える)
+ {key:"nsk_tireless",name:"不撓の体力",tier:"silver",desc:"疲れを知らぬ体力の持ち主で、連戦の疲れの抜けが早い",fatigueRecover:5,vit:6},
  {key:"nsk_earnest",name:"忠勤の士",tier:"silver",desc:"実直な働きぶりで、長の信を静かに集める",lead:5,loyaltyGrow:0.2},
  {key:"nsk_seasoned",name:"老練の身のこなし",tier:"silver",desc:"歳を重ねても衰えを寄せ付けぬ立ち回り",ageResist:0.5,vit:5},
  {key:"nsk_prodigy",name:"早熟の才",tier:"silver",desc:"若いうちに、驚くほどの速さで伸びる",trainMult:1.3,onlyYoung:true},
@@ -1968,7 +1969,7 @@ function trySkillUpOnPromotion(u,tierIndex){
   const sk=SKILL_DB.find(s=>s.key===k);celebrateSkillGain(u,sk);return sk;
 }
 function skillEffects(u){
-  const e={trainMult:1,injuryMult:1,deathMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,
+  const e={trainMult:1,injuryMult:1,deathMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,
     str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   const stage=ageStageOf(u);
   for(const key of u.skills){
@@ -1989,6 +1990,7 @@ function skillEffects(u){
     if(s.moralGrow)e.moralGrow+=s.moralGrow;
     if(s.ageResist)e.ageResist=Math.max(e.ageResist,s.ageResist);
     if(s.instructorMult)e.instructorMult*=s.instructorMult;
+    if(s.fatigueRecover)e.fatigueRecover+=s.fatigueRecover;
   }
   const eq=equipmentEffects(u);
   for(const k of["str","vit","int","agi","wis","lead"])e[k]+=eq[k];
@@ -2632,6 +2634,7 @@ function checkAging(){
     const stage=ageStageOf(u);
     const eff=skillEffects(u);
     const teff=titleEffectsFor(u);
+    if(eff.fatigueRecover)u.fatigue=Math.max(0,(u.fatigue||0)-eff.fatigueRecover); // スキル(不撓の体力 等)による追加の疲労回復
     u.loyalty=Math.max(0,Math.min(100,u.loyalty+eff.loyaltyGrow*0.3+teff.loyaltyGrow*0.3+bless.loyalty+hallGrow));
     u.moral=Math.max(0,Math.min(100,u.moral+eff.moralGrow*0.3+teff.moralGrow*0.3+bless.moral));
     checkDailyTitles(u);
@@ -7463,6 +7466,7 @@ function skillEffectText(s){
   }
   if(s.instructorMult&&s.instructorMult!==1)parts.push(`教官時の指導効果×${s.instructorMult}`);
   if(s.injuryMult&&s.injuryMult!==1)parts.push(`負傷率×${s.injuryMult}`);
+  if(s.fatigueRecover)parts.push(`疲労回復+${s.fatigueRecover}/日`);
   if(s.onlyCaptain)parts.push("(団長のみ有効)");
   if(s.condFlag==="dragonPact")parts.push(`竜盟約締結中はさらに体力+${s.condVit}・腕力+${s.condStr}`);
   return parts.length?parts.join(" / "):"目立った効果はない";
