@@ -6715,6 +6715,10 @@ function checkDungeonTypeFirstClear(dungeon,squad){
     S.flags.allTypesCleared=true;
     apply({gold:600,mood:12,st:{military:6,magic:6}});
     chron(`――アルヴェインの兵は、ありとあらゆる型の迷宮を制した。${total}種すべての攻略型を極めし精鋭たち、その武名は大陸に轟く。`,"big");
+  }else if(done===total-1&&!S.flags.nearAllTypes){ // 全種制覇まであと一つ:最後の型を名指しで示し、収集の総仕上げへ背中を押す(演出)
+    S.flags.nearAllTypes=true;
+    const remaining=DUNGEON_TYPES.filter(x=>!S.clearedTypes[x.key]);
+    if(remaining.length===1)chron(`未踏の攻略型は、あとは「${remaining[0].label}」ただ一つ。全${total}種の制覇まで、いよいよ王手だ。`,"big");
   }
 }
 function resolveDungeonRun(dungeonId){
