@@ -1553,6 +1553,7 @@ const SKILL_DB=[
  {key:"nsk_latebloom",name:"大器の風格",tier:"gold",desc:"歳を重ねてなお、伸び続ける稀有な器",trainMult:1.25,onlyNotYoung:true,wis:8},
  {key:"nsk_ironsoul",name:"不滅の闘魂",tier:"gold",desc:"死地でこそ燃える、決して折れぬ魂",deathMult:0.55,vit:12,lead:8},
  {key:"nsk_mentor",name:"名伯楽",tier:"gold",desc:"人を見抜き、才を伸ばす天与の指導力",instructorMult:1.4,wis:8},
+ {key:"nsk_tactician",name:"軍配の心得",tier:"gold",desc:"戦場全体を見渡す采配で、共に戦う部隊すべての連携を高める",lead:8,wis:6,squadSynergy:0.05},
  {key:"nsk_evasion",name:"見切りの達人",tier:"gold",desc:"あらゆる攻撃を紙一重で見切り、めったに傷を負わない",injuryMult:0.65,agi:8},
  // 銀(レア・強力)
  {key:"mousho", name:"猛将",     tier:"silver",desc:"前に出れば出るほど輝く性分",str:10,vit:6},
@@ -6365,7 +6366,9 @@ function squadSynergyMult(squad){
   // 獣人は群れで動くことを好む:同じ部隊に2人以上いると連携(群れの戦法)が上乗せされる(種族の個性)
   const beastCount=squad.filter(u=>u.race==="beastkin").length;
   const packBonus=beastCount>=2?Math.min(0.12,(beastCount-1)*0.05):0;
-  return Math.max(0.9,Math.min(1.45,1+sameRouteBonus-overlapPenalty+historyBonus+bondBonus+packBonus+honorBonus));
+  // 軍配の心得(軍師役)を持つ兵が同じ部隊にいると、その采配で部隊全体の連携が高まる(支援型の兵の価値)
+  const tacticianBonus=squad.some(u=>(u.skills||[]).includes("nsk_tactician"))?0.05:0;
+  return Math.max(0.9,Math.min(1.45,1+sameRouteBonus-overlapPenalty+historyBonus+bondBonus+packBonus+honorBonus+tacticianBonus));
 }
 // パーティの「質」を測る指標。人数を増やすだけで有利にならないよう平均戦力を基準にし、
 // 5人編成を基準にしたrequiredPowerとそのまま比較できるよう5倍して正規化する。
@@ -7599,6 +7602,7 @@ function skillEffectText(s){
   if(s.instructorMult&&s.instructorMult!==1)parts.push(`教官時の指導効果×${s.instructorMult}`);
   if(s.injuryMult&&s.injuryMult!==1)parts.push(`負傷率×${s.injuryMult}`);
   if(s.fatigueRecover)parts.push(`疲労回復+${s.fatigueRecover}/日`);
+  if(s.squadSynergy)parts.push(`部隊の連携+${Math.round(s.squadSynergy*100)}%`);
   if(s.onlyCaptain)parts.push("(団長のみ有効)");
   if(s.condFlag==="dragonPact")parts.push(`竜盟約締結中はさらに体力+${s.condVit}・腕力+${s.condStr}`);
   return parts.length?parts.join(" / "):"目立った効果はない";
