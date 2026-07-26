@@ -6456,6 +6456,25 @@ function battleFavoriteSpotlight(squad,foeLabel){
    farm一辺倒でなく「まだ見ぬ型に挑む」ことに収集・到達の楽しさと意味ある選択を与える。 */
 const DUNGEON_TYPE_STAT={combat:"military",puzzle:"magic",stealth:"order",endurance:"agriculture",arcane:"magic",trap:"order",cursed:"magic",labyrinth:"economy",fortress:"military",abyss:"military",beast:"agriculture",sanctum:"diplomacy",tempest:"diplomacy",inferno:"magic",tidal:"economy"};
 function statLabel(k){const s=STATDEF.find(x=>x[0]===k);return s?s[1]:k;}
+/* 通算踏破数の節目:王国の兵が制した迷宮の総数が区切りに達するたび、その偉業を年代記に刻み祝う。
+   長く続くダンジョン攻略に、目に見える到達目標と積み重ねの手応え(やりがい)を与える。 */
+const DUNGEON_CLEAR_MILESTONES=[
+ {n:25,mood:4,gold:150,text:"25の迷宮を踏破した"},
+ {n:50,mood:6,gold:300,text:"50もの迷宮を踏破した"},
+ {n:100,mood:10,gold:600,text:"100の迷宮を踏破するという偉業を成し遂げた"},
+ {n:200,mood:14,gold:1200,text:"200もの迷宮を制覇した、比類なき武の王国となった"},
+];
+function checkDungeonClearMilestone(){
+  const c=S.dungeonsCleared||0;
+  if(!S.flags)S.flags={};
+  for(const m of DUNGEON_CLEAR_MILESTONES){
+    if(c>=m.n&&!S.flags["dgcm"+m.n]){
+      S.flags["dgcm"+m.n]=true;
+      apply({mood:m.mood,gold:m.gold,st:{military:2}});
+      chron(`――アルヴェインの兵は、通算${m.text}。その武名は諸国に鳴り響いている。(祝いの財貨${m.gold})`,"big");
+    }
+  }
+}
 function checkDungeonTypeFirstClear(dungeon,squad){
   const t=dungeon&&dungeon.type;
   if(!t||!t.key)return; // 型を持たない特殊ダンジョン(魔王等)は対象外
@@ -6513,6 +6532,7 @@ function resolveDungeonRun(dungeonId){
       if(crit&&Math.random()<0.5){bonusItem=rollItemDrop(dungeon.rarity.key);if(bonusItem)addItem(bonusItem.key);} // 大成功: 追加の秘宝チャンス
       S.dungeonsCleared=(S.dungeonsCleared||0)+1;
       checkDungeonTypeFirstClear(dungeon,squad); // 攻略型の初踏破を記念する
+      checkDungeonClearMilestone(); // 通算踏破数の節目を年代記に刻む
       tryUnlockDemonLordDungeon();
       for(const u of squad){
         u.dungeonClearCount=(u.dungeonClearCount||0)+1;
