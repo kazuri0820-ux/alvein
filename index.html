@@ -4413,8 +4413,26 @@ function councilPolicy(){
    speaker:"セラ「陛下、今月はどこに力を注ぎましょうか」",
    choices};
 }
+/* 論功行賞:閣議の議題として、王国に最も尽くした兵の功をいかに報いるかを問う。国政の決断を
+   個々の兵への評価に結びつけ、「育てた兵が国から公に讃えられる」やりがいと愛着を生む(国政×人)。 */
+function councilHonors(){
+  const active=S.units.filter(u=>u.role==="active"||!u.role);
+  const pool=active.length?active:S.units;
+  if(!pool.length)return councilDomestic(); // 兵がいなければ通常の内政議題へ差し替え
+  const score=u=>(u.totalExpEarned||0)+((u.titles||[]).length*50)+((u.dungeonClearCount||0)*20)+((u.leaderCount||0)*15);
+  const hero=pool.reduce((a,b)=>score(b)>score(a)?b:a);
+  const jn=(typeof jobFor==="function")?jobFor(hero.cls,hero.lv,hero.route).name:"";
+  return{tag:"論功行賞",title:"第"+Math.floor(S.day/7)+"回 定例閣議(論功行賞)",
+   body:`今週の閣議では、王国に尽くした兵の功にいかに報いるかが議題に上った。重臣たちは口を揃えて${fullName(hero)}${jn?`(${jn})`:""}の名を挙げている。その働きは、もはや誰の目にも明らかだ。`,
+   speaker:"ガレオン「功ある者に報いてこそ、兵は命を懸けます。いかがなさいますか」",
+   choices:[
+    {label:"厚く褒賞を与える(60G)",hint:`${hero.nm}の忠誠・士気が大きく上がる`,fx:{gold:-60,mood:2,call:()=>{hero.loyalty=Math.min(100,(hero.loyalty||0)+10);hero.moral=Math.min(100,(hero.moral||0)+10);unitHistory(hero,"閣議での論功行賞により、王国から厚く褒賞を賜った。");chron(`――${fullName(hero)}に、王国から厚い褒賞が下された。その忠義に、確かな誇りが宿った。`,"big");}}},
+    {label:"全軍の前で口頭で讃える",hint:"本人の士気↑ / 全軍の士気もわずかに↑",fx:{mood:1,call:()=>{hero.moral=Math.min(100,(hero.moral||0)+6);hero.loyalty=Math.min(100,(hero.loyalty||0)+3);for(const o of S.units)if(o.id!==hero.id)o.moral=Math.min(100,(o.moral||0)+1);unitHistory(hero,"全軍の前で、その功を讃えられた。");chron(`${fullName(hero)}の功が全軍の前で讃えられ、兵たちの間に「己も続かん」という気概が広がった。`,"");}}},
+    {label:"今は褒賞を見送る",hint:"出費なし(民心わずかに↓)",fx:{mood:-1,log:"論功行賞は今回見送られた。功ある兵は口には出さねど、どこか物足りなげであった。"}},
+   ]};
+}
 function councilAction(){
-  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel];
+  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors];
   return types[Math.floor(Math.random()*types.length)]();
 }
 function councilEvent(){return councilPolicy();}
