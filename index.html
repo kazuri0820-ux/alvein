@@ -4377,6 +4377,28 @@ function checkSeasonTurn(){
   S.seasonSeen=s.key;
   if(!first)chron(`季節は移ろい、${s.name}が訪れた。${s.omen}`,"");
 }
+/* 年の暮れの回顧:一年(25日)が巡るたび、王国の歩みを年代記に振り返る一節を刻む。
+   歳月の積み重ねと成長を可視化し、年代記に「王国史」としての重みと彩りを与える。 */
+const YEAR_REFLECTIONS=[
+ "また一つ、王国は歳月を重ねた。振り返れば、遠くまで来たものだ。",
+ "この一年もまた、多くの出会いと別れがあった。谷は着実に根を張っている。",
+ "苦難も喜びも呑み込んで、アルヴェインの歴史はまた一頁を加えた。",
+ "民のかまどの煙は絶えず、王国は静かに、しかし確かに歩みを進めている。",
+ "去りゆく年を見送り、皆が新たな年へと想いを馳せた。",
+];
+function checkYearTurn(){
+  const yr=Math.floor(S.day/AGE_YEAR_DAYS);
+  if(yr<1)return;
+  if(S.yearSeen===undefined){S.yearSeen=yr;return;} // 初回は無音でセット
+  if(S.yearSeen>=yr)return;
+  S.yearSeen=yr;
+  const stg=STAGES[S.stage];
+  const cleared=S.dungeonsCleared||0;
+  const hall=(S.hallOfFame||[]).length;
+  const eldest=S.units.reduce((a,u)=>(!a||u.age>a.age)?u:a,null);
+  const refl=YEAR_REFLECTIONS[(yr-1)%YEAR_REFLECTIONS.length];
+  chron(`――${yr}年目の暮れ。${stg.name}の王国に兵${S.units.length}名が仕え、国庫${Math.round(S.gold)}・民${S.pop}を数える。${cleared?`踏破したダンジョンは${cleared}件、`:""}${hall?`${hall}名が殿堂に名を刻んだ。`:""}${eldest?`最古参は${eldest.nm}(${Math.floor(eldest.age)}歳)。`:""}${refl}`,"big");
+}
 function dailyEconomySettle(){
   S.prev={...S.st};
   const noise=rnd(0.75,1.35);
@@ -4416,6 +4438,7 @@ function dailyEconomySettle(){
   checkAging();
   checkCampReturns();
   checkSeasonTurn();
+  checkYearTurn();
   checkFestival();
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
