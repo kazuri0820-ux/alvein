@@ -1854,6 +1854,28 @@ function trySkillUp(u){
   u.skills.push(k);
   return SKILL_DB.find(s=>s.key===k);
 }
+/* 教官の技の継承:特別指導で大成功した弟子が、指南役の持つ技を一つ受け継ぐことがある。
+   引退した古豪が苦心の末に磨いた技が、次代の兵に生き続ける——鍛え上げた指南役ほど、その意味は重い。 */
+function tryInheritInstructorSkill(u){
+  if(!S.instructors||!S.instructors.length)return null;
+  if(u.skills.length>=skillCap(u))return null;
+  const pool=[];
+  for(const ins of S.instructors){
+    for(const key of (ins.skills||[])){
+      if(u.skills.includes(key))continue;
+      if(pool.some(p=>p.key===key))continue;
+      const s=SKILL_DB.find(x=>x.key===key);
+      if(!s||s.tier==="unique")continue; // 固有技は継承させない
+      if(s.cls&&s.cls!==u.cls)continue;
+      if(s.onlyCaptain&&!u.captain)continue;
+      pool.push({key,ins,s});
+    }
+  }
+  if(!pool.length)return null;
+  const pick=pool[Math.floor(Math.random()*pool.length)];
+  u.skills.push(pick.key);
+  return {skill:pick.s,from:pick.ins};
+}
 /* ジョブ系統の昇格時(新兵→兵士、兵士→古参兵…)にのみ呼ぶ。3段階目(古参兵)以降の昇格で金も解放 */
 function trySkillUpOnPromotion(u,tierIndex){
   if(u.skills.length>=skillCap(u))return null;
@@ -7770,12 +7792,19 @@ function resolveTraining(pickUnit,grade,costPaid){
     if(u.trait==="clumsy")gain*=0.65;
     if(u.trait==="lucky"&&Math.random()<0.25)gain*=2;
     const greatChance=(isPick?0.05:0.01)*(g.key==="special"?1.5:1);
-    let great=false, learnedSkill=null;
+    let great=false, learnedSkill=null, inheritedFrom=null;
     if(Math.random()<greatChance){
       great=true;
       gain*=3.5;
       const skillChance=isPick?0.4:0.15; // 大成功してもスキル習得までは選抜対象を優遇し、非選抜はさらに絞る
-      if(Math.random()<skillChance)learnedSkill=trySkillUp(u);
+      if(Math.random()<skillChance){
+        // 特別指導(指南役同席)なら、まず指南役の技を受け継ぐ機会を試みる。継承できなければ通常習得。
+        if(g.key==="special"&&Math.random()<0.5){
+          const inh=tryInheritInstructorSkill(u);
+          if(inh){learnedSkill=inh.skill;inheritedFrom=inh.from;}
+        }
+        if(!learnedSkill)learnedSkill=trySkillUp(u);
+      }
     }
     u.exp+=gain;
     const beforeLv=u.lv;
@@ -7786,7 +7815,8 @@ function resolveTraining(pickUnit,grade,costPaid){
     const hurtChance=0.05*(tr.injuryMult||1)*eff.injuryMult;
     let hurt=false;
     if(!great&&Math.random()<hurtChance){inflictInjury(u,[0.8,0.18,0.02]);hurt=true;}
-    results.push({u,gain:Math.round(gain),great,learnedSkill,leveled:u.lv>beforeLv,newLv:u.lv,promotedTo,hurt,isPick});
+    if(inheritedFrom&&learnedSkill)chron(`${fullName(inheritedFrom)}の「${learnedSkill.name}」が、${u.nm}に受け継がれた。指南役の技は次代へと生き続ける。`,"big");
+    results.push({u,gain:Math.round(gain),great,learnedSkill,inheritedFrom,leveled:u.lv>beforeLv,newLv:u.lv,promotedTo,hurt,isPick});
   }
   // 選抜兵の会心は、訓練場全体を沸かせる。ハイライトを隊で分かち合い、士気に波及させる
   const pickGreat=results.find(r=>r.isPick&&r.great);
@@ -7813,7 +7843,7 @@ function showTrainingResult(results,grade,costPaid){
     h+=`<div class="pcard" style="${r.great?"border-color:var(--gold);box-shadow:0 0 10px rgba(201,162,75,.3)":r.hurt?"border-color:rgba(217,122,122,.5)":""}">
       <div class="nm">${r.isPick?`<span style="color:var(--gold)">★</span> `:""}${r.u.nm} ${r.u.surname||""}${r.great?`<span style="color:var(--gold);font-size:11px;margin-left:6px">◆大成功</span>`:""}</div>
       <div class="ds" style="font-size:10.5px;color:${acc.tone};margin-top:1px">${displayJobName(r.u)}${r.u.awakened?"":" Lv."+r.newLv}</div>
-      <div class="ds">経験値+${r.gain}${r.leveled?(r.promotedTo?` ／ <b style="color:var(--gold)">${r.promotedTo}に昇進</b>`:` ／ Lv.${r.newLv}に到達`):""}${r.learnedSkill?` ／ スキル「${r.learnedSkill.name}」を習得`:""}${r.hurt?` ／ <span style="color:#d97a7a">軽い怪我を負った</span>`:""}</div>
+      <div class="ds">経験値+${r.gain}${r.leveled?(r.promotedTo?` ／ <b style="color:var(--gold)">${r.promotedTo}に昇進</b>`:` ／ Lv.${r.newLv}に到達`):""}${r.learnedSkill?(r.inheritedFrom?` ／ <span style="color:var(--gold)">${r.inheritedFrom.nm}の技「${r.learnedSkill.name}」を継承</span>`:` ／ スキル「${r.learnedSkill.name}」を習得`):""}${r.hurt?` ／ <span style="color:#d97a7a">軽い怪我を負った</span>`:""}</div>
     </div>`;
   }
   $("#trainResultBody").innerHTML=h;
