@@ -5968,6 +5968,7 @@ const DUNGEON_CONDITIONS={
   treasure:{label:"財宝の霊気",color:"#e8c874",desc:"守りは堅く手強いが、討ち果たせば莫大な財と秘宝が眠る"},
   eliteden:{label:"精鋭の巣",color:"#c98f6f",desc:"手強い強敵の巣。討ち果たせば、その死闘が部隊を大きく成長させる"},
   spring:{label:"恵みの泉",color:"#7fc9b0",desc:"聖なる泉の湧く地。踏破した部隊は疲れが癒え、傷も和らいで戻ってくる"},
+  kinship:{label:"絆の霊地",color:"#d99ab0",desc:"互いに背を預けねば抜けられぬ難所。共に潜り抜けた部隊には、戦友の絆が芽生えやすい"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 function generateDungeon(){
@@ -5983,6 +5984,7 @@ function generateDungeon(){
   const condition=Math.random()<0.3?DUNGEON_CONDITION_KEYS[Math.floor(Math.random()*DUNGEON_CONDITION_KEYS.length)]:null; // 稀に環境の異変を宿す
   if(condition==="treasure")bossPower=Math.round(bossPower*1.18); // 財宝の霊気は守りが堅く、ボスが手強い
   if(condition==="eliteden")bossPower=Math.round(bossPower*1.16); // 精鋭の巣は強敵揃いで、ボスが手強い
+  if(condition==="kinship")bossPower=Math.round(bossPower*1.08); // 絆の霊地は協力を要する難所で、ボスがやや手強い
   return{
     id:Math.random().toString(36).slice(2,9),
     name:dungeonName(),level,rarity,type,requiredPower,duration,
@@ -6700,6 +6702,13 @@ function resolveDungeonRun(dungeonId){
       if(cond==="spring"){ // 恵みの泉: 踏破した部隊の疲れを癒し、傷を和らげて帰す(運用テンポの回復)
         for(const u of squad){u.fatigue=0;if(u.injured>0){u.injured=Math.max(0,u.injured-2);if(u.injured<=0)u.injurySeverity=null;}}
         chron(`「${dungeon.name}」に湧く聖なる泉が、部隊の疲れを洗い流した。隊は心身ともに癒され、晴れやかな顔で帰ってきた。`,"");
+      }
+      if(cond==="kinship"){ // 絆の霊地: 共に潜り抜けた部隊に戦友の絆が芽生えやすい(forgeSquadBondが縁の成立と演出を担う)
+        for(const u of squad)u.moral=Math.min(100,(u.moral||0)+4);
+        const unb=squad.filter(u=>u&&u.role==="active"&&!u.bondWith);
+        let bonded=false;
+        if(unb.length>=2&&Math.random()<0.7)bonded=forgeSquadBond(squad,`絆の霊地「${dungeon.name}」`);
+        if(!bonded)chron(`「${dungeon.name}」を互いに背を預け合って越えた部隊は、また一段、結束を深めて帰ってきた。`,"");
       }
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
