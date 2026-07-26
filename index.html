@@ -2106,6 +2106,8 @@ function makeBackstory(originName,personality,traitTier,traitKey){
   s+=tf[Math.floor(Math.random()*tf.length)];
   return s;
 }
+/* 殿堂の遺産:名を連ねた英霊が多いほど、新たに加わる者は伝説に奮い立ち高い士気/忠誠で加わる(最大+10) */
+function hallInspiration(){const n=(S&&S.hallOfFame)?S.hallOfFame.length:0;return Math.min(10,Math.floor(n/5)*2);}
 function makeUnit(){
   const cls=pickClass();
   const race=pickRace();
@@ -2134,7 +2136,7 @@ function makeUnit(){
     agi:ri(3,12)+(trait.agi||0)+(ob.agi||0),
     wis:ri(2,10)+(trait.wis||0)+(ob.wis||0),
     lead:ri(2,10)+(trait.lead||0)+(ob.lead||0),
-    moral:ri(45,70), loyalty:ri(40,65),
+    moral:Math.min(100,ri(45,70)+hallInspiration()), loyalty:Math.min(100,ri(40,65)+hallInspiration()),
     trait:trait.key, traitTier:trait.tier, pw:trait.pw||0, gm:trait.gm, route:null, titles:[], founder:false, totalExpEarned:0, criticalSurvivalCount:0, uniqueJob:null, wasCaptain:false, lifespanVariance:rnd(0.82,1.22), stageTiming:rnd(0.82,1.22),
     skills:[], injured:0, captain:false,
     age:startAge, role:"active", retiredAskedStage:null,
@@ -2290,6 +2292,7 @@ function addToHallOfFame(u,reason){
   };
   S.hallOfFame.unshift(rec);
   if(S.hallOfFame.length>80)S.hallOfFame.pop();
+  if({5:1,10:1,20:1,40:1}[S.hallOfFame.length])chron(`殿堂に${S.hallOfFame.length}名の英霊が名を連ねた。その物語は、新たに加わる者たちを奮い立たせている。`,"big");
 }
 function handleCaptainLoss(u){
   if(!u.captain)return;
