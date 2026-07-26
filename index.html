@@ -2314,8 +2314,16 @@ function addToHallOfFame(u,reason){
   };
   S.hallOfFame.unshift(rec);
   if(S.hallOfFame.length>80)S.hallOfFame.pop();
-  if({5:1,10:1,20:1,40:1}[S.hallOfFame.length])chron(`殿堂に${S.hallOfFame.length}名の英霊が名を連ねた。その物語は、新たに加わる者たちを奮い立たせている。`,"big");
+  // 慰霊祭:殿堂が節目の人数に達すると英霊を祀る式が営まれ、語り継がれる武勲が現役の兵を奮い立たせる(殿堂の見返り)
+  if({5:1,10:1,20:1,40:1}[S.hallOfFame.length]){
+    const n=S.hallOfFame.length;
+    for(const x of S.units){if(x.role==="active"){x.loyalty=Math.min(100,(x.loyalty||0)+5);x.moral=Math.min(100,(x.moral||0)+5);}}
+    S.mood=Math.min(100,(S.mood||0)+4);
+    chron(`殿堂に${n}名の英霊が名を連ねた。慰霊祭が営まれ、語り継がれる武勲に現役の兵たちも背筋を正した。皆の忠誠と士気が高まっている。`,"big");
+  }
 }
+/* 殿堂の加護:名を刻んだ英霊が多いほど、王国に仕える誇りが現役兵の忠誠を日々わずかに育てる(殿堂を築く見返り) */
+function hallLegacyGrow(){return Math.min(0.05,((S.hallOfFame||[]).length)*0.001);}
 function handleCaptainLoss(u){
   if(!u.captain)return;
   S.flags.knightOrder=false;S.captainId=null;
@@ -2443,6 +2451,7 @@ function checkDecorationCeremony(u){
 }
 function checkAging(){
   const bless=priestBlessing();
+  const hallGrow=hallLegacyGrow(); // 殿堂の英霊の数に応じた、現役兵の忠誠へのわずかな後押し
   for(const u of [...S.units]){
     u.age+=1/AGE_YEAR_DAYS;
     u.fatigue=Math.max(0,(u.fatigue||0)-(u.race==="dwarf"?12:8)); // ドワーフは頑健で、疲れの抜けが早い(種族の個性)
@@ -2466,7 +2475,7 @@ function checkAging(){
     const stage=ageStageOf(u);
     const eff=skillEffects(u);
     const teff=titleEffectsFor(u);
-    u.loyalty=Math.max(0,Math.min(100,u.loyalty+eff.loyaltyGrow*0.3+teff.loyaltyGrow*0.3+bless.loyalty));
+    u.loyalty=Math.max(0,Math.min(100,u.loyalty+eff.loyaltyGrow*0.3+teff.loyaltyGrow*0.3+bless.loyalty+hallGrow));
     u.moral=Math.max(0,Math.min(100,u.moral+eff.moralGrow*0.3+teff.moralGrow*0.3+bless.moral));
     checkDailyTitles(u);
     // 成長段階の節目に手応えを添える(初回は無音でセット。若手→全盛期のみ演出。老兵移行は引退イベントが担う)
@@ -7920,7 +7929,9 @@ function renderHall(){
   recHtml+=`<div class="ds">歴代最多称号:${rec.mostTitles?`${rec.mostTitles.name}(${rec.mostTitles.count}個・DAY${rec.mostTitles.day})`:"まだ記録なし"}</div>`;
   recHtml+=`<div class="ds">歴代最高国庫:${rec.richestDay?`${rec.richestDay.gold}G(DAY${rec.richestDay.day})`:"まだ記録なし"}</div>`;
   recHtml+=`</div>`;
-  $("#hallSummary").innerHTML=(n?`これまでに ${n} 名が名を残した。`:"まだ殿堂入りした者はいない。隊長格以上、金・固有スキル持ち、あるいは深く戦友と結ばれた者などが、その名を刻む。")+recHtml;
+  const legacyPct=Math.round(hallLegacyGrow()*1000)/10;
+  const legacyHtml=n?`<div class="ds" style="color:var(--gold);margin-top:4px">殿堂の加護:英霊の物語が、現役兵の忠誠を日々わずかに育てている${legacyPct>0?`(忠誠+${legacyPct}/日)`:""}。</div>`:"";
+  $("#hallSummary").innerHTML=(n?`これまでに ${n} 名が名を残した。`:"まだ殿堂入りした者はいない。隊長格以上、金・固有スキル持ち、あるいは深く戦友と結ばれた者などが、その名を刻む。")+legacyHtml+recHtml;
   if(!n){$("#hallList").innerHTML="";return;}
   const REASON_LABEL={death:"死没",retire:"引退",loss:"戦没"};
   let h="";
