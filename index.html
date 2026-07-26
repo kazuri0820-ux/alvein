@@ -5971,6 +5971,7 @@ const BOSS_TRAITS={
   cunning:{label:"知略の王",color:"#9a8fd0",desc:"戦術に長け手強いが、討ち破れば部隊がその知略を我がものとする"},
   purifier:{label:"浄化の王",color:"#8fd0c9",desc:"穢れを撒く強敵。討ち果たせば、その浄化の力が療養中の兵の傷の癒えを早める"},
   renowned:{label:"威名の王",color:"#e0b0d0",desc:"その武名は遠くまで轟く強敵。討ち果たせば国に名声が広がり、腕利きが自ら門を叩く"},
+  forgelord:{label:"鍛人の王",color:"#d0a87a",desc:"古の鍛冶の秘術を守る強敵。討ち果たせば、その技が手持ちの武具を一段上の格へ鍛え上げる"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
 /* ダンジョンの環境(異変):一部のダンジョンに宿る特性。挑む前に見え、危険と実入りの綾を変える(ダンジョンの個性) */
@@ -5993,7 +5994,7 @@ function generateDungeon(){
   const duration=Math.max(3,Math.round(level/6)+Math.round((rarity.mult-1)*2.2));
   let bossPower=Math.round(requiredPower*1.3);
   let bossTrait=null;
-  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier"||bossTrait==="renowned")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
+  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier"||bossTrait==="renowned"||bossTrait==="forgelord")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
   const condition=Math.random()<0.3?DUNGEON_CONDITION_KEYS[Math.floor(Math.random()*DUNGEON_CONDITION_KEYS.length)]:null; // 稀に環境の異変を宿す
   if(condition==="treasure")bossPower=Math.round(bossPower*1.18); // 財宝の霊気は守りが堅く、ボスが手強い
   if(condition==="eliteden")bossPower=Math.round(bossPower*1.16); // 精鋭の巣は強敵揃いで、ボスが手強い
@@ -6749,6 +6750,12 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="cunning"){const cands=squad.filter(u=>u&&u.skills&&u.skills.length<skillCap(u));const learner=(cands.length?cands:squad)[Math.floor(Math.random()*(cands.length?cands.length:squad.length))];const learned=learner?trySkillUp(learner):null;if(learned)chron(`「知略の王」を打ち破り、${learner.nm}がその戦術の粋を我がものとした。新たに「${learned.name}」を会得している。`,"big");else{const g=Math.round(ri(40,75)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「知略の王」を打ち破った。遺された兵法書の類を持ち帰り、財貨${g}に換えた。`,"");}}
         else if(dungeon.bossTrait==="purifier"){const injured=S.units.filter(x=>x.injured>0);for(const x of injured){x.injured=Math.max(0,x.injured-ri(2,3));if(x.injured<=0)x.injurySeverity=null;}for(const u of squad)u.moral=Math.min(100,(u.moral||0)+4);chron(`「浄化の王」を討ち果たすと、辺りに満ちていた穢れが晴れた。その清らかな力が、${injured.length?`療養中の兵${injured.length}名の傷の癒えを早めている`:"部隊の心身を清めた"}。`,"big");}
         else if(dungeon.bossTrait==="renowned"){S.volunteers=S.volunteers||[];let name=null;if(S.volunteers.length<8){const v=makeVolunteer();v.hiddenPotential=true;v.comment="……あなたの武名を慕い、遠方から馳せ参じたという。";name=`${v.unit.nm} ${v.unit.surname}`;S.volunteers.push(v);}apply({mood:3});chron(name?`「威名の王」を討ち果たした武名は、瞬く間に国中へ広がった。その勇名を慕い、腕利き「${name}」が自ら志願を求めて門を叩いている。`:`「威名の王」を討ち果たした武名は、国中へ広がった。志願所は今、詰めかけた者たちで溢れている。`,"big");}
+        else if(dungeon.bossTrait==="forgelord"){ // 鍛人の王: 手持ち(在庫)の武具一点を一段上の格へ鍛え上げる。無ければ名品を落とす
+          const inv=S.equipmentInventory||[];let best=null,bestScore=-1,bestNext=null;
+          for(const inst of inv){const nx=nextRarityEquipDef(inst.key);if(!nx)continue;const def=EQUIPMENT_DB.find(d=>d.key===inst.key);if(!def)continue;const sc=EQUIP_RARITY_ORDER.indexOf(def.rarity);if(sc>bestScore){bestScore=sc;best=inst;bestNext=nx;}}
+          if(best){const oldDef=EQUIPMENT_DB.find(d=>d.key===best.key);best.key=bestNext.key;chron(`「鍛人の王」を討ち、その秘伝の炉を我が物とした。手持ちの「${oldDef.name}」が「${bestNext.name}」へと鍛え上げられている。`,"big");}
+          else{const eq=rollEquipmentDrop(dungeon.rarity.key);if(eq){addEquipment(eq.key);chron(`「鍛人の王」を討ち、その工房から名品「${eq.name}」を持ち帰った。`,"big");}else chron(`「鍛人の王」を討ち果たし、その工房を検めた。`,"");}
+        }
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
