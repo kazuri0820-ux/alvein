@@ -6721,18 +6721,18 @@ const EXPEDITION_THEMES=[
  {name:"名もなき遺跡",flavor:"地図にも載っていない遺跡が、猟師の手によって発見されたという。",statFn:u=>u.wis*0.4+u.int*0.35+u.str*0.25},
  {name:"山中の魔物の巣",flavor:"北の山中に、魔物の巣ができているとの報せが入った。放置すれば被害が広がりかねない。",statFn:u=>u.str*0.4+u.vit*0.4+u.agi*0.2},
  {name:"街道の盗賊団",flavor:"街道を荒らし続けてきた盗賊団の隠れ家が、ついに突き止められた。",statFn:u=>u.agi*0.4+u.str*0.3+u.wis*0.3},
- {name:"沈んだ交易船",flavor:"嵐で沈んだという交易船の噂を、漁師たちが伝えてきた。積み荷が残っているかもしれない。",statFn:u=>u.vit*0.35+u.agi*0.35+u.wis*0.3},
+ {name:"沈んだ交易船",flavor:"嵐で沈んだという交易船の噂を、漁師たちが伝えてきた。積み荷が残っているかもしれない。",statFn:u=>u.vit*0.35+u.agi*0.35+u.wis*0.3,bonus:()=>{const g=ri(45,90);apply({gold:g});const it=rollItemDrop("uncommon");if(it)addItem(it.key);chron(`沈没船から引き揚げた積み荷が、思わぬ実入りになった(財貨+${g}${it?`／「${it.name}」`:""})。`,"");}},
  {name:"呪われた古戦場",flavor:"かつての戦場跡から、夜な夜な怪しい声が聞こえるという。",statFn:u=>u.int*0.4+u.vit*0.3+u.wis*0.3},
  {name:"氷穴の奥",flavor:"山間の氷穴に、奇妙な光が灯っているのを猟師が見たという。",statFn:u=>u.wis*0.35+u.agi*0.3+u.vit*0.35},
- {name:"竜の足跡",flavor:"巨大な足跡が谷の外れに続いているのが見つかった。竜のものだという噂もある。",statFn:u=>u.str*0.35+u.vit*0.35+u.lead*0.3},
+ {name:"竜の足跡",flavor:"巨大な足跡が谷の外れに続いているのが見つかった。竜のものだという噂もある。",statFn:u=>u.str*0.35+u.vit*0.35+u.lead*0.3,bonus:()=>{const eq=rollEquipmentDrop(Math.random()<0.3?"epic":"rare");if(eq){addEquipment(eq.key);chron(`竜が落とした鱗と骨から、見事な「${eq.name}」が打ち出された。`,"big");}}},
  {name:"地下水路の異変",flavor:"王都の地下水路で異音がするとの報告があった。何かが棲み着いたのかもしれない。",statFn:u=>u.agi*0.35+u.str*0.3+u.int*0.35},
- {name:"廃坑の怪音",flavor:"かつて栄えた鉱山の廃坑から、規則的な物音が響いてくるという。",statFn:u=>u.vit*0.4+u.str*0.3+u.wis*0.3},
+ {name:"廃坑の怪音",flavor:"かつて栄えた鉱山の廃坑から、規則的な物音が響いてくるという。",statFn:u=>u.vit*0.4+u.str*0.3+u.wis*0.3,bonus:()=>{apply({st:{economy:2}});chron("廃坑の奥に手つかずの鉱脈が見つかり、王国の産業を潤した(経済+2)。","");}},
  {name:"消えた行商隊",flavor:"半月前に街道を発ったはずの行商隊が、いまだ戻らないという。",statFn:u=>u.agi*0.4+u.wis*0.35+u.str*0.25},
  {name:"霧の谷の噂",flavor:"いつも霧に包まれている隣の谷で、灯りが揺れているのを見た者がいるという。",statFn:u=>u.wis*0.4+u.agi*0.3+u.int*0.3},
  {name:"古井戸の底",flavor:"村外れの涸れ井戸の底から、うめき声のようなものが聞こえるという。",statFn:u=>u.vit*0.35+u.int*0.35+u.agi*0.3},
  {name:"漂着した箱舟",flavor:"見知らぬ紋章の刻まれた小舟が、川岸に打ち上げられているのが見つかった。",statFn:u=>u.wis*0.4+u.lead*0.3+u.int*0.3},
- {name:"崩れた砦跡",flavor:"かつての国境砦の跡地に、何者かが出入りしているのが目撃された。",statFn:u=>u.str*0.35+u.lead*0.35+u.vit*0.3},
- {name:"星降る丘の異変",flavor:"流れ星がよく落ちるという丘で、地面が妙に光っているとの報告があった。",statFn:u=>u.int*0.45+u.wis*0.3+u.agi*0.25},
+ {name:"崩れた砦跡",flavor:"かつての国境砦の跡地に、何者かが出入りしているのが目撃された。",statFn:u=>u.str*0.35+u.lead*0.35+u.vit*0.3,bonus:()=>{apply({st:{military:1}});const eq=rollEquipmentDrop("rare");if(eq){addEquipment(eq.key);chron(`砦跡の武具庫から、いまだ使える「${eq.name}」を接収した(軍事+1)。`,"");}}},
+ {name:"星降る丘の異変",flavor:"流れ星がよく落ちるという丘で、地面が妙に光っているとの報告があった。",statFn:u=>u.int*0.45+u.wis*0.3+u.agi*0.25,bonus:()=>{apply({st:{magic:2}});const it=rollItemDrop("rare");if(it){addItem(it.key);chron(`星の欠片から「${it.name}」がもたらされ、魔導の研究も進んだ(魔導+2)。`,"");}}},
  {name:"獣道の異形",flavor:"猟師たちが使う獣道の奥で、見たこともない足跡が見つかったという。",statFn:u=>u.agi*0.4+u.str*0.35+u.vit*0.25},
 ];
 /* 遠征の道中の小さな出来事(彩りと、ささやかな驚き) */
@@ -6861,6 +6861,7 @@ function resolveExpedition(riskKey,rewardMult){
       if(itemGained)addItem(itemGained.key);
     }
     apply({gold:goldGain,st:{economy:1},mood:2});
+    if(theme.bonus){try{theme.bonus(squad);}catch(e){/* 追加報酬の失敗は本体に影響させない */}} // テーマ固有の特別報酬(大成功時)
     dungeonFound=checkDungeonDiscovery(1.6,leader);
     chron(`――ミッション「${theme.name}」は大成功に終わった。${leader.nm}率いる部隊が、意気揚々と帰還した。${itemGained?`「${itemGained.name}」を手に入れた。`:""}`,"big");
     battleSkillSpotlight(squad,`ミッション「${theme.name}」`); // 集めた一流・固有の技がミッションでも光る
