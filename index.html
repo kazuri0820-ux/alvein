@@ -5742,6 +5742,7 @@ const DUNGEON_CONDITIONS={
   richaura:{label:"豊穣の気",color:"#8fbf6f",desc:"満ちた気が糧となり、踏破で得る経験値が増える"},
   cursed:{label:"呪詛の澱み",color:"#9a6bb0",desc:"澱んだ気が兵を疲れさせるが、呪物の財貨が眠る"},
   blessed:{label:"古の祝福",color:"#8fd0e8",desc:"古の加護が宿り、失敗しても深手を負いにくい"},
+  treasure:{label:"財宝の霊気",color:"#e8c874",desc:"守りは堅く手強いが、討ち果たせば莫大な財と秘宝が眠る"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 function generateDungeon(){
@@ -5754,12 +5755,14 @@ function generateDungeon(){
   let bossPower=Math.round(requiredPower*1.3);
   let bossTrait=null;
   if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="ancient"||bossTrait==="venomous")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
+  const condition=Math.random()<0.3?DUNGEON_CONDITION_KEYS[Math.floor(Math.random()*DUNGEON_CONDITION_KEYS.length)]:null; // 稀に環境の異変を宿す
+  if(condition==="treasure")bossPower=Math.round(bossPower*1.18); // 財宝の霊気は守りが堅く、ボスが手強い
   return{
     id:Math.random().toString(36).slice(2,9),
     name:dungeonName(),level,rarity,type,requiredPower,duration,
     bossName:generateBossName(rarity.key),bossPower,bossTrait,
     treasureVault:Math.random()<0.12, // 稀に「財宝の間」を秘める(踏破で追加の宝)
-    condition:Math.random()<0.3?DUNGEON_CONDITION_KEYS[Math.floor(Math.random()*DUNGEON_CONDITION_KEYS.length)]:null, // 稀に環境の異変を宿す
+    condition,
     discoveredDay:S.day,
   };
 }
@@ -6373,6 +6376,13 @@ function resolveDungeonRun(dungeonId){
         const tGold=Math.round(ri(30,60)*dungeon.rarity.mult*levelMult);
         apply({gold:tGold,mood:2});
         chron(`奥には「財宝の間」が隠されていた！${tItem?`「${tItem.name}」と`:""}${tGold}の財貨を持ち帰った。`,"big");
+      }
+      if(cond==="treasure"){ // 財宝の霊気: 手強い分、討ち果たせば莫大な財と一段上の秘宝が眠る
+        const tGold=Math.round(ri(90,160)*dungeon.rarity.mult*levelMult);
+        const upKey={common:"uncommon",uncommon:"rare",rare:"epic",epic:"legendary",legendary:"legendary"}[dungeon.rarity.key]||"rare";
+        const tItem=rollItemDrop(upKey); if(tItem)addItem(tItem.key);
+        apply({gold:tGold,mood:3});
+        chron(`「${dungeon.name}」に満ちた財宝の霊気は伊達ではなかった。堅い守りを破った先には、${tItem?`秘宝「${tItem.name}」と`:""}莫大な財貨${tGold}が眠っていた。`,"big");
       }
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
