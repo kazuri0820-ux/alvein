@@ -5930,6 +5930,15 @@ function showExpeditionResult(theme,rarity,tier,leader,log,goldGain,died,uniqueL
   $("#expResultBody").innerHTML=h;
   $("#panelExpResult").classList.add("show");
 }
+/* 武勲ある古参が退く時、その生き様が若い世代を静かに鼓舞する(世代交代に継承の意味を与える) */
+function retireVeteranLegacy(u){
+  const distinguished=(u.titles&&u.titles.length>0)||u.lv>=18||u.wasCaptain;
+  if(!distinguished)return;
+  const young=S.units.filter(x=>x.id!==u.id&&x.role==="active"&&(S.day-(x.joinDay||S.day))<120);
+  if(!young.length)return;
+  for(const y of young){y.moral=Math.min(100,y.moral+6);y.loyalty=Math.min(100,y.loyalty+4);}
+  chron(`${u.nm}の歩んだ道は、若い兵たちの胸に確かに刻まれた。その背中が、次の世代を静かに奮い立たせている。`,"big");
+}
 function buildRetireEvent(uid){
   const u=S.units.find(x=>x.id===uid);
   if(!u)return null;
@@ -5940,8 +5949,8 @@ function buildRetireEvent(uid){
    speaker:u.bondWith?`(戦友の一人が、心配そうにこちらを見ている)`:`${u.nm}「まだ働けます。ですが……長のご判断に従います」`,
    choices:[
     {label:"現役を続けさせる",hint:"能力はやや低下したまま戦い続ける",fx:{log:`${u.nm}は現役を続けることを選んだ。`}},
-    {label:"退役させ、指南役(教官)に任じる",hint:"全兵士の訓練効果が微増",fx:{call:()=>retireUnit(u,true)}},
-    {label:"静かに退役させる",hint:"戦力からは外れる",fx:{call:()=>retireUnit(u,false)}},
+    {label:"退役させ、指南役(教官)に任じる",hint:"全兵士の訓練効果が微増(武勲ある者は後進を鼓舞)",fx:{call:()=>{retireVeteranLegacy(u);retireUnit(u,true);}}},
+    {label:"静かに退役させる",hint:"戦力からは外れる(武勲ある者は後進を鼓舞)",fx:{call:()=>{retireVeteranLegacy(u);retireUnit(u,false);}}},
    ]};
 }
 /* ==================== ユニーク職(第7の道、英雄格昇進時に1回だけ判定・排他制なし) ==================== */
