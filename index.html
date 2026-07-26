@@ -3271,6 +3271,31 @@ const RANDOM_RARE=[
    {label:"迎え入れる",hint:"腕利きの兵が一人加わる",fx:{call:()=>{itemRecruitUnit("A","流浪の末、アルヴェインに腰を落ち着けることにした剣士。");}}},
    {label:"路銀だけ渡して見送る",hint:"民心+2",fx:{gold:-15,mood:2,log:"剣士には路銀が手渡された。「この恩は忘れん」と、彼は深く頭を下げて去っていった。"}},
   ]},
+ {tag:"果 し 合",title:"果たし合いの申し込み",
+  body:"諸国を巡る手練れの武芸者が、アルヴェイン随一の兵との一騎打ちを望んで城門に現れた。「貴国で最も腕の立つ者と、尋常に立ち合いたい」。その眼差しには、遊びではない真剣さがあった。",
+  speaker:"ガレオン「受けるも断るも、王国の名に関わりましょう。いかがなさいます」",
+  choices:[
+   {label:"最強の兵を送り出す",hint:"勝てば大きな栄誉 / 敗れれば手傷を負う",fx:{call:()=>{
+     const pool=S.units.filter(u=>u.injured<=0);
+     if(!pool.length){chron("だが今、立ち合いに送り出せる兵がいなかった。武芸者は残念そうに去っていった。","");return;}
+     const champ=pool.reduce((a,b)=>((b.str+skillEffects(b).str)>(a.str+skillEffects(a).str)?b:a));
+     const power=champ.str+skillEffects(champ).str+ri(-6,10);
+     const bar=30+Math.round((S.dungeonsCleared||0)*0.6); // 王国が育つほど、名を求める強敵が挑んでくる
+     if(power>=bar){
+       champ.moral=Math.min(100,(champ.moral||0)+12);champ.loyalty=Math.min(100,(champ.loyalty||0)+8);
+       apply({mood:5});
+       unitHistory(champ,"諸国の武芸者との果たし合いを制し、その武名を国中に轟かせた。");
+       chron(`――${fullName(champ)}が果たし合いを制した！武芸者は深く頭を垂れ、「見事」とだけ言い残して去った。${champ.nm}の名は、国中に轟いた。`,"big");
+     }else{
+       inflictInjury(champ,[0.85,0.13,0.02]);
+       champ.exp=(champ.exp||0)+ri(15,28);processLevelUps(champ);
+       champ.moral=Math.min(100,(champ.moral||0)+3);
+       unitHistory(champ,"諸国の武芸者との果たし合いに敗れ、手傷を負いながらも多くを学んだ。");
+       chron(`${fullName(champ)}は果たし合いに敗れ、手傷を負った。だがその一戦で得たものは大きく、悔しさを糧に一回り強くなるだろう。`,"");
+     }
+   }}},
+   {label:"丁重に断る",hint:"危険を避ける(民心わずかに↓)",fx:{mood:-1,log:"果たし合いは丁重に断られた。武芸者は「臆したか」と鼻を鳴らし、静かに去っていった。"}},
+  ]},
  {tag:"発 見",title:"崩れた砦の武具庫",
   body:"古い砦の跡から、封じられた武具庫が見つかった。中には、時を経てなお輝きを失わぬ一振りが眠っているという。ただし、運び出すには崩落の危険が伴う。",
   speaker:"ブロム「まだ使える。……惜しいのう、あのまま朽ちさせるのは」",
