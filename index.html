@@ -2582,6 +2582,7 @@ function priestBlessing(){
 }
 function checkRecords(){
   if(!S.records)S.records={strongestUnit:null,longestLived:null,fastestHero:null,mostTitles:null,richestDay:null};
+  const prevStrong=S.records.strongestUnit; // 首位交代の一幕を検出するための、更新前の歴代最強
   for(const u of S.units){
     const p=unitPower(u);
     if(!S.records.strongestUnit||p>S.records.strongestUnit.power){
@@ -2591,6 +2592,12 @@ function checkRecords(){
     if(titleCount>0&&(!S.records.mostTitles||titleCount>S.records.mostTitles.count)){
       S.records.mostTitles={name:`${u.nm} ${u.surname||""}`.trim(),count:titleCount,day:S.day};
     }
+  }
+  // 歴代最強の座が別の兵に移った時だけ、静かに讃える(既存の記録を上回る"首位交代"の一幕。序盤の頻繁な更新は除外)
+  const nowStrong=S.records.strongestUnit;
+  if(prevStrong&&nowStrong&&nowStrong.name!==prevStrong.name&&prevStrong.power>=40&&S.recordsStrongestSeen!==nowStrong.name){
+    S.recordsStrongestSeen=nowStrong.name;
+    chron(`${nowStrong.name}が、歴代最強と謳われた${prevStrong.name}をも上回り、王国史上もっとも強き兵となった。`,"big");
   }
   if(!S.records.richestDay||S.gold>S.records.richestDay.gold){
     S.records.richestDay={gold:Math.round(S.gold),day:S.day};
