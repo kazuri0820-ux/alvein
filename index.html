@@ -3345,6 +3345,20 @@ const RANDOM_RARE=[
      else{apply({mood:-5,food:-15,log:"病は谷に広がり、しばらくは畑仕事も滞った。民心が沈んでいる。",logCls:"grave"});}
    }}},
   ]},
+ {tag:"発 見",title:"古き武具庫",
+  body:"古城の一角を修繕していた者たちが、頑丈な封のかけられた小部屋を掘り当てた。「先代よりさらに昔の……武具庫のようです」。錆びついた扉の奥には、まだ何かが眠っている気配がある。",
+  speaker:"ガレオン「封は相応の理由あってのもの。開けるにしても、慎重にいくべきかと」",
+  choices:[
+   {label:"力ずくで封を破る",hint:"掘り出し物の望み大 / 罠の恐れ",fx:{call:()=>{
+     if(Math.random()<0.62){const eq=rollEquipmentDrop("epic");if(eq){addEquipment(eq.key);apply({mood:2});chron(`封を破ると、奥には手つかずの武具が眠っていた。「${eq.name}」を持ち帰った。`,"big");}else{apply({gold:60,mood:1});chron("封の奥には、値打ちものの金具が残されていた。売り払って財貨60を得た。","");}}
+     else{const cands=S.units.filter(u=>u.injured<=0);if(cands.length){const v=cands[Math.floor(Math.random()*cands.length)];inflictInjury(v,[0.8,0.18,0.02]);unitHistory(v,"古き武具庫の封を破った際、仕掛けられた罠に巻き込まれ傷を負った。");}apply({mood:-3,log:"封には古い仕掛けが施されていた。扉を破った拍子に罠が作動し、作業にあたった兵が傷を負ってしまった。",logCls:"grave"});}
+   }}},
+   {label:"神官を呼び、慎重に開ける(50G)",hint:"確実に何かを得る(出費)",fx:{call:()=>{
+     if(S.gold<50){chron("だが、神官を招くだけの蓄えがなかった。封は、ひとまずそのままにされた。","");return;}
+     S.gold-=50;const eq=rollEquipmentDrop("rare");if(eq){addEquipment(eq.key);apply({mood:1});chron(`神官が祈祷とともに封を解いた。奥から「${eq.name}」が見つかり、無事に持ち帰られた。`,"big");}else{apply({gold:70});chron("神官が慎重に封を解いた。武具そのものは朽ちていたが、金具を売って財貨70を得た。","");}
+   }}},
+   {label:"封じたまま、そっとしておく",hint:"治安+2 民心+1",fx:{st:{order:2},mood:1,log:"武具庫の封は、そのまま残された。先人の遺したものを軽々に暴かぬ王の姿勢に、家臣たちは静かに頷いた。"}},
+  ]},
  {tag:"外 交",title:"隣国からの使者",
   body:"隣接する小国から、丁重な使者が遣わされてきた。「両国のよしみのため、交易の便宜と、いくばくかの貢納を」との申し出である。応じれば友好が深まるが、どこか足元を見られているようでもある。",
   speaker:"セラ「相手は本気で誼を通じたいのか、それとも品定めか……ご判断を、陛下」",
