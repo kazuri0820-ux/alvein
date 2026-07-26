@@ -4592,8 +4592,24 @@ function councilTrade(){
    speaker:"セラ「商いは国の血の巡り。どう手を打ちましょうか」",
    choices:opts};
 }
+/* 祭祀会議:民の心の拠り所と季節の祈りをめぐる方針を問う。慰霊・豊穣祈願・神殿修復のいずれを選ぶかで
+   民心・治安・農業・魔導が静かに振れる。本作の弔い・季節のテーマに国政の一議題として光を添える(国政の彩り)。 */
+function councilFaith(){
+  const opts=[
+   {label:"戦没者を祀る慰霊祭を営む",hint:"民心+3 治安+1(出費30G)",fx:{gold:-30,mood:3,st:{order:1},log:"戦没者を悼む慰霊祭がしめやかに営まれた。民は先人を偲び、心を一つにした。"}},
+   {label:"豊穣を祈る祭儀を執り行う",hint:"農業+2 民心+2(出費30G)",fx:{gold:-30,st:{agriculture:2},mood:2,log:"豊穣を祈る祭儀が営まれた。畑に立つ者の手にも、自ずと力がこもる。"}},
+   {label:"古の神殿の修復を進める",hint:"魔導+3(出費50G)",fx:{gold:-50,st:{magic:3},log:"古の神殿の修復が進み、失われかけた祈りの作法が今に甦った。"}},
+   {label:"祈祷所に喜捨を募る",hint:"民心+2 治安+1",fx:{mood:2,st:{order:1},log:"祈祷所への喜捨が募られ、民の心の拠り所がまた一つ確かになった。"}},
+  ];
+  const pick=opts.sort(()=>Math.random()-.5).slice(0,3);
+  pick.push({label:"今週は特に催さず様子を見る",hint:"出費なし",fx:{log:"信仰にまつわる催しは、今週は見送られた。"}});
+  return{tag:"祭祀会議",title:"第"+Math.floor(S.day/7)+"回 定例閣議(祭祀)",
+   body:"今週の議題は祭祀。民の心の拠り所と、季節の祈りをめぐる方針を協議する。",
+   speaker:"老師ユグ「祈りは目には見えませぬが、国の背骨を静かに支えるもの」",
+   choices:pick};
+}
 function councilAction(){
-  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade];
+  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith];
   return types[Math.floor(Math.random()*types.length)]();
 }
 function councilEvent(){return councilPolicy();}
