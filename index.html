@@ -2124,6 +2124,7 @@ const TITLE_DB=[
  {key:"t_skillful",name:"多芸の兵",desc:"数多の技を身につけ、あらゆる戦場に応じてみせる",effect:"expMult",value:1.04},
  {key:"t_polymath",name:"百芸の達人",desc:"ありとあらゆる技を極めた、まさに歩く武芸の宝庫",effect:"expMult",value:1.08},
  {key:"t_legendsquad",name:"伝説の小隊の一員",desc:"幾多の出撃を共にし、伝説と讃えられた小隊の一員",effect:"loyaltyGrow",value:0.12},
+ {key:"t_generalslayer",name:"魔将殺し",desc:"魔王軍の名だたる魔将を討ち取った",effect:"injuryMult",value:0.9},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -6907,6 +6908,7 @@ function resolveDemonDefense(){
       const item=rollItemDrop(S.demonArmyLevel>=5?"epic":"rare"); // 魔将は必ず遺物を落とす
       if(item){addItem(item.key);itemMsg=`魔将の遺物「${item.name}」を手に入れた。`;}
       if(leader)unitHistory(leader,`魔将「${genName}」を討ち取り、その名を魔王軍に知らしめた。`);
+      for(const u of squad)grantTitle(u,"t_generalslayer"); // 魔将を討った部隊に「魔将殺し」の称号
       chron(`――魔将「${genName}」を討ち取った！${leader?leader.nm:"部隊"}の武勇が魔王軍に一泡吹かせ、防衛の練度が大きく上がった(魔王軍対応Lv.${S.demonArmyLevel})。${itemMsg}`,"big");
       battleSkillSpotlight(squad,`魔将「${genName}」`); // 集めた一流・固有の技が魔将戦でも光る
       battleBondSpotlight(squad,`魔将「${genName}」`); // 戦友の連携が魔将戦を切り抜ける一幕
