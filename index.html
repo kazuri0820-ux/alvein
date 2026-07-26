@@ -6088,6 +6088,13 @@ const ITEMS=[
  }},
  // ── アンコモン ──
  {key:"coin_pouch",name:"重い金貨袋",rarity:"uncommon",desc:"国庫がまとまって潤う。",effect:()=>apply({gold:ri(60,110),log:"金貨袋の中身が国庫に納められた。"})},
+ {key:"recruit_notice",name:"募兵の触れ",rarity:"uncommon",desc:"国中に募兵の触れを出し、新たな志願者を数名呼び寄せる(志願一覧に加わる)。",effect:()=>{
+   S.volunteers=S.volunteers||[];
+   let added=0;
+   for(let i=0;i<3;i++){ if(S.volunteers.length>=8)break; S.volunteers.push(makeVolunteer()); added++; }
+   if(added)chron(`募兵の触れが国中に響き、${added}名の新たな志願者が名乗りを上げた。志願一覧を確かめよう。`,"big");
+   else chron("募兵の触れを出したが、志願の受付はすでに一杯だった。","");
+ }},
  {key:"stat_tonic",name:"成長の霊薬",rarity:"uncommon",desc:"ランダムな兵の全ステータスが少し上昇。",effect:()=>{if(!S.units.length)return;const u=S.units[Math.floor(Math.random()*S.units.length)];const b=ri(2,4);for(const k of["str","vit","int","agi","wis","lead"])u[k]+=b;chron(`${u.nm}が霊薬を服用し、力がみなぎるのを感じた。`,"big");}},
  {key:"full_heal",name:"完全治癒の秘薬",rarity:"uncommon",desc:"療養中の兵を即座に全回復させる。",effect:()=>{const c=S.units.filter(u=>u.injured>0);if(!c.length){chron("療養中の兵がおらず、秘薬は温存された。","");return;}const u=c[Math.floor(Math.random()*c.length)];u.injured=0;u.injurySeverity=null;chron(`${u.nm}の傷が、たちどころに癒えた。`,"big");}},
  {key:"skillbook",name:"技伝授の書",rarity:"uncommon",desc:"選んだ兵にランダムなスキルを1つ授ける(最上位クラスのスキルは対象外)。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;const learned=trySkillUpItem(u);if(learned)chron(`${fullName(u)}が技伝授の書から「${learned.name}」を学んだ。`,"big");else chron("技伝授の書を開いたが、これ以上学べることはなかったようだ。","");}},
