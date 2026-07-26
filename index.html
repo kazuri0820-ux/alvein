@@ -5965,6 +5965,16 @@ const ITEMS=[
    if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}
    chron(`開かずの秘境図が、${unconquered.length?"いまだ見ぬ":""}「${type.label}」の秘境${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」への道を開いた。`,"big");
  }},
+ {key:"grand_feast",name:"祝勝の宴",rarity:"rare",desc:"全兵の疲労を癒し、士気を大きく高める。宴の席で新たな戦友の絆が生まれることも。",effect:()=>{
+   for(const u of S.units){u.fatigue=Math.max(0,(u.fatigue||0)-25);u.moral=Math.min(100,(u.moral||0)+8);}
+   let bonded=false;
+   if(typeof forgeSquadBond==="function"){
+     const active=S.units.filter(u=>u.role==="active"&&!u.bondWith);
+     if(active.length>=2&&Math.random()<0.5){bonded=forgeSquadBond(active,"祝勝の宴");}
+   }
+   apply({mood:3});
+   chron(`祝勝の宴が盛大に催された。兵たちは疲れを癒し、士気を新たにした。${bonded?"":"広間には、絶えず笑い声が満ちていた。"}`,"big");
+ }},
  // ── アンコモン ──
  {key:"coin_pouch",name:"重い金貨袋",rarity:"uncommon",desc:"国庫がまとまって潤う。",effect:()=>apply({gold:ri(60,110),log:"金貨袋の中身が国庫に納められた。"})},
  {key:"stat_tonic",name:"成長の霊薬",rarity:"uncommon",desc:"ランダムな兵の全ステータスが少し上昇。",effect:()=>{if(!S.units.length)return;const u=S.units[Math.floor(Math.random()*S.units.length)];const b=ri(2,4);for(const k of["str","vit","int","agi","wis","lead"])u[k]+=b;chron(`${u.nm}が霊薬を服用し、力がみなぎるのを感じた。`,"big");}},
