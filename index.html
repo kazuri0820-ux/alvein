@@ -4248,6 +4248,21 @@ const FLAVOR_ONLY=[
  {t:2,choices:[{label:"",fx:{log:"寝物語をせがむ子供の声が、開いた窓から漏れていた。"}}]},
 ];
 /* ---------- 1日ぶんの経済・加齢・敗北判定(晩にまとめて処理) ---------- */
+/* 季節の祭り(約100日ごと):村に賑わいと温かみのリズムを与え、士気・民心を高める */
+const FESTIVAL_FLAVORS=[
+ "実りを祝う収穫祭が開かれ、村は久しぶりの賑わいに包まれた。",
+ "建国の日を偲ぶ祭りが催され、兵も民も肩を並べて杯を交わした。",
+ "星祭りの夜、篝火のもとで皆が踊り、明日への英気を養った。",
+ "春を迎える祝祭で、花と歌が谷いっぱいに満ちた。",
+];
+function checkFestival(){
+  if(S.day<40||S.day-(S.lastFestivalDay||0)<100)return;
+  S.lastFestivalDay=S.day;
+  const yr=Math.floor(S.day/100);
+  for(const u of S.units)u.moral=Math.min(100,u.moral+ri(6,10));
+  apply({mood:ri(4,7)});
+  chron(FESTIVAL_FLAVORS[yr%FESTIVAL_FLAVORS.length]+"皆の士気が高まっている。","big");
+}
 function dailyEconomySettle(){
   S.prev={...S.st};
   const noise=rnd(0.75,1.35);
@@ -4285,6 +4300,7 @@ function dailyEconomySettle(){
   checkRecords();
   checkAging();
   checkCampReturns();
+  checkFestival();
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
     const loyaltyDrift=S.mood>=70?(S.mood-70)*0.006:-(30-S.mood)*0.01;
