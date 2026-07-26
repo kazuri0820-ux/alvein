@@ -5758,12 +5758,17 @@ function showNextDungeonResult(){
 function checkDemonLordNotice(){
   if(!S.flags.demonNoticed&&(S.dungeonsCleared||0)>=8){
     S.flags.demonNoticed=true;
+    S.flags.demonNoticedDay=S.day; // 見つかった日。以後、時が経つほど侵攻が激しくなる
     chron("――闇の奥で、何かがこちらに気づいた。魔王軍がこの地に目をつけたようだ。","grave");
   }
 }
 function checkDemonInvasion(){
   if(!S.flags.demonNoticed||S.flags.demonLordDefeated)return;
-  if(Math.random()<0.035)pushEvent("__demon_invasion__");
+  // 魔王軍に見つかってから時が経つほど侵攻は激しくなる(討伐を先延ばしにするほど圧が増す=終盤の緊張)
+  const daysSince=S.day-(S.flags.demonNoticedDay||S.day);
+  const chance=Math.min(0.07,0.035+daysSince*0.00012);
+  if(daysSince>=120&&!S.flags.demonEscalated){S.flags.demonEscalated=true;chron("――魔王軍の動きが、日に日に活発になっている。討伐を先延ばしにするほど、この地への圧は増していくだろう。","grave");}
+  if(Math.random()<chance)pushEvent("__demon_invasion__");
 }
 const DEMON_INVASION_FLAVORS=[
  "魔王軍配下の魔物が、村に迫っているとの報せが入った。",
