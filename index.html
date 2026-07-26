@@ -5889,6 +5889,7 @@ const BOSS_TRAITS={
   venomous:{label:"猛毒",color:"#9fbf6f",desc:"毒で部隊を蝕むが、溜め込んだ財を吐き出す"},
   warchief:{label:"覇者",color:"#d99a5e",desc:"圧倒的な強者。討った部隊は英雄として讃えられる"},
   cunning:{label:"知略の王",color:"#9a8fd0",desc:"戦術に長け手強いが、討ち破れば部隊がその知略を我がものとする"},
+  purifier:{label:"浄化の王",color:"#8fd0c9",desc:"穢れを撒く強敵。討ち果たせば、その浄化の力が療養中の兵の傷の癒えを早める"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
 /* ダンジョンの環境(異変):一部のダンジョンに宿る特性。挑む前に見え、危険と実入りの綾を変える(ダンジョンの個性) */
@@ -5909,7 +5910,7 @@ function generateDungeon(){
   const duration=Math.max(3,Math.round(level/6)+Math.round((rarity.mult-1)*2.2));
   let bossPower=Math.round(requiredPower*1.3);
   let bossTrait=null;
-  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
+  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
   const condition=Math.random()<0.3?DUNGEON_CONDITION_KEYS[Math.floor(Math.random()*DUNGEON_CONDITION_KEYS.length)]:null; // 稀に環境の異変を宿す
   if(condition==="treasure")bossPower=Math.round(bossPower*1.18); // 財宝の霊気は守りが堅く、ボスが手強い
   if(condition==="eliteden")bossPower=Math.round(bossPower*1.16); // 精鋭の巣は強敵揃いで、ボスが手強い
@@ -6619,6 +6620,7 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="venomous"){for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(8,15));const g=Math.round(ri(50,90)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「猛毒」のボスは部隊を疲弊させたが、溜め込んでいた財貨${g}を吐き出させた。`,"big");}
         else if(dungeon.bossTrait==="warchief"){for(const u of squad){u.moral=Math.min(100,(u.moral||0)+8);u.loyalty=Math.min(100,(u.loyalty||0)+4);grantTitle(u,"t_warchiefslayer");}apply({mood:4});chron(`圧倒的な強者「覇者」を討ち取った部隊は、国中から英雄として讃えられた。隊の誰もが誇りに胸を張っている。`,"big");}
         else if(dungeon.bossTrait==="cunning"){const cands=squad.filter(u=>u&&u.skills&&u.skills.length<skillCap(u));const learner=(cands.length?cands:squad)[Math.floor(Math.random()*(cands.length?cands.length:squad.length))];const learned=learner?trySkillUp(learner):null;if(learned)chron(`「知略の王」を打ち破り、${learner.nm}がその戦術の粋を我がものとした。新たに「${learned.name}」を会得している。`,"big");else{const g=Math.round(ri(40,75)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「知略の王」を打ち破った。遺された兵法書の類を持ち帰り、財貨${g}に換えた。`,"");}}
+        else if(dungeon.bossTrait==="purifier"){const injured=S.units.filter(x=>x.injured>0);for(const x of injured){x.injured=Math.max(0,x.injured-ri(2,3));if(x.injured<=0)x.injurySeverity=null;}for(const u of squad)u.moral=Math.min(100,(u.moral||0)+4);chron(`「浄化の王」を討ち果たすと、辺りに満ちていた穢れが晴れた。その清らかな力が、${injured.length?`療養中の兵${injured.length}名の傷の癒えを早めている`:"部隊の心身を清めた"}。`,"big");}
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
