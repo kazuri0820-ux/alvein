@@ -8126,7 +8126,7 @@ function buildTrainingPickEvent(){
   }));
   choices.push({label:"特定の一人は選ばない",hint:"全体訓練のみ",fx:{call:()=>resolveTraining(null,trainingGradeChoice,trainingCostPaid)}});
   return{tag:"訓練:人選",title:`${trainingGradeChoice.label}――重点指導する一人を選ぶ`,
-   body:"特に鍛えたい一人がいれば選ぶ。選ばれた者は経験値が大きく伸びる。",
+   body:"特に鍛えたい一人がいれば選ぶ。選ばれた者は経験値が大きく伸びる。格上の兵を選べば、その稽古を見て格下の若い兵も多くを学ぶ(見取り稽古)。",
    choices};
 }
 function resolveTraining(pickUnit,grade,costPaid){
@@ -8141,6 +8141,8 @@ function resolveTraining(pickUnit,grade,costPaid){
   const instructorEff=S.instructors.reduce((a,u)=>a*(skillEffects(u).instructorMult||1)*(1+(u.lead||0)*0.006),1);
   const instructorBonus=(1+Math.min(0.3,S.instructors.length*0.08))*instructorEff;
   const nationBonus=1+Math.min(0.6,(S.st.military+S.st.economy)/2*0.006); // 国力・軍事力が高いほど訓練効果が伸びる
+  const pickLv=pickUnit?pickUnit.lv:0; // 選抜された先達の練度。格下の兵は、その稽古を見て多くを学ぶ(見取り稽古)
+  let apprenticeCount=0;
   const results=[];
   for(const u of S.units){
     if(u.injured>0||u.dungeonBusy||u.campUntil)continue;
@@ -8149,6 +8151,7 @@ function resolveTraining(pickUnit,grade,costPaid){
     const isPick=pickUnit&&u.id===pickUnit.id;
     let gain=ri(3,4)*(u.gm||1)*effectiveTrainMult(u)*instructorBonus*eff.trainMult*g.gainMult*nationBonus; // 基礎乱数の幅を狭め、乗数の積み重ねによる極端なムラを抑える(平均値は維持)
     if(isPick)gain*=3.2;
+    else if(pickUnit&&u.lv<pickLv){const gap=pickLv-u.lv;gain*=1+Math.min(0.3,gap*0.012);if(gap>=3)apprenticeCount++;} // 見取り稽古:先達との差が大きい格下ほど伸びる
     if(u.trait==="quick")gain*=1.15;
     if(u.trait==="clumsy")gain*=0.65;
     if(u.trait==="lucky"&&Math.random()<0.25)gain*=2;
@@ -8178,6 +8181,10 @@ function resolveTraining(pickUnit,grade,costPaid){
     if(!great&&Math.random()<hurtChance){inflictInjury(u,[0.8,0.18,0.02]);hurt=true;}
     if(inheritedFrom&&learnedSkill)chron(`${fullName(inheritedFrom)}の「${learnedSkill.name}」が、${u.nm}に受け継がれた。指南役の技は次代へと生き続ける。`,"big");
     results.push({u,gain:Math.round(gain),great,learnedSkill,inheritedFrom,leveled:u.lv>beforeLv,newLv:u.lv,promotedTo,hurt,isPick});
+  }
+  // 見取り稽古:選抜された先達が格上なら、若い兵たちがその背中を見て腕を上げる
+  if(pickUnit&&apprenticeCount>=2){
+    chron(`${pickUnit.nm}の稽古を間近で見て、若い兵たちがめきめきと腕を上げている。先達の背中は、何よりの手本だ。`,"");
   }
   // 選抜兵の会心は、訓練場全体を沸かせる。ハイライトを隊で分かち合い、士気に波及させる
   const pickGreat=results.find(r=>r.isPick&&r.great);
