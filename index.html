@@ -2397,6 +2397,12 @@ function checkAging(){
     u.loyalty=Math.max(0,Math.min(100,u.loyalty+eff.loyaltyGrow*0.3+teff.loyaltyGrow*0.3+bless.loyalty));
     u.moral=Math.max(0,Math.min(100,u.moral+eff.moralGrow*0.3+teff.moralGrow*0.3+bless.moral));
     checkDailyTitles(u);
+    // 成長段階の節目に手応えを添える(初回は無音でセット。若手→全盛期のみ演出。老兵移行は引退イベントが担う)
+    if(u.ageStageSeen===undefined){u.ageStageSeen=stage.key;}
+    else if(u.ageStageSeen!==stage.key){
+      if(stage.key==="peak"&&u.ageStageSeen==="young"){u.moral=Math.min(100,u.moral+5);chron(`${u.nm}が全盛期を迎えた。心身ともに満ち、いよいよ働き盛りだ。`,"");}
+      u.ageStageSeen=stage.key;
+    }
     if((stage.key==="old"||stage.key==="venerable")&&u.retiredAskedStage!==stage.key){
       u.retiredAskedStage=stage.key;
       pushEvent("retire_"+u.id);
