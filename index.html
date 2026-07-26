@@ -5524,6 +5524,9 @@ const BOSS_TRAITS={
   unyielding:{label:"不屈",color:"#d47a7a",desc:"手強いが、討てば実入りが大きい"},
   greedy:{label:"貪欲",color:"#e8c874",desc:"財宝を溜め込んでいる"},
   hoarder:{label:"宝物狂い",color:"#8fd0e8",desc:"珍しい装備を必ず持っている"},
+  ancient:{label:"古の守護者",color:"#c9a86a",desc:"やや手強いが、討てば秘蔵の逸品が手に入る"},
+  swift:{label:"疾影",color:"#7ac9c9",desc:"素早く捉えにくいが、討てば部隊が多くを学ぶ"},
+  venomous:{label:"猛毒",color:"#9fbf6f",desc:"毒で部隊を蝕むが、溜め込んだ財を吐き出す"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
 /* ダンジョンの環境(異変):一部のダンジョンに宿る特性。挑む前に見え、危険と実入りの綾を変える(ダンジョンの個性) */
@@ -5542,7 +5545,7 @@ function generateDungeon(){
   const duration=Math.max(3,Math.round(level/6)+Math.round((rarity.mult-1)*2.2));
   let bossPower=Math.round(requiredPower*1.3);
   let bossTrait=null;
-  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="unyielding")bossPower=Math.round(bossPower*1.25);} // 不屈は手強い(=要戦力up)
+  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="unyielding"||bossTrait==="swift")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="ancient"||bossTrait==="venomous")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
   return{
     id:Math.random().toString(36).slice(2,9),
     name:dungeonName(),level,rarity,type,requiredPower,duration,
@@ -6110,6 +6113,9 @@ function resolveDungeonRun(dungeonId){
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
         else if(dungeon.bossTrait==="greedy"){const g=Math.round(ri(45,85)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「貪欲」なボスが溜め込んでいた財貨${g}を回収した。`,"big");}
         else if(dungeon.bossTrait==="hoarder"){const eq=rollEquipmentDrop(dungeon.rarity.key);if(eq){addEquipment(eq.key);chron(`「宝物狂い」のボスの蒐集品から、「${eq.name}」を手に入れた。`,"big");}}
+        else if(dungeon.bossTrait==="ancient"){const it=rollItemDrop("epic");if(it){addItem(it.key);chron(`「古の守護者」を討ち、守られていた秘蔵の「${it.name}」を手に入れた。`,"big");}}
+        else if(dungeon.bossTrait==="swift"){for(const u of squad){const g=ri(9,17);u.exp+=g;processLevelUps(u);}chron(`「疾影」との緊迫した攻防で、部隊は多くを学んだ。皆が確かな経験を積んでいる。`,"big");}
+        else if(dungeon.bossTrait==="venomous"){for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(8,15));const g=Math.round(ri(50,90)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「猛毒」のボスは部隊を疲弊させたが、溜め込んでいた財貨${g}を吐き出させた。`,"big");}
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
