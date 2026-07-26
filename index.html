@@ -1760,6 +1760,20 @@ const EQUIPMENT_DB=[
  {key:"eqp_charm_legendary",name:"星冠の宝珠",slot:"accessory",rarity:"legendary",statBonus:{wis:22,lead:12,int:8}},
 ];
 const EQUIP_SLOT_LABEL={weapon:"武器",armor:"防具",accessory:"装飾品"};
+const EQUIP_SET_BONUS={common:0,uncommon:2,rare:4,epic:6,legendary:10};
+/* 揃いの装備(セット効果):武器・防具・装飾品を同じ格で揃えると、調和の力で全能力が底上げされる。
+   同格の三種を集める收集の手応えと、装備の厳選に「格を揃える」という新たな指針を与える。 */
+function equipSetTier(u){
+  if(!u.equipment)return null;
+  const rarities=[];
+  for(const slot of["weapon","armor","accessory"]){
+    const inst=u.equipment[slot];if(!inst)continue;
+    const def=EQUIPMENT_DB.find(x=>x.key===inst.key);if(!def)continue;
+    rarities.push(def.rarity);
+  }
+  if(rarities.length===3&&rarities.every(r=>r===rarities[0])&&EQUIP_SET_BONUS[rarities[0]])return rarities[0];
+  return null;
+}
 function equipmentEffects(u){
   const e={str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   if(!u.equipment)return e;
@@ -1770,6 +1784,8 @@ function equipmentEffects(u){
     if(!def)continue;
     for(const k in def.statBonus)e[k]+=def.statBonus[k];
   }
+  const setTier=equipSetTier(u); // 三種を同じ格で揃えたセット効果
+  if(setTier){const b=EQUIP_SET_BONUS[setTier];for(const k in e)e[k]+=b;}
   return e;
 }
 /* レア度に応じた装備を1件生成しS.equipmentInventoryに追加する(ダンジョン/遠征のドロップから呼ぶ) */
@@ -7435,6 +7451,13 @@ function renderUnitDetail(uid){
   // ── 装備 ──
   if(!isInstructor){
     h+=`<div class="udet-sec"><h4>装備</h4>`;
+    const setTier=equipSetTier(u);
+    if(setTier){
+      const lbl={uncommon:"上等",rare:"希少",epic:"魔級",legendary:"伝説"}[setTier]||setTier;
+      h+=`<div class="ds" style="color:var(--gold);margin-bottom:6px">✦ 揃いの装備【${lbl}】発動中 ― 三種を同じ格で揃えた調和で全能力+${EQUIP_SET_BONUS[setTier]}</div>`;
+    }else{
+      h+=`<div class="ds" style="color:var(--dim);margin-bottom:6px;font-size:11px">武器・防具・装飾品を同じ格で揃えると「揃いの装備」が発動し、全能力が底上げされる。</div>`;
+    }
     for(const slot of["weapon","armor","accessory"]){
       const inst=u.equipment&&u.equipment[slot];
       const def=inst?EQUIPMENT_DB.find(d=>d.key===inst.key):null;
