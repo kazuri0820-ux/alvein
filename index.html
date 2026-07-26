@@ -6339,6 +6339,16 @@ const EXPEDITION_ROADSIDE=[
  {t:"通りがかった小さな村で、子供たちが兵に花を手渡してくれた。",fx:()=>apply({mood:2})},
  {t:"険しい峠越えで隊は肝を冷やしたが、互いに支え合って切り抜けた。",fx:(sq)=>{for(const u of sq)u.moral=Math.min(100,u.moral+2);}},
  {t:"古い石碑に刻まれた文字を、物知りの兵が読み解いてみせた。",fx:()=>apply({st:{magic:1}})},
+ {t:"道中の湧き水で喉を潤し、隊は英気を養った。疲れが少し和らいだようだ。",fx:(sq)=>{for(const u of sq)u.fatigue=Math.max(0,(u.fatigue||0)-8);}},
+ {t:"街道沿いの茶屋で、店主が「武運を」と団子を振る舞ってくれた。",fx:(sq)=>{for(const u of sq)u.moral=Math.min(100,u.moral+2);}},
+ {t:"崩れた橋を隊で力を合わせて直し、後から来る旅人のために残した。",fx:()=>apply({mood:2,st:{order:1}})},
+ {t:"野盗に脅かされていた隊商を救い、ささやかな礼金を受け取った。",fx:()=>apply({gold:ri(15,35)})},
+ {t:"迷い込んだ子鹿を群れへ帰してやると、兵たちの顔がふとほころんだ。",fx:(sq)=>{for(const u of sq)u.moral=Math.min(100,u.moral+2);}},
+ {t:"廃屋の床下から、打ち捨てられた古い銀貨がひと握り見つかった。",fx:()=>apply({gold:ri(12,28)})},
+ {t:"星のよく見える丘で夜を明かし、隊は明日への英気を養った。",fx:(sq)=>{for(const u of sq){u.moral=Math.min(100,u.moral+2);u.fatigue=Math.max(0,(u.fatigue||0)-5);}}},
+ {t:"道端の薬草を摘み集め、遠征の備えに加えた。",fx:()=>apply({food:ri(6,14)})},
+ {t:"行き倒れかけた旅の老人を介抱すると、礼にと土地の言い伝えを教えてくれた。",fx:()=>apply({st:{magic:1},mood:1})},
+ {t:"隊のひとりが故郷の唄を口ずさむと、皆が静かに耳を傾けた。",fx:(sq)=>{for(const u of sq)u.moral=Math.min(100,u.moral+2);}},
 ];
 function expeditionRarity(){
   const kRank=STAGES[S.stage].rank;
