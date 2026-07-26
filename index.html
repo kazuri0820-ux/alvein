@@ -1989,6 +1989,7 @@ const TITLE_DB=[
  {key:"t_pillar",name:"王国の柱石",desc:"覚醒・英雄・固有のうち複数を成し遂げた",effect:"loyaltyGrow",value:0.2},
  {key:"t_veteran",name:"古豪",desc:"長きにわたり隊を支え続けた古参",effect:"loyaltyGrow",value:0.15},
  {key:"t_hardened",name:"歴戦の身",desc:"数多の戦を生き抜き、傷を負いにくい体になった",effect:"injuryMult",value:0.88},
+ {key:"t_lastfounder",name:"最後の建国者",desc:"創業の日を知る、ただ一人の生き証人",effect:"loyaltyGrow",value:0.25},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 function grantTitle(u,key){
@@ -4459,6 +4460,18 @@ const UNIQUE_EVENTS=[
     {label:"この均衡をさらに固める",hint:"全国力+3",fx:{st:{military:3,economy:3,agriculture:3,magic:3,order:3,diplomacy:3},flag:{uq_balancedRealm:true},log:"均衡を保つ施策が布かれ、国の土台が一段と盤石になった。",logCls:"big"}},
     {label:"蓄えを民に還元する",hint:"民心+10",fx:{mood:10,flag:{uq_balancedRealm:true},log:"豊かさの一部が民に還元された。城下は穏やかな活気に満ちている。",logCls:"big"}},
    ]})},
+ {key:"lastFounder",
+  cond:()=>!S.flags.uq_lastFounder&&S.units.filter(u=>u.founder&&u.role==="active").length===1,
+  build:()=>{
+   const v=S.units.find(u=>u.founder&&u.role==="active");
+   return{tag:"固 有",title:"最後の建国の志士",
+    body:`かつて共にこの地へ旗を立てた仲間たちは、みな去っていった。今や建国の志士は、${v.nm}ただ一人。創業からの長い年月を、この者はずっと隊の真ん中で見つめ続けてきた。`,
+    speaker:`ネロ「創業の日を知る者は、もう一人きり。……感慨深いものですね」`,
+    choices:[
+     {label:"その歩みを称え、末永く語り継ぐ",hint:`${v.nm}の忠誠+ / 民心+ / 称号「最後の建国者」`,fx:{mood:6,flag:{uq_lastFounder:true},call:()=>{v.loyalty=Math.min(100,v.loyalty+20);grantTitle(v,"t_lastfounder");unitHistory(v,"最後の建国の志士として、その歩みが末永く語り継がれることになった。");chron(`${v.nm}――最後の建国の志士の歩みが、村の誇りとして語り継がれることになった。`,"big");}}},
+     {label:"次の世代に想いを託させる",hint:"若手全体の士気+",fx:{flag:{uq_lastFounder:true},call:()=>{const others=S.units.filter(u=>u.role==="active"&&u.id!==v.id);for(const u of others)u.moral=Math.min(100,u.moral+8);chron(`${v.nm}が、創業の日々を若い兵たちに語り聞かせた。建国の想いは、確かに次の世代へ受け継がれていく。`,"big");}}},
+    ]};
+  }},
  {key:"knightFull",
   cond:()=>S.flags.knightOrder&&S.units.length>=14&&!S.flags.uq_knightFull,
   build:()=>({tag:"固 有",title:"騎士団、威容を示す",
