@@ -5643,7 +5643,26 @@ function recordSquadSortie(squad){
     const c=matched.sortieCount; // 出撃を重ねた小隊は"歴戦→精鋭→伝説"と讃えられる(小隊育成の到達目標)
     const tiers=[[50,"伝説の小隊"],[25,"精鋭小隊"],[10,"歴戦の小隊"]];
     for(const t of tiers){ if(c===t[0]){ matched.honor=t[1]; chron(`${matched.name}が${t[0]}度目の出撃を果たし、「${t[1]}」と讃えられるようになった。`,"big"); break; } }
+    // 同じ顔ぶれで出撃を重ねるほど、隊員同士に戦友の絆が芽生えていく(固定編成を続けるご褒美)
+    if(c>=4&&Math.random()<0.16)forgeSquadBond(squad,matched.name);
   }
+}
+/* 小隊内での絆形成:同じ小隊で出撃を共にした隊員のうち、まだ戦友のいない二人が背中を預け合う仲になる。
+   固定編成を続けるほど連携が育ち、絆は戦闘シナジーにも還元される(小隊育成の情の綾)。 */
+function forgeSquadBond(squad,squadName){
+  const cands=squad.filter(u=>u&&!u.bondWith&&u.role==="active");
+  if(cands.length<2)return false;
+  const a=cands[Math.floor(Math.random()*cands.length)];
+  const rest=cands.filter(u=>u.id!==a.id);
+  const scored=rest.map(u=>{let w=1;if(u.cls===a.cls)w+=2;return{u,w};}); // 同職ほど親近感(既存の縁ロジックに倣う)
+  let total=scored.reduce((s,x)=>s+x.w,0),r=Math.random()*total,b=scored[scored.length-1].u;
+  for(const x of scored){r-=x.w;if(r<=0){b=x.u;break;}}
+  a.bondWith=b.id;b.bondWith=a.id;
+  a.moral=Math.min(100,a.moral+6);b.moral=Math.min(100,b.moral+6);
+  unitHistory(a,`${squadName}で幾多の出撃を共にし、${b.nm}と戦友となった。`);
+  unitHistory(b,`${squadName}で幾多の出撃を共にし、${a.nm}と戦友となった。`);
+  chron(`${squadName}で同じ釜の飯を食った${a.nm}と${b.nm}が、いつしか背中を預け合う戦友になった。`,"sys");
+  return true;
 }
 function squadSynergyMult(squad){
   if(squad.length<2)return 1.0;
