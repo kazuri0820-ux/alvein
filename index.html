@@ -4070,10 +4070,10 @@ const POLICY_STATS=[["military","軍事"],["economy","経済"],["agriculture","�
 function councilPolicy(){
   const choices=POLICY_STATS.map(([k,l])=>({
     label:`「${l}」を今月の重点方針にする`,
-    hint:S.policyFocus===k?"現在の方針":"月末まで毎日じわじわ上昇",
-    fx:{call:()=>{S.policyFocus=k;chron(`今月の重点方針は「${l}」に定められた。`,"big");pushEventPriority("__council_action__");}}
+    hint:S.policyFocus===k?"現在の方針(継続で伸びが強化)":"月末まで毎日じわじわ上昇",
+    fx:{call:()=>{S.policyStreak=(S.policyFocus===k)?((S.policyStreak||0)+1):0;S.policyFocus=k;const sb=Math.round(Math.min(0.6,(S.policyStreak||0)*0.15)*100);chron(`今月の重点方針は「${l}」に定められた。${sb>0?`継続${(S.policyStreak||0)+1}ヶ月目、方針の伸びが+${sb}%強化されている。`:""}`,"big");pushEventPriority("__council_action__");}}
   }));
-  choices.push({label:"特に方針は定めない",hint:"方針を解除する",fx:{call:()=>{S.policyFocus=null;chron("今月は特に重点方針を定めないことにした。","sys");pushEventPriority("__council_action__");}}});
+  choices.push({label:"特に方針は定めない",hint:"方針を解除する",fx:{call:()=>{S.policyFocus=null;S.policyStreak=0;chron("今月は特に重点方針を定めないことにした。","sys");pushEventPriority("__council_action__");}}});
   return{tag:"月次方針",title:"第"+Math.ceil(S.day/28)+"回 月次会議:方針を定める",
    body:"月に一度の会議。まず、今月国全体で重点を置く分野を定める。重点を置いた分野は、月末まで毎日じわじわと伸び続ける。",
    speaker:"セラ「陛下、今月はどこに力を注ぎましょうか」",
@@ -4266,8 +4266,9 @@ function dailyEconomySettle(){
   if(S.gold<0&&S.day%5===0){S.mood-=1.5;chron("蓄えが底を突いている。倹約令が敷かれた。","grave");}
   S.mood+=(S.st.order-50)*0.02+(S.st.agriculture-30)*0.006+(S.st.diplomacy-30)*0.004+rnd(-0.5,0.5); // 農業(食の安定)・外交(国の評判)も民心にわずかに影響
   if(S.policyFocus){
+    const streakMult=1+Math.min(0.6,(S.policyStreak||0)*0.15); // 同じ方針を継続するほど伸びが強化(専念のご褒美)
     const cur=S.st[S.policyFocus];
-    S.st[S.policyFocus]=Math.min(100,cur+0.13*statDiminish(cur));
+    S.st[S.policyFocus]=Math.min(100,cur+0.13*streakMult*statDiminish(cur));
   }
   for(const p of S.projects){
     if(p.done)continue;
@@ -6312,7 +6313,7 @@ function renderProjects(){
   const focusLabels={military:"軍事",economy:"経済",agriculture:"農業",magic:"魔導",order:"治安",diplomacy:"外交"};
   h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px">
     <div class="nm" style="color:var(--gold)"><i class="icon-project"></i>今月の重点方針</div>
-    <div class="ds">${S.policyFocus?`「${focusLabels[S.policyFocus]}」に注力中。月末まで毎日じわじわ上昇する。`:"特に方針を定めていない。月次会議で重点分野を選べる。"}</div>
+    <div class="ds">${S.policyFocus?`「${focusLabels[S.policyFocus]}」に注力中。月末まで毎日じわじわ上昇する。${(S.policyStreak||0)>0?`(継続${(S.policyStreak||0)+1}ヶ月・伸び+${Math.round(Math.min(0.6,(S.policyStreak||0)*0.15)*100)}%)`:""}`:"特に方針を定めていない。月次会議で重点分野を選べる。"}</div>
   </div>`;
   const act=S.projects.filter(p=>!p.done),fin=S.projects.filter(p=>p.done);
   if(!act.length)h+=`<div class="pcard"><div class="ds">進行中の事業はない。閣議やイベントで新たな事業が生まれる。</div></div>`;
