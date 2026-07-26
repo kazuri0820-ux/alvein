@@ -5496,10 +5496,13 @@ function resolveDungeonRun(dungeonId){
     bossWin=squadPower*(tier==="critical_success"?1.3:1.0)>=dungeon.bossPower*rnd(0.8,1.2);
     for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus);u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
     if(bossWin){
+      const crit=tier==="critical_success"; // 大成功はジャックポット扱い(強い部隊を組んだ手応えに報酬で応える)
       itemGained=rollItemDrop(dungeon.rarity.key);
       if(itemGained)addItem(itemGained.key);
       let equipGained=null;
-      if(Math.random()<0.3){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained)addEquipment(equipGained.key);}
+      if(Math.random()<(crit?0.6:0.3)){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained)addEquipment(equipGained.key);}
+      let bonusItem=null;
+      if(crit&&Math.random()<0.5){bonusItem=rollItemDrop(dungeon.rarity.key);if(bonusItem)addItem(bonusItem.key);} // 大成功: 追加の秘宝チャンス
       S.dungeonsCleared=(S.dungeonsCleared||0)+1;
       tryUnlockDemonLordDungeon();
       for(const u of squad){
@@ -5508,9 +5511,11 @@ function resolveDungeonRun(dungeonId){
         if(u.dungeonClearCount>=20)grantTitle(u,"t_conqueror20");
         if(itemGained&&itemGained.rarity==="legendary")grantTitle(u,"t_treasurehunter");
       }
-      goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult);
-      apply({gold:goldGained,mood:2});
-      chron(`――「${dungeon.name}」を踏破し、ボス「${dungeon.bossName}」を打ち破った!${itemGained?`「${itemGained.name}」を手に入れた。`:""}${equipGained?`さらに「${equipGained.name}」を入手した。`:""}`,"big");
+      goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1));
+      apply({gold:goldGained,mood:crit?4:2});
+      chron(crit
+        ?`――完璧な踏破！「${dungeon.name}」を寸分の隙なく制圧し、ボス「${dungeon.bossName}」を圧倒した!${itemGained?`「${itemGained.name}」${bonusItem?`と「${bonusItem.name}」`:""}を手に入れた。`:""}${equipGained?`さらに「${equipGained.name}」を入手した。`:""}`
+        :`――「${dungeon.name}」を踏破し、ボス「${dungeon.bossName}」を打ち破った!${itemGained?`「${itemGained.name}」を手に入れた。`:""}${equipGained?`さらに「${equipGained.name}」を入手した。`:""}`,"big");
       if(dungeon.isFinal){
         for(const u of squad)grantTitle(u,"t_demonslayer");
         S.flags.demonLordDefeated=true;
