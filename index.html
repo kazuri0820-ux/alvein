@@ -1898,19 +1898,23 @@ function skillCap(u){
 }
 /* アイテムによるスキル付与専用の重み(最上位の金クラスは対象外にする) */
 function itemSkillTierWeight(){return[["red",10],["gray",48],["blue",32],["silver",10]];}
+/* 一流(金)の技を会得した瞬間を讃える。金スキルは稀少なので、その到達を記憶に残る一場面として演出(スキル収集の見せ場) */
+function celebrateSkillGain(u,sk){
+  if(sk&&sk.tier==="gold")chron(`${fullName(u)}が一流の技「${sk.name}」を会得した。数多の兵の中でも、選ばれた者だけが辿り着く域だ。`,"big");
+}
 function trySkillUpItem(u){
   if(u.skills.length>=skillCap(u))return null;
   const k=pickSkillFor(u,u.skills,itemSkillTierWeight);
   if(!k)return null;
   u.skills.push(k);
-  return SKILL_DB.find(s=>s.key===k);
+  const sk=SKILL_DB.find(s=>s.key===k);celebrateSkillGain(u,sk);return sk;
 }
 function trySkillUp(u){
   if(u.skills.length>=skillCap(u))return null;
   const k=pickSkillFor(u,u.skills);
   if(!k)return null;
   u.skills.push(k);
-  return SKILL_DB.find(s=>s.key===k);
+  const sk=SKILL_DB.find(s=>s.key===k);celebrateSkillGain(u,sk);return sk;
 }
 /* 教官の技の継承:特別指導で大成功した弟子が、指南役の持つ技を一つ受け継ぐことがある。
    引退した古豪が苦心の末に磨いた技が、次代の兵に生き続ける——鍛え上げた指南役ほど、その意味は重い。 */
@@ -1941,7 +1945,7 @@ function trySkillUpOnPromotion(u,tierIndex){
   const k=pickSkillFor(u,u.skills,()=>promotionTierWeight(includeGold));
   if(!k)return null;
   u.skills.push(k);
-  return SKILL_DB.find(s=>s.key===k);
+  const sk=SKILL_DB.find(s=>s.key===k);celebrateSkillGain(u,sk);return sk;
 }
 function skillEffects(u){
   const e={trainMult:1,injuryMult:1,deathMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,
