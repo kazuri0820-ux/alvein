@@ -5029,7 +5029,14 @@ function makeVolunteer(){
   const cost=Math.round(recruitCost(u)*rank.costMult);
   const hiddenPotential=Math.random()<hiddenPotentialChance(rank.label);
   const comment=recruitAtmosphere(u);
-  return{id:u.id,unit:u,postedDay:S.day,cost,rank,hiddenPotential,comment};
+  const v={id:u.id,unit:u,postedDay:S.day,cost,rank,hiddenPotential,comment};
+  // 紹介状:忠義ある現役兵が、知人を推挙してくることがある(採用すると縁が繋がる)
+  const referrers=(S.units||[]).filter(x=>x.role==="active"&&(x.loyalty||0)>=60);
+  if(referrers.length&&Math.random()<0.22){
+    const r=referrers[Math.floor(Math.random()*referrers.length)];
+    v.referrerId=r.id;v.referrerName=r.nm;
+  }
+  return v;
 }
 function checkWeeklyVolunteers(){
   if(S.day-(S.lastVolunteerDay||-10)>=7){
@@ -5093,6 +5100,19 @@ function hireVolunteer(volId){
     chron(`――${v.unit.nm}は、噂通りの逸材だった。全ステータスが+${potentialBonus}された。`,"big");
   }else if(potentialBonus===0){
     unitHistory(v.unit,"期待されていたようだが、今のところ目立った成果はない。");
+  }
+  // 紹介での入団:推挙した戦友との縁が、新兵を早くから隊に馴染ませる
+  if(v.referrerId){
+    const ref=S.units.find(x=>x.id===v.referrerId&&x.role==="active");
+    if(ref){
+      v.unit.loyalty=Math.min(100,(v.unit.loyalty||0)+10);
+      v.unit.moral=Math.min(100,(v.unit.moral||0)+8);
+      ref.moral=Math.min(100,(ref.moral||0)+5);
+      let bonded=false;
+      if(!v.unit.bondWith&&!ref.bondWith){v.unit.bondWith=ref.id;ref.bondWith=v.unit.id;bonded=true;}
+      unitHistory(v.unit,`${ref.nm}の紹介で入団した。旧知の縁を頼っての志願だった。`);
+      chron(`${v.unit.nm}は${ref.nm}の紹介で入団した。${bonded?"二人はさっそく戦友の契りを交わした。":"気心の知れた間柄で、隊にもすぐ馴染んだ。"}`,"");
+    }
   }
   showVolunteerHireResult(v.unit,potentialBonus);
   clamp();render();renderTroops();refreshOpenPanels();save();
@@ -6947,6 +6967,7 @@ function renderVolunteers(){
         </div>
       </div>
       <div class="ds" style="font-style:italic">${v.comment||recruitAtmosphere(u)}</div>
+      ${v.referrerName?`<div class="ds" style="color:var(--gold)">✉ ${v.referrerName}の紹介 ― 採用すれば旧知の縁が繋がる</div>`:""}
       ${v.hiddenPotential?`<div class="ds" style="font-style:italic;color:var(--gold)">……見た目以上の器を、秘めているやもしれぬ。</div>`:""}
       <div class="ds">支度金:${v.cost}G ／ 期限まであと${Math.max(0,daysLeft)}日</div>
       ${volunteerInsufficientId===v.id&&v.cost>S.gold?`<div class="ds" style="color:#d97a7a;font-weight:700;margin-top:2px">資金が足りません(あと${Math.round(v.cost-S.gold)}G不足)</div>`:""}
