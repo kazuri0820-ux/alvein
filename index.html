@@ -1907,6 +1907,8 @@ const RACES=[
  {key:"dragonkin",name:"竜人",str:2,vit:2,int:2,lifespan:260,desc:"竜の血を薄く引くという、極めて稀な存在"},
  {key:"starkin",name:"星霊種",str:3,vit:2,int:4,lifespan:500,desc:"星々の加護を受けて生まれるという伝説上の存在。魔王討伐後の世にごく稀に現れる"},
 ];
+/* 種族の個性(怪我率):フレーバーを機構に反映。小柄な亜人は危険回避が上手く重傷を負いにくい */
+const RACE_INJURY_MULT={halfling:0.82,beastkin:0.92};
 /* 出身地(種族と連動、軽いステータス傾向) */
 const ORIGINS=[
  {key:"valley",name:"谷の集落",race:"human",bonus:{}},
@@ -2335,9 +2337,10 @@ const INJURY_TIERS={
 function inflictInjury(u,weights){
   let w=weights||[0.6,0.3,0.1]; // 軽傷/重傷/重体
   const teff=titleEffectsFor(u);
-  if(teff.injuryMult<1){
-    // 称号の怪我率軽減効果:重傷・重体の比率を減らし、軽傷側に寄せる
-    const shift=Math.min(0.5,(1-teff.injuryMult))*(w[1]+w[2]);
+  const effInjuryMult=teff.injuryMult*(RACE_INJURY_MULT[u.race]||1); // 称号＋種族の危険回避を合成
+  if(effInjuryMult<1){
+    // 怪我率軽減効果:重傷・重体の比率を減らし、軽傷側に寄せる
+    const shift=Math.min(0.5,(1-effInjuryMult))*(w[1]+w[2]);
     w=[w[0]+shift,Math.max(0,w[1]-shift*0.6),Math.max(0,w[2]-shift*0.4)];
   }
   const r=Math.random();
