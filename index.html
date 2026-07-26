@@ -2106,6 +2106,7 @@ const TITLE_DB=[
  {key:"t_survivor",name:"不屈の帰還者",desc:"大失敗から生還した",effect:"injuryMult",value:0.92},
  {key:"t_soloace",name:"一騎当千",desc:"単独で大きな成果を上げた",effect:"expMult",value:1.05},
  {key:"t_1year",name:"一年の功労",desc:"1年以上在籍した",effect:"loyaltyGrow",value:0.1},
+ {key:"t_longserve",name:"不動の忠臣",desc:"三年もの長きにわたり、変わらず王国に仕え続けている",effect:"loyaltyGrow",value:0.15},
  {key:"t_captainexp",name:"歴戦の指揮官",desc:"団長を務めた経験がある",effect:"loyaltyGrow",value:0.12},
  {key:"t_mentor5",name:"育ての親",desc:"教官として5人以上を指導した",effect:"expMult",value:1.05},
  {key:"t_jobchange",name:"転職者",desc:"ジョブチェンジを経験した",effect:"moralGrow",value:0.08},
@@ -2619,6 +2620,7 @@ function checkDailyTitles(u){
   if((u.injuryCount||0)>=5)grantTitle(u,"t_scarred5");
   if((u.severeInjuryCount||0)>=3)grantTitle(u,"t_scarred3");
   if(S.day-(u.joinDay||1)>=365)grantTitle(u,"t_1year");
+  if(S.day-(u.joinDay||1)>=1095)grantTitle(u,"t_longserve"); // 不動の忠臣:三年以上の長期在籍=長く連れ添う愛着に報いる
   if(u.traitTier==="rare")grantTitle(u,"t_rareborn");
   if(u.traitTier==="epic")grantTitle(u,"t_epicborn");
   if(u.traitTier==="legend")grantTitle(u,"t_legendborn");
