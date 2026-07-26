@@ -6020,6 +6020,7 @@ function resolveExpedition(riskKey,rewardMult){
     apply({gold:goldGain,st:{economy:1},mood:2});
     dungeonFound=checkDungeonDiscovery(1.6,leader);
     chron(`――ミッション「${theme.name}」は大成功に終わった。${leader.nm}率いる部隊が、意気揚々と帰還した。${itemGained?`「${itemGained.name}」を手に入れた。`:""}`,"big");
+    if(leader.favorite){leader.loyalty=Math.min(100,leader.loyalty+5);apply({mood:2});chron(`長が目をかける${leader.nm}の見事な采配に、皆が誇らしさを覚えた。本人も、期待に応えた誇りを噛みしめている。`,"");} // お気に入りの活躍を喜ぶ
   }else if(tier==="success"){
     goldGain=Math.round(ri(25,50)*rewardMult*rarity.mult*levelMult);
     for(const u of squad){
