@@ -1486,6 +1486,8 @@ const TRAIT_RARE=[
  {key:"trr_21",name:"鬼気迫る集中力",desc:"一つのことに驚異的な集中を見せる",moralGrow:0.39,gm:1.12},
  {key:"trr_22",name:"稀代の器用者",desc:"どんな得物も苦もなく使いこなし、昇進の度に新たな技を掴みやすい",gm:1.14,skillUpChance:0.95},
  {key:"trr_23",name:"不屈の生命力",desc:"死線に立たされても、驚くほどしぶとく生き延びる",deathMult:0.55,gm:1.1},
+ {key:"trr_24",name:"不屈の体躯",desc:"疲れの抜けが人並外れて早く、幾度でも続けて戦場に立てる",fatigueRecover:6,gm:1.1},
+ {key:"trr_25",name:"驚異の回復力",desc:"傷も疲れもたちどころに癒える、天与の頑健さを持つ",fatigueRecover:4,injuryMult:0.78,gm:1.08},
 ];
 const TRAIT_EPIC=[
  {key:"swordsaint",name:"剣聖の末裔",desc:"名も知れぬ剣豪の血を引くという",gm:1.4,injuryMult:0.5,deathMult:0.55},
@@ -2585,7 +2587,7 @@ function checkAging(){
   const hallGrow=hallLegacyGrow()+(doctrineIs("people")?0.03:0); // 殿堂の英霊の数＋「民の国」の国是に応じた、現役兵の忠誠へのわずかな後押し
   for(const u of [...S.units]){
     u.age+=1/AGE_YEAR_DAYS;
-    u.fatigue=Math.max(0,(u.fatigue||0)-(u.race==="dwarf"?12:8)); // ドワーフは頑健で、疲れの抜けが早い(種族の個性)
+    u.fatigue=Math.max(0,(u.fatigue||0)-((u.race==="dwarf"?12:8)+(traitInfo(u.trait).fatigueRecover||0))); // ドワーフは頑健で疲れの抜けが早い(種族の個性)。一部の特性(不屈の体躯 等)もさらに回復を早める
     if(u.injured>0){
       u.injured--;
       if(u.injured<=0){
