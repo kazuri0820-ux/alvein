@@ -4529,8 +4529,22 @@ function councilJustice(){
    speaker:"ガレオン「陛下の裁きひとつで、国の在り方が民に伝わりましょう」",
    choices:opts};
 }
+/* 通商会議:市場と交易をめぐる方針を問う。投資・関税・もてなしのいずれを選ぶかで経済・国庫・外交が
+   振れる。国庫の使い道と経済運営に、目先の実入りか長い目の育成かという判断の色を添える(国政の彩り)。 */
+function councilTrade(){
+  const opts=[
+   {label:"交易路の拡張に投資する",hint:"経済↑↑(出費70G)",fx:{gold:-70,st:{economy:4},log:"新たな交易路が切り拓かれ、商隊の行き来が活発になった。長い目で見た実りが期待される。"}},
+   {label:"関税を引き上げる",hint:"当座の国庫↑ だが経済少し↓",fx:{gold:45,st:{economy:-1},log:"関税が引き上げられ、当座の国庫は潤ったが、商人たちの足はやや遠のいた。"}},
+   {label:"外国商人を手厚くもてなす",hint:"外交↑ 経済少し↑(出費40G)",fx:{gold:-40,st:{diplomacy:2,economy:1},log:"外国の商人を手厚くもてなし、諸国との商いの評判が高まった。"}},
+   {label:"今週は特に動かない",hint:"様子見",fx:{log:"交易については、今週は特段の手を打たなかった。"}},
+  ];
+  return{tag:"通商会議",title:"第"+Math.floor(S.day/7)+"回 定例閣議(通商)",
+   body:"今週の議題は通商。市場と交易をめぐる方針を定める。目先の実入りを取るか、長い目で商いを育てるか。",
+   speaker:"セラ「商いは国の血の巡り。どう手を打ちましょうか」",
+   choices:opts};
+}
 function councilAction(){
-  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice];
+  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade];
   return types[Math.floor(Math.random()*types.length)]();
 }
 function councilEvent(){return councilPolicy();}
