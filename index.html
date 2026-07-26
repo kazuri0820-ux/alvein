@@ -7093,6 +7093,7 @@ const FACILITY_TYPES=[
  {key:"farm",name:"畑",desc:"担当を置くと、その体力・知力に応じて毎日わずかな食糧を生む。",cost:100,produce:"food",statFn:u=>u.vit*0.5+u.wis*0.5},
  {key:"huntground",name:"狩場",desc:"担当を置くと、その腕力・敏捷に応じて毎日わずかな食糧(獲物)を得る。",cost:120,produce:"food",statFn:u=>u.str*0.5+u.agi*0.5},
  {key:"drillground",name:"練兵場",desc:"担当を置くと、その兵自身が日々の鍛錬で少しずつ経験値を得る(控えの兵を腐らせず育てられる)。",cost:140,produce:"exp",statFn:u=>u.vit*0.4+u.lead*0.3+u.str*0.3},
+ {key:"infirmary",name:"療養所",desc:"担当を置くと、その知力・体力に応じて負傷兵の療養が日々早まる(怪我人の回復を支え、戦線復帰を早める)。",cost:130,produce:"heal",statFn:u=>u.wis*0.5+u.int*0.3+u.vit*0.2},
 ];
 /* 施設の増改築:改築を重ねるほど産出が伸びる(Lv1=等倍→Lv4で2.5倍)。ゴールドの使い道と施設育成のやり込みを追加 */
 function facilityLevelMult(f){return 1+(((f&&f.level)||1)-1)*0.5;}
@@ -7106,10 +7107,17 @@ function facilityDailyProduce(){
     const amount=ft.statFn(u)*FACILITY_PRODUCE_MULT*facilityLevelMult(f)*rnd(0.85,1.15);
     if(ft.produce==="gold")S.gold+=amount;
     else if(ft.produce==="exp"){u.exp+=amount;processLevelUps(u);} // 練兵場:担当の兵自身が経験値を得る
+    else if(ft.produce==="heal"){ // 療養所:負傷兵の療養日数を早める(産出が高いほど1日多く早まる)。過剰治癒を避け最大2日/日
+      const injured=S.units.filter(x=>x.injured>0&&x.id!==u.id).sort((a,b)=>b.injured-a.injured);
+      if(injured.length){
+        let days=1+(amount>=6?1:0);
+        for(const x of injured){ if(days<=0)break; const cut=Math.min(days,x.injured); x.injured-=cut; days-=cut; if(x.injured<=0)x.injurySeverity=null; }
+      }
+    }
     else S.food+=amount;
   }
 }
-const FACILITY_PRODUCE_LABEL={gold:"国庫",food:"食糧",exp:"経験値"};
+const FACILITY_PRODUCE_LABEL={gold:"国庫",food:"食糧",exp:"経験値",heal:"療養支援"};
 let facilityAssignKey=null;
 function renderFacilityAssignSelect(){
   const ft=FACILITY_TYPES.find(f=>f.key===facilityAssignKey);
