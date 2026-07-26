@@ -2404,6 +2404,8 @@ function addToHallOfFame(u,reason){
     traitName:traitInfo(u.trait).name, traitTier:u.traitTier,
     skills:u.skills.map(k=>SKILL_DB.find(s=>s.key===k)).filter(Boolean).map(s=>({name:s.name,tier:s.tier})),
     wasCaptain:u.captain, bondPartner:partner?partner.nm:null,
+    uniqueJobName:u.uniqueJob?(UNIQUE_JOBS.find(x=>x.key===u.uniqueJob)||{}).nickname:null,
+    career:{clears:u.dungeonClearCount||0,leaderCount:u.leaderCount||0,titles:(u.titles||[]).length,tenure:Math.max(0,S.day-(u.joinDay||S.day)),dreamDone:!!u.dreamDone}, // 戦績を殿堂に刻む
     reason, day:S.day, age:Math.floor(u.age),
     epitaph: reason==="death"
       ? `天寿を全うし、${Math.floor(u.age)}歳でこの世を去った。`
@@ -8381,8 +8383,9 @@ function renderHall(){
     const hasGold=r.skills.some(s=>s.tier==="gold");
     h+=`<div class="hallcard ${hasUnique?"legend":""}">
       <div class="hh"><span class="hn">${r.wasCaptain?"★ ":""}${r.nm}${r.surname?" "+r.surname:""}</span><span class="hreason">DAY${r.day}・${REASON_LABEL[r.reason]||r.reason}</span></div>
-      <div class="hjob">${JOB_TREES[r.cls].label}・${r.jobName} Lv.${r.lv}${race.key!=="human"?"・"+race.name:""}${r.wasCaptain?"・元騎士団長":""}</div>
+      <div class="hjob">${JOB_TREES[r.cls].label}・${r.jobName} Lv.${r.lv}${r.uniqueJobName?`・《${r.uniqueJobName}》`:""}${race.key!=="human"?"・"+race.name:""}${r.wasCaptain?"・元騎士団長":""}</div>
       <div class="hepi">${r.epitaph}${r.bondPartner?` 戦友${r.bondPartner}との日々を最期まで忘れなかったという。`:""}</div>
+      ${r.career?(()=>{const c=r.career,parts=[];if(c.clears>0)parts.push(`迷宮踏破${c.clears}`);if(c.leaderCount>0)parts.push(`指揮${c.leaderCount}回`);if(c.titles>0)parts.push(`称号${c.titles}`);if(c.dreamDone)parts.push(`夢を成就`);parts.push(`在籍${c.tenure}日`);return `<div class="hepi" style="color:var(--gold2);font-size:10.5px;font-style:normal;opacity:.85">生涯の記録: ${parts.join(" ／ ")}</div>`;})():""}
       <div class="htags">${r.skills.filter(s=>s.tier==="unique"||s.tier==="gold"||s.tier==="silver").map(s=>`<span class="skchip t-${s.tier}">${s.name}</span>`).join("")}${(r.traitTier==="epic"||r.traitTier==="legend")?`<span class="skchip t-${r.traitTier==="legend"?"unique":"gold"}">${r.traitName}</span>`:""}</div>
     </div>`;
   }
