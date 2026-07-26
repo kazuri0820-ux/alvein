@@ -4425,6 +4425,15 @@ const UNIQUE_EVENTS=[
    choices:[
     {label:"合同演習を行わせる",hint:"軍事+3",fx:{st:{military:3},flag:{uq_allClasses:true},log:"四系統合同の演習が行われた。互いの戦い方を知ることで、連携がぐっと良くなった。",logCls:"big"}},
    ]})},
+ {key:"balancedRealm",
+  cond:()=>!S.flags.uq_balancedRealm&&["military","economy","agriculture","magic","order","diplomacy"].every(k=>(S.st[k]||0)>=50),
+  build:()=>({tag:"固 有",title:"均衡の取れた国",
+   body:"軍事も、経済も、民の暮らしも――どれか一つに偏ることなく、国のあらゆる面が高い水準で釣り合っている。宰相ネロが、めずらしく手放しで感心している。",
+   speaker:"ネロ「これほど均整の取れた国は、そうそうありません。長の采配の賜物でしょう」",
+   choices:[
+    {label:"この均衡をさらに固める",hint:"全国力+3",fx:{st:{military:3,economy:3,agriculture:3,magic:3,order:3,diplomacy:3},flag:{uq_balancedRealm:true},log:"均衡を保つ施策が布かれ、国の土台が一段と盤石になった。",logCls:"big"}},
+    {label:"蓄えを民に還元する",hint:"民心+10",fx:{mood:10,flag:{uq_balancedRealm:true},log:"豊かさの一部が民に還元された。城下は穏やかな活気に満ちている。",logCls:"big"}},
+   ]})},
  {key:"knightFull",
   cond:()=>S.flags.knightOrder&&S.units.length>=14&&!S.flags.uq_knightFull,
   build:()=>({tag:"固 有",title:"騎士団、威容を示す",
