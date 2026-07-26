@@ -2412,6 +2412,25 @@ function checkDailyTitles(u){
   if(u.traitTier==="rare")grantTitle(u,"t_rareborn");
   if(u.traitTier==="epic")grantTitle(u,"t_epicborn");
   if(u.traitTier==="legend")grantTitle(u,"t_legendborn");
+  checkDecorationCeremony(u);
+}
+/* 叙勲式:称号を重ねた兵が一定数に達すると、王国が式を挙げて讃える。
+   称号は個々の小さな加点だが、積み重ねた者は"叙勲の英傑"として国全体を鼓舞する。
+   称号を集める行為そのものに、目に見える晴れ舞台の見返りを与える。 */
+function checkDecorationCeremony(u){
+  const n=(u.titles||[]).length;
+  const tier=n>=8?2:n>=4?1:0;
+  const prev=u.decoratedTier||0;
+  if(tier<=prev)return;
+  u.decoratedTier=tier;
+  u.loyalty=Math.min(100,u.loyalty+10);
+  u.moral=Math.min(100,u.moral+10);
+  // 英傑の栄誉は隊全体の士気を引き上げ、民心も少し明るくする
+  for(const o of S.units){if(o.id!==u.id)o.moral=Math.min(100,o.moral+3);}
+  S.mood=Math.min(100,(S.mood||0)+2);
+  const label=tier>=2?"大叙勲":"叙勲";
+  unitHistory(u,`${label}を受け、${n}の称号を帯びた英傑として讃えられた。`);
+  chron(`${label}式が執り行われた。${fullName(u)}が${n}もの称号を帯びた英傑として王国に讃えられ、居並ぶ兵たちの士気が沸き立った。`,"big");
 }
 function checkAging(){
   const bless=priestBlessing();
