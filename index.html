@@ -5301,6 +5301,15 @@ function generateDungeon(){
     discoveredDay:S.day,
   };
 }
+/* セーブ復元時の参照修復:ダンジョンの type は statFn(関数)を保持するため、JSON 保存で
+   関数プロパティが失われる。保存された type.key から正規の DUNGEON_TYPES を引き直して復元する。
+   これを怠ると、ロード後にダンジョン画面が d.type.statFn(...) 呼び出しで例外を投げ、
+   #btnDungeon を押しても panel が開かない=「ボタンが無反応」になる(途中再開時の不具合)。 */
+function rehydrateSaveRefs(){
+  const fixDungeon=d=>{ if(d&&d.type&&d.type.key){ const canon=DUNGEON_TYPES.find(t=>t.key===d.type.key); if(canon)d.type=canon; } };
+  (S.availableDungeons||[]).forEach(fixDungeon);
+  (S.activeDungeons||[]).forEach(fixDungeon);
+}
 /* ---------- サプライズ転職イベント(低確率・ランダム転職+新職の主軸ステータスにボーナス) ---------- */
 function buildJobChangeSurpriseEvent(){
   const eligible=S.units.filter(u=>u.injured<=0);
@@ -8027,6 +8036,7 @@ document.querySelectorAll("[data-close]").forEach(x=>x.onclick=()=>{
   const sv=await load();
   if(sv&&sv.day>1&&sv.mood>0){
     S=sv;S.eventOpen=false;
+    rehydrateSaveRefs(); // JSON保存で失われたダンジョンtypeのstatFn等を復元(未修復だとダンジョン画面が例外→ボタン無反応)
     $("#startBtn").textContent="王国記を再開する(DAY "+sv.day+")";
     const nb=document.createElement("button");
     nb.textContent="最初から";nb.className="altbtn";
