@@ -4496,6 +4496,27 @@ function councilAction(){
 }
 function councilEvent(){return councilPolicy();}
 /* ---------- 週次報告(秘書からの報告) ---------- */
+/* 週報の「注目の兵」:数字と出来事だけの週次報告に、毎週ひとり兵を取り上げて近況を添える。
+   週ごとに視点を変え(筆頭格→最古参→新顔)、王国の営みを"人"として感じさせ愛着を後押しする(演出)。 */
+function weeklyUnitSpotlight(){
+  const active=S.units.filter(u=>u.role==="active"||!u.role);
+  if(!active.length)return "";
+  const mode=Math.floor(S.day/7)%3;
+  let u,note;
+  if(mode===0){
+    u=active.reduce((a,b)=>(((b.titles||[]).length*100+(b.lv||0))>((a.titles||[]).length*100+(a.lv||0)))?b:a);
+    note="王国の筆頭格として、今も先頭に立ち続けている。";
+  }else if(mode===1){
+    u=active.reduce((a,b)=>((S.day-(b.joinDay||S.day))>(S.day-(a.joinDay||S.day)))?b:a);
+    note="最古参の一人として、若い兵たちの静かな支柱になっている。";
+  }else{
+    u=active.reduce((a,b)=>((b.joinDay||0)>(a.joinDay||0))?b:a);
+    note="加わって間もないが、少しずつ隊に馴染んできたようだ。";
+  }
+  const m=u.moral||0;
+  const cond=m>=80?"すこぶる意気軒昂":m>=55?"落ち着いた様子":m>=30?"やや元気がない":"沈んだ面持ち";
+  return `<div class="wr-event" style="border-top:1px solid rgba(255,255,255,.08);margin-top:6px;padding-top:8px"><span class="wr-day" style="background:none;color:var(--gold2);font-weight:700">注目</span>${fullName(u)}(${JOB_TREES[u.cls].label}・Lv.${u.lv})――${note} 近頃は${cond}だという。</div>`;
+}
 function buildWeeklyReportEvent(){
   const snap=S.weekSnapshot||{gold:S.gold,food:S.food,pop:S.pop,mood:S.mood,units:S.units.length};
   const dGold=Math.round(S.gold-snap.gold), dFood=Math.round(S.food-snap.food), dPop=S.pop-snap.pop, dMood=Math.round(S.mood-snap.mood), dUnits=S.units.length-snap.units;
@@ -4512,6 +4533,7 @@ function buildWeeklyReportEvent(){
   body+=weekLogs.length
     ?`<div class="wr-eventlist">`+weekLogs.map(l=>`<div class="wr-event"><span class="wr-day">DAY${l.d}</span>${l.t}</div>`).join("")+`</div>`
     :`<div class="wr-eventlist"><div class="wr-event" style="color:#7d6c42">今週は特筆すべき大きな出来事はなかった。</div></div>`;
+  body+=weeklyUnitSpotlight(); // 今週の注目の兵(人にも光を当てる)
   S.weekSnapshot={gold:S.gold,food:S.food,pop:S.pop,mood:S.mood,units:S.units.length};
   return{tag:"週次報告",title:"秘書からの週次報告",body,
    speaker:"セラ「今週のご報告です、陛下。お目通しいただければ」",
