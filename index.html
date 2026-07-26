@@ -5065,6 +5065,7 @@ const NATIONAL_DOCTRINES=[
  {key:"people",name:"民の国",desc:"民を重んじる国是。民心と兵の忠誠が日々わずかに育つ。"},
  {key:"inquiry",name:"探究の国",desc:"学びを重んじる国是。兵が昇格の折に新たな技を会得しやすくなる。"},
  {key:"fortress",name:"鉄壁の国",desc:"守りを重んじる国是。兵が傷を負いにくくなり、脱落が永続的に減る。"},
+ {key:"bonds",name:"絆の国",desc:"戦友の情を重んじる国是。背中を預け合う絆の連携が、戦場で一層力になる。"},
 ];
 function doctrineIs(k){return !!(S.flags&&S.flags.doctrine===k);}
 function doctrineName(){const d=NATIONAL_DOCTRINES.find(x=>x.key===(S.flags&&S.flags.doctrine));return d?d.name:null;}
@@ -6615,7 +6616,7 @@ function squadSynergyMult(squad){
   const ids=new Set(squad.map(u=>u.id));
   let bondPairs=0;
   for(const u of squad)if(u.bondWith&&ids.has(u.bondWith)&&u.id<u.bondWith)bondPairs++;
-  const bondBonus=bondPairs*0.06;
+  const bondBonus=bondPairs*(doctrineIs("bonds")?0.09:0.06); // 「絆の国」の国是では、戦友の絆の連携が一層強まる
   // 獣人は群れで動くことを好む:同じ部隊に2人以上いると連携(群れの戦法)が上乗せされる(種族の個性)
   const beastCount=squad.filter(u=>u.race==="beastkin").length;
   const packBonus=beastCount>=2?Math.min(0.12,(beastCount-1)*0.05):0;
