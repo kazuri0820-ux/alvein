@@ -2692,9 +2692,10 @@ function checkAging(){
     const stage=ageStageOf(u);
     const eff=skillEffects(u);
     const teff=titleEffectsFor(u);
+    const tgr=traitInfo(u.trait); // 特性由来の忠誠・士気成長(カリスマ・義に篤い等、これまで未適用だった特性の効能を活かす=フレーバー通りに機能させる)
     if(eff.fatigueRecover)u.fatigue=Math.max(0,(u.fatigue||0)-eff.fatigueRecover); // スキル(不撓の体力 等)による追加の疲労回復
-    u.loyalty=Math.max(0,Math.min(100,u.loyalty+eff.loyaltyGrow*0.3+teff.loyaltyGrow*0.3+bless.loyalty+hallGrow));
-    u.moral=Math.max(0,Math.min(100,u.moral+eff.moralGrow*0.3+teff.moralGrow*0.3+bless.moral));
+    u.loyalty=Math.max(0,Math.min(100,u.loyalty+eff.loyaltyGrow*0.3+teff.loyaltyGrow*0.3+(tgr.loyaltyGrow||0)*0.3+bless.loyalty+hallGrow));
+    u.moral=Math.max(0,Math.min(100,u.moral+eff.moralGrow*0.3+teff.moralGrow*0.3+(tgr.moralGrow||0)*0.3+bless.moral));
     checkDailyTitles(u);
     // 成長段階の節目に手応えを添える(初回は無音でセット。若手→全盛期のみ演出。老兵移行は引退イベントが担う)
     if(u.ageStageSeen===undefined){u.ageStageSeen=stage.key;}
