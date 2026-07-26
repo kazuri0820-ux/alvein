@@ -7593,6 +7593,19 @@ function renderUnitDetail(uid){
   // ── 生い立ち ──
   if(u.backstory)h+=`<div class="udet-sec"><h4>生い立ち</h4><div style="font-size:12px;color:#d8dbe6;line-height:1.85;font-style:italic">${u.backstory}</div></div>`;
   if(!isInstructor&&u.dream){const dd=UNIT_DREAMS.find(x=>x.key===u.dream);if(dd)h+=`<div class="udet-sec"><h4>${u.dreamDone?"叶えた夢":"抱いている夢"}</h4><div style="font-size:12px;color:${u.dreamDone?"var(--gold)":"#d8dbe6"};font-style:italic">${u.dreamDone?"✦ ":"― "}${dd.text}${u.dreamDone?" ――その願いは、叶えられた。":""}</div></div>`;}
+  // ── 戦績(この兵が歩んできた道のりを数字で刻む=愛着と成長実感) ──
+  {
+    const rec=[];
+    if((u.dungeonClearCount||0)>0)rec.push(`迷宮踏破 ${u.dungeonClearCount}`);
+    if((u.leaderCount||0)>0)rec.push(`部隊指揮 ${u.leaderCount}回`);
+    if((u.leaderGreatCount||0)>0)rec.push(`大成功 ${u.leaderGreatCount}回`);
+    if((u.injuryCount||0)>0)rec.push(`負傷 ${u.injuryCount}回`);
+    if((u.criticalSurvivalCount||0)>0)rec.push(`死線からの生還 ${u.criticalSurvivalCount}回`);
+    if((u.mentorCount||0)>0)rec.push(`指導 ${u.mentorCount}回`);
+    const tenure=Math.max(0,S.day-(u.joinDay||S.day));
+    rec.push(`在籍 ${tenure}日`);
+    h+=`<div class="udet-sec"><h4>戦績</h4><div style="display:flex;flex-wrap:wrap;gap:5px">${rec.map(r=>`<span class="udet-chip" style="font-size:10.5px">${r}</span>`).join("")}</div></div>`;
+  }
 
   // ── 状態(健康・調子) ──
   if(!isInstructor){
