@@ -2446,6 +2446,7 @@ function addToHallOfFame(u,reason){
   };
   S.hallOfFame.unshift(rec);
   if(S.hallOfFame.length>80)S.hallOfFame.pop();
+  chronHallInduction(rec,reason); // 真の英傑には、その生涯を総括する荘厳な一節を年代記に刻む
   // 慰霊祭:殿堂が節目の人数に達すると英霊を祀る式が営まれ、語り継がれる武勲が現役の兵を奮い立たせる(殿堂の見返り)
   if({5:1,10:1,20:1,40:1}[S.hallOfFame.length]){
     const n=S.hallOfFame.length;
@@ -2453,6 +2454,23 @@ function addToHallOfFame(u,reason){
     S.mood=Math.min(100,(S.mood||0)+4);
     chron(`殿堂に${n}名の英霊が名を連ねた。慰霊祭が営まれ、語り継がれる武勲に現役の兵たちも背筋を正した。皆の忠誠と士気が高まっている。`,"big");
   }
+}
+/* 殿堂入りの荘厳な一節:二つ名を持つ英傑・団長・多くの称号を帯びた真の英雄が世を去る時、その生涯を
+   総括する年代記を刻む。ひとりの兵の物語に王国史としての幕引きを与え、legacy と愛着を強める(年代記の重み)。 */
+function chronHallInduction(rec,reason){
+  const legendary=rec.uniqueJobName||rec.wasCaptain||(rec.career&&rec.career.titles>=3);
+  if(!legendary)return; // 真の英傑のみに荘厳な送り出しを（濫用を避ける）
+  const title=rec.uniqueJobName?`《${rec.uniqueJobName}》`:rec.jobName;
+  const feats=[];
+  if(rec.career){
+    if(rec.career.clears>0)feats.push(`迷宮を${rec.career.clears}度踏破し`);
+    if(rec.career.leaderCount>0)feats.push(`${rec.career.leaderCount}度戦場に部隊を率い`);
+    if(rec.career.titles>0)feats.push(`${rec.career.titles}の称号を帯び`);
+    if(rec.career.dreamDone)feats.push(`ついに己の夢を成し遂げ`);
+  }
+  const featStr=feats.length?feats.join("、")+"――":"";
+  const verb=reason==="death"?"天寿を全うした":reason==="loss"?"戦場に散った":"静かに現役を退いた";
+  chron(`――${rec.nm}${rec.surname?" "+rec.surname:""}、${title}。${featStr}その生涯をもって王国に尽くし、${verb}。その名は殿堂に刻まれ、永く語り継がれるだろう。`,"grave");
 }
 /* 殿堂の加護:名を刻んだ英霊が多いほど、王国に仕える誇りが現役兵の忠誠を日々わずかに育てる(殿堂を築く見返り) */
 function hallLegacyGrow(){return Math.min(0.05,((S.hallOfFame||[]).length)*0.001);}
