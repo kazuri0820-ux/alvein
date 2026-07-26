@@ -6134,17 +6134,24 @@ function buildDemonGeneralEvent(){
 /* 魔王の玉座の解禁:防衛練度だけでなく、ダンジョン踏破数も要求し、到達難度と歯応えの落差を縮める */
 function tryUnlockDemonLordDungeon(){
   if(S.flags.demonLordDungeonUnlocked)return;
-  if((S.demonArmyLevel||0)<8||(S.dungeonsCleared||0)<12)return;
+  const army=S.demonArmyLevel||0, cleared=S.dungeonsCleared||0, gens=S.demonGeneralsDefeated||0;
+  // 接近の予兆:条件が近づくと魔王の気配が濃くなる(唐突な出現を避け、終盤の緊張を段階的に高める)
+  if(!S.flags.demonThroneNear&&army>=10&&cleared>=16&&gens>=1){
+    S.flags.demonThroneNear=true;
+    chron("――魔王の気配が、日増しに濃くなっている。主だった魔将をもう一体退け、なお力を蓄えれば、その在り処への道が開くだろう。","grave");
+  }
+  // 練度・踏破数に加え、複数の魔将を討ち取ってこそ、ようやく魔王の在り処への道が開く(玉座への到達を重くする)
+  if(army<12||cleared<20||gens<2)return;
   S.flags.demonLordDungeonUnlocked=true;
   const finalD={
     id:"demonlord_final",name:"魔王の玉座",level:100,
     rarity:{key:"legendary",label:"魔王討伐",mult:5,color:"#8e2f2f"},
-    requiredPower:520,duration:6,bossName:"魔王",bossPower:676,
+    requiredPower:640,duration:7,bossName:"魔王",bossPower:900,
     discoveredDay:S.day,isFinal:true,
   };
   S.availableDungeons=S.availableDungeons||[];
   S.availableDungeons.push(finalD);
-  chron("――ついに、魔王の座す場所への道が見えた。「魔王の玉座」が挑戦可能になった。","big");
+  chron("――ついに、魔王の座す場所への道が見えた。数多の魔将を退けた王国の前に、「魔王の玉座」が姿を現した。今こそ、最後の戦いへ挑む時だ。","big");
 }
 /* 魔王討伐後のエンドコンテンツ:何度でも挑める高難度の周回ダンジョン(踏破数に応じて緩やかに強くなる) */
 function spawnDemonAbyssDungeon(){
@@ -6175,6 +6182,7 @@ function resolveDemonDefense(){
     for(const u of squad){const gain=(leader&&u.id===leader.id?ri(10,18):ri(6,12))*(isGeneral?1.6:1);u.exp+=gain;processLevelUps(u);}
     if(leader)leader.leaderCount=(leader.leaderCount||0)+1;
     if(isGeneral){
+      S.demonGeneralsDefeated=(S.demonGeneralsDefeated||0)+1; // 討ち取った魔将の数。魔王の玉座への到達条件になる
       apply({mood:5,st:{military:2}});
       let itemMsg="";
       const item=rollItemDrop(S.demonArmyLevel>=5?"epic":"rare"); // 魔将は必ず遺物を落とす
@@ -7783,7 +7791,11 @@ function renderDungeonPanel(){
   let summary=`累計踏破:${cleared}件`;
   if(S.flags.demonLordDefeated)summary+=` ／ <span style="color:#e8c874">魔王討伐済み</span>`;
   else if(S.flags.demonLordDungeonUnlocked)summary+=` ／ <span style="color:#d97a7a">「魔王の玉座」出現中</span>`;
-  else if(S.flags.demonNoticed)summary+=` ／ 魔王軍対応Lv.${S.demonArmyLevel||0}`;
+  else if(S.flags.demonNoticed){
+    const army=S.demonArmyLevel||0, gens=S.demonGeneralsDefeated||0;
+    summary+=` ／ 魔王軍対応Lv.${army} ／ 討った魔将${gens}体`;
+    summary+=`<div style="font-size:10.5px;color:var(--dim);margin-top:2px">魔王の玉座への道:対応Lv.12(現${army})・累計踏破20(現${cleared})・魔将2体撃破(現${gens})</div>`;
+  }
   $("#dgSummary").innerHTML=summary;
   const tabs=[["available","探索可能"],["active","進行中"],["expedition","遠征"]];
   $("#dgTabRow").innerHTML=tabs.map(([k,l])=>{
