@@ -2106,6 +2106,8 @@ const TITLE_DB=[
  {key:"t_prideofrealm",name:"王国の誇り",desc:"士気も忠誠も、常に高く保ち続けている",effect:"loyaltyGrow",value:0.15},
  {key:"t_duelvictor",name:"決闘の覇者",desc:"諸国の武芸者との果たし合いを、真っ向から制した",effect:"expMult",value:1.05},
  {key:"t_warchiefslayer",name:"覇者殺し",desc:"圧倒的な強者「覇者」を討ち取った",effect:"injuryMult",value:0.9},
+ {key:"t_skillful",name:"多芸の兵",desc:"数多の技を身につけ、あらゆる戦場に応じてみせる",effect:"expMult",value:1.04},
+ {key:"t_polymath",name:"百芸の達人",desc:"ありとあらゆる技を極めた、まさに歩く武芸の宝庫",effect:"expMult",value:1.08},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -2579,6 +2581,8 @@ function checkDailyTitles(u){
   if(u.dreamDone)grantTitle(u,"t_dreamer"); // 夢を叶えた者の証
   if((u.dungeonClearCount||0)>=6)grantTitle(u,"t_dungeonveteran");
   if(typeof equipSetTier==="function"&&equipSetTier(u))grantTitle(u,"t_fullset");
+  if((u.skills||[]).length>=5)grantTitle(u,"t_skillful"); // 多芸:集めた技の数を讃える
+  if((u.skills||[]).length>=9)grantTitle(u,"t_polymath");
   if(u.loyalty>=90&&u.moral>=90)grantTitle(u,"t_prideofrealm");
   checkDecorationCeremony(u);
   checkDreamFulfilled(u); // 個人的な夢の達成を見届ける
