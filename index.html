@@ -6193,6 +6193,27 @@ function battleSkillSpotlight(squad,foeLabel){
   const uniq=sk.tier==="unique";
   chron(`${u.nm}の${uniq?"固有技":"技"}「${sk.name}」が、${foeLabel}${uniq?"を前に眩い光を放ち、戦況を決定づけた":"との戦いで決定打となった"}。`,uniq?"big":"");
 }
+/* 戦友の見せ場:同じ部隊に背中を預け合う戦友(絆)がいる時、その連携が勝利を手繰り寄せた一幕を
+   稀に年代記に刻み、二人の士気を少し高める。絆を数値ボーナスだけでなく物語として実感させる(愛着)。 */
+const BOND_SPOTLIGHT_LINES=[
+ (a,b,f)=>`崩れかけた隊列を、${b}が咄嗟に${a}へ回り込んでかばった。背中を預け合う二人の連携が、${f}との戦いを勝利へ手繰り寄せた。`,
+ (a,b,f)=>`${f}の一撃に${a}が倒れかけたその刹那、${b}が身を挺して割って入った。戦友の絆が、二人を生かした。`,
+ (a,b,f)=>`${a}と${b}は言葉すら交わさず、示し合わせたように動いた。長く共に戦った戦友だけが持つ呼吸が、${f}を打ち破った。`,
+ (a,b,f)=>`${f}を前に、${a}は隣の${b}にただ頷いた。それだけで十分だった。二人の戦友は、危地を見事に切り抜けた。`,
+];
+function battleBondSpotlight(squad,foeLabel){
+  if(!squad||squad.length<2||Math.random()>=0.22)return;
+  const ids=new Set(squad.map(u=>u.id));
+  const pairs=[];
+  for(const u of squad)if(u.bondWith&&ids.has(u.bondWith)&&u.id<u.bondWith){
+    const b=squad.find(x=>x.id===u.bondWith); if(b)pairs.push([u,b]);
+  }
+  if(!pairs.length)return;
+  const [a,b]=pairs[Math.floor(Math.random()*pairs.length)];
+  const line=BOND_SPOTLIGHT_LINES[Math.floor(Math.random()*BOND_SPOTLIGHT_LINES.length)];
+  chron(line(a.nm,b.nm,foeLabel),"");
+  a.moral=Math.min(100,(a.moral||0)+2); b.moral=Math.min(100,(b.moral||0)+2);
+}
 /* ダンジョン種別の初踏破:各攻略型(戦闘/知略/隠密/耐久…全13種)を初めて制した時、記念の一節と
    一度きりの報酬(財貨・民心・その型が象徴する国力の微増)を贈る。全種を制すれば大いなる栄誉。
    farm一辺倒でなく「まだ見ぬ型に挑む」ことに収集・到達の楽しさと意味ある選択を与える。 */
@@ -6283,6 +6304,7 @@ function resolveDungeonRun(dungeonId){
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
+      battleBondSpotlight(squad,`ボス「${dungeon.bossName}」`); // 戦友の連携が勝利を手繰り寄せた一幕
       if(dungeon.isFinal){
         for(const u of squad)grantTitle(u,"t_demonslayer");
         S.flags.demonLordDefeated=true;
@@ -6536,6 +6558,7 @@ function resolveDemonDefense(){
       if(leader)unitHistory(leader,`魔将「${genName}」を討ち取り、その名を魔王軍に知らしめた。`);
       chron(`――魔将「${genName}」を討ち取った！${leader?leader.nm:"部隊"}の武勇が魔王軍に一泡吹かせ、防衛の練度が大きく上がった(魔王軍対応Lv.${S.demonArmyLevel})。${itemMsg}`,"big");
       battleSkillSpotlight(squad,`魔将「${genName}」`); // 集めた一流・固有の技が魔将戦でも光る
+      battleBondSpotlight(squad,`魔将「${genName}」`); // 戦友の連携が魔将戦を切り抜ける一幕
     }else{
       apply({mood:2,st:{military:1}});
       let itemMsg="";
@@ -6693,6 +6716,7 @@ function resolveExpedition(riskKey,rewardMult){
     dungeonFound=checkDungeonDiscovery(1.6,leader);
     chron(`――ミッション「${theme.name}」は大成功に終わった。${leader.nm}率いる部隊が、意気揚々と帰還した。${itemGained?`「${itemGained.name}」を手に入れた。`:""}`,"big");
     battleSkillSpotlight(squad,`ミッション「${theme.name}」`); // 集めた一流・固有の技がミッションでも光る
+    battleBondSpotlight(squad,`ミッション「${theme.name}」`); // 戦友の連携がミッションでも光る
     if(leader.favorite){leader.loyalty=Math.min(100,leader.loyalty+5);apply({mood:2});chron(`長が目をかける${leader.nm}の見事な采配に、皆が誇らしさを覚えた。本人も、期待に応えた誇りを噛みしめている。`,"");} // お気に入りの活躍を喜ぶ
   }else if(tier==="success"){
     goldGain=Math.round(ri(25,50)*rewardMult*rarity.mult*levelMult);
