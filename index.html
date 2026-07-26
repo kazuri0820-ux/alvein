@@ -7632,6 +7632,12 @@ function resolveTraining(pickUnit,grade,costPaid){
     if(!great&&Math.random()<hurtChance){inflictInjury(u,[0.8,0.18,0.02]);hurt=true;}
     results.push({u,gain:Math.round(gain),great,learnedSkill,leveled:u.lv>beforeLv,newLv:u.lv,promotedTo,hurt,isPick});
   }
+  // 選抜兵の会心は、訓練場全体を沸かせる。ハイライトを隊で分かち合い、士気に波及させる
+  const pickGreat=results.find(r=>r.isPick&&r.great);
+  if(pickGreat){
+    for(const r of results)r.u.moral=Math.min(100,r.u.moral+5);
+    chron(`${pickGreat.u.nm}の会心の一手に、訓練場全体が沸いた。皆の士気が高まっている。`,"big");
+  }
   trainingGradeChoice=null;
   clamp();render();renderTroops();refreshOpenPanels();save();
   showTrainingResult(results,g,costPaid);
