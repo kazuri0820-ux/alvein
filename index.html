@@ -6185,6 +6185,7 @@ const ITEMS=[
  {key:"treaty_seal",name:"古い盟約の印章",rarity:"uncommon",desc:"外交がまとまって上がる。",effect:()=>apply({st:{diplomacy:ri(3,6)},log:"古い盟約の印章が、外交の場で重みを持った。"})},
  // ── レア ──
  {key:"phoenix_feather",name:"不死鳥の羽根",rarity:"rare",desc:"戦没しかけた兵を一人、必ず救う(お守りとして常時携帯)。",type:"permanent",effect:()=>{chron("不死鳥の羽根を懐に忍ばせた。いざという時、誰かの命を救うだろう。","big");S.flags.phoenixCharm=(S.flags.phoenixCharm||0)+1;}},
+ {key:"resilience_banner",name:"不屈の軍旗",rarity:"rare",desc:"戦場に掲げれば、兵は最後まで諦めない。以後、ダンジョンでの戦没率がわずかに下がる(永続)。",type:"permanent",effect:()=>{if(S.flags.resilienceBanner){chron("不屈の軍旗は既に高く掲げられている。","");return;}S.flags.resilienceBanner=true;chron("不屈の軍旗を掲げた。この旗のもと、兵は死地でも最後まで諦めぬ心を持つ。以後、戦場での戦没が減るだろう。","big");}},
  {key:"talented_scroll",name:"逸材招来の巻物",rarity:"rare",desc:"高ステータスの逸材が一人加わる。",effect:()=>{if(S.units.length>=unitCap()){chron("兵舎が満員のため、巻物は使えなかった。","");return;}const u=makeRecruitCandidate();u.talented=true;const bonus=ri(8,14);for(const k of["str","vit","int","agi","wis","lead"])u[k]+=bonus;S.units.push(u);chron(`逸材招来の巻物により、${u.nm} ${u.surname}(逸材)が加わった。`,"big");}},
  {key:"unique_shard",name:"固有の欠片",rarity:"rare",desc:"固有スキル保持者がいなければ、ランダムな兵が固有スキルに目覚める。",effect:()=>{if(S.uniqueHolderId||!S.units.length){chron("固有の欠片は、今は反応を示さなかった。","");return;}const u=S.units[Math.floor(Math.random()*S.units.length)];const uniq=SKILL_DB.filter(s=>s.tier==="unique"&&(!s.cls||s.cls===u.cls));if(!uniq.length)return;const pick=uniq[Math.floor(Math.random()*uniq.length)];u.skills.push(pick.key);S.uniqueHolderId=u.id;grantTitle(u,"t_uniqueholder");chron(`固有の欠片に触れた${u.nm}が、「${pick.name}」に目覚めた。`,"big");}},
  {key:"awaken_catalyst",name:"覚醒の触媒",rarity:"rare",desc:"英雄格の兵一人の経験値を大幅に押し上げる。",effect:()=>{const heroes=S.units.filter(u=>jobFor(u.cls,u.lv,u.route).key==="hero"&&!u.awakened);if(!heroes.length){chron("覚醒の触媒に応える者はいなかった。","");return;}const u=heroes[Math.floor(Math.random()*heroes.length)];u.exp+=u.lv*10*3;processLevelUps(u);chron(`覚醒の触媒により、${u.nm}の力が大きく伸びた。`,"big");}},
@@ -6801,7 +6802,7 @@ function resolveDungeonRun(dungeonId){
     apply({mood:-2});
     chron(`「${dungeon.name}」への挑戦は失敗に終わった。部隊は撤退した。`,"grave");
   }else{ // critical_fail
-    const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1); // 治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる
+    const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1); // 治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗でさらに戦没が減る
     const hurtOnes=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*0.6)));
     const critW=cond==="blessed"?[0.4,0.4,0.2]:[0.1,0.3,0.6]; // 古の祝福: 大失敗でも深手を和らげる
     for(const u of hurtOnes){inflictInjury(u,critW);unitHistory(u,`「${dungeon.name}」で${INJURY_TIERS[u.injurySeverity].label}を負った。`);memberLog.push({u,gain:0,note:INJURY_TIERS[u.injurySeverity].label});}
