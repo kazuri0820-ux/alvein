@@ -2311,6 +2311,11 @@ function removeUnitById(id,reason){
     const partner=S.units.find(x=>x.id===u.bondWith);
     if(partner){partner.bondWith=null;partner.moral=Math.max(0,partner.moral-12);unitHistory(partner,`戦友${u.nm}を失い、しばらく塞ぎ込んでいた。`);chron(`${partner.nm}は戦友${u.nm}のことを、長く忘れられなかったという。`,"grave");}
   }
+  if(u.favorite&&reason==="death"){ // 長が目をかけていた兵の死は、隊全体に大きな喪失感を残す
+    S.mood=Math.max(0,(S.mood||0)-4);
+    for(const o of S.units)if(o.id!==u.id)o.moral=Math.max(0,o.moral-4);
+    chron(`長が目をかけていた${u.nm}の死は、隊に深い喪失感を残した。誰もがしばらく、その名を口にできなかった。`,"grave");
+  }
   S.units=S.units.filter(x=>x.id!==id);
 }
 function removeUnits(n){
