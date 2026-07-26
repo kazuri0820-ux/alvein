@@ -6193,6 +6193,28 @@ function battleSkillSpotlight(squad,foeLabel){
   const uniq=sk.tier==="unique";
   chron(`${u.nm}の${uniq?"固有技":"技"}「${sk.name}」が、${foeLabel}${uniq?"を前に眩い光を放ち、戦況を決定づけた":"との戦いで決定打となった"}。`,uniq?"big":"");
 }
+/* ダンジョン種別の初踏破:各攻略型(戦闘/知略/隠密/耐久…全13種)を初めて制した時、記念の一節と
+   一度きりの報酬(財貨・民心・その型が象徴する国力の微増)を贈る。全種を制すれば大いなる栄誉。
+   farm一辺倒でなく「まだ見ぬ型に挑む」ことに収集・到達の楽しさと意味ある選択を与える。 */
+const DUNGEON_TYPE_STAT={combat:"military",puzzle:"magic",stealth:"order",endurance:"agriculture",arcane:"magic",trap:"order",cursed:"magic",labyrinth:"economy",fortress:"military",abyss:"military",beast:"agriculture",sanctum:"diplomacy",tempest:"diplomacy"};
+function statLabel(k){const s=STATDEF.find(x=>x[0]===k);return s?s[1]:k;}
+function checkDungeonTypeFirstClear(dungeon,squad){
+  const t=dungeon&&dungeon.type;
+  if(!t||!t.key)return; // 型を持たない特殊ダンジョン(魔王等)は対象外
+  if(!S.clearedTypes)S.clearedTypes={};
+  if(S.clearedTypes[t.key])return;
+  S.clearedTypes[t.key]=S.day;
+  const g=Math.round(ri(40,80)*(1+(S.dungeonsCleared||0)*0.02));
+  const stKey=DUNGEON_TYPE_STAT[t.key]||"military";
+  apply({gold:g,mood:3,st:{[stKey]:2}});
+  chron(`――「${t.label}」の迷宮を、初めて制した。未知の攻略型を一つ、王国はまた我がものとした。この経験は国の${statLabel(stKey)}を確かに高め、記念の財貨${g}をもたらした。`,"big");
+  const total=DUNGEON_TYPES.length, done=Object.keys(S.clearedTypes).length;
+  if(done>=total&&!S.flags.allTypesCleared){
+    S.flags.allTypesCleared=true;
+    apply({gold:600,mood:12,st:{military:6,magic:6}});
+    chron(`――アルヴェインの兵は、ありとあらゆる型の迷宮を制した。${total}種すべての攻略型を極めし精鋭たち、その武名は大陸に轟く。`,"big");
+  }
+}
 function resolveDungeonRun(dungeonId){
   const dungeon=(S.activeDungeons||[]).find(d=>d.id===dungeonId);
   if(!dungeon){return;}
@@ -6232,6 +6254,7 @@ function resolveDungeonRun(dungeonId){
       let bonusItem=null;
       if(crit&&Math.random()<0.5){bonusItem=rollItemDrop(dungeon.rarity.key);if(bonusItem)addItem(bonusItem.key);} // 大成功: 追加の秘宝チャンス
       S.dungeonsCleared=(S.dungeonsCleared||0)+1;
+      checkDungeonTypeFirstClear(dungeon,squad); // 攻略型の初踏破を記念する
       tryUnlockDemonLordDungeon();
       for(const u of squad){
         u.dungeonClearCount=(u.dungeonClearCount||0)+1;
