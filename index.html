@@ -4636,8 +4636,23 @@ function councilFaith(){
    speaker:"老師ユグ「祈りは目には見えませぬが、国の背骨を静かに支えるもの」",
    choices:pick};
 }
+/* 教練会議:軍の鍛え方を問う。猛訓練・穏やかな調練・若手育成のいずれを選ぶかで、兵の経験値・士気・
+   疲労・若手の伸びが振れる。国政の決断を"軍そのものの育成"に直結させ、週次の方針に育て方の色を添える。 */
+function councilDrill(){
+  const active=S.units.filter(u=>u.role==="active"||!u.role);
+  if(!active.length)return councilMilitary(); // 兵がいなければ通常の軍事議題へ差し替え
+  return{tag:"教練会議",title:"第"+Math.floor(S.day/7)+"回 定例閣議(教練)",
+   body:"今週は軍の教練について。兵たちの鍛え方をいかに定めるか、ガレオンが方針を仰いでいる。",
+   speaker:"ガレオン「鍛え方ひとつで、兵の伸びも士気も変わりましょう」",
+   choices:[
+    {label:"実戦さながらの猛訓練を課す(50G)",hint:"全兵に経験値 / 士気わずかに↓",fx:{gold:-50,call:()=>{for(const u of active){u.exp+=ri(10,20);processLevelUps(u);u.moral=Math.max(0,(u.moral||0)-2);}chron("実戦さながらの猛訓練が課された。兵たちは音を上げつつも、確かに腕を上げている。","");}}},
+    {label:"英気を養う穏やかな調練にする",hint:"全兵の士気↑ 疲労回復",fx:{call:()=>{for(const u of active){u.moral=Math.min(100,(u.moral||0)+4);u.fatigue=Math.max(0,(u.fatigue||0)-10);}chron("穏やかな調練と休息が組まれた。兵たちの顔に、ゆとりと活気が戻ってきた。","");}}},
+    {label:"古参に若手の基礎を叩き込ませる(40G)",hint:"軍事+2 / 若手の経験値",fx:{gold:-40,st:{military:2},call:()=>{const young=active.filter(u=>(S.day-(u.joinDay||S.day))<120||u.lv<8);for(const u of young){u.exp+=ri(12,22);processLevelUps(u);}chron(`古参の手ほどきが若手${young.length}名に施された。次代を担う兵たちが、めきめきと力をつけている。`,"");}}},
+    {label:"今週は特に課さず様子を見る",hint:"様子見",fx:{log:"今週は特段の教練方針を定めず、各自の鍛錬に任せた。"}},
+   ]};
+}
 function councilAction(){
-  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith];
+  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill];
   return types[Math.floor(Math.random()*types.length)]();
 }
 function councilEvent(){return councilPolicy();}
