@@ -6166,10 +6166,36 @@ function resolveDungeonRun(dungeonId){
   showDungeonResult(dungeon,tier,bossWin,memberLog,goldGained,itemGained,died,diedWasHallWorthy,dungeonFound);
 }
 let dungeonResultQueue=[];
+/* 探索の道中記:踏破結果に短い情景を添え、一回一回のダンジョンを小さな冒険譚として味わえるようにする(演出・彩り) */
+const DUNGEON_JOURNAL=[
+ "松明の灯りだけを頼りに、部隊は暗い回廊を慎重に進んだ。",
+ "足音がやけに大きく反響する。何かが、こちらを見ている気がした。",
+ "行く手を塞ぐ仕掛け扉を、知恵を絞ってこじ開けた。",
+ "壁一面に刻まれた古い文様が、かつての栄華を物語っていた。",
+ "先を行く斥候が、罠の気配を察して皆を制した。",
+ "湿った空気の奥から、獣とも異形ともつかぬ唸り声が響いてきた。",
+ "崩れかけた石橋を、息を殺して一人ずつ渡っていった。",
+ "宝物庫と思しき小部屋で、部隊はしばし目を輝かせた。",
+ "地の底で見上げた裂け目から、細い陽の光が差し込んでいた。",
+ "打ち捨てられた冒険者の遺品が、この道の険しさを告げていた。",
+ "淀んだ水路を進むうち、隊の誰かが古い唄を口ずさんだ。",
+ "分かれ道で意見が割れたが、隊長の一声で進路が決まった。",
+ "奥へ進むほどに、空気が張り詰めていくのを皆が感じていた。",
+ "壁の隙間から吹き抜ける風が、出口の近いことを教えてくれた。",
+ "苔むした階段を下りると、ひやりとした地の底の冷気が頬を撫でた。",
+ "水滴の落ちる音だけが、静寂の中に規則正しく響いていた。",
+];
+function dungeonJournal(){
+  const pool=[...DUNGEON_JOURNAL],out=[];
+  for(let i=0;i<2&&pool.length;i++)out.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+  return out;
+}
 function showDungeonResult(dungeon,tier,bossWin,memberLog,goldGained,itemGained,died,diedWasHallWorthy,dungeonFound){
   const tierLabel={critical_success:"大成功",success:"成功",fail:"失敗",critical_fail:"大失敗"}[tier];
   const tierColor={critical_success:"#e8c874",success:"#8fbf6f",fail:"#d99a6a",critical_fail:"#d97a7a"}[tier];
   let h=`<div style="font-size:12px;color:var(--dim);margin-bottom:4px">${dungeon.rarity.label?`【${dungeon.rarity.label}】`:""}${dungeon.name}</div>`;
+  const journal=dungeonJournal();
+  if(journal.length)h+=`<div class="ds" style="font-style:italic;color:var(--dim);font-size:11.5px;line-height:1.75;margin:0 0 8px">${journal.map(j=>"― "+j).join("<br>")}</div>`;
   h+=`<div style="font-size:20px;font-weight:800;color:${tierColor};margin-bottom:6px;font-family:'Shippori Mincho',serif">${tierLabel}</div>`;
   if((tier==="critical_success"||tier==="success"))h+=`<div style="font-size:13px;color:${bossWin?"var(--gold)":"var(--dim)"};margin-bottom:6px">ボス「${dungeon.bossName}」:${bossWin?"撃破":"取り逃がした"}</div>`;
   if(goldGained)h+=`<div style="font-size:13px;color:var(--gold);margin-bottom:10px">獲得:${goldGained}G</div>`;
