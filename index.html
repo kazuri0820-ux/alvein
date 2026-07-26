@@ -4417,14 +4417,42 @@ function buildStatSMilestoneEvent(statKey){
    speaker:"セラ「陛下の治世、確かに実を結んでおります」",
    choices:[{label:"民に祝いの言葉を送る",hint:"民心+4",fx:{mood:4,log:`「${info.label}」の頂に達したことが、国中に触れ回られた。`,logCls:"big"}}]};
 }
+/* 年代記の章立て:時代(STAGE)が移り変わるたび、直前の時代を一つの「章」として締めくくり、
+   その時代に王国が成し遂げたこと(加わった兵・踏破・殿堂入り)と、時代を象徴する英雄を年代記に刻む。
+   長い治世に「王国史の区切り」を与え、歩みを振り返る手応え(やりがい)と物語的な重みを生む。 */
+const CHAPTER_NUMERALS=["一","二","三","四","五","六","七","八","九"];
+function eraChapterLabel(i){return "第"+(CHAPTER_NUMERALS[i]||(i+1))+"章";}
+function snapshotEra(){return {day:S.day,cleared:S.dungeonsCleared||0,hall:(S.hallOfFame||[]).length,troops:S.units.length};}
+function recordEraChapterClose(closingIdx){
+  const st=S.eraChapterStart, era=STAGES[closingIdx];
+  if(!st||!era)return;
+  const days=Math.max(0,S.day-(st.day||S.day));
+  const yrs=Math.floor(days/AGE_YEAR_DAYS);
+  const dCleared=Math.max(0,(S.dungeonsCleared||0)-(st.cleared||0));
+  const dHall=Math.max(0,(S.hallOfFame||[]).length-(st.hall||0));
+  const dTroops=S.units.length-(st.troops||0);
+  // 時代を象徴する英雄:現在の兵から最も称号が多く位階の高い者を選ぶ
+  const hero=S.units.slice().sort((a,b)=>(((b.titles||[]).length*100+(b.lv||0))-((a.titles||[]).length*100+(a.lv||0))))[0];
+  const parts=[];
+  if(dTroops>0)parts.push(`${dTroops}名の新たな兵が旗の下に集い`);
+  else if(dTroops<0)parts.push(`${-dTroops}名の別れを見送りながらも`);
+  if(dCleared>0)parts.push(`${dCleared}件のダンジョンを踏破し`);
+  if(dHall>0)parts.push(`${dHall}名が殿堂にその名を刻んだ`);
+  let body=parts.length?parts.join("、")+"。":"王国は静かに、しかし確かに時を重ねた。";
+  if(!/。$/.test(body))body+="。";
+  chron(`――${eraChapterLabel(closingIdx)}『${era.era}』、ここに幕。${yrs>=1?`およそ${yrs}年の`:"この"}治世に、${body}${hero?`この時代を象徴するは${hero.nm}。`:""}`,"big");
+}
 function checkMilestone(){
+  if(S.eraChapterStart===undefined)S.eraChapterStart=snapshotEra(); // 初回・レガシー救済で時代の起点を記録
   const si=stageOf(S.pop);
   if(si>S.stage){
     for(let k=S.stage+1;k<=si;k++){
       if(!S.flags["m"+k]){
         S.flags["m"+k]=true;
+        recordEraChapterClose(k-1);      // 直前の時代を一つの章として締めくくる
         if(EVENTS["milestone"+k])pushEvent("milestone"+k);
         else chron("――村は成長し、ついに「"+STAGES[k].name+"」と呼ばれるようになった。"+STAGES[k].note,"big");
+        S.eraChapterStart=snapshotEra();  // 新たな時代の起点を刻む
       }
     }
   }
