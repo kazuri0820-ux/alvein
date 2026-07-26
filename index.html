@@ -2352,7 +2352,8 @@ function makeUnit(){
 function effectiveAgeMult(u){
   const st=ageStageOf(u);
   const eff=skillEffects(u);
-  return 1-(1-st.mult)*(1-eff.ageResist);
+  const resist=Math.max(eff.ageResist||0,(traitInfo(u.trait).ageResist)||0); // 特性(転生者・永遠の剣 等)の老い耐性も反映=フレーバー通り、衰えを寄せ付けない
+  return 1-(1-st.mult)*(1-resist);
 }
 function effectiveTrainMult(u){
   const st=ageStageOf(u);
