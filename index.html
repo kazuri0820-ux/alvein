@@ -2555,7 +2555,7 @@ function checkDecorationCeremony(u){
 }
 function checkAging(){
   const bless=priestBlessing();
-  const hallGrow=hallLegacyGrow(); // 殿堂の英霊の数に応じた、現役兵の忠誠へのわずかな後押し
+  const hallGrow=hallLegacyGrow()+(doctrineIs("people")?0.03:0); // 殿堂の英霊の数＋「民の国」の国是に応じた、現役兵の忠誠へのわずかな後押し
   for(const u of [...S.units]){
     u.age+=1/AGE_YEAR_DAYS;
     u.fatigue=Math.max(0,(u.fatigue||0)-(u.race==="dwarf"?12:8)); // ドワーフは頑健で、疲れの抜けが早い(種族の個性)
@@ -4631,12 +4631,32 @@ function checkYearTurn(){
   const refl=YEAR_REFLECTIONS[(yr-1)%YEAR_REFLECTIONS.length];
   chron(`――${yr}年目の暮れ。${stg.name}の王国に兵${S.units.length}名が仕え、国庫${Math.round(S.gold)}・民${S.pop}を数える。${cleared?`踏破したダンジョンは${cleared}件、`:""}${hall?`${hall}名が殿堂に名を刻んだ。`:""}${eldest?`最古参は${eldest.nm}(${Math.floor(eldest.age)}歳)。`:""}${refl}`,"big");
 }
+/* 国是(こくぜ):王国が中盤に一度だけ定める永続的な国の在り方。以後の歩みを長く方向づける
+   (一周ごとの戦略アイデンティティ=リプレイ性と大きな決断の手応え)。 */
+const NATIONAL_DOCTRINES=[
+ {key:"arms",name:"武の国",desc:"武を重んじる国是。兵の訓練の伸びが永続的に高まる。"},
+ {key:"commerce",name:"商の国",desc:"商を重んじる国是。日々の国庫収入が永続的に増える。"},
+ {key:"wisdom",name:"智の国",desc:"知を重んじる国是。ダンジョン・任務の経験値効率が永続的に高まる。"},
+ {key:"people",name:"民の国",desc:"民を重んじる国是。民心と兵の忠誠が日々わずかに育つ。"},
+];
+function doctrineIs(k){return !!(S.flags&&S.flags.doctrine===k);}
+function doctrineName(){const d=NATIONAL_DOCTRINES.find(x=>x.key===(S.flags&&S.flags.doctrine));return d?d.name:null;}
+function buildDoctrineEvent(){
+  return{tag:"国 是",title:"国の在り方を定める",
+   body:"王国は一つの節目を迎えた。これから先この国が何を最も重んじるか——その国是を定める時が来た。一度定めれば、それは王国の礎として永く受け継がれる。",
+   speaker:"セラ「陛下、この選択は王国の行く末を長く左右いたします。どうか慎重に」",
+   choices:NATIONAL_DOCTRINES.map(d=>({label:`${d.name}を掲げる`,hint:d.desc,fx:{call:()=>{S.flags.doctrine=d.key;chron(`――アルヴェインは「${d.name}」を国是と定めた。この選択は、王国の歩みを永く方向づけるだろう。`,"big");}}}))};
+}
+function checkDoctrineUnlock(){
+  if(S.flags.doctrineChosen||S.flags.doctrine)return;
+  if(STAGES[S.stage].rank>=3){S.flags.doctrineChosen=true;pushEvent("__doctrine__");}
+}
 function dailyEconomySettle(){
   S.prev={...S.st};
   const noise=rnd(0.75,1.35);
   const militaryDrag=Math.max(0,S.st.military-S.st.economy-20)*0.03; // 軍事が経済を大きく上回ると、軍事費のしわ寄せで経済がわずかに圧迫される
   const diplomacyTrade=S.st.diplomacy*0.08; // 外交網は交易を通じてわずかに経済を後押しする
-  const income=(3+S.st.economy*0.4+diplomacyTrade-militaryDrag+(S.flags.guild==="accept"?4:0))*(S.flags.statS_economy?1.06:1)*noise;
+  const income=(3+S.st.economy*0.4+diplomacyTrade-militaryDrag+(S.flags.guild==="accept"?4:0))*(S.flags.statS_economy?1.06:1)*(doctrineIs("commerce")?1.12:1)*noise; // 商の国は国庫収入が伸びる
   if(militaryDrag>3&&!S._militaryDragWarned&&Math.random()<0.3){
     S._militaryDragWarned=true;
     chron("軍事にかける費えが経済を圧迫している、と財務官が渋い顔で報告した。","");
@@ -4651,7 +4671,7 @@ function dailyEconomySettle(){
   if(S.food>15&&S.mood>38&&Math.random()<Math.min(0.55,growChance))S.pop+=ri(1,3);
   if(S.food<0){S.food=0;S.mood-=2;if(S.day%3===0)chron("食糧が底を突きつつある。配給に長い列ができている。","grave");}
   if(S.gold<0&&S.day%5===0){S.mood-=1.5;chron("蓄えが底を突いている。倹約令が敷かれた。","grave");}
-  S.mood+=(S.st.order-50)*0.02+(S.st.agriculture-30)*0.006+(S.st.diplomacy-30)*0.004+rnd(-0.5,0.5); // 農業(食の安定)・外交(国の評判)も民心にわずかに影響
+  S.mood+=(S.st.order-50)*0.02+(S.st.agriculture-30)*0.006+(S.st.diplomacy-30)*0.004+rnd(-0.5,0.5)+(doctrineIs("people")?0.35:0); // 農業(食の安定)・外交(国の評判)も民心に影響。民の国は民心が日々育つ
   if(S.policyFocus){
     const streakMult=1+Math.min(0.6,(S.policyStreak||0)*0.15); // 同じ方針を継続するほど伸びが強化(専念のご褒美)
     const cur=S.st[S.policyFocus];
@@ -4672,6 +4692,7 @@ function dailyEconomySettle(){
   checkSeasonTurn();
   checkYearTurn();
   checkFestival();
+  checkDoctrineUnlock(); // 中盤の節目に国是を定める
   checkFavoriteMoment(); // 推しの日常の一幕
   checkSoldierVignette(); // 名のある兵の何気ない日常
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
@@ -4763,6 +4784,7 @@ function pickFresh(pool){
 }
 const EVENT_ID_EXACT={
   "__council__":()=>councilEvent(),
+  "__doctrine__":()=>buildDoctrineEvent(),
   "__council_action__":()=>councilAction(),
   "__weekly_report__":()=>buildWeeklyReportEvent(),
   "__random__":()=>pickFresh(RANDOM_CHOICE),
@@ -6155,7 +6177,7 @@ function resolveDungeonRun(dungeonId){
   const tier=roll>=165?"critical_success":roll>=105?"success":roll>=60?"fail":"critical_fail";
   const level=dungeon.level;
   const levelMult=1+level/28; // レベルが上がるほど報酬が伸びる(後半でも報酬が目減りしないよう伸び幅を強化)
-  const magicExpBonus=(1+Math.min(0.45,S.st.magic*0.0045))*(S.flags.statS_magic?1.05:1); // 魔導が高いほど経験値効率が上がる。魔導Sで恒久的にさらに上乗せ
+  const magicExpBonus=(1+Math.min(0.45,S.st.magic*0.0045))*(S.flags.statS_magic?1.05:1)*(doctrineIs("wisdom")?1.1:1); // 魔導が高いほど経験値効率が上がる。魔導Sで恒久的にさらに上乗せ
   const rarityRewardMult=Math.sqrt(dungeon.rarity.mult); // レア度は緩やかに反映
   const cond=dungeon.condition; // 環境の異変
   const condExpMult=cond==="richaura"?1.25:1;
@@ -6573,7 +6595,7 @@ function resolveExpedition(riskKey,rewardMult){
   const{theme,leader,squad,rarity,level}=expeditionState;
   const lv=level||30;
   const levelMult=1+lv/32; // 後半でも報酬が目減りしないよう伸び幅を強化
-  const magicExpBonus=(1+Math.min(0.45,S.st.magic*0.0045))*(S.flags.statS_magic?1.05:1);
+  const magicExpBonus=(1+Math.min(0.45,S.st.magic*0.0045))*(S.flags.statS_magic?1.05:1)*(doctrineIs("wisdom")?1.1:1);
   const rawPower=squad.reduce((a,u)=>a+theme.statFn(u)*(u.id===leader.id?1.3:1),0)*squadSynergyMult(squad);
   // 方針は「平均成功率」ではなく「ブレ幅(分散)」で差をつける。積極的は同じ平均でもブレが大きく、大成功も大失敗も出やすい。
   const variance={cautious:[-8,10],standard:[-16,16],aggressive:[-30,26]}[riskKey]||[-16,16];
@@ -7038,6 +7060,8 @@ function renderProjects(){
     <div class="ds">${S.policyFocus?`「${focusLabels[S.policyFocus]}」に注力中。月末まで毎日じわじわ上昇する。${(S.policyStreak||0)>0?`(継続${(S.policyStreak||0)+1}ヶ月・伸び+${Math.round(Math.min(0.6,(S.policyStreak||0)*0.15)*100)}%)`:""}`:"特に方針を定めていない。月次会議で重点分野を選べる。"}</div>
     ${S.policyFocus?(()=>{const st=(S.policyStreak||0);const next=st<3?3:st<6?6:Math.floor(st/6)*6+6;return `<div class="ds" style="color:var(--gold);font-size:11px">同じ方針をあと${next-st}ヶ月継続すると、国策が結実して大きく飛躍する</div>`;})():""}
   </div>`;
+  // ── 国是 ──
+  if(doctrineName())h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)">国是:${doctrineName()}</div><div class="ds">${(NATIONAL_DOCTRINES.find(d=>d.key===S.flags.doctrine)||{}).desc||""}</div></div>`;
   // ── 王の勅令 ──
   h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 6px;letter-spacing:.15em">── 王の勅令 ──</div>`;
   const dcl=decreeCooldownLeft();
@@ -8491,7 +8515,7 @@ function resolveTraining(pickUnit,grade,costPaid){
   }
   const instructorEff=S.instructors.reduce((a,u)=>a*(skillEffects(u).instructorMult||1)*(1+(u.lead||0)*0.006),1);
   const instructorBonus=(1+Math.min(0.3,S.instructors.length*0.08))*instructorEff;
-  const nationBonus=1+Math.min(0.6,(S.st.military+S.st.economy)/2*0.006); // 国力・軍事力が高いほど訓練効果が伸びる
+  const nationBonus=(1+Math.min(0.6,(S.st.military+S.st.economy)/2*0.006))*(doctrineIs("arms")?1.1:1); // 国力・軍事力が高いほど訓練効果が伸びる。武の国はさらに上乗せ
   const pickLv=pickUnit?pickUnit.lv:0; // 選抜された先達の練度。格下の兵は、その稽古を見て多くを学ぶ(見取り稽古)
   let apprenticeCount=0;
   const results=[];
