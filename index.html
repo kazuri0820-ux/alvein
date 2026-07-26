@@ -1810,6 +1810,17 @@ function equipSetTier(u){
   if(rarities.length===3&&rarities.every(r=>r===rarities[0])&&EQUIP_SET_BONUS[rarities[0]])return rarities[0];
   return null;
 }
+/* 得物の相性:装備した武器の最も得意とするステータスが、その兵の職の主軸と一致する時、
+   手に馴染んだ得物として主軸ステータスがさらに底上げされる。ドロップした武器を「職に合う兵へ
+   回す」という装備選びの妙(意味ある選択)を生む。相性の一致は装備画面で見て取れる。 */
+const WEAPON_AFFINITY_BONUS=3;
+function weaponAffinity(u){
+  const wInst=u&&u.equipment&&u.equipment.weapon; if(!wInst)return null;
+  const wdef=EQUIPMENT_DB.find(x=>x.key===wInst.key); if(!wdef||!wdef.statBonus)return null;
+  let domK=null,domV=-1; for(const k in wdef.statBonus){ if(wdef.statBonus[k]>domV){domV=wdef.statBonus[k];domK=k;} }
+  const main=(CLASS_STAT_PRIORITY[u.cls]||{}).main;
+  return (domK&&main&&domK===main)?main:null;
+}
 function equipmentEffects(u){
   const e={str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   if(!u.equipment)return e;
@@ -1822,6 +1833,8 @@ function equipmentEffects(u){
   }
   const setTier=equipSetTier(u); // 三種を同じ格で揃えたセット効果
   if(setTier){const b=EQUIP_SET_BONUS[setTier];for(const k in e)e[k]+=b;}
+  const aff=weaponAffinity(u); // 職に合った得物の相性ボーナス
+  if(aff)e[aff]+=WEAPON_AFFINITY_BONUS;
   return e;
 }
 /* レア度に応じた装備を1件生成しS.equipmentInventoryに追加する(ダンジョン/遠征のドロップから呼ぶ) */
@@ -7979,6 +7992,10 @@ function renderUnitDetail(uid){
       h+=`<div class="ds" style="color:var(--gold);margin-bottom:6px">✦ 揃いの装備【${lbl}】発動中 ― 三種を同じ格で揃えた調和で全能力+${EQUIP_SET_BONUS[setTier]}</div>`;
     }else{
       h+=`<div class="ds" style="color:var(--dim);margin-bottom:6px;font-size:11px">武器・防具・装飾品を同じ格で揃えると「揃いの装備」が発動し、全能力が底上げされる。</div>`;
+    }
+    const aff=weaponAffinity(u); // 職に合った得物の相性
+    if(aff&&USTAT_DEF[aff]){
+      h+=`<div class="ds" style="color:var(--gold);margin-bottom:6px">◆ 得物の相性 ― 職に合った武器が手に馴染み、${USTAT_DEF[aff].lbl}+${WEAPON_AFFINITY_BONUS}</div>`;
     }
     for(const slot of["weapon","armor","accessory"]){
       const inst=u.equipment&&u.equipment[slot];
