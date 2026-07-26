@@ -2402,7 +2402,10 @@ function checkAging(){
     if(cands.length>=2){
       const a=cands[Math.floor(Math.random()*cands.length)];
       const rest=cands.filter(u=>u.id!==a.id);
-      const b=rest[Math.floor(Math.random()*rest.length)];
+      // 同職・同時期入団ほど親近感が湧きやすい(コメントの意図を実装。絆に"縁"の意味を持たせる)
+      const scored=rest.map(u=>{let w=1;if(u.cls===a.cls)w+=2.5;const dj=Math.abs((u.joinDay||0)-(a.joinDay||0));if(dj<=10)w+=2;else if(dj<=30)w+=1;return{u,w};});
+      let total=scored.reduce((s,x)=>s+x.w,0),r=Math.random()*total,b=scored[scored.length-1].u;
+      for(const x of scored){r-=x.w;if(r<=0){b=x.u;break;}}
       a.bondWith=b.id;b.bondWith=a.id;
       a.moral=Math.min(100,a.moral+6);b.moral=Math.min(100,b.moral+6);
       unitHistory(a,`${b.nm}と戦友の契りを交わした。`);unitHistory(b,`${a.nm}と戦友の契りを交わした。`);
