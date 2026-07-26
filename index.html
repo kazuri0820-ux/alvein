@@ -1849,11 +1849,17 @@ function equipItem(unitId,instanceId){
   const def=EQUIPMENT_DB.find(x=>x.key===inst.key);
   if(!def)return;
   u.equipment=u.equipment||{weapon:null,armor:null,accessory:null};
+  const prevSetTier=equipSetTier(u); // 装備前の「揃いの装備」状態
   const prev=u.equipment[def.slot];
   if(prev)S.equipmentInventory.push(prev);
   S.equipmentInventory.splice(idx,1);
   u.equipment[def.slot]=inst;
   chron(`${fullName(u)}が「${def.name}」を装備した。`,"");
+  const newSetTier=equipSetTier(u);
+  if(newSetTier&&newSetTier!==prevSetTier){ // 揃いの装備を新たに完成/格上げ=収集の到達を演出
+    const lbl={uncommon:"上等",rare:"希少",epic:"魔級",legendary:"伝説"}[newSetTier]||newSetTier;
+    chron(`――${fullName(u)}が【${lbl}】の武具一式を身に纏った。揃いの装備の力が呼び覚まされ、全身に力が漲っている。`,"big");
+  }
 }
 function unequipItem(unitId,slot){
   const u=findAnyUnit(unitId);
