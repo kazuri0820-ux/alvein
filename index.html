@@ -2163,6 +2163,38 @@ function makeBackstory(originName,personality,traitTier,traitKey){
 }
 /* 殿堂の遺産:名を連ねた英霊が多いほど、新たに加わる者は伝説に奮い立ち高い士気/忠誠で加わる(最大+10) */
 function hallInspiration(){const n=(S&&S.hallOfFame)?S.hallOfFame.length:0;return Math.min(10,Math.floor(n/5)*2);}
+/* 兵の抱く夢:一人ひとりに個人的な目標を持たせ、その達成を共に見届けることで愛着を深める(栄冠の精神)。
+   夢は達成可能な節目に結びつけ、叶えた時に大きな喜びと年代記の一節を刻む。 */
+const UNIT_DREAMS=[
+ {key:"captain",text:"いつか隊を率いる将になること",done:u=>!!(u.captain||u.wasCaptain)},
+ {key:"hero",text:"英雄と讃えられること",done:u=>{const j=jobFor(u.cls,u.lv,u.route);return j.key==="hero"||j.key==="captain";}},
+ {key:"conquer",text:"数多の迷宮を踏破すること",done:u=>(u.dungeonClearCount||0)>=8},
+ {key:"bond",text:"生涯の戦友を得ること",done:u=>!!u.bondWith},
+ {key:"unique",text:"唯一無二の二つ名を授かること",done:u=>!!u.uniqueJob},
+ {key:"longlife",text:"老いてなお、槍を執り続けること",done:u=>{const s=ageStageOf(u);return(s.key==="old"||s.key==="venerable")&&!u.retired;}},
+ {key:"decorated",text:"数々の称号を帯びる誉れある兵となること",done:u=>(u.titles||[]).length>=4},
+ {key:"strong",text:"誰よりも強い兵になること",done:u=>u.lv>=20},
+ {key:"skilled",text:"一流の技を身につけること",done:u=>(u.skills||[]).some(k=>{const s=SKILL_DB.find(x=>x.key===k);return s&&(s.tier==="gold"||s.tier==="unique");})},
+ {key:"loyal",text:"長に忠義を尽くし、篤い信を得ること",done:u=>(u.loyalty||0)>=95},
+];
+function assignDream(u){
+  if(u.dream!==undefined)return;
+  const d=UNIT_DREAMS[Math.floor(Math.random()*UNIT_DREAMS.length)];
+  u.dream=d.key;
+  try{u.dreamDone=!!d.done(u);}catch(e){u.dreamDone=false;} // 既に満たしていれば静かに達成済み扱い(旧セーブ等の遡及氾濫を防ぐ)
+}
+function checkDreamFulfilled(u){
+  assignDream(u); // 未設定(旧セーブ)なら付与
+  if(!u.dream||u.dreamDone)return;
+  const d=UNIT_DREAMS.find(x=>x.key===u.dream);
+  if(!d)return;
+  let met=false;try{met=d.done(u);}catch(e){}
+  if(!met)return;
+  u.dreamDone=true;
+  u.moral=Math.min(100,(u.moral||0)+12);u.loyalty=Math.min(100,(u.loyalty||0)+8);
+  unitHistory(u,`かねての夢だった「${d.text}」を叶えた。`);
+  chron(`${fullName(u)}が、かねての夢だった「${d.text}」を叶えた。長年の願いが実を結び、その顔には静かな誇りが浮かんでいる。`,"big");
+}
 function makeUnit(){
   const cls=pickClass();
   const race=pickRace();
@@ -2203,6 +2235,7 @@ function makeUnit(){
     iconVariant:ri(0,ICON_VARIANTS_PER_CLASS-1),
   };
   u.skills=initSkills(u);
+  assignDream(u); // 一人ひとりに個人的な夢を持たせる
   return u;
 }
 function effectiveAgeMult(u){
@@ -2454,6 +2487,7 @@ function checkDailyTitles(u){
   if(u.traitTier==="epic")grantTitle(u,"t_epicborn");
   if(u.traitTier==="legend")grantTitle(u,"t_legendborn");
   checkDecorationCeremony(u);
+  checkDreamFulfilled(u); // 個人的な夢の達成を見届ける
   // 献身の誓い:長のお気に入りに選ばれ、長く仕えて忠義を極めた兵が、揺るがぬ献身を誓う。
   // お気に入りに選ぶことに「忠義の揺るがぬ腹心を得る」という長期的な意味を与える(お気に入り兵の物語)。
   if(u.favorite&&!u.devoted&&u.loyalty>=95&&(S.day-(u.joinDay||S.day))>=100){
@@ -7396,6 +7430,7 @@ function renderUnitDetail(uid){
 
   // ── 生い立ち ──
   if(u.backstory)h+=`<div class="udet-sec"><h4>生い立ち</h4><div style="font-size:12px;color:#d8dbe6;line-height:1.85;font-style:italic">${u.backstory}</div></div>`;
+  if(!isInstructor&&u.dream){const dd=UNIT_DREAMS.find(x=>x.key===u.dream);if(dd)h+=`<div class="udet-sec"><h4>${u.dreamDone?"叶えた夢":"抱いている夢"}</h4><div style="font-size:12px;color:${u.dreamDone?"var(--gold)":"#d8dbe6"};font-style:italic">${u.dreamDone?"✦ ":"― "}${dd.text}${u.dreamDone?" ――その願いは、叶えられた。":""}</div></div>`;}
 
   // ── 状態(健康・調子) ──
   if(!isInstructor){
