@@ -2135,6 +2135,7 @@ const TITLE_DB=[
  {key:"t_generalslayer",name:"魔将殺し",desc:"魔王軍の名だたる魔将を討ち取った",effect:"injuryMult",value:0.9},
  {key:"t_grandveteran",name:"百錬の達人",desc:"レベル30に到達し、幾多の研鑽の末に練達の域へと至った",effect:"moralGrow",value:0.12},
  {key:"t_peerless",name:"不世出の兵",desc:"レベル45に到達し、一代の英傑と称される域へと至った",effect:"injuryMult",value:0.85},
+ {key:"t_dungeonmaster",name:"迷宮の覇者",desc:"ただ一人で数多の迷宮を踏破し、その名は暗がりの主として畏れられる",effect:"expMult",value:1.08},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -2607,6 +2608,7 @@ function checkDailyTitles(u){
   if(u.traitTier==="legend")grantTitle(u,"t_legendborn");
   if(u.dreamDone)grantTitle(u,"t_dreamer"); // 夢を叶えた者の証
   if((u.dungeonClearCount||0)>=6)grantTitle(u,"t_dungeonveteran");
+  if((u.dungeonClearCount||0)>=15)grantTitle(u,"t_dungeonmaster"); // 迷宮の覇者:同じ兵で踏破を重ねる投資に、より高い到達点を用意
   if(u.lv>=30)grantTitle(u,"t_grandveteran"); // 練達:レベルの積み重ね=長期育成の到達点を讃える
   if(u.lv>=45)grantTitle(u,"t_peerless"); // 一代の英傑:さらなる高みへの深い育成に報いる
   if(typeof equipSetTier==="function"&&equipSetTier(u))grantTitle(u,"t_fullset");
