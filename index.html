@@ -5980,6 +5980,8 @@ function squadSynergyMult(squad){
   // 常設の小隊として同じ顔ぶれで出撃を重ねるほど、連携が育っていく(小隊制度)
   const matched=findMatchingSquad(squad);
   const historyBonus=matched?Math.min(0.2,(matched.sortieCount||0)*0.02):0;
+  // 讃えられた小隊は、その武名と結束が戦場での力になる(名誉が実利に還元される=小隊育成の到達報酬)
+  const honorBonus=(matched&&matched.honor)?({"歴戦の小隊":0.03,"精鋭小隊":0.06,"伝説の小隊":0.1}[matched.honor]||0):0;
   // 戦友同士が同じ部隊で戦うと、背中を預け合い力を発揮する(絆が戦闘で報われる)
   const ids=new Set(squad.map(u=>u.id));
   let bondPairs=0;
@@ -5988,7 +5990,7 @@ function squadSynergyMult(squad){
   // 獣人は群れで動くことを好む:同じ部隊に2人以上いると連携(群れの戦法)が上乗せされる(種族の個性)
   const beastCount=squad.filter(u=>u.race==="beastkin").length;
   const packBonus=beastCount>=2?Math.min(0.12,(beastCount-1)*0.05):0;
-  return Math.max(0.9,Math.min(1.4,1+sameRouteBonus-overlapPenalty+historyBonus+bondBonus+packBonus));
+  return Math.max(0.9,Math.min(1.45,1+sameRouteBonus-overlapPenalty+historyBonus+bondBonus+packBonus+honorBonus));
 }
 // パーティの「質」を測る指標。人数を増やすだけで有利にならないよう平均戦力を基準にし、
 // 5人編成を基準にしたrequiredPowerとそのまま比較できるよう5倍して正規化する。
@@ -7294,8 +7296,8 @@ function renderSquadManager(){
   for(let i=0;i<S.squads.length;i++){
     const sq=S.squads[i];
     const members=sq.unitIds.map(id=>S.units.find(u=>u.id===id)).filter(Boolean);
-    const bonus=Math.min(20,(sq.sortieCount||0)*2);
-    h+=`<div class="pcard"><div class="nm">${sq.name}${sq.honor?`<span style="font-size:10px;color:var(--gold);margin-left:6px">◆${sq.honor}</span>`:""}</div>
+    const bonus=members.length>=2?Math.round((squadSynergyMult(members)-1)*100):0; // 実際の総合シナジー(履歴・絆・種族・名誉すべて反映)
+    h+=`<div class="pcard"><div class="nm">${sq.name}${sq.honor?`<span style="font-size:10px;color:var(--gold);margin-left:6px">◆${sq.honor}(武名が力に)</span>`:""}</div>
       <div class="ds">${members.length?members.map(fullName).join("・"):"未編成"}</div>
       <div class="ds">出撃回数:${sq.sortieCount||0}回 ／ シナジーボーナス+${bonus}%</div>
       <button class="sq-edit-btn" data-i="${i}" style="margin-top:6px;width:100%;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">編成を変更する</button>
