@@ -6760,6 +6760,16 @@ function resolveExpedition(riskKey,rewardMult){
   const tier=roll>=20*2.5*scaleFactor?"great":roll>=20*1.4*scaleFactor?"success":roll>=20*scaleFactor?"fail":"critical";
   for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(28,42));
   if(Math.random()<0.35){const rs=EXPEDITION_ROADSIDE[Math.floor(Math.random()*EXPEDITION_ROADSIDE.length)];rs.fx(squad);chron(rs.t,"");} // 道中の小さな出来事
+  // 稀に、長い道中で特別な出来事が起きる:戦友の絆が芽生えるか、掘り出し物を拾う(遠征の旅路に彩りと愛着)
+  if(Math.random()<0.08){
+    const bondable=squad.filter(u=>u&&!u.bondWith&&u.role==="active");
+    if(bondable.length>=2&&Math.random()<0.5&&typeof forgeSquadBond==="function"){
+      forgeSquadBond(squad,"遠征の道中");
+    }else{
+      const eq=rollEquipmentDrop(Math.random()<0.2?"rare":"uncommon");
+      if(eq){addEquipment(eq.key);chron(`遠征の道すがら、${leader.nm}が打ち捨てられた「${eq.name}」を見つけた。手入れすれば十分使えそうだ。`,"");}
+    }
+  }
   leader.leaderCount=(leader.leaderCount||0)+1;
   if(leader.leaderCount>=30)grantTitle(leader,"t_leader30");
   if(tier==="great"){
