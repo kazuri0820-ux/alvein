@@ -6927,6 +6927,18 @@ function renderEquipSelect(){
 }
 
 /* ---------- パネル ---------- */
+/* 王の勅令:一定期間ごとに一度、王が強力な国家施策を能動的に布告できる。
+   閣議イベントを待つ受け身の国政に、自ら国を動かす手段を与える(国政のやりがい・主体性)。 */
+const DECREE_COOLDOWN=30;
+const ROYAL_DECREES=[
+ {key:"amnesty",name:"大恩赦",desc:"罪を赦し民を労う。民心が大きく上がるが、治安はわずかに緩む。",fx:()=>apply({mood:12,st:{order:-2},log:"大恩赦の勅令が下り、牢の戸は開かれた。民は王の情けに沸いた。",logCls:"big"})},
+ {key:"mobilize",name:"総動員令",desc:"国を挙げて軍備を固める。軍事が大きく上がるが、民に負担を強いる。",fx:()=>apply({st:{military:6},mood:-5,log:"総動員令が布告され、国中が武具を鳴らす音に満ちた。",logCls:"big"})},
+ {key:"harvestpray",name:"豊穣の祈祷",desc:"神殿に豊穣を祈らせる。食糧が蓄えられ、農業も上向く。",fx:()=>apply({food:80,st:{agriculture:3},log:"豊穣の祈祷が捧げられ、畑に活気が戻った。",logCls:"big"})},
+ {key:"festival",name:"祝祭の布告",desc:"国庫を開いて祝祭を催す。全兵の士気と民心が大きく上がる(国庫120)。",fx:()=>{for(const u of S.units)u.moral=Math.min(100,u.moral+10);apply({gold:-120,mood:8,log:"王の名のもとに盛大な祝祭が催された。兵も民も、心ゆくまで楽しんだ。",logCls:"big"});}},
+ {key:"levy",name:"臨時徴税",desc:"臨時の税を課す。国庫が大きく潤うが、民心は下がる。",fx:()=>apply({gold:220,mood:-8,st:{economy:1},log:"臨時徴税が布告された。国庫は潤ったが、民の顔には翳りが差した。",logCls:"big"})},
+ {key:"investiture",name:"叙任の儀",desc:"武功ある兵を讃える儀式を催す。全兵の忠誠が上がる。",fx:()=>{for(const u of S.units)u.loyalty=Math.min(100,u.loyalty+8);apply({mood:3,log:"叙任の儀が執り行われ、兵たちは王への忠誠を新たにした。",logCls:"big"});}},
+];
+function decreeCooldownLeft(){return Math.max(0,DECREE_COOLDOWN-(S.day-(S.lastDecreeDay??-DECREE_COOLDOWN)));}
 function renderProjects(){
   let h="";
   const focusLabels={military:"軍事",economy:"経済",agriculture:"農業",magic:"魔導",order:"治安",diplomacy:"外交"};
@@ -6935,6 +6947,18 @@ function renderProjects(){
     <div class="ds">${S.policyFocus?`「${focusLabels[S.policyFocus]}」に注力中。月末まで毎日じわじわ上昇する。${(S.policyStreak||0)>0?`(継続${(S.policyStreak||0)+1}ヶ月・伸び+${Math.round(Math.min(0.6,(S.policyStreak||0)*0.15)*100)}%)`:""}`:"特に方針を定めていない。月次会議で重点分野を選べる。"}</div>
     ${S.policyFocus?(()=>{const st=(S.policyStreak||0);const next=st<3?3:st<6?6:Math.floor(st/6)*6+6;return `<div class="ds" style="color:var(--gold);font-size:11px">同じ方針をあと${next-st}ヶ月継続すると、国策が結実して大きく飛躍する</div>`;})():""}
   </div>`;
+  // ── 王の勅令 ──
+  h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 6px;letter-spacing:.15em">── 王の勅令 ──</div>`;
+  const dcl=decreeCooldownLeft();
+  if(dcl>0){
+    h+=`<div class="pcard"><div class="ds">次に勅令を布告できるまで、あと${dcl}日。王の勅令は国を大きく動かすが、乱発はできない。</div></div>`;
+  }else{
+    h+=`<div class="pcard" style="border-color:var(--gold2)"><div class="ds" style="margin-bottom:7px;color:var(--gold)">王の名において、一つ勅令を布告できる(布告後は${DECREE_COOLDOWN}日の間隔を要する)。</div>`;
+    for(const d of ROYAL_DECREES){
+      h+=`<button class="decree-btn" data-k="${d.key}" style="display:block;width:100%;text-align:left;background:transparent;border:1px solid rgba(201,162,75,.4);color:var(--gold);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-family:'Zen Old Mincho',serif;cursor:pointer"><b>${d.name}</b><br><span style="font-size:11px;color:var(--dim)">${d.desc}</span></button>`;
+    }
+    h+=`</div>`;
+  }
   const act=S.projects.filter(p=>!p.done),fin=S.projects.filter(p=>p.done);
   if(!act.length)h+=`<div class="pcard"><div class="ds">進行中の事業はない。閣議やイベントで新たな事業が生まれる。</div></div>`;
   for(const p of act){
@@ -6966,6 +6990,14 @@ function renderProjects(){
     }
   }
   $("#prjList").innerHTML=h;
+  $("#prjList").querySelectorAll(".decree-btn").forEach(b=>b.onclick=()=>{
+    if(decreeCooldownLeft()>0)return;
+    const d=ROYAL_DECREES.find(x=>x.key===b.dataset.k);
+    if(!d)return;
+    S.lastDecreeDay=S.day;
+    d.fx();
+    clamp();render();renderProjects();save();
+  });
   $("#prjList").querySelectorAll(".prj-boost-btn").forEach(b=>b.onclick=()=>{
     const p=S.projects.find(x=>x.id===b.dataset.id);
     if(!p)return;
