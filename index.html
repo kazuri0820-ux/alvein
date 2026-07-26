@@ -5539,7 +5539,12 @@ function findMatchingSquad(units){
 }
 function recordSquadSortie(squad){
   const matched=findMatchingSquad(squad);
-  if(matched)matched.sortieCount=(matched.sortieCount||0)+1;
+  if(matched){
+    matched.sortieCount=(matched.sortieCount||0)+1;
+    const c=matched.sortieCount; // 出撃を重ねた小隊は"歴戦→精鋭→伝説"と讃えられる(小隊育成の到達目標)
+    const tiers=[[50,"伝説の小隊"],[25,"精鋭小隊"],[10,"歴戦の小隊"]];
+    for(const t of tiers){ if(c===t[0]){ matched.honor=t[1]; chron(`${matched.name}が${t[0]}度目の出撃を果たし、「${t[1]}」と讃えられるようになった。`,"big"); break; } }
+  }
 }
 function squadSynergyMult(squad){
   if(squad.length<2)return 1.0;
@@ -6640,7 +6645,7 @@ function renderSquadManager(){
     const sq=S.squads[i];
     const members=sq.unitIds.map(id=>S.units.find(u=>u.id===id)).filter(Boolean);
     const bonus=Math.min(20,(sq.sortieCount||0)*2);
-    h+=`<div class="pcard"><div class="nm">${sq.name}</div>
+    h+=`<div class="pcard"><div class="nm">${sq.name}${sq.honor?`<span style="font-size:10px;color:var(--gold);margin-left:6px">◆${sq.honor}</span>`:""}</div>
       <div class="ds">${members.length?members.map(fullName).join("・"):"未編成"}</div>
       <div class="ds">出撃回数:${sq.sortieCount||0}回 ／ シナジーボーナス+${bonus}%</div>
       <button class="sq-edit-btn" data-i="${i}" style="margin-top:6px;width:100%;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">編成を変更する</button>
