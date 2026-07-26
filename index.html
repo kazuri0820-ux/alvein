@@ -6422,6 +6422,10 @@ const UNIQUE_JOBS=[
   check:(u)=>(u.cls==="archer"||u.cls==="hunter")&&S.units.every(o=>o.id===u.id||(o.agi+skillEffects(o).agi)<=(u.agi+skillEffects(u).agi))},
  {key:"saint",name:"聖者",nickname:"聖者",
   check:(u)=>u.cls==="priest"&&S.units.every(o=>o.id===u.id||(o.wis+skillEffects(o).wis)<=(u.wis+skillEffects(u).wis))},
+ {key:"war_deity",name:"軍神",nickname:"軍神",
+  check:(u)=>(u.dungeonClearCount||0)>=10&&S.units.every(o=>o.id===u.id||(o.dungeonClearCount||0)<=(u.dungeonClearCount||0))}, // 最も多くの迷宮を踏破した歴戦の英傑(戦歴の道)
+ {key:"myriad_honor",name:"万勲の英傑",nickname:"万勲の英傑",
+  check:(u)=>(u.titles||[]).length>=6&&S.units.every(o=>o.id===u.id||(o.titles||[]).length<=(u.titles||[]).length)}, // 最も多くの称号を帯びた、生き様そのものが伝説の者(叙勲の極み)
  {key:"hero_unique",name:"勇者",nickname:"勇者",
   check:(u)=>(u.titles||[]).length>=3&&u.traitTier==="legend"},
 ];
