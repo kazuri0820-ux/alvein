@@ -2133,6 +2133,7 @@ const TITLE_DB=[
  {key:"t_legendsquad",name:"伝説の小隊の一員",desc:"幾多の出撃を共にし、伝説と讃えられた小隊の一員",effect:"loyaltyGrow",value:0.12},
  {key:"t_generalslayer",name:"魔将殺し",desc:"魔王軍の名だたる魔将を討ち取った",effect:"injuryMult",value:0.9},
  {key:"t_grandveteran",name:"百錬の達人",desc:"レベル30に到達し、幾多の研鑽の末に練達の域へと至った",effect:"moralGrow",value:0.12},
+ {key:"t_peerless",name:"不世出の兵",desc:"レベル45に到達し、一代の英傑と称される域へと至った",effect:"injuryMult",value:0.85},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -2606,6 +2607,7 @@ function checkDailyTitles(u){
   if(u.dreamDone)grantTitle(u,"t_dreamer"); // 夢を叶えた者の証
   if((u.dungeonClearCount||0)>=6)grantTitle(u,"t_dungeonveteran");
   if(u.lv>=30)grantTitle(u,"t_grandveteran"); // 練達:レベルの積み重ね=長期育成の到達点を讃える
+  if(u.lv>=45)grantTitle(u,"t_peerless"); // 一代の英傑:さらなる高みへの深い育成に報いる
   if(typeof equipSetTier==="function"&&equipSetTier(u))grantTitle(u,"t_fullset");
   if((u.skills||[]).length>=5)grantTitle(u,"t_skillful"); // 多芸:集めた技の数を讃える
   if((u.skills||[]).length>=9)grantTitle(u,"t_polymath");
