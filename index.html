@@ -2413,6 +2413,15 @@ function checkDailyTitles(u){
   if(u.traitTier==="epic")grantTitle(u,"t_epicborn");
   if(u.traitTier==="legend")grantTitle(u,"t_legendborn");
   checkDecorationCeremony(u);
+  // 献身の誓い:長のお気に入りに選ばれ、長く仕えて忠義を極めた兵が、揺るがぬ献身を誓う。
+  // お気に入りに選ぶことに「忠義の揺るがぬ腹心を得る」という長期的な意味を与える(お気に入り兵の物語)。
+  if(u.favorite&&!u.devoted&&u.loyalty>=95&&(S.day-(u.joinDay||S.day))>=100){
+    u.devoted=true;
+    u.moral=Math.min(100,u.moral+8);
+    grantTitle(u,"t_favorite");
+    unitHistory(u,"長への揺るがぬ献身を誓った。何があろうと、その忠義は色褪せない。");
+    chron(`${fullName(u)}が、長への揺るがぬ献身を静かに誓った。「この身が朽ちるまで、あなたのために」――どんな世の乱れにも、その忠義はもう揺るがない。`,"big");
+  }
 }
 /* 叙勲式:称号を重ねた兵が一定数に達すると、王国が式を挙げて讃える。
    称号は個々の小さな加点だが、積み重ねた者は"叙勲の英傑"として国全体を鼓舞する。
@@ -4400,7 +4409,12 @@ function dailyEconomySettle(){
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
     const loyaltyDrift=S.mood>=70?(S.mood-70)*0.006:-(30-S.mood)*0.01;
-    for(const u of S.units)u.loyalty=Math.max(0,Math.min(100,u.loyalty+loyaltyDrift));
+    for(const u of S.units){
+      let drift=loyaltyDrift;
+      // 献身を誓った兵は、民心が荒れても長への忠義が揺るがない(負の低下だけ無効化)
+      if(u.devoted&&drift<0)drift=0;
+      u.loyalty=Math.max(0,Math.min(100,u.loyalty+drift));
+    }
   }
   if(S.mood>0&&S.mood<18&&!S._unrestWarned&&Math.random()<0.4){
     S._unrestWarned=true;
@@ -7119,6 +7133,7 @@ function renderUnitDetail(uid){
         <span class="udet-chip">${stage.label}${stageTimingLabel(u)?`(${stageTimingLabel(u)})`:""}・${Math.floor(u.age)}歳</span>
         <span class="udet-chip">在籍${Math.max(0,S.day-(u.joinDay||1))}日</span>
         ${u.bondWith?`<span class="udet-chip">戦友あり</span>`:""}
+        ${u.devoted?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)">献身の誓い</span>`:""}
       </div>
     </div>
   </div>`;
