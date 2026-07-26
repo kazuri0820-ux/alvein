@@ -5925,6 +5925,7 @@ const DUNGEON_CONDITIONS={
   blessed:{label:"古の祝福",color:"#8fd0e8",desc:"古の加護が宿り、失敗しても深手を負いにくい"},
   treasure:{label:"財宝の霊気",color:"#e8c874",desc:"守りは堅く手強いが、討ち果たせば莫大な財と秘宝が眠る"},
   eliteden:{label:"精鋭の巣",color:"#c98f6f",desc:"手強い強敵の巣。討ち果たせば、その死闘が部隊を大きく成長させる"},
+  spring:{label:"恵みの泉",color:"#7fc9b0",desc:"聖なる泉の湧く地。踏破した部隊は疲れが癒え、傷も和らいで戻ってくる"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 function generateDungeon(){
@@ -6643,6 +6644,10 @@ function resolveDungeonRun(dungeonId){
       if(cond==="eliteden"){ // 精鋭の巣: 手強い分、死闘が部隊を大きく成長させる(経験値の大盤振る舞い)
         for(const u of squad){const g=Math.round(ri(22,42)*levelMult);u.exp+=g;processLevelUps(u);}
         chron(`「${dungeon.name}」の強敵ひしめく巣での死闘は、部隊にとって何よりの修練となった。隊の誰もが、一回り大きくなって帰ってきた。`,"big");
+      }
+      if(cond==="spring"){ // 恵みの泉: 踏破した部隊の疲れを癒し、傷を和らげて帰す(運用テンポの回復)
+        for(const u of squad){u.fatigue=0;if(u.injured>0){u.injured=Math.max(0,u.injured-2);if(u.injured<=0)u.injurySeverity=null;}}
+        chron(`「${dungeon.name}」に湧く聖なる泉が、部隊の疲れを洗い流した。隊は心身ともに癒され、晴れやかな顔で帰ってきた。`,"");
       }
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
