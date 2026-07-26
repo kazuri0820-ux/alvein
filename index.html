@@ -3493,22 +3493,39 @@ const RANDOM_CHOICE_EXTRA=[
   ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
+/* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
+   アイテムと装備が並ぶ小さな市で、「今日は何を売っているか・どれを買うか」を選ぶ楽しみと金の使い道を作る(交易の妙)。 */
+function merchantWares(visits){
+  const order=["common","uncommon","rare","epic"];
+  const maxIdx=visits>=8?3:visits>=4?2:1; // 顔なじみ→大商会と、扱う格が上がる
+  const n=visits>=8?3:visits>=4?2:(Math.random()<0.6?1:0);
+  const itemPrice=[0,()=>ri(40,75),()=>ri(90,170),()=>ri(190,320)];
+  const eqPrice=[0,()=>ri(55,95),()=>ri(120,200),()=>ri(230,360)];
+  const wares=[];
+  for(let t=0;t<n*3&&wares.length<n;t++){
+    const asEquip=Math.random()<0.5;
+    let ware=null,isEquip=false,price=0;
+    if(asEquip){
+      const pool=EQUIPMENT_DB.filter(d=>{const i=order.indexOf(d.rarity);return i>=1&&i<=maxIdx;});
+      if(pool.length){ware=pool[Math.floor(Math.random()*pool.length)];isEquip=true;price=eqPrice[order.indexOf(ware.rarity)]();}
+    }else{
+      const pool=ITEMS.filter(it=>{const i=order.indexOf(it.rarity);return i>=1&&i<=maxIdx;});
+      if(pool.length){ware=pool[Math.floor(Math.random()*pool.length)];price=itemPrice[order.indexOf(ware.rarity)]();}
+    }
+    if(!ware||wares.some(w=>w.key===ware.key))continue;
+    wares.push({key:ware.key,name:ware.name,price,isEquip,desc:isEquip?equipBonusText(ware):(ware.desc||"珍しい品")});
+  }
+  return wares;
+}
 function buildMerchantVisitEvent(){
   const visits=(S.flags.merchantVisits||0)+1;
   S.flags.merchantVisits=visits;
-  // 稀に掘り出し物を仕入れている(「今回は何を売っているか」の楽しみ＋金の使い道)
-  let wareChoice=null;
-  if(Math.random()<0.45){
-    const pool=ITEMS.filter(i=>i.rarity==="uncommon"||i.rarity==="rare");
-    if(pool.length){
-      const ware=pool[Math.floor(Math.random()*pool.length)];
-      const price=ware.rarity==="rare"?ri(90,170):ri(40,75);
-      wareChoice={label:`掘り出し物「${ware.name}」を買い取る(${price}G)`,hint:ware.desc||"珍しい品",fx:{call:()=>{
-        if(S.gold>=price){S.gold-=price;addItem(ware.key);chron(`行商人から掘り出し物「${ware.name}」を買い取った。`,"big");}
-        else{chron(`「${ware.name}」に心惹かれたが、国庫が足りず見送った。`,"");}
-      }}};
-    }
-  }
+  // 品揃えから買い求める(付き合いが深いほど品数・格が上がる。買うと巡回ボーナスは得られない=トレードオフ)
+  const wares=merchantWares(visits);
+  const wareChoices=wares.map(w=>({label:`「${w.name}」を買う(${w.price}G)`,hint:w.desc,fx:{call:()=>{
+    if(S.gold>=w.price){S.gold-=w.price;if(w.isEquip)addEquipment(w.key);else addItem(w.key);chron(`行商人から${w.isEquip?"装備":"品"}「${w.name}」を買い求めた。`,"big");}
+    else chron(`「${w.name}」に心惹かれたが、国庫が足りず見送った。`,"");
+  }}}));
   let ev;
   if(visits===1){
     ev={tag:"来 訪",title:"見知らぬ行商人",
@@ -3526,7 +3543,8 @@ function buildMerchantVisitEvent(){
      choices:[{label:"特別な取引を持ちかける",hint:"経済↑↑ 外交↑",fx:{gold:-60,st:{economy:5,diplomacy:2},log:"かつての行商人との縁が、大きな実を結んだ。「あの頃からのお付き合いですから」と、彼は笑った。",logCls:"big"}},
               {label:"変わらぬ様子に安堵する",hint:"民心↑",fx:{mood:3,log:"変わらぬ人柄に、思わず頬が緩んだ。"}}]};
   }
-  if(wareChoice)ev.choices.splice(ev.choices.length-1,0,wareChoice); // 「素通り/挨拶」の前に掘り出し物を差し込む
+  if(wareChoices.length)ev.choices.splice(ev.choices.length-1,0,...wareChoices); // 「素通り/挨拶」の前に品揃えを差し込む
+  if(wareChoices.length&&(ev.body))ev.body+=`\n\n(行商人は今日、${wareChoices.length}点の品を並べている)`;
   return ev;
 }
 
