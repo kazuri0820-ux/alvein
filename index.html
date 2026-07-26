@@ -2653,7 +2653,15 @@ function checkAging(){
       }
     }
     if(S.day%AGE_YEAR_DAYS===(u.birthDay||1)){
-      chron(`${u.nm}が${Math.floor(u.age)}歳の誕生日を迎えた。`,"");
+      const yrs=Math.floor(u.age);
+      if(u.favorite){ // 長が目をかける兵の誕生日は、ささやかでも心のこもった祝いの日に
+        u.loyalty=Math.min(100,(u.loyalty||0)+3);u.moral=Math.min(100,(u.moral||0)+3);
+        chron(`${u.nm}が${yrs}歳の誕生日を迎えた。王の覚えめでたきこの兵のため、ささやかな祝いの席が設けられ、隊の皆が温かい言葉を贈った。`,"big");
+      }else if(yrs>0&&yrs%10===0){ // 節目の年齢は古参として静かに讃える
+        chron(`${u.nm}が${yrs}歳の節目の誕生日を迎えた。よくぞここまで、と古参の兵が肩を叩いた。`,"");
+      }else{
+        chron(`${u.nm}が${yrs}歳の誕生日を迎えた。`,"");
+      }
     }
     const stage=ageStageOf(u);
     const eff=skillEffects(u);
