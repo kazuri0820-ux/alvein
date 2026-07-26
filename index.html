@@ -5742,6 +5742,8 @@ const DUNGEON_TYPES=[
  {key:"beast",label:"獣境型",color:"#b5794a",statFn:u=>u.str*0.5+u.agi*0.4+u.vit*0.1}, // 獣の巣。生粋の武と俊敏が物を言う
  {key:"sanctum",label:"霊域型",color:"#c9b96a",statFn:u=>u.wis*0.45+u.lead*0.3+u.int*0.25}, // 聖なる霊域。信と統率で切り拓く
  {key:"tempest",label:"嵐界型",color:"#6fb0c9",statFn:u=>u.agi*0.5+u.lead*0.3+u.wis*0.2}, // 嵐吹き荒れる界。速さと采配が試される
+ {key:"inferno",label:"業火型",color:"#d4694a",statFn:u=>u.str*0.4+u.int*0.4+u.vit*0.2}, // 業火渦巻く灼熱の界。剛力と魔導、両方の力で焼き払う
+ {key:"tidal",label:"海淵型",color:"#4f8fb0",statFn:u=>u.agi*0.4+u.vit*0.35+u.wis*0.25}, // 深海の淵。潮に抗う体躯と、流れを読む勘が要る
 ];
 function bestDungeonTypeFor(u){
   let best=null,bestScore=-1;
@@ -6377,7 +6379,7 @@ function battleFavoriteSpotlight(squad,foeLabel){
 /* ダンジョン種別の初踏破:各攻略型(戦闘/知略/隠密/耐久…全13種)を初めて制した時、記念の一節と
    一度きりの報酬(財貨・民心・その型が象徴する国力の微増)を贈る。全種を制すれば大いなる栄誉。
    farm一辺倒でなく「まだ見ぬ型に挑む」ことに収集・到達の楽しさと意味ある選択を与える。 */
-const DUNGEON_TYPE_STAT={combat:"military",puzzle:"magic",stealth:"order",endurance:"agriculture",arcane:"magic",trap:"order",cursed:"magic",labyrinth:"economy",fortress:"military",abyss:"military",beast:"agriculture",sanctum:"diplomacy",tempest:"diplomacy"};
+const DUNGEON_TYPE_STAT={combat:"military",puzzle:"magic",stealth:"order",endurance:"agriculture",arcane:"magic",trap:"order",cursed:"magic",labyrinth:"economy",fortress:"military",abyss:"military",beast:"agriculture",sanctum:"diplomacy",tempest:"diplomacy",inferno:"magic",tidal:"economy"};
 function statLabel(k){const s=STATDEF.find(x=>x[0]===k);return s?s[1]:k;}
 function checkDungeonTypeFirstClear(dungeon,squad){
   const t=dungeon&&dungeon.type;
