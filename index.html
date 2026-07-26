@@ -5633,6 +5633,14 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="greedy"){const g=Math.round(ri(45,85)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「貪欲」なボスが溜め込んでいた財貨${g}を回収した。`,"big");}
         else if(dungeon.bossTrait==="hoarder"){const eq=rollEquipmentDrop(dungeon.rarity.key);if(eq){addEquipment(eq.key);chron(`「宝物狂い」のボスの蒐集品から、「${eq.name}」を手に入れた。`,"big");}}
       }
+      // 金スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
+      const goldHolders=squad.filter(u=>(u.skills||[]).some(k=>{const s=SKILL_DB.find(x=>x.key===k);return s&&s.tier==="gold";}));
+      if(goldHolders.length&&Math.random()<0.4){
+        const u=goldHolders[Math.floor(Math.random()*goldHolders.length)];
+        const gk=(u.skills||[]).filter(k=>{const s=SKILL_DB.find(x=>x.key===k);return s&&s.tier==="gold";});
+        const sk=SKILL_DB.find(x=>x.key===gk[Math.floor(Math.random()*gk.length)]);
+        if(sk)chron(`${u.nm}の「${sk.name}」が、ボス「${dungeon.bossName}」との戦いで決定打となった。`,"");
+      }
       if(dungeon.isFinal){
         for(const u of squad)grantTitle(u,"t_demonslayer");
         S.flags.demonLordDefeated=true;
