@@ -4842,7 +4842,9 @@ function volunteerRankLabel(u){
    高ランクは元から強いので低め。志願書ガチャの"堀り"としてのやり込みを増す。 */
 function hiddenPotentialChance(rankLabel){
   const t={F:0.075,E:0.07,D:0.06,C:0.04,B:0.035,A:0.025,S:0.02,SS:0.018,Z:0.015};
-  return t[rankLabel]!=null?t[rankLabel]:0.03;
+  let c=t[rankLabel]!=null?t[rankLabel]:0.03;
+  if(S.flags&&S.flags.renownBanner)c*=1.3; // 名声の旗印: 掘り出し物が眠りやすくなる永続効果
+  return c;
 }
 function makeVolunteer(){
   const rank=pickVolunteerRank();
@@ -5272,6 +5274,7 @@ const ITEMS=[
  {key:"reborn_elixir",name:"転生者の秘薬",rarity:"epic",desc:"レジェンド級の逸材(転生者)が一人、必ず加わる。",effect:()=>{if(S.units.length>=unitCap()){chron("兵舎が満員のため、秘薬は使えなかった。","");return;}const u=makeUnit();u.trait="reborn";u.traitTier="legend";const tr=traitInfo("reborn");u.str+=tr.str||0;u.vit+=tr.vit||0;u.int+=tr.int||0;u.pw=tr.pw||0;u.gm=tr.gm||1;S.units.push(u);chron(`――転生者の秘薬が輝き、${u.nm} ${u.surname}という名の者が姿を現した。ただ者ではない気配がする。`,"big");}},
  {key:"philosopher_stone",name:"賢者の石",rarity:"epic",desc:"全国力が大きく上昇する。",effect:()=>apply({st:{military:6,economy:6,agriculture:6,magic:6,order:6,diplomacy:6},log:"賢者の石の力が、国のあらゆる面に行き渡った。"})},
  {key:"crown_relic",name:"古の王冠",rarity:"epic",desc:"民心が大きく上昇し、以後の税収がわずかに上がる(永続)。",type:"permanent",effect:()=>{apply({mood:15,log:"古の王冠を戴くと、不思議な威厳が長を包んだ。"});S.flags.crownRelic=true;}},
+ {key:"renown_banner",name:"名声の旗印",rarity:"epic",desc:"以後、志願書に隠れた逸材(掘り出し物)が眠りやすくなる(永続)。",type:"permanent",effect:()=>{S.flags.renownBanner=true;chron("名声の旗印を掲げると、遠方の腕自慢たちも噂を聞きつけ始めた。以後、志願者に隠れた逸材が混じりやすくなるだろう。","big");}},
  // ── レジェンド ──
  {key:"world_tree_seed",name:"世界樹の種",rarity:"legendary",desc:"国のあらゆる面に絶大な恩恵をもたらす。",effect:()=>apply({gold:300,food:200,pop:15,mood:20,st:{military:10,economy:10,agriculture:10,magic:10,order:10,diplomacy:10},log:"――世界樹の種が芽吹いた。この地に、かつてない恩恵をもたらすだろう。",logCls:"big"})},
  {key:"star_child_charm",name:"星降りし子の護符",rarity:"legendary",desc:"レジェンド級の逸材(星降りし子)が一人、必ず加わる。",effect:()=>{if(S.units.length>=unitCap()){chron("兵舎が満員のため、護符は使えなかった。","");return;}const u=makeUnit();u.trait="starchild";u.traitTier="legend";const tr=traitInfo("starchild");for(const k of["str","vit","int"])u[k]+=tr[k]||0;u.pw=tr.pw||0;u.gm=tr.gm||1;S.units.push(u);chron(`――星降りし子の護符が光を放ち、${u.nm} ${u.surname}が姿を現した。星に導かれし者だという。`,"big");}},
