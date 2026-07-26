@@ -4544,6 +4544,7 @@ const EVENT_ID_EXACT={
   "__expedition__":()=>buildExpeditionEvent(),
   "__expedition_risk__":()=>buildExpeditionRiskEvent(),
   "__demon_invasion__":()=>buildDemonInvasionEvent(),
+  "__demon_general__":()=>buildDemonGeneralEvent(),
   "__training_grade__":()=>buildTrainingGradeEvent(),
   "__training_pick__":()=>buildTrainingPickEvent(),
   "__recruit__":()=>buildRecruitEvent(),
@@ -5998,6 +5999,14 @@ function checkDemonInvasion(){
   const daysSince=S.day-(S.flags.demonNoticedDay||S.day);
   const chance=Math.min(0.07,0.035+daysSince*0.00012);
   if(daysSince>=120&&!S.flags.demonEscalated){S.flags.demonEscalated=true;chron("――魔王軍の動きが、日に日に活発になっている。討伐を先延ばしにするほど、この地への圧は増していくだろう。","grave");}
+  // 魔将の襲来:討伐を先延ばしにするほど、名のある魔将が節目で軍を率いて現れる(終盤のヤマ場)
+  const genTiers=[50,140,230,320];
+  const seen=S.demonGeneralsSeen||0;
+  if(seen<genTiers.length&&daysSince>=genTiers[seen]){
+    S.demonGeneralsSeen=seen+1;
+    pushEvent("__demon_general__");
+    return;
+  }
   if(Math.random()<chance)pushEvent("__demon_invasion__");
 }
 const DEMON_INVASION_FLAVORS=[
@@ -6029,6 +6038,41 @@ function buildDemonInvasionEvent(){
   return{tag:"魔王軍",title:"魔物の侵攻",
    body:`${flavor}(現在の対応練度:Lv.${S.demonArmyLevel||0})。先陣を任せる者を選ぶ。他の兵は自動で後詰めにつく。`,
    speaker:"ガレオン「誰を先頭に立てるか、それが全てを分けましょう」",
+   choices};
+}
+/* 魔将の襲来:討伐を先延ばしにするほど、名のある魔将が直々に軍を率いて現れる(終盤のヤマ場)。
+   並の侵攻より手強いが、討ち取れば練度が大きく上がり遺物も得る。退けられねば村は深く傷つく。 */
+const DEMON_GENERALS=[
+ {name:"業火のバルグ",flavor:"炎を纏う巨躯の魔将が、軍勢を率いて地平の彼方に姿を現した。"},
+ {name:"氷獄のヴェルナ",flavor:"凍てつく気配を纏う魔将が、静かに、しかし確実に村へ近づいてくる。"},
+ {name:"骸兵のグロズ",flavor:"屍の兵を無数に従えた魔将が、この地を目指しているという。"},
+ {name:"影喰らいのザイン",flavor:"影から滲み出るように、魔将がその姿を現した。"},
+ {name:"雷轟のドルガ",flavor:"雷鳴を先触れに、魔将の軍勢がこの地へと迫っている。"},
+];
+let pendingDemonGeneral=null;
+function buildDemonGeneralEvent(){
+  const gen=DEMON_GENERALS[((S.demonGeneralsSeen||1)-1)%DEMON_GENERALS.length]||DEMON_GENERALS[0];
+  const eligible=S.units.filter(u=>u.injured<=0&&!u.dungeonBusy&&!u.campUntil);
+  if(!eligible.length){
+    apply({mood:-8,gold:-ri(40,80)});
+    chron(`魔将「${gen.name}」の軍勢を防ぐ兵がおらず、村は大きな被害を受けた。`,"grave");
+    return null;
+  }
+  pendingDemonGeneral=gen.name;
+  const cands=[...eligible].sort((a,b)=>unitPower(b)-unitPower(a)).slice(0,5);
+  const choices=cands.map(u=>({
+    label:`${u.nm}を先陣に立てる`,
+    hint:`戦力${Math.round(unitPower(u))} ／ 相手は魔将(並より手強い)`,
+    fx:{call:()=>{
+      const support=eligible.filter(x=>x.id!==u.id).sort((a,b)=>unitPower(b)-unitPower(a)).slice(0,4);
+      demonDefenseSquad=[u,...support];
+      demonDefenseLeader=u;
+      resolveDemonDefense();
+    }}
+  }));
+  return{tag:"魔 将",title:`魔将「${gen.name}」の襲来`,
+   body:`${gen.flavor} 名の知れた魔将が直々に軍を率いている。並の侵攻ではない。討ち取れば軍の練度は大きく上がり遺物も望めるが、退けられねば村は深く傷つくだろう(対応練度Lv.${S.demonArmyLevel||0})。先陣を任せる者を選ぶ。`,
+   speaker:"ガレオン「魔将が相手です。……総力を挙げねば、危うい」",
    choices};
 }
 /* 魔王の玉座の解禁:防衛練度だけでなく、ダンジョン踏破数も要求し、到達難度と歯応えの落差を縮める */
@@ -6064,26 +6108,38 @@ let demonDefenseSquad=[], demonDefenseLeader=null;
 function resolveDemonDefense(){
   const squad=demonDefenseSquad;
   const leader=demonDefenseLeader;
+  const genName=pendingDemonGeneral; // 魔将戦かどうか
+  const isGeneral=!!genName;
+  pendingDemonGeneral=null;
   const power=squad.reduce((a,u)=>a+unitPower(u)*(leader&&u.id===leader.id?1.25:1),0)*squadSynergyMult(squad);
-  const threat=48+(S.demonArmyLevel||0)*20; // 魔王の玉座との強さの落差を縮めるため、防衛戦の練度上昇に応じた強さの伸びを急にした
+  const threat=(48+(S.demonArmyLevel||0)*20)*(isGeneral?1.4:1); // 魔将は並の侵攻より手強い。玉座との落差を縮めるため練度で伸びる
   const roll=power+rnd(-15,15);
   if(roll>=threat){
-    S.demonArmyLevel=(S.demonArmyLevel||0)+1;
-    for(const u of squad){const gain=leader&&u.id===leader.id?ri(10,18):ri(6,12);u.exp+=gain;processLevelUps(u);}
+    S.demonArmyLevel=(S.demonArmyLevel||0)+(isGeneral?2:1); // 魔将撃破は練度が大きく上がる
+    for(const u of squad){const gain=(leader&&u.id===leader.id?ri(10,18):ri(6,12))*(isGeneral?1.6:1);u.exp+=gain;processLevelUps(u);}
     if(leader)leader.leaderCount=(leader.leaderCount||0)+1;
-    apply({mood:2,st:{military:1}});
-    let itemMsg="";
-    if(Math.random()<0.25){
-      const item=rollItemDrop(S.demonArmyLevel>=5?"rare":"uncommon");
-      if(item){addItem(item.key);itemMsg=`戦利品として「${item.name}」を持ち帰った。`;}
+    if(isGeneral){
+      apply({mood:5,st:{military:2}});
+      let itemMsg="";
+      const item=rollItemDrop(S.demonArmyLevel>=5?"epic":"rare"); // 魔将は必ず遺物を落とす
+      if(item){addItem(item.key);itemMsg=`魔将の遺物「${item.name}」を手に入れた。`;}
+      if(leader)unitHistory(leader,`魔将「${genName}」を討ち取り、その名を魔王軍に知らしめた。`);
+      chron(`――魔将「${genName}」を討ち取った！${leader?leader.nm:"部隊"}の武勇が魔王軍に一泡吹かせ、防衛の練度が大きく上がった(魔王軍対応Lv.${S.demonArmyLevel})。${itemMsg}`,"big");
+    }else{
+      apply({mood:2,st:{military:1}});
+      let itemMsg="";
+      if(Math.random()<0.25){
+        const item=rollItemDrop(S.demonArmyLevel>=5?"rare":"uncommon");
+        if(item){addItem(item.key);itemMsg=`戦利品として「${item.name}」を持ち帰った。`;}
+      }
+      chron(`魔物の侵攻を退けた。防衛の練度が上がった(魔王軍対応Lv.${S.demonArmyLevel})。${itemMsg}`,"big");
     }
-    chron(`魔物の侵攻を退けた。防衛の練度が上がった(魔王軍対応Lv.${S.demonArmyLevel})。${itemMsg}`,"big");
     tryUnlockDemonLordDungeon();
   }else{
-    const hurtOnes=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*0.3)));
-    for(const u of hurtOnes)inflictInjury(u,[0.5,0.4,0.1]);
-    apply({mood:-3,gold:-ri(15,40)});
-    chron("魔物の侵攻を防ぎきれず、被害が出た。","grave");
+    const hurtOnes=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*(isGeneral?0.5:0.3))));
+    for(const u of hurtOnes)inflictInjury(u,isGeneral?[0.35,0.4,0.25]:[0.5,0.4,0.1]);
+    if(isGeneral){apply({mood:-8,gold:-ri(40,80)});chron(`魔将「${genName}」の軍勢を防ぎきれず、村は深い痛手を負った。`,"grave");}
+    else{apply({mood:-3,gold:-ri(15,40)});chron("魔物の侵攻を防ぎきれず、被害が出た。","grave");}
   }
   demonDefenseSquad=[];demonDefenseLeader=null;
 }
