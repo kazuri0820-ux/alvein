@@ -6620,6 +6620,21 @@ function checkDungeonClearMilestone(){
     }
   }
 }
+/* 連続踏破の快進撃:ボスを討ち果たす完全踏破を連ねるほど、負け知らずの勢いが年代記に刻まれる。
+   一度でも撤退・敗北すれば途切れる緊張感が、一つ一つの派遣判断に「勝ち続ける手応え」を添える(演出)。 */
+const WIN_STREAK_MILESTONES=[
+ {n:5,mood:2,text:"5連続踏破"},
+ {n:10,mood:4,text:"10連続踏破"},
+ {n:20,mood:7,text:"20連続踏破という空前の快進撃"},
+];
+function checkWinStreakMilestone(){
+  const s=S.winStreak||0;
+  const m=WIN_STREAK_MILESTONES.find(x=>x.n===s)||((s>20&&s%10===0)?{n:s,mood:7,text:s+"連続踏破の快進撃"}:null);
+  if(!m)return;
+  for(const u of S.units)if(u.role==="active")u.moral=Math.min(100,(u.moral||0)+2);
+  apply({mood:m.mood});
+  chron(`――部隊は${m.text}を達成した。負け知らずの勢いに、国中が沸いている。`,"big");
+}
 function checkDungeonTypeFirstClear(dungeon,squad){
   const t=dungeon&&dungeon.type;
   if(!t||!t.key)return; // 型を持たない特殊ダンジョン(魔王等)は対象外
@@ -6781,6 +6796,13 @@ function resolveDungeonRun(dungeonId){
       for(const u of hurtOnes)if(u.injurySeverity==="severe"){u.criticalSurvivalCount=(u.criticalSurvivalCount||0)+1;grantTitle(u,"t_survivor");}
       chron(`――「${dungeon.name}」は大失敗に終わった。命からがらの撤退となった。`,"grave");
     }
+  }
+  if(bossWin){ // 連続踏破の快進撃:完全踏破を連ねるほど勢いが年代記に刻まれる
+    S.winStreak=(S.winStreak||0)+1;
+    checkWinStreakMilestone();
+  }else{
+    if((S.winStreak||0)>=5)chron(`${S.winStreak}連続踏破の快進撃は、ここで途切れた。`,"sys");
+    S.winStreak=0;
   }
   removeActiveDungeon(dungeonId);
   clamp();render();renderTroops();refreshOpenPanels();save();
