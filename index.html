@@ -5143,6 +5143,7 @@ function generateDungeon(){
     id:Math.random().toString(36).slice(2,9),
     name:dungeonName(),level,rarity,type,requiredPower,duration,
     bossName:generateBossName(rarity.key),bossPower:Math.round(requiredPower*1.3),
+    treasureVault:Math.random()<0.12, // 稀に「財宝の間」を秘める(踏破で追加の宝)
     discoveredDay:S.day,
   };
 }
@@ -5596,6 +5597,12 @@ function resolveDungeonRun(dungeonId){
       chron(crit
         ?`――完璧な踏破！「${dungeon.name}」を寸分の隙なく制圧し、ボス「${dungeon.bossName}」を圧倒した!${itemGained?`「${itemGained.name}」${bonusItem?`と「${bonusItem.name}」`:""}を手に入れた。`:""}${equipGained?`さらに「${equipGained.name}」を入手した。`:""}`
         :`――「${dungeon.name}」を踏破し、ボス「${dungeon.bossName}」を打ち破った!${itemGained?`「${itemGained.name}」を手に入れた。`:""}${equipGained?`さらに「${equipGained.name}」を入手した。`:""}`,"big");
+      if(dungeon.treasureVault){ // 財宝の間: 踏破時に追加の宝と財貨
+        const tItem=rollItemDrop(dungeon.rarity.key); if(tItem)addItem(tItem.key);
+        const tGold=Math.round(ri(30,60)*dungeon.rarity.mult*levelMult);
+        apply({gold:tGold,mood:2});
+        chron(`奥には「財宝の間」が隠されていた！${tItem?`「${tItem.name}」と`:""}${tGold}の財貨を持ち帰った。`,"big");
+      }
       if(dungeon.isFinal){
         for(const u of squad)grantTitle(u,"t_demonslayer");
         S.flags.demonLordDefeated=true;
@@ -7362,7 +7369,7 @@ function renderDungeonPanel(){
     const selCombined=squadEffectivePower(selSquad,d.type);
     const estPct=selSquad.length?Math.max(0,Math.min(100,Math.round((selCombined/d.requiredPower*100-105+20)/40*100))):0;
     h+=`<div class="pcard" style="border-color:${d.rarity.color||"var(--gold2)"}">
-      <div class="nm" style="color:${d.rarity.color||"var(--gold)"}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.name}</div>
+      <div class="nm" style="color:${d.rarity.color||"var(--gold)"}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${d.name}</div>
       <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span> ／ `:""}目安戦力:${d.requiredPower} ／ 所要日数:${d.duration}日</div>
       <div class="ds">選択中:${selSquad.length}/5人 ${selSquad.length?`／ この編成での<span style="color:${estPct>=50?"#8fbf6f":"#d9b56a"}">推定成功率 約${estPct}%</span>`:""}${synergy>1.001?` <span style="color:var(--gold)">(連携+${Math.round((synergy-1)*100)}%)</span>`:synergy<0.999?` <span style="color:#d97a7a">(連携乱れ${Math.round((synergy-1)*100)}%)</span>`:""}</div>
     </div>`;
