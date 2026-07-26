@@ -6936,6 +6936,12 @@ function resolveDungeonRun(dungeonId){
         chron(`「${dungeon.name}」で${victim.nm}が致命傷を負いかけたが、不死鳥の羽根の加護でかろうじて一命を取り留めた。`,"big");
         victim.criticalSurvivalCount=(victim.criticalSurvivalCount||0)+1;grantTitle(victim,"t_survivor");
         const rec=memberLog.find(l=>l.u.id===victim.id);if(rec)rec.note="致命傷(お守りで一命を取り留めた)";
+      }else if((()=>{const dm=(traitInfo(victim.trait).deathMult||1)*(skillEffects(victim).deathMult||1);return dm<1&&Math.random()>=dm;})()){
+        // 生存力(不屈の生命力・不滅の闘魂 等の特性・スキル)が、死線を越えさせる=生存系の効能が戦場で実際に報われる
+        victim.criticalSurvivalCount=(victim.criticalSurvivalCount||0)+1;grantTitle(victim,"t_survivor");
+        if(victim.injured<=0){inflictInjury(victim,[0.1,0.3,0.6]);unitHistory(victim,`「${dungeon.name}」で死線に立たされたが、驚異の生命力で辛くも生き延びた。`);}
+        chron(`――「${dungeon.name}」は大失敗に終わった。だが${victim.nm}は、致命傷を負いながらも、その驚異の生命力で辛くも生き延びた。`,"big");
+        const rec=memberLog.find(l=>l.u.id===victim.id);if(rec)rec.note="致命傷(生き延びた)";
       }else{
         died=victim;
         diedWasHallWorthy=isHallWorthy(victim);
