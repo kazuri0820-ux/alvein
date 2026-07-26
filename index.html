@@ -5893,6 +5893,15 @@ const EXPEDITION_THEMES=[
  {name:"星降る丘の異変",flavor:"流れ星がよく落ちるという丘で、地面が妙に光っているとの報告があった。",statFn:u=>u.int*0.45+u.wis*0.3+u.agi*0.25},
  {name:"獣道の異形",flavor:"猟師たちが使う獣道の奥で、見たこともない足跡が見つかったという。",statFn:u=>u.agi*0.4+u.str*0.35+u.vit*0.25},
 ];
+/* 遠征の道中の小さな出来事(彩りと、ささやかな驚き) */
+const EXPEDITION_ROADSIDE=[
+ {t:"道中、朽ちた祠に手を合わせると、隅に忘れられた小銭が残されていた。",fx:()=>apply({gold:ri(8,20)})},
+ {t:"街道で難儀する行商を助けると、礼にと保存食を分けてくれた。",fx:()=>apply({food:ri(10,20)})},
+ {t:"野宿の夜、隊は焚き火を囲んで語り合い、少しだけ結束を深めた。",fx:(sq)=>{for(const u of sq)u.moral=Math.min(100,u.moral+3);}},
+ {t:"通りがかった小さな村で、子供たちが兵に花を手渡してくれた。",fx:()=>apply({mood:2})},
+ {t:"険しい峠越えで隊は肝を冷やしたが、互いに支え合って切り抜けた。",fx:(sq)=>{for(const u of sq)u.moral=Math.min(100,u.moral+2);}},
+ {t:"古い石碑に刻まれた文字を、物知りの兵が読み解いてみせた。",fx:()=>apply({st:{magic:1}})},
+];
 function expeditionRarity(){
   const kRank=STAGES[S.stage].rank;
   const r=Math.random();
@@ -5956,6 +5965,7 @@ function resolveExpedition(riskKey,rewardMult){
   const roll=rawPower*1.0+rnd(variance[0],variance[1]);
   const tier=roll>=20*2.5*scaleFactor?"great":roll>=20*1.4*scaleFactor?"success":roll>=20*scaleFactor?"fail":"critical";
   for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(28,42));
+  if(Math.random()<0.35){const rs=EXPEDITION_ROADSIDE[Math.floor(Math.random()*EXPEDITION_ROADSIDE.length)];rs.fx(squad);chron(rs.t,"");} // 道中の小さな出来事
   leader.leaderCount=(leader.leaderCount||0)+1;
   if(leader.leaderCount>=30)grantTitle(leader,"t_leader30");
   if(tier==="great"){
