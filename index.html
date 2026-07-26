@@ -2058,6 +2058,10 @@ const TITLE_DB=[
  {key:"t_veteran",name:"古豪",desc:"長きにわたり隊を支え続けた古参",effect:"loyaltyGrow",value:0.15},
  {key:"t_hardened",name:"歴戦の身",desc:"数多の戦を生き抜き、傷を負いにくい体になった",effect:"injuryMult",value:0.88},
  {key:"t_lastfounder",name:"最後の建国者",desc:"創業の日を知る、ただ一人の生き証人",effect:"loyaltyGrow",value:0.25},
+ {key:"t_dreamer",name:"夢を叶えし者",desc:"かねて抱いた夢を、その手で成し遂げた",effect:"moralGrow",value:0.12},
+ {key:"t_dungeonveteran",name:"迷宮の古強者",desc:"数多の迷宮を踏破し、暗がりを知り尽くしている",effect:"expMult",value:1.05},
+ {key:"t_fullset",name:"揃いの武具の使い手",desc:"格の揃った武具一式を、隙なく身につけている",effect:"injuryMult",value:0.92},
+ {key:"t_prideofrealm",name:"王国の誇り",desc:"士気も忠誠も、常に高く保ち続けている",effect:"loyaltyGrow",value:0.15},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 function grantTitle(u,key){
@@ -2497,6 +2501,10 @@ function checkDailyTitles(u){
   if(u.traitTier==="rare")grantTitle(u,"t_rareborn");
   if(u.traitTier==="epic")grantTitle(u,"t_epicborn");
   if(u.traitTier==="legend")grantTitle(u,"t_legendborn");
+  if(u.dreamDone)grantTitle(u,"t_dreamer"); // 夢を叶えた者の証
+  if((u.dungeonClearCount||0)>=6)grantTitle(u,"t_dungeonveteran");
+  if(typeof equipSetTier==="function"&&equipSetTier(u))grantTitle(u,"t_fullset");
+  if(u.loyalty>=90&&u.moral>=90)grantTitle(u,"t_prideofrealm");
   checkDecorationCeremony(u);
   checkDreamFulfilled(u); // 個人的な夢の達成を見届ける
   // 献身の誓い:長のお気に入りに選ばれ、長く仕えて忠義を極めた兵が、揺るがぬ献身を誓う。
