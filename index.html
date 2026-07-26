@@ -5837,6 +5837,19 @@ function dispatchDungeon(dungeonId,manualIds){
 function removeActiveDungeon(dungeonId){
   S.activeDungeons=(S.activeDungeons||[]).filter(d=>d.id!==dungeonId);
 }
+/* スキルの見せ場:一流(金)・固有(unique)の技を持つ兵が、大きな戦いで決定打を放つ。
+   集めた技が戦場で光る手応えを、ダンジョンだけでなくミッション等にも広げる(スキルの収集が報われる)。 */
+function battleSkillSpotlight(squad,foeLabel){
+  const isShowy=k=>{const s=SKILL_DB.find(x=>x.key===k);return s&&(s.tier==="gold"||s.tier==="unique");};
+  const holders=(squad||[]).filter(u=>(u.skills||[]).some(isShowy));
+  if(!holders.length||Math.random()>=0.4)return;
+  const u=holders[Math.floor(Math.random()*holders.length)];
+  const keys=(u.skills||[]).filter(isShowy);
+  const sk=SKILL_DB.find(x=>x.key===keys[Math.floor(Math.random()*keys.length)]);
+  if(!sk)return;
+  const uniq=sk.tier==="unique";
+  chron(`${u.nm}の${uniq?"固有技":"技"}「${sk.name}」が、${foeLabel}${uniq?"を前に眩い光を放ち、戦況を決定づけた":"との戦いで決定打となった"}。`,uniq?"big":"");
+}
 function resolveDungeonRun(dungeonId){
   const dungeon=(S.activeDungeons||[]).find(d=>d.id===dungeonId);
   if(!dungeon){return;}
@@ -5899,14 +5912,8 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="greedy"){const g=Math.round(ri(45,85)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「貪欲」なボスが溜め込んでいた財貨${g}を回収した。`,"big");}
         else if(dungeon.bossTrait==="hoarder"){const eq=rollEquipmentDrop(dungeon.rarity.key);if(eq){addEquipment(eq.key);chron(`「宝物狂い」のボスの蒐集品から、「${eq.name}」を手に入れた。`,"big");}}
       }
-      // 金スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
-      const goldHolders=squad.filter(u=>(u.skills||[]).some(k=>{const s=SKILL_DB.find(x=>x.key===k);return s&&s.tier==="gold";}));
-      if(goldHolders.length&&Math.random()<0.4){
-        const u=goldHolders[Math.floor(Math.random()*goldHolders.length)];
-        const gk=(u.skills||[]).filter(k=>{const s=SKILL_DB.find(x=>x.key===k);return s&&s.tier==="gold";});
-        const sk=SKILL_DB.find(x=>x.key===gk[Math.floor(Math.random()*gk.length)]);
-        if(sk)chron(`${u.nm}の「${sk.name}」が、ボス「${dungeon.bossName}」との戦いで決定打となった。`,"");
-      }
+      // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
+      battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
       if(dungeon.isFinal){
         for(const u of squad)grantTitle(u,"t_demonslayer");
         S.flags.demonLordDefeated=true;
@@ -6125,6 +6132,7 @@ function resolveDemonDefense(){
       if(item){addItem(item.key);itemMsg=`魔将の遺物「${item.name}」を手に入れた。`;}
       if(leader)unitHistory(leader,`魔将「${genName}」を討ち取り、その名を魔王軍に知らしめた。`);
       chron(`――魔将「${genName}」を討ち取った！${leader?leader.nm:"部隊"}の武勇が魔王軍に一泡吹かせ、防衛の練度が大きく上がった(魔王軍対応Lv.${S.demonArmyLevel})。${itemMsg}`,"big");
+      battleSkillSpotlight(squad,`魔将「${genName}」`); // 集めた一流・固有の技が魔将戦でも光る
     }else{
       apply({mood:2,st:{military:1}});
       let itemMsg="";
@@ -6271,6 +6279,7 @@ function resolveExpedition(riskKey,rewardMult){
     apply({gold:goldGain,st:{economy:1},mood:2});
     dungeonFound=checkDungeonDiscovery(1.6,leader);
     chron(`――ミッション「${theme.name}」は大成功に終わった。${leader.nm}率いる部隊が、意気揚々と帰還した。${itemGained?`「${itemGained.name}」を手に入れた。`:""}`,"big");
+    battleSkillSpotlight(squad,`ミッション「${theme.name}」`); // 集めた一流・固有の技がミッションでも光る
     if(leader.favorite){leader.loyalty=Math.min(100,leader.loyalty+5);apply({mood:2});chron(`長が目をかける${leader.nm}の見事な采配に、皆が誇らしさを覚えた。本人も、期待に応えた誇りを噛みしめている。`,"");} // お気に入りの活躍を喜ぶ
   }else if(tier==="success"){
     goldGain=Math.round(ri(25,50)*rewardMult*rarity.mult*levelMult);
