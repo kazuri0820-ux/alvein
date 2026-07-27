@@ -10269,6 +10269,7 @@ function renderProjects(){
    if(S.policyFocus)chips.push(["重点",focusLabels[S.policyFocus],"#c9a86a"]);
    const fa=typeof festivalActive==="function"?festivalActive():null; if(fa){const ft=festivalType(fa.key);chips.push(["祝祭",`${ft.name}(残${fa.until-S.day}日)`,"#e0a870"]);}
    if(S.caravan)chips.push(["隊商",`${neighborName(S.caravan.key)}へ(残${Math.max(0,S.caravan.resolveDay-S.day)}日)`,"#c9a86a"]);
+   if((S.vault||0)>0)chips.push(["金庫",`${S.vault}${(S.vault||0)>=vaultCap()?"(満)":""}`,(S.vault||0)>=vaultCap()?"#d99a6a":"#8fbf6f"]);
    if(S.nemesis)chips.push(["宿敵",S.nemesis.name,"#d97a7a"]);
    h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-project"></i>王の執務室</div>
      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px">`+chips.map(c=>`<span style="font-size:10.5px;border:1px solid ${c[2]};color:${c[2]};border-radius:5px;padding:2px 7px"><span style="color:var(--dim)">${c[0]}:</span>${c[1]}</span>`).join("")+`</div></div>`;
