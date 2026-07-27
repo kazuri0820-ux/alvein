@@ -2264,6 +2264,8 @@ const TITLE_DB=[
  {key:"t_shieldbearer",name:"戦友の守り手",desc:"我が身を挺して戦友を死線から救い出した、真の守り手",effect:"loyaltyGrow",value:0.15},
  {key:"t_agedefier",name:"時を欺きし者",desc:"若返りの霊泉の力に浴し、老いの理を欺いて再びの盛りを取り戻した稀有な兵",effect:"moralGrow",value:0.1},
  {key:"t_bloodascend",name:"血脈を昇華せし者",desc:"眠れる血脈を呼び覚まし、生まれ持った才を一段上の位階へと昇華させた者",effect:"expMult",value:1.06},
+ {key:"t_kingslayer",name:"王殺し",desc:"個性を帯びた強大なる「王」を五度討ち取った、選ばれた強者",effect:"injuryMult",value:0.9},
+ {key:"t_kingsbane",name:"覇王の終焉",desc:"十指に余る「王」を屠り続けた、王たちの終焉を告げる者",effect:"injuryMult",value:0.85},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -2755,6 +2757,8 @@ function checkDailyTitles(u){
   if(u.dreamDone)grantTitle(u,"t_dreamer"); // 夢を叶えた者の証
   if(u.rejuvenated)grantTitle(u,"t_agedefier"); // 若返りの霊泉に浴した稀有な兵の証
   if(u.ascended)grantTitle(u,"t_bloodascend"); // 血脈を昇華させた兵の証
+  if((u.kingsSlain||0)>=5)grantTitle(u,"t_kingslayer"); // 五度「王」を討った証
+  if((u.kingsSlain||0)>=12)grantTitle(u,"t_kingsbane"); // 十二度「王」を屠り続けた証
   if((u.dungeonClearCount||0)>=6)grantTitle(u,"t_dungeonveteran");
   if((u.dungeonClearCount||0)>=15)grantTitle(u,"t_dungeonmaster"); // 迷宮の覇者:同じ兵で踏破を重ねる投資に、より高い到達点を用意
   if(u.lv>=30)grantTitle(u,"t_grandveteran"); // 練達:レベルの積み重ね=長期育成の到達点を讃える
@@ -7934,6 +7938,7 @@ function resolveDungeonRun(dungeonId){
       }
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
         // 討伐したボスの王のコレクション記録=全種の王を討ち取る収集目標(初討伐は名を刻む)
+        for(const su of squad){if(su)su.kingsSlain=(su.kingsSlain||0)+1;} // 個々の兵の「王」討伐数=歴戦の証(討王の称号へ)
         S.flags=S.flags||{};S.flags.bossKings=S.flags.bossKings||{};
         if(!S.flags.bossKings[dungeon.bossTrait]&&BOSS_TRAITS[dungeon.bossTrait]){S.flags.bossKings[dungeon.bossTrait]=S.day;chron(`――「${BOSS_TRAITS[dungeon.bossTrait].label}」を初めて討ち取った。討伐した王の名が、また一つ王国史に刻まれる。`,"big");
           if(Object.keys(S.flags.bossKings).length>=BOSS_TRAIT_KEYS.length&&!S.flags.allKingsSlain){S.flags.allKingsSlain=true;for(const x of S.units){if(x.role==="active"){x.moral=Math.min(100,(x.moral||0)+6);x.loyalty=Math.min(100,(x.loyalty||0)+6);}}apply({mood:12,st:{military:5}});chron(`――ありとあらゆる「王」を、アルヴェインの兵は討ち果たした。${BOSS_TRAIT_KEYS.length}種すべての強大なる王を屠りし武名は、大陸の隅々にまで轟いている。この偉業に、全軍が誇りと闘志をみなぎらせている。`,"big");}}
