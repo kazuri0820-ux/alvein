@@ -1224,6 +1224,7 @@ html,body{height:auto!important;min-height:100%!important}
 <div class="panel full" id="panelItems"><div class="sheet">
   <h3>アイテム <span class="x" data-close="panelItems">×</span></h3>
   <div id="itemsSummary" style="font-size:12px;color:var(--dim);margin-bottom:8px"></div>
+  <div id="itemsBoons"></div>
   <div class="troopfilters" id="itemRarityRow"></div>
   <div id="itemsBody"></div>
 </div></div>
@@ -9524,6 +9525,23 @@ function renderItemsPanel(){
   const items=S.items||[];
   const totalCount=items.reduce((a,i)=>a+i.count,0);
   $("#itemsSummary").textContent=`所持アイテム:${items.length}種・計${totalCount}個`;
+  // 常時携える恩恵(お守り・永続の効能)を一覧化=一度使うと在庫から消える永続アイテムの効果を、
+  // 手元で確かめられるようにする(不死鳥のお守りが今いくつ残っているか等が分からなかった)。
+  {
+    const boons=[];
+    const charm=(S.flags&&S.flags.phoenixCharm)||0;
+    if(charm>0)boons.push({icon:"◆",c:"#e6a34a",t:`不死鳥のお守り ×${charm}`,d:"戦没しかけた兵を、いざという時それだけの数まで必ず救う"});
+    const barr=(S.flags&&S.flags.barracksBonus)||0;
+    if(barr>0)boons.push({icon:"⌂",c:"#a9c47a",t:`兵舎増築 +${barr}名`,d:"抱えられる兵の上限が、それだけ永く拡がっている"});
+    const bh=$("#itemsBoons");
+    if(bh){
+      if(boons.length){
+        bh.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">`+boons.map(b=>
+          `<span title="${b.d}" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:${b.c};background:rgba(0,0,0,.22);border:1px solid ${b.c}55;border-radius:12px;padding:3px 9px"><span style="font-size:12px">${b.icon}</span>${b.t}</span>`
+        ).join("")+`</div>`;
+      }else bh.innerHTML="";
+    }
+  }
   const rarities=["all","common","uncommon","rare","epic","legendary"];
   const rarityLabels={all:"すべて",common:"コモン",uncommon:"アンコモン",rare:"レア",epic:"エピック",legendary:"レジェンド"};
   $("#itemRarityRow").innerHTML=rarities.map(r=>`<button data-r="${r}" class="${itemRarityFilter===r?"on":""}">${rarityLabels[r]}</button>`).join("");
