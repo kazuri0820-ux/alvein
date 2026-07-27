@@ -4401,6 +4401,43 @@ const RANDOM_RARE=[
      clamp();render();renderTroops();
    }}},
   ]},
+ // ===== 連続物語(イベント連鎖):一揆。飢饉が"食糧"、疫病が"兵の健康"を試すなら、こちらは"民心と治安"を試す危機。
+ //   日頃の善政(民心/治安)を怠るとくすぶる憤懣が一揆に燃え上がる。備えの選択で被害が軽くも重くもなる、
+ //   これまで結果の軽かった"柔らかい国力"に牙を与える第三の stakes 型連鎖(内政×危機の新機軸) =====
+ {tag:"民 情",title:"くすぶる民の憤懣",
+  cond:s=>!(s.flags&&s.flags.unrestArc)&&STAGES[s.stage].rank>=2&&s.day>=50&&(s.mood||100)<40,
+  body:"城下の辻々で、人だかりが不平を囁き合っている。「重い暮らし向きに、お上は何をしてくれる」――役人が睨みを利かせても、民の顔は晴れない。フィオナが硬い声で言う。「陛下、これはただの愚痴ではありませぬ。放置すれば、いずれ火の手が上がりましょう」。今、手を打たねばならない。",
+  speaker:"セラ「民の憤懣は、剣より静かに、しかし剣より深く国を蝕みます。いかになさいますか」",
+  choices:[
+   {label:"蔵を開き、施しを行う(70G)",hint:"出費して民を潤す・民心↑・一揆を最も鎮めやすい",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.unrestArc=1;S.flags.unrestDay=S.day+ri(7,12);
+     if(S.gold<70){S.flags.unrestPrep="none";apply({log:"蔵を開こうにも、施しに回す蓄えが乏しかった。民の不満は、行き場を失ったまま燻り続ける。"});return;}
+     S.gold-=70;S.flags.unrestPrep="relief";
+     apply({mood:6,st:{order:1},log:"王は蔵を開き、困窮する民に糧と銭を施した。城下に安堵の色が戻り、憤懣もいくらか和らいだ(民心↑ 治安+1)。",logCls:"big"});
+   }}},
+   {label:"民の代表を招き、膝を交えて聞く",hint:"出費なし・治安と対話で憤懣を鎮める(治安が高いほど後で効く)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.unrestArc=1;S.flags.unrestPrep="dialogue";S.flags.unrestDay=S.day+ri(7,12);
+     apply({st:{order:2},mood:2,log:"王は民の代表を城に招き、その訴えに直に耳を傾けた。すぐに全ては変わらずとも、聞いてもらえたという事実が、人々の頑なな心をわずかに解いた(治安+2 民心↑)。"});
+   }}},
+   {label:"役人に命じ、力で抑え込ませる",hint:"今は治安↑だが憤懣は水面下でさらに募る(後の一揆が重くなりやすい)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.unrestArc=1;S.flags.unrestPrep="suppress";S.flags.unrestDay=S.day+ri(6,10);
+     apply({st:{order:3},mood:-3,log:"王は騒ぐ者を役人に取り締まらせた。表向き城下は静まったが、伏せられた憤懣は、より暗く深く澱んでいく(治安+3 民心↓)。"});
+   }}},
+  ]},
+ {tag:"一 揆",title:"募る不穏、火を噴く",
+  cond:s=>(s.flags&&s.flags.unrestArc)===1&&s.day>=(s.flags.unrestDay||0),
+  body:"抑えの利かぬ憤懣が、ついに形を取った。鍬や棒を手にした民が広場に集まり、城門へと押し寄せている。「我らの声を聞け！」――この難局を、王国はいかに収めるのか。その帰趨は、あの日の備えにかかっている。",
+  speaker:"フィオナ「陛下、御決断を。抜くも収めるも、今この時にございます」",
+  choices:[
+   {label:"王国を挙げて事態の収拾にあたる",hint:"あの日の備えの分だけ、痛手は軽く済む",fx:{call:()=>{
+     const prep=(S.flags&&S.flags.unrestPrep)||"none";S.flags.unrestArc=2;
+     if(prep==="relief"){apply({mood:4,st:{order:1},log:"施しを受けていた民は、そもそも刃を執るには及ばなかった。集まった人々も王の使者の説得に応じ、騒ぎは大きくならずに収まった。王の情けが、火種を未然に消していたのだ(民心↑ 治安+1)。",logCls:"big"});chron("――一揆の兆しは、日頃の施しによって未然に鎮められた。善政こそ最良の備えであると、王国は知った。","big");}
+     else if(prep==="dialogue"){const ord=(S.st&&S.st.order)||0;if(ord>=45){apply({st:{order:1},mood:2,log:"かつて膝を交えた代表たちが、逸る民をなだめて回った。王が約した改革が一つ二つと形になっていたことも幸いし、一揆は流血なく解かれた(治安+1 民心↑)。",logCls:"big"});chron("――一揆は、対話の積み重ねによって血を見ずに収められた。","big");}else{S.mood=Math.max(0,(S.mood||0)-4);apply({st:{order:-1},log:"対話は尽くしたものの、治安の緩みがつけ入る隙を与えた。小競り合いのうちに騒ぎは鎮まったが、しこりは残った(民心↓ 治安↓)。",logCls:"grave"});chron("――一揆は辛くも収められたが、治めの甘さが小さからぬ傷を残した。","grave");}}
+     else if(prep==="suppress"){S.mood=Math.max(0,(S.mood||0)-9);S.pop=Math.max(1,(S.pop||0)-ri(2,4));const act=S.units.filter(u=>u&&u.role==="active"&&u.injured<=0);if(act.length){const u=act[Math.floor(Math.random()*act.length)];inflictInjury(u,[0.7,0.3,0]);unitHistory(u,"一揆の鎮圧に駆り出され、民との衝突で手傷を負った。");}apply({st:{order:-3},log:"抑えつけられていた憤懣は、堰を切って荒れ狂った。城下で衝突が起き、鎮圧に出た兵にも怪我人が出た。谷を離れる民もあり、王は力に頼った己を悔いた(民心↓↓ 人口↓ 治安↓ 兵が負傷)。",logCls:"grave"});chron("――一揆は、大きな爪痕を残して鎮められた。力で伏せた不満は、いつか必ず牙を剥くと、王国は学んだ。","grave");}
+     else{S.mood=Math.max(0,(S.mood||0)-6);S.pop=Math.max(1,(S.pop||0)-ri(1,3));apply({st:{order:-2},log:"備えなき王国を、一揆は容赦なく揺さぶった。城下は荒れ、蔵の一部が略奪され、民の幾人かは谷を去った。王は、民情を軽んじた己を悔いた(民心↓ 人口↓ 治安↓)。",logCls:"grave"});chron("――一揆の試練は、爪痕を残して過ぎ去った。民心を軽んじる代償を、王国は身をもって学んだ。","grave");}
+     clamp();render();renderTroops();
+   }}},
+  ]},
  // ===== 連続物語(イベント連鎖):星鉄の一振り。二部に跨り、支援すれば一点物の名剣が鍛え上がる(記憶に残るアーティファクトを得る新報酬) =====
  {tag:"星 鉄",title:"星鉄の一振り",
   cond:s=>!(s.flags&&s.flags.starsteelArc)&&STAGES[s.stage].rank>=3&&(s.dungeonsCleared||0)>=3&&s.day>=45,
