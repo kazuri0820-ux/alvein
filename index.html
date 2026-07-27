@@ -11085,6 +11085,7 @@ function renderProjects(){
    if(fervorActive())chips.push(["熱狂",`残${Math.max(0,(S.fervorUntil||0)-S.day)}日`,"#e0a870"]); // 国中の熱狂:入隊殺到・鍛錬に熱の高揚窓
    if((S.renown||0)>0)chips.push(["威信",renownTier().name,"#c9a86a"]); // 王国の名声の階梯
    {const cc=S.flags&&S.flags.contCouncil;if(cc)chips.push(["大陸会議",{leader:"盟主として臨席",trade:"交易の中心地",neutral:"独立不羈"}[cc]||"臨席",cc==="leader"?"#d8b45e":"#c9a86a"]);} // 大陸会議で示した立ち位置=王国の外交の顔
+   {if(typeof CIVIC_WORKS!=="undefined"){const bld=CIVIC_WORKS.filter(w=>civicWorkState(w.key)==="building").length;const av=CIVIC_WORKS.filter(w=>civicWorkAvailable(w)&&S.gold>=w.cost).length;if(bld)chips.push(["普請",`${bld}件 普請中`,"#c9a86a"]);else if(av)chips.push(["普請","興せる勅令普請あり","#8fa9c4"]);}} // 勅令普請の進行・着手余地を概況に
    {const fl=(S.availableDungeons||[]).filter(d=>d&&d.fleeting&&!d.isFinal);if(fl.length){const soon=Math.min(...fl.map(d=>Math.max(0,(d.expireDay||S.day)-S.day)));chips.push(["好機",`時限の迷宮 残${soon}日`,"#e08a5e"]);}} // 時限の迷宮:見逃さぬよう概況にも出す
    {const food=Math.round(S.food||0),need=(S.pop||0)*0.085;if(food<Math.max(20,need*40))chips.push(["兵糧",food<Math.max(12,need*20)?"僅少・要備え":"やや心許ない","#d97a7a"]);} // 兵糧が細ると警告(飢饉に備える一手を促す)
    if((S.mood||100)<40){const inArc=(S.flags&&S.flags.unrestArc)===1;const rankOk=STAGES[S.stage].rank>=2;chips.push(["民心",inArc?"憤懣くすぶる・一揆の恐れ":((S.mood||0)<28?(rankOk?"危険・一揆の芽":"危険・要慰撫"):"低下"),"#d97a7a"]);} // 民心が下がると警告。放置は一揆の連鎖を招くため、その芽を明示して施し/対話等の一手を促す
