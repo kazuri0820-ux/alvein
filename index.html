@@ -8379,6 +8379,7 @@ function resolveDungeonRun(dungeonId){
       chron(crit
         ?`――完璧な踏破！「${dungeon.name}」を寸分の隙なく制圧し、ボス「${dungeon.bossName}」を圧倒した!${itemGained?`「${itemGained.name}」${bonusItem?`と「${bonusItem.name}」`:""}を手に入れた。`:""}${equipGained?`さらに「${equipDropName}」を入手した。`:""}`
         :`――「${dungeon.name}」を踏破し、ボス「${dungeon.bossName}」を打ち破った!${itemGained?`「${itemGained.name}」を手に入れた。`:""}${equipGained?`さらに「${equipDropName}」を入手した。`:""}`,"big");
+      maybeTriumphReturn(squad,crit); // 大勝から戻った部隊を迎える、暖かな凱旋の一幕(演出)
       if(dungeon.treasureVault){ // 財宝の間: 踏破時に追加の宝と財貨
         const tItem=rollItemDrop(dungeon.rarity.key); if(tItem)addItem(tItem.key);
         const tGold=Math.round(ri(30,60)*dungeon.rarity.mult*levelMult);
@@ -8631,6 +8632,26 @@ function dungeonJournal(){
   const pool=[...DUNGEON_JOURNAL],out=[];
   for(let i=0;i<2&&pool.length;i++)out.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
   return out;
+}
+/* 凱旋の一幕:大きな勝利から戻った部隊を迎える、暖かな帰還の情景。勝利に"帰る場所がある"手応えと余韻を添える(演出) */
+const TRIUMPH_RETURN=[
+ u=>`凱旋した${u}を、城門の民が歓声で迎えた。子らが袖を引き、武勇伝をせがんでいる。`,
+ u=>`酒場では${u}を囲んで祝杯が挙がり、夜更けまで武勇を讃える歌が絶えなかった。`,
+ u=>`${u}は真っ先に訓練場へ向かい、得物の手入れを始めた。勝って兜の緒を締める、いつもの背中だ。`,
+ u=>`広場に部隊の帰還を報せる鐘が鳴り、民は手を止めて空を仰いだ。${u}の名が、囁きとともに広がっていく。`,
+ u=>`${u}は戦塵を落とすのもそこそこに、留守を守った戦友たちと固い握手を交わした。`,
+ u=>`王の前に進み出た${u}は、誇らしげでも気負いもなく、ただ静かに一礼して戦果を報告した。`,
+ u=>`厨房が腕によりをかけた馳走で部隊をねぎらった。${u}の椀には、そっと一杯多く盛られていた。`,
+ u=>`${u}が持ち帰った戦の話は、その夜のうちに市井を駆け巡り、王国の誇りとなって語り継がれた。`,
+];
+function maybeTriumphReturn(squad,crit){
+  if(!squad||!squad.length)return;
+  if(Math.random()>=(crit?0.5:0.25))return; // 大成功でより起きやすい
+  const alive=squad.filter(u=>u&&S.units.some(x=>x.id===u.id));
+  if(!alive.length)return;
+  const u=alive[ri(0,alive.length-1)];
+  const line=TRIUMPH_RETURN[ri(0,TRIUMPH_RETURN.length-1)];
+  chron(line(fullName(u)),"");
 }
 function showDungeonResult(dungeon,tier,bossWin,memberLog,goldGained,itemGained,died,diedWasHallWorthy,dungeonFound){
   const tierLabel={critical_success:"大成功",success:"成功",fail:"失敗",critical_fail:"大失敗"}[tier];
