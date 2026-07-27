@@ -12667,7 +12667,7 @@ function resolveLongExpedition(id){
     chron(`遠征部隊が苦難の末に帰還した。${tier==="critical"?"多くの犠牲を払うこととなった。":"当初の見込みほどの成果は得られなかった。"}`,"grave");
   }
   const rIdx=longExpResultQueue.length;
-  longExpResultQueue.push({squad,tier,goldGain,itemGained,equipGained,dungeonFound,journal,died,recruit,gainedItems,gainedEquips});
+  longExpResultQueue.push({squad,tier,goldGain,itemGained,equipGained,dungeonFound,journal,died,recruit,gainedItems,gainedEquips,dest:dest.key});
   pushEvent("__longexp_result__"+rIdx);
   clamp();render();renderTroops();refreshOpenPanels();save();
 }
@@ -12675,8 +12675,9 @@ function buildLongExpeditionResultEvent(idx){
   const r=longExpResultQueue[idx];
   if(!r)return null;
   const tierLabel={great:"大成功",success:"成功",fail:"苦戦",critical:"大失敗"}[r.tier];
-  let body=`道中日誌:\n${r.journal.map(j=>"・"+j).join("\n")}\n\n結果:${tierLabel}\n獲得ゴールド:${r.goldGain}G`;
-  if(r.tier==="great"||r.tier==="success")body+=`\n遠方との交易・見聞で、経済と外交も上向いた。部隊も見違えるほど成長している。`;
+  const rd=expeditionDest(r.dest);
+  let body=`目的地:${rd.name}\n道中日誌:\n${r.journal.map(j=>"・"+j).join("\n")}\n\n結果:${tierLabel}\n獲得ゴールド:${r.goldGain}G`;
+  if(r.tier==="great"||r.tier==="success"){const emph={trade:"交易路での商いは実り多く、財貨と外交が大きく潤った。",peak:"霊峰の探索で、上質な武具と秘宝の断片を数多く持ち帰った。",frontier:"辺境の絶え間ない実戦が、部隊を一回りも二回りも逞しく鍛え上げた。",ruins:"古の遺跡を巡り、新たな地の手がかりと王国の名声を持ち帰った。"}[r.dest]||"遠方との交易・見聞で、経済と外交も上向いた。";body+=`\n${emph}`;}
   if(r.gainedItems&&r.gainedItems.length)body+=`\n持ち帰ったアイテム:${r.gainedItems.map(n=>`「${n}」`).join("、")}`;
   if(r.gainedEquips&&r.gainedEquips.length)body+=`\n持ち帰った装備:${r.gainedEquips.map(n=>`「${n}」`).join("、")}`;
   if(r.recruit)body+=`\n道中で見出した${fullName(r.recruit)}が、隊に加わった。`;
@@ -12721,7 +12722,8 @@ function renderDungeonPanel(){
       {const cur=expeditionDest(expDest);
        h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:8px"><div class="ds" style="font-size:11px;color:var(--gold);margin-bottom:5px">遠征の目的地(持ち帰る実りが偏る)</div>
          <div style="display:flex;gap:5px;flex-wrap:wrap">`+EXPEDITION_DESTINATIONS.map(d=>{const on=d.key===expDest;return `<button class="exp-dest-btn" data-k="${d.key}" style="flex:1;min-width:64px;background:${on?"rgba(201,162,75,.2)":"transparent"};border:1px solid ${on?"var(--gold)":"var(--gold2)"};color:${on?"var(--gold)":"var(--dim)"};border-radius:6px;padding:6px 4px;font-family:'Shippori Mincho',serif;font-size:11px;font-weight:${on?"800":"600"};cursor:pointer">${d.short}</button>`;}).join("")+`</div>
-         <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:5px">◆ ${cur.name}：${cur.desc}</div></div>`;
+         <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:5px">◆ ${cur.name}：${cur.desc}</div>
+         ${(()=>{const eq=(S.equipmentInventory||[]).length;const recs=[];if((S.gold||0)<120)recs.push(["交易","国庫が心許ない"]);if(eq<3)recs.push(["霊峰","武具が手薄"]);const acts=S.units.filter(u=>u.role==="active");const avg=acts.length?acts.reduce((a,u)=>a+u.lv,0)/acts.length:0;if(avg&&avg<8)recs.push(["辺境","兵の練度を上げたい"]);if(!recs.length)recs.push(["遺跡","新たな地と名声を"]);const r=recs[0];return `<div class="ds" style="font-size:10px;color:#a9c47a;margin-top:3px">王国の今:${r[1]}――「${r[0]}」向きか</div>`;})()}</div>`;
       }
       if((S.squads||[]).some(s=>s.unitIds&&s.unitIds.length===5)){
         h+=`<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">`+
