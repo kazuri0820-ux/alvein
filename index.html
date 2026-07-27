@@ -3609,6 +3609,29 @@ const RANDOM_RARE=[
      apply({st:{order:1},log:u?`長は${u.nm}の変わらぬ務めぶりを、ねぎらいの言葉とともに静かに認めた。派手さはないが、その一言が古参の胸に深く沁みた。`:"長は古参の変わらぬ務めを静かに労った。"});
    }}},
   ]},
+ {tag:"詮 議",title:"兵の不始末",
+  body:"隊の一人が、酒の席で仲間と諍いを起こし、あわや刃傷沙汰という不始末をしでかした。皆が王の裁きを見守っている。どう収めるか。",
+  speaker:"ガレオン「規律は軍の背骨。なれど、情もまた兵を繋ぎ止めます。さじ加減が肝要かと」",
+  choices:[
+   {label:"軍法通り、厳しく罰する",hint:"治安↑↑ / 本人の忠誠・士気↓",fx:{call:()=>{
+     const cands=S.units.filter(u=>u.role==="active");
+     const u=cands.length?cands[Math.floor(Math.random()*cands.length)]:null;
+     if(u){u.loyalty=Math.max(0,(u.loyalty||0)-8);u.moral=Math.max(0,(u.moral||0)-5);unitHistory(u,"不始末を厳しく罰せられた。規律の重さを、骨身に刻んだ。");}
+     apply({st:{order:3},log:u?`${u.nm}は軍法に照らして厳しく罰せられた。城下の綱紀は引き締まったが、本人はしばし俯いている(治安+3)。`:"不始末は軍法通りに裁かれ、綱紀が引き締まった(治安+3)。",logCls:"big"});
+   }}},
+   {label:"温情をかけ、此度は許す",hint:"本人の忠誠↑↑ / 治安わずかに↓",fx:{call:()=>{
+     const cands=S.units.filter(u=>u.role==="active");
+     const u=cands.length?cands[Math.floor(Math.random()*cands.length)]:null;
+     if(u){u.loyalty=Math.min(100,(u.loyalty||0)+10);u.moral=Math.min(100,(u.moral||0)+4);unitHistory(u,"不始末を大目に見てもらった恩を、深く胸に刻んだ。");}
+     apply({st:{order:-1},log:u?`長は${u.nm}の不始末を、此度限りと許した。深く恩義を感じた${u.nm}の忠義は増したが、規律は少し緩んだ(治安-1)。`:"長は不始末を大目に見た。情けは伝わったが、規律は少し緩んだ(治安-1)。"});
+   }}},
+   {label:"全軍の前で、公正に諭す",hint:"治安↑ 本人も納得(小さく忠誠↑)",fx:{call:()=>{
+     const cands=S.units.filter(u=>u.role==="active");
+     const u=cands.length?cands[Math.floor(Math.random()*cands.length)]:null;
+     if(u){u.loyalty=Math.min(100,(u.loyalty||0)+3);unitHistory(u,"皆の前で公正に諭され、己の非を素直に認めた。");}
+     apply({st:{order:1},log:u?`長は${u.nm}を全軍の前で公正に諭した。本人は非を認めて頭を垂れ、周りの兵もその裁きに得心している(治安+1)。`:"長は不始末を公正に諭し、皆が得心した(治安+1)。"});
+   }}},
+  ]},
  {tag:"急 報",title:"宝物庫の怪盗",
   body:"夜陰に紛れ、宝物庫に怪盗が押し入ったとの急報。既に一部の財が持ち去られたという。追うか、備えるか――王の下知が待たれている。",
   speaker:"ガレオン「深追いは危ううございますが、みすみす逃すのも業腹。いかがなさいます」",
