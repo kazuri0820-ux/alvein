@@ -9362,7 +9362,7 @@ function resolveDungeonRun(dungeonId){
       battleMentorSpotlight(squad,`ボス「${dungeon.bossName}」`); // 師弟が実戦で技を継ぐ一幕
       battleFavoriteSpotlight(squad,`ボス「${dungeon.bossName}」`); // 推しの奮戦の一幕
       if(dungeon.isFinal){
-        for(const u of squad)grantTitle(u,"t_demonslayer");
+        for(const u of squad){grantTitle(u,"t_demonslayer");recordSigFeat(u,"魔王を討ち果たし、王国に真の平和をもたらした",6);} // 魔王討伐は、参陣した全員の生涯最大の語り草
         S.flags.demonLordDefeated=true;
         apply({mood:20,st:{military:15,order:10},gold:500});
         chron("――魔王は、ついに討たれた。長きにわたる脅威は去り、アルヴェインに真の平和が訪れた。","big");
@@ -10764,6 +10764,7 @@ function holdTournament(){
   champ.tourneyWins=(champ.tourneyWins||0)+1;
   grantTitle(champ,"t_tourneychamp");
   unitHistory(champ,`御前試合を制し、満場の喝采のなか王国一の武人と讃えられた。`);
+  recordSigFeat(champ,"御前試合を制し、王国一の武人として満場の喝采を浴びた",3); // 御前試合の栄冠も、その兵の語り草に
   // 好敵手の火種:接戦を演じた組のうち、まだ好敵手のいない二人に新たな縁が生まれることがある
   let newRival=null;
   const freshBouts=closeBouts.filter(([a,b])=>!a.rivalWith&&!b.rivalWith);
@@ -11816,7 +11817,7 @@ function renderTroops(){
     const cc=CLASS_COLOR[u.cls];
     const j=jobFor(u.cls,u.lv,u.route);
     const cond=conditionInfo(u);
-    const statusIcons=(u.favorite?`<span class="uicon" title="お気に入り" style="color:var(--gold)">★</span>`:"")+(u.injured>0?`<span class="uicon" title="療養中">${ICON_INJURED}</span>`:"")+(()=>{const dt=unitDutyType(u);if(dt){const dn={guard:"警備駐屯中",trade:"交易護衛中",scout:"巡回偵察中"}[dt]||"駐屯中";return `<span class="uicon" title="${dn}(小隊の駐屯任務)" style="color:#8fb0d0">駐</span>`;}return u.dungeonBusy?`<span class="uicon" title="ダンジョン探索中" style="color:#c98fe8">⛏</span>`:"";})()+(u.bondWith?`<span class="uicon" title="戦友あり">${ICON_BOND}</span>`:"")+(u.rivalWith?`<span class="uicon" title="好敵手あり(同陣で連携↑・互いに成長)" style="color:#d9a05e">⚔</span>`:"")+(u.masterId?`<span class="uicon" title="師のもとで修行中(日々成長)" style="color:#8fb0d0">弟</span>`:"")+(u.pupilId?`<span class="uicon" title="弟子を育成中" style="color:#8fb0d0">師</span>`:"")+(u.admires?(()=>{const h=S.units.find(x=>x.id===u.admires);return h?`<span class="uicon" title="${h.nm}に憧れ、その背中を追って伸びている" style="color:#c9a0d0">憧</span>`:"";})():"")+((u.loyalty||100)<25&&!u.injured?`<span class="uicon" title="忠誠が低く、戦力が15%落ちている(慰労・結束の宴・忠魂の霊地で立て直せる)" style="color:#d97a7a">⚑</span>`:"")+(u.dreamDone?`<span class="uicon" title="かねての夢を叶えた兵" style="color:var(--gold)">✦</span>`:"")+((u.typeMastery&&Object.keys(u.typeMastery).length)?`<span class="uicon" title="攻略型を極めた熟達の兵(${Object.keys(u.typeMastery).map(k=>dungeonTypeLabel(k)).join("・")})" style="color:#c9a86a">極</span>`:"")+((u.hardships||0)>=HARDENED_THRESHOLD?`<span class="uicon" title="幾多の敗北を乗り越えた叩き上げの古兵(忠義・士気が篤い)" style="color:#b89a6a">叩</span>`:"")+(u.vigor?`<span class="uicon" title="英気充溢:十分に休み、次の出撃で戦力が高まる" style="color:#8fbf6f">気</span>`:"");
+    const statusIcons=(u.favorite?`<span class="uicon" title="お気に入り" style="color:var(--gold)">★</span>`:"")+(u.injured>0?`<span class="uicon" title="療養中">${ICON_INJURED}</span>`:"")+(()=>{const dt=unitDutyType(u);if(dt){const dn={guard:"警備駐屯中",trade:"交易護衛中",scout:"巡回偵察中"}[dt]||"駐屯中";return `<span class="uicon" title="${dn}(小隊の駐屯任務)" style="color:#8fb0d0">駐</span>`;}return u.dungeonBusy?`<span class="uicon" title="ダンジョン探索中" style="color:#c98fe8">⛏</span>`:"";})()+(u.bondWith?`<span class="uicon" title="戦友あり">${ICON_BOND}</span>`:"")+(u.rivalWith?`<span class="uicon" title="好敵手あり(同陣で連携↑・互いに成長)" style="color:#d9a05e">⚔</span>`:"")+(u.masterId?`<span class="uicon" title="師のもとで修行中(日々成長)" style="color:#8fb0d0">弟</span>`:"")+(u.pupilId?`<span class="uicon" title="弟子を育成中" style="color:#8fb0d0">師</span>`:"")+(u.admires?(()=>{const h=S.units.find(x=>x.id===u.admires);return h?`<span class="uicon" title="${h.nm}に憧れ、その背中を追って伸びている" style="color:#c9a0d0">憧</span>`:"";})():"")+((u.loyalty||100)<25&&!u.injured?`<span class="uicon" title="忠誠が低く、戦力が15%落ちている(慰労・結束の宴・忠魂の霊地で立て直せる)" style="color:#d97a7a">⚑</span>`:"")+(u.dreamDone?`<span class="uicon" title="かねての夢を叶えた兵" style="color:var(--gold)">✦</span>`:"")+((u.typeMastery&&Object.keys(u.typeMastery).length)?`<span class="uicon" title="攻略型を極めた熟達の兵(${Object.keys(u.typeMastery).map(k=>dungeonTypeLabel(k)).join("・")})" style="color:#c9a86a">極</span>`:"")+((u.hardships||0)>=HARDENED_THRESHOLD?`<span class="uicon" title="幾多の敗北を乗り越えた叩き上げの古兵(忠義・士気が篤い)" style="color:#b89a6a">叩</span>`:"")+(u.vigor?`<span class="uicon" title="英気充溢:十分に休み、次の出撃で戦力が高まる" style="color:#8fbf6f">気</span>`:"")+(u.sigFeat?`<span class="uicon" title="語り草の武勲を持つ兵:${u.sigFeat.text}" style="color:#e0be6f">誉</span>`:"");
     const reserveTag=(S.flags.knightOrder&&!isInRoster(u))?`<span class="reservetag">控え</span>`:"";
     const nick=nicknameSpan(u);
     const statmax=500;
