@@ -5052,8 +5052,23 @@ function councilArmory(){
    speaker:"ガレオン「良き武具は、兵の命を一つ多く救いましょう」",
    choices:opts};
 }
+/* 慰労会議:連戦の兵をいかにねぎらうかを問う。休暇・宴・看護のいずれを選ぶかで、兵の疲労・士気・
+   療養が動く。国政の決断を"兵の消耗管理(運用の持続)"へ結びつけ、週次の方針に労わりの色を添える。 */
+function councilWelfare(){
+  const active=S.units.filter(u=>u.role==="active"||!u.role);
+  if(!active.length)return councilDomestic(); // 兵がいなければ通常の内政議題へ差し替え
+  return{tag:"慰労会議",title:"第"+Math.floor(S.day/7)+"回 定例閣議(慰労)",
+   body:"今週は兵の労いについて。連戦に疲れの見える兵たちを、いかにねぎらうか、ガレオンが方針を仰いでいる。",
+   speaker:"ガレオン「兵は消耗品にあらず。労わりもまた、立派な軍略にございます」",
+   choices:[
+    {label:"全軍に休暇を与える",hint:"全兵の疲労が抜け士気↑",fx:{call:()=>{for(const u of S.units){u.fatigue=Math.max(0,(u.fatigue||0)-22);u.moral=Math.min(100,(u.moral||0)+3);}chron("全軍に休暇が与えられた。兵たちは英気を養い、晴れやかな顔で務めに戻ってきた。","");}}},
+    {label:"慰労の宴を催す(40G)",hint:"全兵の士気↑↑ 民心↑",fx:{gold:-40,mood:2,call:()=>{for(const u of S.units)u.moral=Math.min(100,(u.moral||0)+6);chron("慰労の宴が盛大に催され、兵たちは大いに沸いた。明日への活力が満ちている。","");}}},
+    {label:"負傷兵を手厚く看護する(30G)",hint:"療養中の兵の回復を早める",fx:{call:()=>{if(S.gold<30){chron("蓄えが乏しく、十分な看護は叶わなかった。","");return;}S.gold-=30;const inj=S.units.filter(u=>u.injured>0);for(const u of inj){u.injured=Math.max(0,u.injured-2);if(u.injured<=0)u.injurySeverity=null;}chron(inj.length?`手厚い看護により、療養中の兵${inj.length}名の傷の癒えが早まった。`:"療養中の兵はおらず、いざという時の薬が蓄えられた。","");}}},
+    {label:"今週は特に催さない",hint:"様子見",fx:{log:"兵の労いについては、今週は特段の手を打たなかった。"}},
+   ]};
+}
 function councilAction(){
-  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill,councilFrontier,councilAcademy,councilArmory];
+  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill,councilFrontier,councilAcademy,councilArmory,councilWelfare];
   return types[Math.floor(Math.random()*types.length)]();
 }
 function councilEvent(){return councilPolicy();}
