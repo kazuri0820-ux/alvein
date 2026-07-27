@@ -5111,6 +5111,28 @@ function checkSoldierVignette(){
   u.moral=Math.min(100,(u.moral||0)+1); // 良い一日だった
   chron(SOLDIER_VIGNETTES[Math.floor(Math.random()*SOLDIER_VIGNETTES.length)](u),"");
 }
+/* 戦友の日常:絆で結ばれた二人の、何気ない一場面を稀に拾い上げる。関係が"設定"に留まらず
+   生きた物語として立ち上がることで、共に戦う仲間への愛着を静かに深める(絆の彩り)。 */
+const BOND_VIGNETTES=[
+ (a,b)=>`${a.nm}と${b.nm}が、背中合わせに座って黙々と得物の手入れをしていた。言葉は要らぬ、という間柄だ。`,
+ (a,b)=>`${a.nm}が受けた古傷の手当てを、${b.nm}が慣れた手つきでしてやっていた。`,
+ (a,b)=>`酒場で${a.nm}と${b.nm}が、どちらが多く討ち取ったかで愉快に言い争っていた。`,
+ (a,b)=>`夜営の焚き火を挟み、${a.nm}と${b.nm}が故郷の話を明け方まで語り合っていた。`,
+ (a,b)=>`${b.nm}が寝過ごしかけたところを、${a.nm}が水をかけて叩き起こしていた。二人はしばらく笑い転げていた。`,
+ (a,b)=>`訓練場で、${a.nm}と${b.nm}が互いの太刀筋を無言で確かめ合っていた。呼吸はぴたりと揃っている。`,
+ (a,b)=>`${a.nm}が己の褒賞の菓子を、こっそり${b.nm}の分も取り分けていた。`,
+ (a,b)=>`出撃前、${a.nm}と${b.nm}が拳を軽く打ち合わせた。それが二人の、いつもの験担ぎだった。`,
+];
+function checkBondVignette(){
+  if(Math.random()>=0.028)return; // ごく稀に
+  const cands=S.units.filter(u=>u.role==="active"&&u.injured<=0&&u.bondWith&&S.units.some(o=>o.id===u.bondWith&&o.role==="active"&&o.injured<=0));
+  if(!cands.length)return;
+  const a=cands[Math.floor(Math.random()*cands.length)];
+  const b=S.units.find(o=>o.id===a.bondWith);
+  if(!b)return;
+  a.moral=Math.min(100,(a.moral||0)+1); b.moral=Math.min(100,(b.moral||0)+1); a.loyalty=Math.min(100,(a.loyalty||0)+1); b.loyalty=Math.min(100,(b.loyalty||0)+1);
+  chron(BOND_VIGNETTES[Math.floor(Math.random()*BOND_VIGNETTES.length)](a,b),"");
+}
 /* 四季と収穫期の巡り:一年(25日)を春夏秋冬に分け、食糧生産に季節の波を与える。
    実りの秋(豊穣期)に蓄え、端境の冬に食いつなぐ——備蓄と農業への投資に意味の綾を添える。
    一年平均はほぼ等倍に保ち、既存の収支バランスは崩さない。 */
@@ -5235,6 +5257,7 @@ function dailyEconomySettle(){
   checkDoctrineUnlock(); // 中盤の節目に国是を定める
   checkFavoriteMoment(); // 推しの日常の一幕
   checkSoldierVignette(); // 名のある兵の何気ない日常
+  checkBondVignette(); // 戦友同士の何気ない一幕
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
     const loyaltyDrift=S.mood>=70?(S.mood-70)*0.006:-(30-S.mood)*0.01;
