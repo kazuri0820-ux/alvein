@@ -5134,8 +5134,22 @@ function councilWelfare(){
     {label:"今週は特に催さない",hint:"様子見",fx:{log:"兵の労いについては、今週は特段の手を打たなかった。"}},
    ]};
 }
+/* 殖産会議:国内の生業をいかに興すかを問う。灌漑・市場整備・鉱山開発のいずれに投じるかで、農業・
+   経済が伸びる。交易(外との商い)とは別に"自国の生産基盤を育てる"内政の議題を加える(国政の彩り)。 */
+function councilDevelopment(){
+  const opts=[
+   {label:"灌漑を敷き新田を拓く(40G)",hint:"農業↑↑",fx:{gold:-40,st:{agriculture:4},log:"灌漑が敷かれ、荒地に新たな田畑が拓かれた。実りの季節が待ち遠しい。"}},
+   {label:"市場と街道を整える(40G)",hint:"経済↑↑",fx:{gold:-40,st:{economy:4},log:"市場と街道が整えられ、国内の物と人の流れが目に見えて活発になった。"}},
+   {label:"鉱山の開発を進める(50G)",hint:"経済↑ 軍事↑",fx:{gold:-50,st:{economy:2,military:1},log:"鉱山の開発が進み、鉄と財の双方が王国を潤しはじめた。"}},
+   {label:"今週は特に投じない",hint:"様子見",fx:{log:"殖産については、今週は特段の手を打たなかった。"}},
+  ];
+  return{tag:"殖産会議",title:"第"+Math.floor(S.day/7)+"回 定例閣議(殖産)",
+   body:"今週の議題は殖産。国内の生業をいかに興すか、セラが方針を仰いでいる。田を拓くか、商いを整えるか、地を掘るか。",
+   speaker:"セラ「国の力は、まず足元の生業から。地道な投資が、やがて大きく実りましょう」",
+   choices:opts};
+}
 function councilAction(){
-  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill,councilFrontier,councilAcademy,councilArmory,councilWelfare];
+  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill,councilFrontier,councilAcademy,councilArmory,councilWelfare,councilDevelopment];
   return types[Math.floor(Math.random()*types.length)]();
 }
 function councilEvent(){return councilPolicy();}
