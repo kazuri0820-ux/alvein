@@ -6388,6 +6388,7 @@ const EVENT_ID_PREFIX=[
   ["__dungeon_resolve_",id=>{resolveDungeonRun(id.slice(18));return null;}],
   ["__expedition_long_resolve__",id=>{resolveLongExpedition(id.slice("__expedition_long_resolve__".length));return null;}],
   ["__duty_resolve_",id=>{resolveDuty(id.slice("__duty_resolve_".length));return null;}],
+  ["__caravan_resolve__",id=>{resolveCaravan();return null;}],
   ["__faith_reveal__",id=>buildFaithRevealEvent(id.slice("__faith_reveal__".length))],
   ["__longexp_result__",id=>buildLongExpeditionResultEvent(+id.slice("__longexp_result__".length))],
   ["statmilestone_",id=>buildStatSMilestoneEvent(id.slice(14))],
@@ -9461,6 +9462,42 @@ function checkNeighborIncident(){
     const g=ri(40,90);apply({gold:g,st:{economy:1},log:`${neighborName(best.key)}との交易が実を結び、思わぬ利益がもたらされた(国庫+${g})。良好な関係の賜物だ。`});
   }
 }
+/* ===== 隊商(交易遠征):国庫を元手に隣国へ隊商を送り、数日後に利をもって帰す。
+   利は相手国との関係(と同盟)が厚いほど大きく、無事に帰れば関係もさらに深まる=外交と経済が噛み合う好循環。
+   だが道中には野盗の危険(軍事が高いほど・関係が良いほど減る)。国庫と時間を投じる新しいレバー ===== */
+const CARAVAN_DAYS=6;   // 隊商が帰るまでの日数
+const CARAVAN_COST=60;  // 隊商に持たせる元手
+function caravanActive(){return S.caravan||null;}
+function sendCaravan(neighborKey){
+  ensureNeighbors();
+  if(S.caravan){chron("いま送り出した隊商が、まだ帰っていない。","");return;}
+  const nb=S.neighbors.find(n=>n.key===neighborKey); if(!nb)return;
+  if(S.gold<CARAVAN_COST){chron("隊商に持たせる元手が足りない。","");return;}
+  S.gold-=CARAVAN_COST;
+  S.caravan={key:neighborKey,invest:CARAVAN_COST,resolveDay:S.day+CARAVAN_DAYS};
+  (S.scheduled[S.caravan.resolveDay]=S.scheduled[S.caravan.resolveDay]||[]).push("__caravan_resolve__");
+  chron(`${neighborName(neighborKey)}へ向け、隊商が${CARAVAN_COST}Gの荷を積んで旅立った。${CARAVAN_DAYS}日後、利をもって帰るだろう。`,"");
+  render();renderProjects();save();
+}
+function resolveCaravan(){
+  const c=S.caravan; if(!c){return;}
+  S.caravan=null;
+  ensureNeighbors();
+  const nb=S.neighbors.find(n=>n.key===c.key); const rel=nb?nb.relation:50;
+  const relFactor=0.7+rel/100*0.8;              // 関係が厚いほど利が伸びる(0.7〜1.5)
+  const allyMult=(nb&&nb.allied)?1.3:1;         // 同盟国とはさらに実入りがよい
+  const banditRisk=Math.max(0.05,0.26-(S.st.military||0)*0.0024-rel*0.0011); // 軍事と良好な関係が危険を減らす
+  if(Math.random()<banditRisk){
+    const ret=Math.round(c.invest*rnd(0.15,0.55)); S.gold+=ret;
+    apply({mood:-2,log:`${neighborName(c.key)}へ向かった隊商が道中で野盗に襲われ、荷の多くを失った(元手${c.invest}G→${ret}Gのみ帰還)。備えなき道は、かくも険しい。`,logCls:"grave"});
+    if(nb)nb.relation=Math.max(0,nb.relation-1);
+  }else{
+    const ret=Math.round(c.invest*(1.3+rnd(0,0.35))*relFactor*allyMult); S.gold+=ret;
+    if(nb)nb.relation=Math.min(100,nb.relation+ri(2,5));
+    apply({st:{economy:1},log:`${neighborName(c.key)}へ送った隊商が無事に帰った。交易は実を結び、元手${c.invest}Gが${ret}Gとなって国庫に納まった${nb&&nb.allied?"(同盟の誼で上乗せ)":""}。${neighborName(c.key)}との関係もいっそう深まった(経済+1 関係↑)。`,logCls:"big"});
+  }
+  clamp();render();renderProjects();save();
+}
 /* ===== 王国の祝祭:資源を投じて国を挙げた祭を催し、しばらくの間つづく恵み(民心の高揚と、選んだ祭に応じた恩恵)を得る。
    内政の蓄えを"ここぞ"で燃やして次の攻略や暮らしを後押しする、緩急のある新しいレバー。何の祭を、いつ催すかが選択になる ===== */
 const FESTIVAL_DURATION=8;   // 祭の恵みが続く日数
@@ -9572,7 +9609,22 @@ function renderProjects(){
       ${nb.allied?"":`<button class="nb-ally-btn" data-i="${ni}" ${canAlly?"":"disabled"} style="margin-top:6px;width:100%;background:${canAlly?"rgba(201,162,75,.14)":"transparent"};border:1px solid ${canAlly?"var(--gold)":"rgba(255,255,255,.12)"};color:${canAlly?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canAlly?"pointer":"default"}">${canAlly?`同盟を結ぶ（${neighborAllyDesc(nb.key)}）`:`同盟には関係${NEIGHBOR_ALLY_NEED}以上が要る`}</button>`}
     </div>`;
   }
+  // ── 隊商(交易遠征) ──
+  h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 6px;letter-spacing:.15em">── 隊商 ──</div>`;
+  const cara=caravanActive();
+  if(cara){
+    const left=cara.resolveDay-S.day;
+    h+=`<div class="pcard" style="border-color:var(--gold2)"><div class="nm" style="color:var(--gold)">隊商 出立中</div><div class="ds" style="margin:2px 0 4px">${neighborName(cara.key)}へ、元手${cara.invest}Gの荷を積んだ隊商が旅している。</div><div class="ds" style="color:var(--gold);font-size:11px">帰還まで、あと${left}日。</div></div>`;
+  }else{
+    h+=`<div class="pcard"><div class="ds" style="margin-bottom:7px">国庫${CARAVAN_COST}Gを元手に、隣国へ隊商を送れる(${CARAVAN_DAYS}日で帰還)。関係が厚い相手・同盟国ほど実入りが大きく、無事に帰れば関係もさらに深まる。ただし道中には野盗の危険(軍事が高いほど・関係が良いほど減る)。</div>`;
+    for(const nb of S.neighbors){
+      const rel=Math.round(nb.relation);const canSend=S.gold>=CARAVAN_COST;
+      h+=`<button class="caravan-btn" data-k="${nb.key}" ${canSend?"":"disabled"} style="display:block;width:100%;text-align:left;background:transparent;border:1px solid ${canSend?"var(--gold2)":"rgba(255,255,255,.12)"};color:${canSend?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px 10px;margin-bottom:6px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canSend?"pointer":"default"}">${neighborName(nb.key)}へ隊商を送る（${CARAVAN_COST}G）<span style="color:var(--dim);font-size:10.5px">　関係${rel}${nb.allied?"・同盟":""}</span></button>`;
+    }
+    h+=`</div>`;
+  }
   $("#prjList").innerHTML=h;
+  $("#prjList").querySelectorAll(".caravan-btn").forEach(b=>b.onclick=()=>{sendCaravan(b.dataset.k);});
   $("#prjList").querySelectorAll(".nb-gift-btn").forEach(b=>b.onclick=()=>{giftNeighbor(+b.dataset.i);});
   $("#prjList").querySelectorAll(".nb-ally-btn").forEach(b=>b.onclick=()=>{allyNeighbor(+b.dataset.i);});
   $("#prjList").querySelectorAll(".festival-btn").forEach(b=>b.onclick=()=>{holdFestival(b.dataset.k);});
