@@ -10352,6 +10352,7 @@ function holdTournament(){
   const seeded=[...pool].sort((a,b)=>unitPower(b)-unitPower(a));
   let n=8; while(n>seeded.length)n=n/2; // 4 or 8
   const entrants=seeded.slice(0,n);
+  const favorite=entrants[0]; // 下馬評の筆頭(最強戦力)。覇者がこれと異なれば"番狂わせ"
   for(const u of entrants){u.exp+=ri(4,8);processLevelUps(u);} // 出場そのものが良い稽古(全員に経験)
   // 勝ち抜き戦:各試合は戦力に応じた重み付き抽選。接戦の組は好敵手の火種として記録
   let bracket=[...entrants].sort(()=>Math.random()-0.5);
@@ -10388,7 +10389,9 @@ function holdTournament(){
     unitHistory(a,`御前試合の名勝負を通じ、${b.nm}を好敵手と認めた。`);
     unitHistory(b,`御前試合の名勝負を通じ、${a.nm}を好敵手と認めた。`);
   }
+  const upset=favorite&&champ.id!==favorite.id; // 下馬評を覆した番狂わせか
   apply({mood:5,st:{military:1},log:`⚔ 王の御前で武を競う御前試合が催された。精鋭${entrants.length}名が勝ち抜き戦で覇を競い、決勝を制したのは${fullName(champ)}。満場の喝采を浴び、「御前試合の覇者」の誉れと大きな成長を手にした(民心↑ 軍事+1)。`,logCls:"big"});
+  if(upset){champ.moral=Math.min(100,(champ.moral||0)+3);chron(`――番狂わせだ。下馬評では${favorite.nm}が本命と目されていたが、${champ.nm}がその評を覆して頂点に立った。この一番は、長く語り草となろう。`,"big");}
   if(newRival)chron(`――この御前試合の名勝負が縁となり、${newRival[0].nm}と${newRival[1].nm}は互いを好敵手と認め合った。二人はこれから、相手の背を追って腕を磨き合うだろう。`,"big");
   clamp();render();renderProjects();renderTroops();save();
 }
@@ -11453,6 +11456,7 @@ function renderUnitDetail(uid){
         ${(()=>{if(isInstructor||!u.focusStat)return"";const c=(USTAT_DEF[u.focusStat]||{}).color||"var(--gold)";return `<span class="udet-chip" style="color:${c};border-color:${c}" title="研鑽の方針。以後の成長がこの能力へ傾く">研鑽:${(USTAT_DEF[u.focusStat]||{lbl:u.focusStat}).lbl}</span>`;})()}
         ${(u.scars||0)>0?`<span class="udet-chip" style="color:#c98f7a;border-color:#c98f7a" title="幾多の負傷を乗り越えて刻まれた歴戦の傷痕。傷を負いにくくなっている(傷痕${u.scars}=負傷率${Math.round((1-scarInjuryMult(u))*100)}%減)">歴戦の傷痕 ${"✚".repeat(Math.min(5,u.scars))}</span>`:""}
         ${avengeActive(u)?`<span class="udet-chip" style="color:#d98a6a;border-color:#d98a6a" title="喪った${u.avengeName||"戦友"}の弔いを胸に奮い立っている。この間、戦力が高まる(あと${Math.max(0,(u.avengeUntil||0)-S.day)}日)">弔い合戦 ⚔ あと${Math.max(0,(u.avengeUntil||0)-S.day)}日</span>`:""}
+        ${(u.tourneyWins||0)>0?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)" title="御前試合で頂点に立った回数">御前試合 優勝${u.tourneyWins}回</span>`:""}
         ${(()=>{const off=typeof MINISTER_OFFICES!=="undefined"?MINISTER_OFFICES.find(o=>ministerOf(o.key)&&ministerOf(o.key).id===u.id):null;return off?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)" title="国政の要職に就いている">${off.name}</span>`:"";})()}
         ${u.devoted?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)">献身の誓い</span>`:""}
         ${u.rejuvenated?`<span class="udet-chip" style="color:#7fc9d0;border-color:#7fc9d0" title="若返りの霊泉に浴し、年輪を巻き戻した">若返り</span>`:""}
