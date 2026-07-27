@@ -10159,6 +10159,10 @@ function renderStatsDetail(){
     if(k==="diplomacy"&&S.neighbors&&S.neighbors.length){ // 外交の実態=近隣諸国との関係を国力画面からも一望できるように(磨き込み)
       extra=`<div style="font-size:11px;color:var(--dim);margin-top:3px">近隣諸国:`+S.neighbors.map(nb=>{const r=Math.round(nb.relation);const c=r>=70?"#8fbf6f":r<=25?"#d97a7a":"#c9a86a";return `${neighborName(nb.key)} <span style="color:${c};font-weight:700">${r}</span>`;}).join(" ／ ")+`（国政画面で誼を深められる）</div>`;
     }
+    { // 重臣の執政:この国力を育てている要職の就任者を国力画面からも一望できるように(磨き込み)
+      const off=typeof MINISTER_OFFICES!=="undefined"?MINISTER_OFFICES.find(o=>o.boost===k):null;
+      if(off){const m=ministerOf(off.key);extra+=`<div style="font-size:11px;color:${m?"var(--gold)":"var(--dim)"};margin-top:3px">${off.name}:${m?`${fullName(m)}が育成中(1日+${ministerContribution(off,m).toFixed(2)}前後)`:"空席(国政画面で任じられる)"}</div>`;}
+    }
     h+=`<div class="srow"><div class="sh"><div class="nm">${label}</div><div class="vl">${v} / 100 (${grade(v)})</div></div><div class="ef">${STAT_DESC[k]}${extra}</div><div class="bar"><i style="width:${v}%"></i></div></div>`;
   }
   h+=`<div class="srow"><div class="sh"><div class="nm">国庫</div><div class="vl">${Math.round(S.gold)}</div></div><div class="ef">毎日 経済に応じた税収が入り、軍事維持費などが出ていく。マイナスが続くと民心が下がる。<span style="color:var(--dim)">／ 現在の税制:<b style="color:${taxLevel()==="heavy"?"#d99a6a":taxLevel()==="light"?"#8fbf6f":"#c9a86a"}">${taxInfo().label}</b>(徴税収入${Math.round(taxInfo().incomeMult*100)}%・国政画面で変更)</span></div></div>`;
@@ -10792,6 +10796,8 @@ function renderUnitDetail(uid){
         ${(()=>{if(u.masterId){const m=(S.units||[]).find(x=>x.id===u.masterId);return m?`<span class="udet-chip" style="color:#8fb0d0;border-color:#8fb0d0" title="師の薫陶を受けて日々成長中。師のレベルに近づけば独り立ちする">師:${m.nm}</span>`:"";}if(u.pupilId){const pu=(S.units||[]).find(x=>x.id===u.pupilId);return pu?`<span class="udet-chip" style="color:#8fb0d0;border-color:#8fb0d0" title="弟子を育てている。一人前に育て上げれば師の誇りとなる">弟子:${pu.nm}</span>`:"";}return"";})()}
         ${!isInstructor&&u.route&&routeInfo(u.cls,u.route)&&routeInfo(u.cls,u.route).aff?`<span class="udet-chip" style="border-color:var(--gold2)" title="この路が得意とする攻略型。噛み合う迷宮で攻略適性が上がる">得意迷宮:${dungeonTypeLabel(routeInfo(u.cls,u.route).aff)}</span>`:""}
         ${(()=>{if(!u.typeMastery)return"";const ks=Object.keys(u.typeMastery);if(!ks.length)return"";return `<span class="udet-chip" style="color:#c9a86a;border-color:#c9a86a" title="踏破を重ねて経験で極めた得意型。攻略適性+10%(路の得意と重ねられる)">熟達:${ks.map(k=>dungeonTypeLabel(k)).join("・")}</span>`;})()}
+        ${(()=>{if(isInstructor||!u.focusStat)return"";const c=(USTAT_DEF[u.focusStat]||{}).color||"var(--gold)";return `<span class="udet-chip" style="color:${c};border-color:${c}" title="研鑽の方針。以後の成長がこの能力へ傾く">研鑽:${(USTAT_DEF[u.focusStat]||{lbl:u.focusStat}).lbl}</span>`;})()}
+        ${(()=>{const off=typeof MINISTER_OFFICES!=="undefined"?MINISTER_OFFICES.find(o=>ministerOf(o.key)&&ministerOf(o.key).id===u.id):null;return off?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)" title="国政の要職に就いている">${off.name}</span>`:"";})()}
         ${u.devoted?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)">献身の誓い</span>`:""}
         ${u.rejuvenated?`<span class="udet-chip" style="color:#7fc9d0;border-color:#7fc9d0" title="若返りの霊泉に浴し、年輪を巻き戻した">若返り</span>`:""}
         ${u.ascended?`<span class="udet-chip" style="color:#b09fd0;border-color:#b09fd0" title="眠れる血脈を昇華させ、特性の位階を高めた">血脈昇華</span>`:""}
