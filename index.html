@@ -11802,6 +11802,8 @@ function renderProjects(){
    const fa=typeof festivalActive==="function"?festivalActive():null; if(fa){const ft=festivalType(fa.key);chips.push(["祝祭",`${ft.name}(残${fa.until-S.day}日)`,"#e0a870"]);}
    if(S.caravan)chips.push(["隊商",`${neighborName(S.caravan.key)}へ(残${Math.max(0,S.caravan.resolveDay-S.day)}日)`,"#c9a86a"]);
    if(S.envoy)chips.push(["使者",`${neighborName(S.envoy.key)}へ(残${Math.max(0,S.envoy.resolveDay-S.day)}日)`,"#c9a86a"]); // 親善の使者の出立中
+   if(S.flags&&S.flags.traitorArc===1)chips.push(["内偵",`宮中の影を探索中(残${Math.max(0,(S.flags.traitorDay||S.day)-S.day)}日)`,"#b58fa0"]); // 内通者の疑い:内偵の帰結が近いことを概況に
+
 
    if((S.vault||0)>0)chips.push(["金庫",`${S.vault}${(S.vault||0)>=vaultCap()?"(満)":""}`,(S.vault||0)>=vaultCap()?"#d99a6a":"#8fbf6f"]);
    if(S.loan)chips.push(["借款",`残債${S.loan.owed}(期日まで${Math.max(0,S.loan.dueDay-S.day)}日)`,(S.loan.dueDay-S.day)<=7?"#d97a7a":"#d0a85a"]); // 富商への借り:返済期日を見失わぬよう概況に
