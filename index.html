@@ -2230,6 +2230,7 @@ const TITLE_DB=[
  {key:"t_fullset",name:"揃いの武具の使い手",desc:"格の揃った武具一式を、隙なく身につけている",effect:"injuryMult",value:0.92},
  {key:"t_grandset",name:"至宝の一式",desc:"エピック級以上の武具を隙なく揃えた、装備の極みに至った者",effect:"injuryMult",value:0.86},
  {key:"t_legendset",name:"伝説装備の担い手",desc:"武器も防具も装飾も、すべてを伝説級で揃えきった、装備収集の極北に至る者",effect:"injuryMult",value:0.82},
+ {key:"t_legendarm",name:"伝説の得物を執る者",desc:"伝説級の武器を手にし、その一振りで戦場を切り拓く者",effect:"expMult",value:1.05},
  {key:"t_prideofrealm",name:"王国の誇り",desc:"士気も忠誠も、常に高く保ち続けている",effect:"loyaltyGrow",value:0.15},
  {key:"t_duelvictor",name:"決闘の覇者",desc:"諸国の武芸者との果たし合いを、真っ向から制した",effect:"expMult",value:1.05},
  {key:"t_warchiefslayer",name:"覇者殺し",desc:"圧倒的な強者「覇者」を討ち取った",effect:"injuryMult",value:0.9},
@@ -2736,6 +2737,7 @@ function checkDailyTitles(u){
   if(u.lv>=60)grantTitle(u,"t_transcend"); // 神域:極限まで育て上げた兵への、最高の到達点
   if((u.criticalSurvivalCount||0)>=3)grantTitle(u,"t_deathdefier"); // 九死に一生:死線を何度も越えた強運を讃える
   if(typeof equipSetTier==="function"){const _st=equipSetTier(u);if(_st)grantTitle(u,"t_fullset");if(_st==="epic"||_st==="legendary")grantTitle(u,"t_grandset");if(_st==="legendary")grantTitle(u,"t_legendset");} // 至宝の一式/伝説装備:エピック以上・伝説一式の揃いは装備収集の頂として別格に讃える
+  if(u.equipment&&u.equipment.weapon){const _wd=EQUIPMENT_DB.find(d=>d.key===u.equipment.weapon.key);if(_wd&&_wd.rarity==="legendary")grantTitle(u,"t_legendarm");} // 伝説級の武器を執る者を讃える(全ビルドで狙える伝説武器の到達点)
   if((u.skills||[]).length>=5)grantTitle(u,"t_skillful"); // 多芸:集めた技の数を讃える
   if((u.skills||[]).length>=9)grantTitle(u,"t_polymath");
   if(u.loyalty>=90&&u.moral>=90)grantTitle(u,"t_prideofrealm");
