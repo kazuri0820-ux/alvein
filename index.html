@@ -6286,6 +6286,14 @@ const ITEMS=[
    if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}
    chron(`試練の軍旗を高く掲げると、精鋭の巣${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」への道が示された。部隊を鍛え上げる好機だ。`,"big");
  }},
+ {key:"dragon_lure",name:"竜を誘う香",rarity:"epic",desc:"古の香を焚き、伝説の古龍を狙って呼び寄せる。桁外れの強敵だが、討ち果たせば「竜殺し」の誉れが待つ。",effect:()=>{
+   const nd=generateDungeon();
+   nd.bossTrait="dragonlord"; nd.condition=null; nd.bossPower=Math.round(nd.requiredPower*1.3*1.3);
+   S.availableDungeons=S.availableDungeons||[];
+   S.availableDungeons.push(nd);
+   if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}
+   chron(`竜を誘う香を焚くと、天がにわかに翳り――伝説の「古龍」${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」が姿を現した。竜殺しの誉れを掴む好機だ。`,"big");
+ }},
  // ── アンコモン ──
  {key:"coin_pouch",name:"重い金貨袋",rarity:"uncommon",desc:"国庫がまとまって潤う。",effect:()=>apply({gold:ri(60,110),log:"金貨袋の中身が国庫に納められた。"})},
  {key:"recruit_notice",name:"募兵の触れ",rarity:"uncommon",desc:"国中に募兵の触れを出し、新たな志願者を数名呼び寄せる(志願一覧に加わる)。",effect:()=>{
