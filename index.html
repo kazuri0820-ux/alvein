@@ -1928,6 +1928,14 @@ function equipInstBonusText(inst){
   if(inst.affixes)for(const a of inst.affixes)if(a&&a.stat)merged[a.stat]=(merged[a.stat]||0)+a.val;
   return Object.entries(merged).map(([k,v])=>`${(USTAT_DEF[k]||{lbl:k}).lbl}+${v}`).join("・");
 }
+/* 装備インスタンスの総合評価(格＋基礎＋アフィックス)。装備選択の並べ替えに使う=良個体を上位に。 */
+function equipInstScore(inst){
+  const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return 0;
+  let s=0; for(const k in def.statBonus)s+=def.statBonus[k];
+  if(inst.affixes)for(const a of inst.affixes)s+=(a&&a.val)||0;
+  const ri2=(typeof EQUIP_RARITY_ORDER!=="undefined")?EQUIP_RARITY_ORDER.indexOf(def.rarity):0;
+  return s + ri2*100; // 格を最優先、次いで合計ステータス
+}
 function addEquipment(defKey){
   S.equipmentInventory=S.equipmentInventory||[];
   const def=EQUIPMENT_DB.find(d=>d.key===defKey);
@@ -7865,6 +7873,7 @@ function renderEquipSelect(){
   if(!u)return;
   $("#itemTargetTitle").textContent=`${fullName(u)}の${EQUIP_SLOT_LABEL[slot]}を選ぶ`;
   const cands=(S.equipmentInventory||[]).map(inst=>({inst,def:EQUIPMENT_DB.find(d=>d.key===inst.key)})).filter(x=>x.def&&x.def.slot===slot);
+  cands.sort((a,b)=>equipInstScore(b.inst)-equipInstScore(a.inst)); // 良い装備(格＋個体差)を上位に並べ、掘り出し物の比較を楽にする
   let h=`<div class="ds" style="margin-bottom:8px">所持している${EQUIP_SLOT_LABEL[slot]}から選んで装備させる。既に何か装備している場合は自動的に外され、手持ちに戻る。</div>`;
   if(!cands.length)h+=`<div class="udet-empty">所持している${EQUIP_SLOT_LABEL[slot]}がない。ダンジョンや遠征の報酬で手に入ることがある。</div>`;
   for(const{inst,def}of cands){
