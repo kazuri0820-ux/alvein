@@ -2240,6 +2240,7 @@ const TITLE_DB=[
  {key:"t_dungeonmaster",name:"迷宮の覇者",desc:"ただ一人で数多の迷宮を踏破し、その名は暗がりの主として畏れられる",effect:"expMult",value:1.08},
  {key:"t_gloryincarnate",name:"栄光の化身",desc:"十指に余る称号を身に帯び、その生き様そのものが王国の栄光となった",effect:"loyaltyGrow",value:0.18},
  {key:"t_shieldbearer",name:"戦友の守り手",desc:"我が身を挺して戦友を死線から救い出した、真の守り手",effect:"loyaltyGrow",value:0.15},
+ {key:"t_agedefier",name:"時を欺きし者",desc:"若返りの霊泉の力に浴し、老いの理を欺いて再びの盛りを取り戻した稀有な兵",effect:"moralGrow",value:0.1},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -2721,6 +2722,7 @@ function checkDailyTitles(u){
   if(u.traitTier==="epic")grantTitle(u,"t_epicborn");
   if(u.traitTier==="legend")grantTitle(u,"t_legendborn");
   if(u.dreamDone)grantTitle(u,"t_dreamer"); // 夢を叶えた者の証
+  if(u.rejuvenated)grantTitle(u,"t_agedefier"); // 若返りの霊泉に浴した稀有な兵の証
   if((u.dungeonClearCount||0)>=6)grantTitle(u,"t_dungeonveteran");
   if((u.dungeonClearCount||0)>=15)grantTitle(u,"t_dungeonmaster"); // 迷宮の覇者:同じ兵で踏破を重ねる投資に、より高い到達点を用意
   if(u.lv>=30)grantTitle(u,"t_grandveteran"); // 練達:レベルの積み重ね=長期育成の到達点を讃える
@@ -7649,7 +7651,7 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="treasurelord"){const eq=(Math.random()<0.4?rollEquipmentDrop("legendary"):null)||rollEquipmentDrop("epic");if(eq){const inst=addEquipment(eq.key);const edef=EQUIPMENT_DB.find(d=>d.key===eq.key);if(edef&&edef.rarity!=="common"){const alt=rollAffixesBest(edef.rarity,3);const cur=(inst.affixes||[]).reduce((t,a)=>t+(a.val||0),0);const altSum=alt.reduce((t,a)=>t+(a.val||0),0);if(altSum>cur)inst.affixes=alt;}chron(`「秘宝の王」を討ち果たすと、守られていた一級の武具「${equipInstName(inst)}」が手に入った(${equipInstBonusText(inst)})。`,"big");}else{const g=Math.round(ri(80,140)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「秘宝の王」を討ち果たした。武具は持ち去られた後だったが、莫大な財貨${g}が残されていた。`,"big");}}
         else if(dungeon.bossTrait==="sage"){const learned=[];for(const u of squad){if(u&&u.skills&&u.skills.length<skillCap(u)&&Math.random()<0.6){const l=trySkillUp(u);if(l)learned.push(`${u.nm}が「${l.name}」`);}}if(learned.length)chron(`「武の求道者」を打ち破った部隊は、その死闘から多くを掴み取った。${learned.join("、")}を会得している。`,"big");else{const g=Math.round(ri(40,70)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「武の求道者」を打ち破った。遺された兵法の奥義書を持ち帰り、財貨${g}に換えた。`,"");}}
         else if(dungeon.bossTrait==="rallyking"){for(const u of S.units){u.moral=Math.min(100,(u.moral||0)+4);u.loyalty=Math.min(100,(u.loyalty||0)+3);}apply({mood:3});chron(`「闘魂の王」を討ち果たした報せは、瞬く間に全軍を奮い立たせた。国中の兵の士気と忠誠が、そろって高まっている。`,"big");}
-        else if(dungeon.bossTrait==="fountwarden"){const yrs=ri(2,4);const rejuv=[];for(const u of squad){if(!u)continue;const before=Math.floor(u.age||0);u.age=Math.max(16,(u.age||16)-yrs);const after=Math.floor(u.age);if(after<before)rejuv.push(u.nm);}if(rejuv.length)chron(`「泉の主」を討ち果たすと、湧き出た若返りの霊水が部隊を包んだ。${rejuv.join("・")}の年輪が${yrs}年ほど巻き戻り、老いを退けて再びの盛りを取り戻した。`,"big");else chron(`「泉の主」を討ち果たすと、若返りの霊水が湧き出た。皆すでに若く、その恵みは静かに国土へと還っていった。`,"");}
+        else if(dungeon.bossTrait==="fountwarden"){const yrs=ri(2,4);const rejuv=[];for(const u of squad){if(!u)continue;const before=Math.floor(u.age||0);u.age=Math.max(16,(u.age||16)-yrs);const after=Math.floor(u.age);if(after<before){rejuv.push(u.nm);u.rejuvenated=true;grantTitle(u,"t_agedefier");}}if(rejuv.length)chron(`「泉の主」を討ち果たすと、湧き出た若返りの霊水が部隊を包んだ。${rejuv.join("・")}の年輪が${yrs}年ほど巻き戻り、老いを退けて再びの盛りを取り戻した。`,"big");else chron(`「泉の主」を討ち果たすと、若返りの霊水が湧き出た。皆すでに若く、その恵みは静かに国土へと還っていった。`,"");}
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
