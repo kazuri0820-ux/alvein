@@ -8039,6 +8039,8 @@ const UNIQUE_JOBS=[
   check:(u)=>(u.criticalSurvivalCount||0)>=1&&S.units.every(o=>o.id===u.id||(o.vit+skillEffects(o).vit)<=(u.vit+skillEffects(u).vit))},
  {key:"phoenix",name:"不死鳥",nickname:"不死鳥",
   check:(u)=>(u.criticalSurvivalCount||0)>=3},
+ {key:"elder_legend",name:"不朽の翁",nickname:"不朽の翁",
+  check:(u)=>{const st=ageStageOf(u);return (st.key==="venerable"||st.key==="old")&&u.lv>=25;}}, // 老境に至ってなお前線に立ち続ける、生きた伝説(長寿と鍛錬の果ての道)
  {key:"archsage",name:"大賢者",nickname:"大賢者",
   check:(u)=>u.cls==="mage"&&S.units.every(o=>o.id===u.id||((o.int+skillEffects(o).int)+(o.wis+skillEffects(o).wis))<=((u.int+skillEffects(u).int)+(u.wis+skillEffects(u).wis)))},
  {key:"destroyer_god",name:"破壊神",nickname:"破壊神",
