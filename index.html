@@ -6886,6 +6886,33 @@ function buildAcademy(){
   apply({st:{magic:1},mood:1,log:lv===0?`王立学院が創設された。以後、この国に加わる兵は、幼き頃より学舎で研鑽を積んだ確かな練度を備えてくる(魔導+1)。`:`王立学院が拡充され、Lv.${lv+1}となった。学び舎はいっそう充実し、加わる兵の資質がさらに高まる。`,logCls:"big"});
   clamp();render();renderProjects();save();
 }
+/* 勅令普請(内政の新レバー):これまで永続の公共普請(灌漑・城壁・市場等)は"偶発イベントを待つ"しかなかった。
+   王が能動的に国庫を投じ、催すべき普請を目録から選んで着工できるようにする。国力をどの方向へ長期投資するかを
+   王自身が決められる=内政に長期の設計(まちづくり)の手応えを与える新軸。各普請は一度きり、数十日かけて完成する。 */
+const CIVIC_WORKS=[
+ {key:"canal", name:"大用水路の開削", cost:160, rate:1.5, req:1, desc:"畑という畑に水が行き渡る。農業が大きく上がる。", fx:{st:{agriculture:7}}, doneLog:"大用水路が開かれ、乾いた畑にまで豊かな水が届くようになった(農業↑↑)。"},
+ {key:"market",name:"常設の大市",     cost:150, rate:1.6, req:1, desc:"日々市が立ち、商いが根づく。経済と民心が上がる。", fx:{st:{economy:6},mood:2}, doneLog:"常設の大市が賑わい、谷に商いの活気が根づいた(経済↑↑ 民心↑)。"},
+ {key:"wall",  name:"石造の城壁",     cost:210, rate:1.4, req:2, desc:"堅牢な守り。軍事と治安が上がる。",             fx:{st:{military:5,order:3}}, doneLog:"石造の城壁が谷を囲み、並の脅威では揺るがぬ守りとなった(軍事↑ 治安↑)。"},
+ {key:"watch", name:"物見の塔網",     cost:130, rate:1.7, req:1, desc:"隅々まで目が届く。治安が大きく上がる。",         fx:{st:{order:6}}, doneLog:"物見の塔が各所に立ち、夜番の目が谷の隅々まで届くようになった(治安↑↑)。"},
+ {key:"temple",name:"施薬の神殿",     cost:170, rate:1.5, req:2, desc:"病と困窮に手を差し伸べる。民心が大きく上がる。", fx:{st:{order:2},mood:6}, doneLog:"施薬の神殿が開かれ、病める者・困窮する者に手が差し伸べられた(民心↑↑ 治安↑)。"},
+ {key:"road",  name:"大街道の敷設",   cost:150, rate:1.6, req:2, desc:"人と物の行き来が増える。経済と外交が上がる。",   fx:{st:{economy:4,diplomacy:4}}, doneLog:"大街道が四方に伸び、旅人と商隊の行き来が目に見えて増えた(経済↑ 外交↑)。"},
+];
+function civicWorkState(key){ const s=(S.flags&&S.flags["civic_"+key]); return s||"none"; } // none / building / built
+function civicWorkAvailable(w){ return civicWorkState(w.key)==="none" && STAGES[S.stage].rank>=(w.req||1); }
+function commissionCivicWork(key){
+  const w=CIVIC_WORKS.find(x=>x.key===key); if(!w)return;
+  if(civicWorkState(key)!=="none"){return;}
+  if(STAGES[S.stage].rank<(w.req||1)){chron(`「${w.name}」を興すには、まだ国の格が足りない。`,"");return;}
+  if(S.gold<w.cost){chron(`「${w.name}」を興すだけの蓄えが足りない(${w.cost}G必要)。`,"");return;}
+  S.gold-=w.cost; S.flags=S.flags||{}; S.flags["civic_"+key]="building";
+  S.projects.push({id:"civic_"+key,nm:w.name,desc:w.desc,p:0,rate:w.rate,done:false,fx:()=>{
+    S.flags["civic_"+key]="built";
+    apply(Object.assign({},w.fx,{log:"――勅令普請、成る。"+w.doneLog,logCls:"big"}));
+    if(typeof recordAnnal==="function"&&!(S.flags._civicAnnal)){S.flags._civicAnnal=true;recordAnnal("王の勅令により、初の大普請が成った。","civicwork",true);}
+  }});
+  chron(`王の勅令により、「${w.name}」の普請が始まった。数十日の後、成るだろう(国庫${w.cost})。`,"big");
+  clamp();render();renderProjects();save();
+}
 function immigrationDaily(){
   const info=immigrationInfo();
   if(info.orderDelta)S.st.order=Math.max(0,Math.min(100,S.st.order+info.orderDelta*statDiminish(S.st.order)));
@@ -11245,6 +11272,23 @@ function renderProjects(){
      ${cost!==null?`<button class="academy-btn" ${S.gold>=cost?"":"disabled"} style="width:100%;background:${S.gold>=cost?"rgba(201,162,75,.14)":"transparent"};border:1px solid ${S.gold>=cost?"var(--gold)":"rgba(255,255,255,.12)"};color:${S.gold>=cost?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${S.gold>=cost?"pointer":"default"}">${lv===0?`学院を創設する(${cost}G)`:`Lv.${lv+1}に拡充する(${cost}G)`}</button>`:`<div class="ds" style="color:var(--gold);font-size:11px">最大まで拡充済み(加わる兵の練度が最も高い)</div>`}
    </div>`;
   }
+  // ── 勅令普請(能動的に興す永続の公共事業) ──
+  {const building=CIVIC_WORKS.filter(w=>civicWorkState(w.key)==="building");
+   const built=CIVIC_WORKS.filter(w=>civicWorkState(w.key)==="built");
+   const avail=CIVIC_WORKS.filter(w=>civicWorkAvailable(w));
+   const lockedByRank=CIVIC_WORKS.filter(w=>civicWorkState(w.key)==="none"&&STAGES[S.stage].rank<(w.req||1));
+   h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 6px;letter-spacing:.15em">── 勅令普請 ──</div>`;
+   h+=`<div class="ds" style="font-size:10.5px;color:var(--dim);margin-bottom:6px">王が国庫を投じ、催すべき永続の公共普請を自ら選んで興す。各普請は一度きり、数十日で成る。</div>`;
+   for(const w of avail){const ok=S.gold>=w.cost;
+     h+=`<button class="civic-btn" data-k="${w.key}" ${ok?"":"disabled"} style="display:block;width:100%;text-align:left;background:${ok?"rgba(201,162,75,.12)":"transparent"};border:1px solid ${ok?"var(--gold)":"rgba(255,255,255,.14)"};color:${ok?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px 10px;margin-bottom:5px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${ok?"pointer":"default"}"><b>${w.name}</b>（${w.cost}G）<br><span style="font-size:10.5px;color:var(--dim)">${w.desc}${ok?"":"　― 蓄えが足りぬ"}</span></button>`;
+   }
+   for(const w of building){const pr=S.projects.find(p=>p.id==="civic_"+w.key);const pct=pr?Math.round(pr.p):0;
+     h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:5px"><div class="nm" style="font-size:12px"><i class="icon-project"></i>${w.name} <span style="color:var(--dim);font-size:10.5px">普請中 ${pct}%</span></div><div class="uexp" style="margin-top:6px"><i style="width:${pct}%"></i></div></div>`;
+   }
+   if(built.length)h+=`<div class="ds" style="font-size:10.5px;color:var(--gold);margin-bottom:4px">成った普請:${built.map(w=>w.name).join("・")}</div>`;
+   if(lockedByRank.length)h+=`<div class="ds" style="font-size:10px;color:var(--dim)">国の格が上がれば、さらなる普請(${lockedByRank.map(w=>w.name).join("・")})も興せる。</div>`;
+   if(!avail.length&&!building.length&&!built.length&&!lockedByRank.length)h+=`<div class="ds" style="font-size:11px;color:var(--dim)">今は興せる普請がない。</div>`;
+  }
   h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 6px;letter-spacing:.15em">── 施設 ──</div>`;
   for(const ft of FACILITY_TYPES){
     const built=S.facilities.find(f=>f.typeKey===ft.key);
@@ -11300,6 +11344,7 @@ function renderProjects(){
   $("#prjList").querySelectorAll(".tax-btn").forEach(b=>b.onclick=()=>{setTaxRate(b.dataset.k);});
   $("#prjList").querySelectorAll(".immig-btn").forEach(b=>b.onclick=()=>{setImmigration(b.dataset.k);});
   {const ab=$("#prjList").querySelector(".academy-btn");if(ab)ab.onclick=()=>buildAcademy();}
+  $("#prjList").querySelectorAll(".civic-btn").forEach(b=>b.onclick=()=>{commissionCivicWork(b.dataset.k);renderProjects();});
   {const gs=$("#prjList").querySelector(".grain-sell-btn");if(gs)gs.onclick=()=>sellGrain();
    const gb=$("#prjList").querySelector(".grain-buy-btn");if(gb)gb.onclick=()=>buyGrain();}
   $("#prjList").querySelectorAll(".vault-dep-btn").forEach(b=>b.onclick=()=>{const a=b.dataset.amt;depositVault(a==="all"?"all":+a);});
