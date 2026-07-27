@@ -9767,6 +9767,7 @@ function resolveDungeonRun(dungeonId){
         ?`――完璧な踏破！「${dungeon.name}」を寸分の隙なく制圧し、ボス「${dungeon.bossName}」を圧倒した!${itemGained?`「${itemGained.name}」${bonusItem?`と「${bonusItem.name}」`:""}を手に入れた。`:""}${equipGained?`さらに「${equipDropName}」を入手した。`:""}`
         :`――「${dungeon.name}」を踏破し、ボス「${dungeon.bossName}」を打ち破った!${itemGained?`「${itemGained.name}」を手に入れた。`:""}${equipGained?`さらに「${equipDropName}」を入手した。`:""}`,"big");
       maybeClutchVictory(squad,dungeon,centerRoll,tier); // 実力で及ばぬ相手を覆した"番狂わせ"を特筆(演出＋士気の報い)
+      maybeStandout(squad,dungeon,centerRoll,tier); // 危なげない勝ち戦で、その一戦の殊勲者を特筆(番狂わせが起きない時=個への光)
       maybeTriumphReturn(squad,crit); // 大勝から戻った部隊を迎える、暖かな凱旋の一幕(演出)
       if(dungeon.decoy&&dungeon.decoyId){const dec=S.units.find(u=>u.id===dungeon.decoyId);if(dec&&Math.random()<0.7)chron(`${dec.nm}率いる別動隊の陽動が功を奏し、本隊は敵の隙を突いて攻略を有利に運んだ。`,"");}
       if(dungeon.merc&&Math.random()<0.6)chron("雇われの傭兵は約束通り確かな助太刀を務め、報酬を受け取ると、また次の地へと去っていった。","");
@@ -10145,6 +10146,28 @@ function maybeClutchVictory(squad,dungeon,centerRoll,tier){
   for(const m of alive){m.moral=Math.min(100,(m.moral||0)+4);} // 逆転劇は隊の士気を大きく高める
   grantTitle(u,"t_survivor"); // 死線を越えた証
   recordSigFeat(u,`絶体絶命の「${dungeon.name}」を、力の差を覆して制した番狂わせの立役者`,3); // 番狂わせの主役は、その兵の語り草となる
+}
+/* 殊勲(この一戦の立役者):危なげない勝ち戦(番狂わせが起きない=centerRoll十分)の折、稀にその戦の
+   最も働いた一人を名指しで讃える。番狂わせ(逆転劇)が"不利を覆した者"を照らすのに対し、こちらは
+   順当な勝利の陰の主役に光を当て、名簿の一人ひとりへの愛着を、日々の勝ち戦の中でも育てる演出。 */
+const STANDOUT_LINES=[
+ (u,p)=>`「${p}」の攻略で、${u}がひときわ目覚ましい働きを見せた。隊の誰もが、その奮戦を口々に讃えている。`,
+ (u,p)=>`「${p}」を制した部隊の中で、${u}の一手が流れを決めた。まさにこの一戦の殊勲であった。`,
+ (u,p)=>`「${p}」からの帰り道、兵たちは${u}の働きを肴に酒を酌み交わしたという。`,
+ (u,p)=>`「${p}」の要所で身体を張ったのは${u}だった。その背中に、若い兵は憧れの眼差しを向けている。`,
+ (u,p)=>`${u}は「${p}」で冷静に隊を支え、危なげなく攻略を導いた。頼れる働きぶりであった。`,
+];
+function maybeStandout(squad,dungeon,centerRoll,tier){
+  if(!squad||!squad.length)return;
+  if(tier!=="success"&&tier!=="critical_success")return;
+  if(centerRoll<100)return; // 番狂わせ(逆転劇)が起きる圏内では、そちらに主役を譲る=二重に主役を立てない
+  if(Math.random()>=0.16)return; // 稀に
+  const alive=squad.filter(u=>u&&S.units.some(x=>x.id===u.id));
+  if(alive.length<2)return; // 単騎では"殊勲"の妙が薄い
+  const best=alive.reduce((a,b)=>unitPower(b)>unitPower(a)?b:a); // その一戦で最も戦力を出した一人
+  const line=STANDOUT_LINES[ri(0,STANDOUT_LINES.length-1)];
+  chron(line(fullName(best),dungeon.name),"");
+  best.moral=Math.min(100,(best.moral||0)+3);
 }
 /* 散り際の弔い:歩みを重ねた名のある兵が斃れた時、その生涯を偲ぶ一幕を年代記に添える。
    ただ「戻らなかった」で流さず、失った兵の重みと遺した功を刻む(演出＝喪失に物語の重みを与える) */
