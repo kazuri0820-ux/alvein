@@ -4927,6 +4927,53 @@ const RANDOM_RARE=[
      clamp();render();renderTroops();
    }}},
   ]},
+ // ===== 連続物語(イベント連鎖):難民の受け入れ。戦火を逃れた民が門を叩く人道×内政の選択。受け入れれば人口は
+ //   増えるが治安が揺らぐ。数十日後、彼らが根を下ろせるかは"その時の治安"次第――日々の治安管理が結末を左右する、
+ //   選択に後を引く stakes を与える連鎖(飢饉=資源/疫病=兵の健康/一揆=民心 とは別軸の、迎え入れの物語)=====
+ {tag:"避難民",title:"城門の避難民",
+  cond:s=>!(s.flags&&s.flags.refugeeArc)&&STAGES[s.stage].rank>=2&&s.day>=48&&(s.pop||0)>=16,
+  body:"隣国の戦火を逃れた人々が、荷を背負い、子の手を引いて城門の前に列をなしていた。「どうか、我らをこの地に……行く当てもなく、ただ生きる場所が欲しいのです」。彼らを迎え入れれば国の力となろう。だが、慣れぬ余所者の流入は、城下の秩序を少なからず揺らすだろう。",
+  speaker:"フィオナ「情けをかけるも、門を閉ざすも王の御心次第。……ですが、後々まで響く選択にございます」",
+  choices:[
+   {label:"全ての避難民を受け入れる",hint:"人口が大きく増え民心も上がるが、治安が揺らぎ食糧も要る。根付けば大きな実り",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.refugeeArc=1;S.flags.refugeeScale="all";S.flags.refugeeDay=S.day+ri(9,14);
+     const pu=ri(3,6);S.pop=(S.pop||0)+pu;S.food=Math.max(0,(S.food||0)-ri(20,40));
+     apply({mood:3,st:{order:-3},log:`王は門を開き、全ての避難民を迎え入れた。城下は一気に人で膨れ上がり、活気と混雑が同時に訪れた(人口+${pu} 民心↑ 治安↓ 食糧↓)。彼らがこの地に根を下ろせるかは、これからの治世にかかっている。`,logCls:"big"});
+   }}},
+   {label:"身元の確かな者だけ選んで受け入れる",hint:"人口が少し増え、治安への影響も小さい。堅実な迎え入れ",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.refugeeArc=1;S.flags.refugeeScale="some";S.flags.refugeeDay=S.day+ri(9,14);
+     const pu=ri(1,3);S.pop=(S.pop||0)+pu;
+     apply({mood:1,st:{order:-1},log:`王は身元の確かな者を選び、無理のない範囲で迎え入れた。混乱は最小限に抑えられた(人口+${pu} 民心わずかに↑ 治安わずかに↓)。`,logCls:"big"});
+   }}},
+   {label:"門を閉ざし、王国の秩序を守る",hint:"治安↑ だが民心↓・外交↓(この物語は始まらない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.refugeeArc=-1;
+     apply({st:{order:2,diplomacy:-2},mood:-3,log:"王は苦渋の末、城門を閉ざした。秩序は保たれたが、追い返される人々の背を見た民の中には、王の非情を囁く者もいた(治安+2 民心↓ 外交↓)。",logCls:"grave"});
+   }}},
+  ]},
+ {tag:"避難民",title:"根を下ろす者たち",
+  cond:s=>(s.flags&&s.flags.refugeeArc)===1&&s.day>=(s.flags.refugeeDay||0),
+  body:"避難民を迎えてから、幾十日が過ぎた。彼らが城下に馴染み、新たな民として根を下ろせたか――あるいは軋轢の火種となってしまったか。その帰趨は、この間の王国の治安がいかに保たれてきたかに、静かに表れている。",
+  speaker:"セラ「迎え入れた者たちの、その後にございます。……街の様子は、正直に物語っておりますね」",
+  choices:[
+   {label:"彼らのその後を見届ける",hint:"この間、治安を保てていたなら大きな実りとなる",fx:{call:()=>{
+     const scale=(S.flags&&S.flags.refugeeScale)==="all"?1:0.5;const order=S.st.order||0;S.flags.refugeeArc=2;
+     if(order>=55){
+       const eco=Math.round(6*scale)+2;const pu=Math.round(ri(2,4)*scale);S.pop=(S.pop||0)+pu;
+       apply({st:{economy:eco},mood:4,log:`保たれた治安のもと、避難民たちは立派に根を下ろした。職人は工房を開き、農夫は荒地を拓き、王国の暮らしは一段と豊かになった(経済↑↑ 人口↑ 民心↑)。`,logCls:"big"});
+       if((S.volunteers||[]).length<8&&typeof makeVolunteer==="function"){const v=makeVolunteer();if(v){v.comment="戦火を逃れ、この国に救われた身。恩に報いるべく、剣を執りたいと願い出た。";v.rank="ふつう";S.volunteers.push(v);chron("――迎え入れた避難民の中から、恩義に報いんと志願する者が現れた。","big");}}
+       recordAnnal("戦火を逃れた民を迎え入れ、確かな治世のもとで新たな国の礎とした。","refugee",true);
+       chron("――迎え入れた人々は、この国の新たな民となった。王の情けは、豊かさとなって返ってきた。","big");
+     } else if(order<40){
+       const pl=Math.round(ri(2,4)*scale);S.pop=Math.max(1,(S.pop||0)-pl);S.mood=Math.max(0,(S.mood||0)-4);
+       apply({st:{order:-2},log:`乱れた治世のもと、余所者と古参の民の間に軋轢が募った。諍いが絶えず、一部の避難民はまた新たな地を求めて去っていった(人口↓ 民心↓ 治安↓)。`,logCls:"grave"});
+       chron("――迎え入れた人々を、王国は活かしきれなかった。秩序なき国に、根を下ろすのは難しい。","grave");
+     } else {
+       const eco=Math.round(3*scale)+1;apply({st:{economy:eco},mood:2,log:`避難民たちは、ぎこちないながらも城下の暮らしに馴染んでいった。大きな波風もなく、王国はいくらか賑わいを増した(経済↑ 民心↑)。`,logCls:"big"});
+       chron("――迎え入れた人々は、静かにこの国の一員となっていった。","big");
+     }
+     clamp();render();
+   }}},
+  ]},
  {tag:"外 交",title:"隣国の内乱",
   body:"隣国で王位を巡る内乱が起きたとの報せが届いた。どちらに与するか、静観するか、あるいは混乱に乗じるか――この機の捉え方で、王国の立ち位置は大きく変わる。",
   speaker:"フィオナ「火中の栗を拾うか、高みの見物と決め込むか。ご判断を、陛下」",
