@@ -4291,6 +4291,34 @@ const RANDOM_RARE=[
      chron("――竜の卵の物語は、一頭の若き竜を大空へ送り出して幕を下ろした。いつかまた、どこかの空で巡り会うのかもしれない。","big");
    }}},
   ]},
+ // ===== 連続物語(イベント連鎖):絹の道。東方の使節を迎え交易路を拓けば、以後ときおり異国の珍品が届く継続的な恵み =====
+ {tag:"使 節",title:"東方よりの使節",
+  cond:s=>!(s.flags&&s.flags.silkRoadArc)&&STAGES[s.stage].rank>=3&&s.day>=50,
+  body:"隊列を組んだ異国の一行が、砂塵にまみれて城門を訪れた。褐色の肌に色鮮やかな衣、見慣れぬ文字の書状――遥か東方の交易国「シャンティ」からの使節だという。「我らの絹と香辛料、そちらの武具と鉱石。両国を結ぶ交易路を拓きませぬか。道の普請には、いくらか元手が要りますが……」。荷から漂う香が、異国の富を予感させる。",
+  speaker:"ガレオン「東方の絹……大陸では黄金にも等しい品。道が拓ければ、王国に富が流れ込みましょう」",
+  choices:[
+   {label:"交易路の普請を支援する(120G)",hint:"絹の道が拓ける物語の始まり(以後ときおり異国の珍品・名品が届く)",fx:{call:()=>{
+     if(S.gold<120){chron("交易路を支える蓄えがなく、使節は残念そうに引き返した。","");return;}
+     S.gold-=120;S.flags=S.flags||{};S.flags.silkRoadArc=1;S.flags.silkRoadDay=S.day+ri(6,10);
+     apply({st:{diplomacy:1},mood:1,log:"王は東方への交易路の普請を支えると約した。技師と隊商が幾度も砂漠を往復し、道が少しずつ形になってゆく(外交+1)。",logCls:"big"});
+   }}},
+   {label:"丁重に断る",hint:"堅実(この物語は始まらない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.silkRoadArc=-1;
+     apply({st:{order:1},log:"王は遠国との交易の危うさを慮り、使節を丁重にもてなして帰した。無理をせぬ王の判断を、家臣は静かに支持した(治安+1)。"});
+   }}},
+  ]},
+ {tag:"交 易",title:"絹の道、開く",
+  cond:s=>(s.flags&&s.flags.silkRoadArc)===1&&s.day>=(s.flags.silkRoadDay||0),
+  body:"幾月もの普請の末、ついに東方への交易路が繋がった。第一便の隊商が、絹・香辛料・見たこともない工芸品を山と積んで到着する。城下の市はかつてない賑わいだ。シャンティの使節が、深く礼をした。「これで両国は、一本の道で結ばれました。以後、我らの隊商が折に触れて珍品をお届けしましょう」。",
+  speaker:"セラ「東西を結ぶ道が、いま確かに拓かれました。王国に、新しい風が吹いております」",
+  choices:[
+   {label:"絹の道の開通を祝う",hint:"以後、東方の隊商がときおり珍品・名品・財貨を運んでくる(継続する恵み)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.silkRoadArc=2;S.flags.silkRoad=true;
+     const g=ri(80,140);S.gold+=g;
+     apply({st:{economy:2,diplomacy:1},mood:3,log:`王国を挙げて絹の道の開通が祝われた。第一便の交易だけで国庫に${g}が入り、市は東西の品で溢れている(経済+2 外交+1 民心↑)。以後、東方の隊商が折に触れて異国の珍品を届けるだろう。`,logCls:"big"});
+     chron("――絹の道の物語は、東西を結ぶ交易路の開通をもって結ばれた。アルヴェインには今、遠い異国の風が絶えず吹き込んでいる。","big");
+   }}},
+  ]},
  // ===== 連続物語(イベント連鎖):星鉄の一振り。二部に跨り、支援すれば一点物の名剣が鍛え上がる(記憶に残るアーティファクトを得る新報酬) =====
  {tag:"星 鉄",title:"星鉄の一振り",
   cond:s=>!(s.flags&&s.flags.starsteelArc)&&STAGES[s.stage].rank>=3&&(s.dungeonsCleared||0)>=3&&s.day>=45,
@@ -6702,6 +6730,7 @@ function dailyEconomySettle(){
   checkRivalVignette(); // 同職の兵同士が競い合い、互いを高め合う一幕
   checkDreamVignette(); // 兵が己の夢(個人的な目標)を語る一幕
   checkHermitWisdom(); // 山の隠者が、ときおり兵に技を授けたり国に叡智をもたらす(庵を結んだ後のみ)
+  checkSilkRoad(); // 絹の道:開通後、東方の隊商がときおり異国の珍品を届ける(継続する恵み)
   checkForbiddenOmen(); // 禁書の力:時に恵みを、時に禍いをもたらす(諸刃/受け入れた後のみ)
   checkGearVignette(); // 一級の武具を帯びた兵が、その得物を大切に手入れする一幕
   checkRealmVignette(); // 民の暮らしの何気ない一場面(平穏な国の息づかい)
@@ -10507,6 +10536,17 @@ function withdrawVault(amt){
 }
 /* 山の隠者の賜物:庵を結んだ後、隠者がときおり若い兵に技を授けたり、国に叡智をもたらす。
    一度きりでも常時でもない"折に触れて訪れる恵み"=継続的な報酬タイプ(物語のある永続の縁) */
+/* 絹の道の恵み:東方との交易路が開けた後、折に触れて遠国の隊商が珍品を携えて到着する。財貨に加え、時に
+   異国の秘薬(アイテム)や名品(武具)がもたらされる。一度きりの報酬でも常時のダイヤルでもない"物語のある
+   継続的な恵み"=交易路を拓いた見返り(絹の道の永続)。 */
+function checkSilkRoad(){
+  if(!(S.flags&&S.flags.silkRoad))return;
+  if(Math.random()>=0.03)return; // 折に触れて到着する
+  const r=Math.random();
+  if(r<0.55){ const g=ri(30,60); S.gold+=g; chron(`絹の道を渡ってきた東方の隊商が城下に着いた。珍しい香辛料や織物が飛ぶように売れ、国庫に${g}が入った。`,""); }
+  else if(r<0.82){ const it=rollItemDrop(Math.random()<0.3?"epic":"rare"); if(it){addItem(it.key);chron(`東方の隊商が、異国の珍品「${it.name}」を携えてきた。`,"big");} else {const g=ri(25,45);S.gold+=g;chron(`東方の隊商から珍品を買い付けた(国庫+${g})。`,"");} }
+  else { const eq=rollEquipmentDrop(Math.random()<0.25?"epic":"rare"); if(eq){const inst=addEquipment(eq.key);chron(`絹の道の隊商が、遠い異国で鍛えられた名品「${equipInstName(inst)}」を運んできた(${equipInstBonusText(inst)})。`,"big");} else {const g=ri(30,55);S.gold+=g;chron(`東方の隊商との取引で国庫が潤った(+${g})。`,"");} }
+}
 function checkHermitWisdom(){
   if(!(S.flags&&S.flags.hermitSage))return;
   if(Math.random()>=0.022)return; // 折に触れて
@@ -10624,6 +10664,7 @@ function renderProjects(){
    const gw={finance:"王立金融府 ― 王室金庫の利率が倍・運用上限も広い",forge:"常設の大工房 ― 鍛冶費が2割安く、迷宮での武具の出土が増える",hall:"英霊廟 ― 殿堂の加護が厚く、兵の忠誠がより育つ"};
    if(gw[F.grandWork])boons.push(["大いなる普請",gw[F.grandWork]]);
    if(F.dragonRaised)boons.push(["王国の守り竜","空から戦場を見守り、迷宮での戦没を永く減らす"]);
+   if(F.silkRoad)boons.push(["絹の道","東方の隊商が折に触れ、異国の珍品・名品・財貨を届ける"]);
    if(boons.length){
      h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 6px;letter-spacing:.15em">── 王国の恒久の力 ──</div>`;
      h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px">`+boons.map(bo=>`<div class="ds" style="margin:1px 0"><span style="color:var(--gold);font-weight:700">◆ ${bo[0]}</span> <span style="color:var(--dim)">― ${bo[1]}</span></div>`).join("")+`</div>`;
