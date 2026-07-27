@@ -10840,6 +10840,7 @@ function renderDungeonPanel(){
   let summary=`累計踏破:${cleared}件`;
   if((S.winStreak||0)>=2){const sb=Math.min(30,(S.winStreak||0)*3);summary+=` ／ <span style="color:#e0a870;font-weight:700" title="連続踏破が続くほど、次の攻略で得る財貨・経験値が増える(最大+30%)">連勝 ${S.winStreak}(勢い報酬+${sb}%)</span>`;}
   if(S.bounty){const left=Math.max(0,S.bounty.deadline-S.day);summary+=`<div style="font-size:11px;color:#8fbf6f;margin-top:3px" title="期限内に達成すると報酬。ダンジョン画面で狙える"><i class="icon-mission"></i>討伐依頼:${S.bounty.label}(残${left}日 / 報酬 財貨${S.bounty.gold}と品)</div>`;}
+  {const fa=typeof festivalActive==="function"?festivalActive():null; if(fa&&(fa.key==="feast"||fa.key==="remembrance")){const ft=festivalType(fa.key);const left=fa.until-S.day;const eff=fa.key==="feast"?"踏破経験+15%":"戦死率↓";summary+=`<div style="font-size:11px;color:#e0a870;margin-top:3px" title="祝祭の恵みが迷宮攻略に及んでいる。国政画面で催せる">${ft.icon} ${ft.name} 開催中(${eff}・残${left}日)</div>`;}}
   if(S.flags.demonLordDefeated)summary+=` ／ <span style="color:#e8c874">魔王討伐済み</span>`;
   else if(S.flags.demonLordDungeonUnlocked)summary+=` ／ <span style="color:#d97a7a">「魔王の玉座」出現中</span>`;
   else if(S.flags.demonNoticed){
