@@ -2175,6 +2175,7 @@ const TITLE_DB=[
  {key:"t_longserve",name:"不動の忠臣",desc:"三年もの長きにわたり、変わらず王国に仕え続けている",effect:"loyaltyGrow",value:0.15},
  {key:"t_captainexp",name:"歴戦の指揮官",desc:"団長を務めた経験がある",effect:"loyaltyGrow",value:0.12},
  {key:"t_mentor5",name:"育ての親",desc:"教官として5人以上を指導した",effect:"expMult",value:1.05},
+ {key:"t_grandmentor",name:"万人の師",desc:"教官として二十度に亘り兵を導き、幾多の英傑を世に送り出した",effect:"expMult",value:1.1},
  {key:"t_jobchange",name:"転職者",desc:"ジョブチェンジを経験した",effect:"moralGrow",value:0.08},
  {key:"t_scarred3",name:"満身創痍の勲章",desc:"重傷を3回経験し、なお生き抜いている",effect:"injuryMult",value:0.88},
  {key:"t_guardian",name:"護りし者",desc:"戦友と共に、幾多の危機を乗り越えてきた",effect:"loyaltyGrow",value:0.1},
@@ -9630,6 +9631,7 @@ function resolveTraining(pickUnit,grade,costPaid){
     for(const ins of S.instructors){
       ins.mentorCount=(ins.mentorCount||0)+1;
       if(ins.mentorCount>=5)grantTitle(ins,"t_mentor5");
+      if(ins.mentorCount>=20)grantTitle(ins,"t_grandmentor");
     }
   }
   const instructorEff=S.instructors.reduce((a,u)=>a*(skillEffects(u).instructorMult||1)*((traitInfo(u.trait).instructorMult)||1)*(1+(u.lead||0)*0.006),1); // 指導効果はスキル(名伯楽 等)に加え、特性(生まれながらの師 等)由来も反映
