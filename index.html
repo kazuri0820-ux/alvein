@@ -6604,6 +6604,7 @@ function rollRandomTurnEvent(){
   checkFleetingDungeons(); // 時限の好機:主が移り去った迷宮を探索先から消す
   checkObservatoryPortent(); // 星見の塔:折に触れ、星が吉兆を告げる
   checkKingsReflection(); // 王の述懐:国の実情に即した、統べる者の独白を稀に綴る
+  checkReignFeats(); // 治世の偉業:治世を貫く到達目標を達成した折、王国を挙げて祝い、恩賞を下す
   if(S.units.length&&Math.random()<0.004){pushEvent("__old_equipment__");return;}
   if(S.units.length&&Math.random()<0.0035){pushEvent("__job_change_surprise__");return;}
   // 日常フレーバー(パラメータに影響しない、ログを賑やかにするためだけの小さな一言)は1日1回程度
@@ -9247,6 +9248,48 @@ const RELIC_DEFS=[
   {key:"compass",name:"探索者の羅針盤", cost:10, desc:"新たな迷宮を見出す機会が永続で増える。"},
 ];
 function relicHas(key){return !!(S.flags&&S.flags.relics&&S.flags.relics[key]);}
+/* ===== 治世の偉業(到達のやり込み軸):一周の治世を貫く、王国規模の到達目標を集めた挑戦帳。個々の称号(兵単位)や
+   年表(記録)とは別に、"この治世で何を成し遂げたか"という長期の指標と、達成時の一度きりの恩賞・晴れがましい一幕を
+   用意する。惰性になりがちな長期プレイに「次はこれを目指す」という背骨を通し、周回ごとの到達感とリプレイ性を高める。
+   達成条件は既存の各システム(踏破数・同盟・育成・遺物・殿堂・国庫・称号)を横断して組み替える。 ===== */
+const REIGN_FEATS=[
+ {key:"conqueror",name:"迷宮の覇者",icon:"⛏",desc:"迷宮を通算25回踏破する",
+   prog:s=>[Math.min(25,s.dungeonsCleared||0),25],cond:s=>(s.dungeonsCleared||0)>=25,
+   reward:()=>{S.gold+=200;if(typeof grantRenown==="function")grantRenown(3,"迷宮の覇者の偉業");return "国庫+200・威信↑";}},
+ {key:"allies",name:"大陸の盟主",icon:"◆",desc:"全ての隣国と同盟を結ぶ",
+   prog:s=>{ensureNeighbors();const n=s.neighbors||[];return [n.filter(x=>x.allied).length,n.length||1];},cond:s=>{ensureNeighbors();const n=s.neighbors||[];return n.length>0&&n.every(x=>x.allied);},
+   reward:()=>{apply({st:{diplomacy:5},mood:8});return "外交+5・民心↑↑";}},
+ {key:"prodigy",name:"名将の誕生",icon:"★",desc:"一人の兵がLv25に達する",
+   prog:s=>{const m=Math.max(0,...(s.units||[]).map(u=>u.lv||1),0);return [Math.min(25,m),25];},cond:s=>(s.units||[]).some(u=>(u.lv||1)>=25),
+   reward:()=>{S.gold+=150;apply({mood:3});return "国庫+150・民心↑";}},
+ {key:"relicforge",name:"遺物の鍛造者",icon:"❖",desc:"秘宝の断片から恒久の遺物を一つ鍛造する",
+   prog:s=>[(typeof RELIC_DEFS!=="undefined"?RELIC_DEFS.filter(r=>relicHas(r.key)).length:0)>=1?1:0,1],cond:s=>typeof RELIC_DEFS!=="undefined"&&RELIC_DEFS.some(r=>relicHas(r.key)),
+   reward:()=>{if(typeof grantRelicShards==="function")grantRelicShards(2);return "秘宝の断片+2";}},
+ {key:"hall",name:"英霊の殿堂",icon:"🕯",desc:"殿堂に10柱の英霊を祀る",
+   prog:s=>[Math.min(10,(s.hallOfFame||[]).length),10],cond:s=>(s.hallOfFame||[]).length>=10,
+   reward:()=>{apply({mood:6,st:{order:2}});return "民心↑・治安↑";}},
+ {key:"wealth",name:"黄金の治世",icon:"◈",desc:"国庫が3000に達する",
+   prog:s=>[Math.min(3000,Math.round(s.gold||0)),3000],cond:s=>(s.gold||0)>=3000,
+   reward:()=>{const it=(typeof rollItemDrop==="function")?rollItemDrop("epic"):null;if(it&&typeof addItem==="function"){addItem(it.key);return `秘薬「${it.name}」を献上された`;}apply({mood:4});return "民心↑";}},
+ {key:"legion",name:"精鋭の軍団",icon:"⚔",desc:"称号を3つ以上帯びた誉れある兵を5人擁する",
+   prog:s=>[Math.min(5,(s.units||[]).filter(u=>(u.titles||[]).length>=3).length),5],cond:s=>(s.units||[]).filter(u=>(u.titles||[]).length>=3).length>=5,
+   reward:()=>{apply({st:{military:4},mood:3});return "軍事+4・民心↑";}},
+];
+function featDone(key){return !!(S.reignFeats&&S.reignFeats[key]);}
+function checkReignFeats(){
+  if(S.day<3)return; // 立ち上がり直後の遡及的な一斉達成を避ける
+  S.reignFeats=S.reignFeats||{};
+  for(const f of REIGN_FEATS){
+    if(S.reignFeats[f.key])continue;
+    let ok=false; try{ok=!!f.cond(S);}catch(e){ok=false;}
+    if(!ok)continue;
+    S.reignFeats[f.key]=S.day;
+    let rewardText=""; try{rewardText=f.reward()||"";}catch(e){rewardText="";}
+    chron(`――治世の偉業「${f.name}」を成し遂げた！${f.desc}という、王国の悲願の一つが結実した。${rewardText?`その功に、${rewardText}の恩賞が下された。`:""}`,"big");
+    if(typeof recordAnnal==="function")recordAnnal(`治世の偉業「${f.name}」を成し遂げた。`,"feat",true);
+    if(typeof grantRenown==="function"&&f.key!=="conqueror")grantRenown(1,`偉業「${f.name}」`);
+  }
+}
 function relicDef(key){return RELIC_DEFS.find(r=>r.key===key);}
 function grantRelicShards(n){S.relicShards=(S.relicShards||0)+n;}
 /* ===== 前哨拠点(ダンジョン×内政の新レバー):踏破した迷宮の跡地を、王国の前哨として確保できる。
@@ -11616,6 +11659,21 @@ function renderProjects(){
      <div class="udet-timeline" style="margin-top:2px">`+items.slice(0,showN).map(a=>`<div class="titem"><span class="td">DAY ${a.day}</span>${a.text}</div>`).join("")+
      (items.length>showN?`<details style="margin-top:4px"><summary style="cursor:pointer;font-size:11px;color:var(--gold2)">これ以前の${items.length-showN}件を表示</summary><div style="margin-top:4px">`+items.slice(showN).map(a=>`<div class="titem"><span class="td">DAY ${a.day}</span>${a.text}</div>`).join("")+`</div></details>`:"")+
      `</div></div>`;
+  }
+  // ── 治世の偉業(到達目標) ──
+  {const done=REIGN_FEATS.filter(f=>featDone(f.key)).length;
+   h+=`<div class="pcard" style="margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-laurel"></i>治世の偉業 <span style="color:var(--dim);font-size:10.5px">${done}/${REIGN_FEATS.length} 達成</span></div>
+     <div class="ds" style="margin:2px 0 6px;font-size:10.5px">この治世で目指す、王国規模の到達目標。成し遂げるたび、王国を挙げて祝い恩賞が下る。</div>`;
+   for(const f of REIGN_FEATS){const dn=featDone(f.key);let pr=[0,1];try{pr=f.prog(S);}catch(e){pr=[0,1];}const pct=Math.max(0,Math.min(100,Math.round(pr[0]/pr[1]*100)));
+     h+=`<div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
+       <span style="font-size:13px;width:16px;text-align:center;color:${dn?"var(--gold)":"var(--dim)"}">${dn?"✓":f.icon}</span>
+       <div style="flex:1">
+         <div style="font-size:11.5px;color:${dn?"var(--gold)":"var(--parch,#e8d9b5)"}">${f.name}<span style="color:var(--dim);font-size:10px"> ― ${f.desc}</span></div>
+         ${dn?`<div style="font-size:10px;color:var(--gold2)">DAY ${S.reignFeats[f.key]} 達成</div>`:`<div style="height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;margin-top:2px"><div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#c9a86a,#e0be6f)"></div></div>`}
+       </div>
+       ${dn?"":`<span style="font-size:9.5px;color:var(--dim);white-space:nowrap">${pr[0]}/${pr[1]}</span>`}
+     </div>`;}
+   h+=`</div>`;
   }
   // ── 民の声(嘆願・陳情の裁定) ──
   if(S.petition){const pt=petitionDef();if(pt){const left=Math.max(0,(S.petition.expires||0)-S.day);const afford=!pt.cost||S.gold>=pt.cost;
