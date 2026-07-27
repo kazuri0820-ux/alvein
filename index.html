@@ -8889,6 +8889,24 @@ function battleAdmireSpotlight(squad,foeLabel){
   chron(ADMIRE_SPOTLIGHT_LINES[Math.floor(Math.random()*ADMIRE_SPOTLIGHT_LINES.length)](young.nm,hero.nm,foeLabel),"");
   unitHistory(young,`憧れの${hero.nm}と肩を並べて${foeLabel}と戦い、その背中から多くを学んだ。`);
 }
+/* 師弟の共闘:師とその弟子が同じ部隊で勝利を掴んだ時の一幕。師弟(育成軸)に"実戦で受け継ぐ"という戦場の
+   payoff を与える。稽古場の日々だけでなく、生きた戦いの中で技が継承され、弟子は一段速く独り立ちへ近づく。 */
+const MENTOR_SPOTLIGHT_LINES=[
+ (m,pu,f)=>`${pu}が窮地に陥ったその時、師${m}が背に回り込んで支えた。「見ていろ、こう捌くのだ」――${f}を前に、稽古場では教われぬ実戦の呼吸が、確かに受け継がれていく。`,
+ (m,pu,f)=>`師${m}の一挙一動を、弟子${pu}は食い入るように見て、真似た。${f}との戦いは、何よりの生きた教材となった。`,
+ (m,pu,f)=>`${f}を退けた後、師${m}は弟子${pu}の肩を叩いた。「筋がいい」。その一言に、${pu}の顔がぱっと輝いた。`,
+];
+function battleMentorSpotlight(squad,foeLabel){
+  if(!squad||squad.length<2||Math.random()>=0.26)return;
+  const ids=new Set(squad.map(u=>u.id));
+  const pairs=[];
+  for(const u of squad)if(u.pupilId&&ids.has(u.pupilId)){const pu=squad.find(x=>x.id===u.pupilId);if(pu)pairs.push([u,pu]);}
+  if(!pairs.length)return;
+  const [m,pu]=pairs[Math.floor(Math.random()*pairs.length)];
+  const g=ri(6,11); pu.exp+=g; processLevelUps(pu); pu.moral=Math.min(100,(pu.moral||0)+2);
+  chron(MENTOR_SPOTLIGHT_LINES[Math.floor(Math.random()*MENTOR_SPOTLIGHT_LINES.length)](m.nm,pu.nm,foeLabel),"");
+  unitHistory(pu,`師${m.nm}と共に${foeLabel}と戦い、実戦の中で多くを学んだ。`);
+}
 /* ===== 叩き上げ(逆境の育成軸):迷宮での敗北を生き延びた兵は、その手痛い経験から学びを得る。苦杯を
    重ねるほど、時に敗北から糧を掴み(経験)、やがて何があっても膝を屈さぬ"叩き上げの古兵"となる(忠誠・
    士気が篤くなる)。勝利だけでなく敗北にも育成の意味を与え、負け戦を乗り越えた兵への愛着と、諦めずに
@@ -9234,6 +9252,7 @@ function resolveDungeonRun(dungeonId){
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
       battleBondSpotlight(squad,`ボス「${dungeon.bossName}」`); // 戦友の連携が勝利を手繰り寄せた一幕
       battleAdmireSpotlight(squad,`ボス「${dungeon.bossName}」`); // 憧れる若手が英雄と肩を並べて戦った一幕
+      battleMentorSpotlight(squad,`ボス「${dungeon.bossName}」`); // 師弟が実戦で技を継ぐ一幕
       battleFavoriteSpotlight(squad,`ボス「${dungeon.bossName}」`); // 推しの奮戦の一幕
       if(dungeon.isFinal){
         for(const u of squad)grantTitle(u,"t_demonslayer");
@@ -9669,6 +9688,7 @@ function resolveDemonDefense(){
       battleSkillSpotlight(squad,`魔将「${genName}」`); // 集めた一流・固有の技が魔将戦でも光る
       battleBondSpotlight(squad,`魔将「${genName}」`); // 戦友の連携が魔将戦を切り抜ける一幕
       battleAdmireSpotlight(squad,`魔将「${genName}」`); // 憧れる若手が英雄と共に魔将に挑んだ一幕
+      battleMentorSpotlight(squad,`魔将「${genName}」`); // 師弟が魔将戦で技を継ぐ一幕
       battleFavoriteSpotlight(squad,`魔将「${genName}」`); // 推しの奮戦の一幕
     }else{
       apply({mood:2,st:{military:1}});
@@ -9872,6 +9892,7 @@ function resolveExpedition(riskKey,rewardMult){
     battleSkillSpotlight(squad,`ミッション「${theme.name}」`); // 集めた一流・固有の技がミッションでも光る
     battleBondSpotlight(squad,`ミッション「${theme.name}」`); // 戦友の連携がミッションでも光る
     battleAdmireSpotlight(squad,`ミッション「${theme.name}」`); // 憧れる若手が英雄と共に挑んだ一幕
+    battleMentorSpotlight(squad,`ミッション「${theme.name}」`); // 師弟がミッションで技を継ぐ一幕
     battleFavoriteSpotlight(squad,`ミッション「${theme.name}」`); // 推しの奮戦の一幕
     if(leader.favorite){leader.loyalty=Math.min(100,leader.loyalty+5);apply({mood:2});chron(`長が目をかける${leader.nm}の見事な采配に、皆が誇らしさを覚えた。本人も、期待に応えた誇りを噛みしめている。`,"");} // お気に入りの活躍を喜ぶ
   }else if(tier==="success"){
