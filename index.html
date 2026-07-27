@@ -6516,6 +6516,15 @@ function checkYearTurn(){
   const eldest=S.units.reduce((a,u)=>(!a||u.age>a.age)?u:a,null);
   const refl=YEAR_REFLECTIONS[(yr-1)%YEAR_REFLECTIONS.length];
   chron(`――${yr}年目の暮れ。${stg.name}の王国に兵${S.units.length}名が仕え、国庫${Math.round(S.gold)}・民${S.pop}を数える。${cleared?`踏破したダンジョンは${cleared}件、`:""}${hall?`${hall}名が殿堂に名を刻んだ。`:""}${eldest?`最古参は${eldest.nm}(${Math.floor(eldest.age)}歳)。`:""}${refl}`,"big");
+  // 従軍の労い:年の瀬に、最も長く仕える古参を王が名指しで労う(長く連れ添う兵への愛着と、古参を抱え続ける手応えを felt に)
+  const vets=S.units.filter(u=>u.role==="active"&&(S.day-(u.joinDay||S.day))>=AGE_YEAR_DAYS);
+  if(vets.length){
+    const vet=vets.reduce((a,b)=>((a.joinDay||0)<=(b.joinDay||0)?a:b)); // 最も早くから仕える者
+    const served=Math.max(1,Math.floor((S.day-(vet.joinDay||S.day))/AGE_YEAR_DAYS));
+    vet.loyalty=Math.min(100,(vet.loyalty||0)+4);vet.moral=Math.min(100,(vet.moral||0)+3);
+    unitHistory(vet,`年の瀬、王より${served}年の変わらぬ奉公を直々に労われた。`);
+    chron(`年の瀬の宴で、王は最も長く仕える${fullName(vet)}を上座に招き、${served}年の変わらぬ奉公を労った。古参の眼は、静かに潤んでいたという(忠誠・士気↑)。`,"");
+  }
 }
 /* 軍の規模の節目:兵の数が一定に達するたび、一個の軍団へと育った手応えを一度だけ讃える。
    兵を集め抱える営みそのものに到達点を与え、大所帯を築く達成感を後押しする(規模の演出)。 */
