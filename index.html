@@ -6627,6 +6627,7 @@ const BOSS_TRAITS={
   bountiful:{label:"豊穣の王",color:"#a8c96f",desc:"実りの気を宿す穏やかな守り手。討ち果たせば、その恵みが国土に降り注ぎ、食糧と民心が潤う"},
   treasurelord:{label:"秘宝の王",color:"#e8c860",desc:"至高の財宝を守る手強い王。討ち果たせば、選りすぐりの個体差を宿した一級の武具が必ず手に入る"},
   sage:{label:"武の求道者",color:"#9ab0d0",desc:"武の高みを求め続ける手強い求道者。討ち果たした部隊は、その死闘から幾人もが新たな技を掴み取る"},
+  rallyking:{label:"闘魂の王",color:"#d98f5e",desc:"その威容は国全体を奮い立たせる。討ち果たせば、その報せが全軍の士気と忠誠を高める"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
 /* ダンジョンの環境(異変):一部のダンジョンに宿る特性。挑む前に見え、危険と実入りの綾を変える(ダンジョンの個性) */
@@ -6660,7 +6661,7 @@ function generateDungeon(){
   const duration=Math.max(3,Math.round(level/6)+Math.round((rarity.mult-1)*2.2));
   let bossPower=Math.round(requiredPower*1.3);
   let bossTrait=null;
-  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief"||bossTrait==="dragonlord")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift"||bossTrait==="revenant"||bossTrait==="treasurelord")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning"||bossTrait==="trialking"||bossTrait==="calamity")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier"||bossTrait==="renowned"||bossTrait==="forgelord"||bossTrait==="phantom"||bossTrait==="trickster"||bossTrait==="bountiful"||bossTrait==="sage")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
+  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief"||bossTrait==="dragonlord")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift"||bossTrait==="revenant"||bossTrait==="treasurelord")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning"||bossTrait==="trialking"||bossTrait==="calamity")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier"||bossTrait==="renowned"||bossTrait==="forgelord"||bossTrait==="phantom"||bossTrait==="trickster"||bossTrait==="bountiful"||bossTrait==="sage"||bossTrait==="rallyking")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
   const condition=Math.random()<0.3?DUNGEON_CONDITION_KEYS[Math.floor(Math.random()*DUNGEON_CONDITION_KEYS.length)]:null; // 稀に環境の異変を宿す
   if(condition==="treasure")bossPower=Math.round(bossPower*1.18); // 財宝の霊気は守りが堅く、ボスが手強い
   if(condition==="eliteden")bossPower=Math.round(bossPower*1.16); // 精鋭の巣は強敵揃いで、ボスが手強い
@@ -7575,6 +7576,7 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="bountiful"){const f=Math.round(ri(40,80)*dungeon.rarity.mult);apply({food:f,mood:4,st:{agriculture:2}});chron(`「豊穣の王」を討ち果たすと、その宿していた実りの気が国土に降り注いだ。蔵に食糧${f}が満ち、民は豊作の兆しに沸いた(農業+2)。`,"big");}
         else if(dungeon.bossTrait==="treasurelord"){const eq=(Math.random()<0.4?rollEquipmentDrop("legendary"):null)||rollEquipmentDrop("epic");if(eq){const inst=addEquipment(eq.key);const edef=EQUIPMENT_DB.find(d=>d.key===eq.key);if(edef&&edef.rarity!=="common"){const alt=rollAffixesBest(edef.rarity,3);const cur=(inst.affixes||[]).reduce((t,a)=>t+(a.val||0),0);const altSum=alt.reduce((t,a)=>t+(a.val||0),0);if(altSum>cur)inst.affixes=alt;}chron(`「秘宝の王」を討ち果たすと、守られていた一級の武具「${equipInstName(inst)}」が手に入った(${equipInstBonusText(inst)})。`,"big");}else{const g=Math.round(ri(80,140)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「秘宝の王」を討ち果たした。武具は持ち去られた後だったが、莫大な財貨${g}が残されていた。`,"big");}}
         else if(dungeon.bossTrait==="sage"){const learned=[];for(const u of squad){if(u&&u.skills&&u.skills.length<skillCap(u)&&Math.random()<0.6){const l=trySkillUp(u);if(l)learned.push(`${u.nm}が「${l.name}」`);}}if(learned.length)chron(`「武の求道者」を打ち破った部隊は、その死闘から多くを掴み取った。${learned.join("、")}を会得している。`,"big");else{const g=Math.round(ri(40,70)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「武の求道者」を打ち破った。遺された兵法の奥義書を持ち帰り、財貨${g}に換えた。`,"");}}
+        else if(dungeon.bossTrait==="rallyking"){for(const u of S.units){u.moral=Math.min(100,(u.moral||0)+4);u.loyalty=Math.min(100,(u.loyalty||0)+3);}apply({mood:3});chron(`「闘魂の王」を討ち果たした報せは、瞬く間に全軍を奮い立たせた。国中の兵の士気と忠誠が、そろって高まっている。`,"big");}
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
