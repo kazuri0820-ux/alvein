@@ -1569,6 +1569,7 @@ const SKILL_DB=[
  {key:"nsk_warlord",name:"覇軍の号令",tier:"gold",desc:"戦場に轟く号令で、共に戦う部隊すべてを一つに束ねる。統率の極みに立つ者の采配",lead:12,squadSynergy:0.06,onlyCaptain:true},
  {key:"nsk_devotion",name:"揺るがぬ忠義",tier:"gold",desc:"何があろうと長を裏切らぬ、鋼のごとき忠義の心を持つ",loyaltyGrow:0.4,lead:6},
  {key:"nsk_evasion",name:"見切りの達人",tier:"gold",desc:"あらゆる攻撃を紙一重で見切り、めったに傷を負わない",injuryMult:0.65,agi:8},
+ {key:"nsk_quicklearn",name:"飲み込みの早さ",tier:"gold",desc:"物覚えが人並外れて早く、実戦から驚くほど速く多くを学び取る(昇格が速まる)",expMult:0.82,int:6},
  // 銀(レア・強力)
  {key:"mousho", name:"猛将",     tier:"silver",desc:"前に出れば出るほど輝く性分",str:10,vit:6},
  {key:"maryoku",name:"魔力循環", tier:"silver",cls:"mage",desc:"魔力の巡りが良く、伸びしろが大きい",trainMult:1.2},
@@ -2051,7 +2052,7 @@ function trySkillUpOnPromotion(u,tierIndex){
   const sk=SKILL_DB.find(s=>s.key===k);celebrateSkillGain(u,sk);return sk;
 }
 function skillEffects(u){
-  const e={trainMult:1,injuryMult:1,deathMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,
+  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,
     str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   const stage=ageStageOf(u);
   for(const key of u.skills){
@@ -2068,6 +2069,7 @@ function skillEffects(u){
     }
     if(s.injuryMult)e.injuryMult*=s.injuryMult;
     if(s.deathMult)e.deathMult*=s.deathMult;
+    if(s.expMult)e.expMult*=s.expMult; // スキル由来の経験値効率(飲み込みの早さ 等)=昇格が速まる
     if(s.loyaltyGrow)e.loyaltyGrow+=s.loyaltyGrow;
     if(s.moralGrow)e.moralGrow+=s.moralGrow;
     if(s.ageResist)e.ageResist=Math.max(e.ageResist,s.ageResist);
@@ -9273,9 +9275,10 @@ function renderHall(){
 function processLevelUps(u,silent){
   const tr=traitInfo(u.trait);
   const titleExpMult=titleEffectsFor(u).expMult;
+  const skillExpMult=skillEffects(u).expMult||1; // スキル由来の経験値効率(必要経験値を下げる=速く昇格)
   let guard=0;
   while(guard++<30){
-    const need=u.lv*10*(tr.expMult||1)/titleExpMult;
+    const need=u.lv*10*(tr.expMult||1)*skillExpMult/titleExpMult;
     if(u.exp<need)break;
     u.exp-=need;
     u.totalExpEarned=(u.totalExpEarned||0)+need;
