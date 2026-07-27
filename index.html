@@ -2642,6 +2642,27 @@ function statPriorityFor(u){
   return CLASS_STAT_PRIORITY[u.cls]||CLASS_STAT_PRIORITY.warrior;
 }
 function fullName(u){return u.nm+(u.surname?" "+u.surname:"");}
+/* 軍位(育成の新軸):職のレベルや称号とは別に、"どれだけ王国に仕え、武功を重ねたか"という奉公の積み重ねで
+   上がる軍の位階。兵卒から将軍まで、踏破・在籍年月・称号・統率・隊長歴から derive する(セーブ非依存で安全)。
+   位が上がるほど当人は王国への帰属と誇りを深め(忠誠・士気が保たれやすく)、名簿に位が刻まれる=長く仕えた兵に
+   "地位"という報いを与え、育て続ける動機と愛着を強める。数値の水増しでなく、奉公の到達度を可視化して効かせる。 */
+const MILITARY_RANKS=[
+ {min:0,  name:"兵卒"},
+ {min:6,  name:"伍長"},
+ {min:14, name:"什長"},
+ {min:26, name:"百人長"},
+ {min:42, name:"千人長"},
+ {min:62, name:"将軍"},
+];
+function militaryRankScore(u){
+  if(!u)return 0;
+  const clears=u.dungeonClearCount||0, titles=(u.titles||[]).length;
+  const tenure=Math.max(0,(S.day||0)-(u.joinDay||S.day||0));
+  return clears*2 + titles*3 + Math.floor(tenure/40) + Math.floor((u.lead||0)/8) + (u.captain?4:0) + (u.leaderCount||0);
+}
+function militaryRankIndex(u){const s=militaryRankScore(u);let i=0;for(let k=0;k<MILITARY_RANKS.length;k++)if(s>=MILITARY_RANKS[k].min)i=k;return i;}
+function militaryRank(u){return MILITARY_RANKS[militaryRankIndex(u)];}
+function militaryRankGrow(u){return militaryRankIndex(u)*0.015;} // 位が高いほど、日々の忠誠・士気がわずかに保たれやすい(帰属と誇り)
 /* ===== 弔い合戦:背中を預けた戦友・好敵手・師・弟子を喪った兵は、その悲しみを不屈の闘志へと変える。
    しばしの日々、亡き者の名を胸に人一倍奮い立ち、戦場で常より強く戦う。喪失を"次の戦いへの覚悟"へ
    転じ、絆・師弟・好敵手といった関係の重みを戦闘へ波及させる新たな軸(関係×戦闘×感情)。 ===== */
@@ -3022,8 +3043,9 @@ function checkAging(){
     const teff=titleEffectsFor(u);
     const tgr=traitInfo(u.trait); // 特性由来の忠誠・士気成長(カリスマ・義に篤い等、これまで未適用だった特性の効能を活かす=フレーバー通りに機能させる)
     if(eff.fatigueRecover)u.fatigue=Math.max(0,(u.fatigue||0)-eff.fatigueRecover); // スキル(不撓の体力 等)による追加の疲労回復
-    u.loyalty=Math.max(0,Math.min(100,u.loyalty+eff.loyaltyGrow*0.3+teff.loyaltyGrow*0.3+(tgr.loyaltyGrow||0)*0.3+bless.loyalty+hallGrow));
-    u.moral=Math.max(0,Math.min(100,u.moral+eff.moralGrow*0.3+teff.moralGrow*0.3+(tgr.moralGrow||0)*0.3+bless.moral));
+    const rankGrow=militaryRankGrow(u); // 軍位:奉公を重ねた高位の兵は、王国への帰属と誇りで忠誠・士気が保たれやすい
+    u.loyalty=Math.max(0,Math.min(100,u.loyalty+eff.loyaltyGrow*0.3+teff.loyaltyGrow*0.3+(tgr.loyaltyGrow||0)*0.3+bless.loyalty+hallGrow+rankGrow));
+    u.moral=Math.max(0,Math.min(100,u.moral+eff.moralGrow*0.3+teff.moralGrow*0.3+(tgr.moralGrow||0)*0.3+bless.moral+rankGrow*0.6));
     checkDailyTitles(u);
     // 師弟の薫陶:弟子は師の指導で日々わずかに成長し、師のレベルに近づけば独り立ちする(師は誇りを得る)
     if(u.masterId){
@@ -12122,6 +12144,7 @@ function renderUnitDetail(uid){
       <div class="udet-name">${u.captain?'<span class="star">★</span> ':""}${u.nm}${u.surname?" "+u.surname:""}${isInstructor?"(教官)":""}${!isInstructor?`<span id="btnFavHeader" title="お気に入り(長の期待に応え、訓練の伸びが少し上がる)" style="cursor:pointer;margin-left:6px;color:${u.favorite?"var(--gold)":"var(--dim)"}">${u.favorite?"★":"☆"}</span>`:""}</div>
       ${nicknameSpan(u)}
       <div class="udet-job">${JOB_TREES[u.cls].label}・${displayJobName(u)}${u.awakened?"":" Lv."+u.lv}</div>
+      ${!isInstructor?`<div style="font-size:10.5px;color:#c9a86a;margin-top:2px" title="王国への奉公(踏破・在籍年月・称号・統率・隊長歴)を重ねるほど上がる軍の位。位が高いほど忠誠と士気が保たれやすい">軍位:${militaryRank(u).name}</div>`:""}
       ${!isInstructor&&!u.awakened?`<div class="uexp" style="margin-top:5px;max-width:180px" title="次のレベルまでの経験値"><i style="width:${Math.min(100,u.exp/expNeed*100)}%"></i></div><div style="font-size:10px;color:var(--dim);margin-top:2px">経験値 ${Math.round(u.exp)} / ${Math.round(expNeed)}</div>`:""}
       <div class="udet-chips">
         <span class="udet-chip">${race.name}</span>
