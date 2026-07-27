@@ -6280,6 +6280,21 @@ function reforgeBestInventoryEquip(){
   best.key=bestNext.key;
   chron(`鍛冶の秘伝書の技により、「${oldDef.name}」が「${bestNext.name}」へと鍛え直された。`,"big");
 }
+/* 厳選の砥石:在庫の最上等な装備一点のアフィックス(個体差)を振り直す。ハクスラの"より良いロールを狙う"厳選の面白さ。 */
+function rerollBestInventoryAffixes(){
+  const inv=S.equipmentInventory||[];
+  let best=null,bestScore=-1;
+  for(const inst of inv){
+    const def=EQUIPMENT_DB.find(d=>d.key===inst.key);if(!def||def.rarity==="common")continue; // コモンは個体差を持たない
+    const sc=EQUIP_RARITY_ORDER.indexOf(def.rarity);
+    if(sc>bestScore){bestScore=sc;best=inst;}
+  }
+  if(!best){chron("砥石を手にしたが、振り直せる上等な装備が手元(在庫)になかった。","");return;}
+  const def=EQUIPMENT_DB.find(d=>d.key===best.key);
+  const before=equipInstName(best);
+  best.affixes=rollAffixes(def.rarity);
+  chron(`厳選の砥石で「${before}」を鍛え直した。個体差が振り直され、「${equipInstName(best)}」となった(${equipInstBonusText(best)})。`,"big");
+}
 const ITEMS=[
  // ── コモン(手軽な消耗品) ──
  {key:"coin_small",name:"小さな硬貨袋",rarity:"common",desc:"国庫が少し潤う。",effect:()=>apply({gold:ri(15,30),log:"硬貨袋を使い、国庫がわずかに潤った。"})},
@@ -6348,6 +6363,7 @@ const ITEMS=[
  {key:"morale_banner",name:"鼓舞の軍旗",rarity:"uncommon",desc:"全兵士の士気が上がる。",effect:()=>{for(const u of S.units)u.moral=Math.min(100,u.moral+ri(10,18));chron("鼓舞の軍旗が掲げられ、全軍の士気が高まった。","big");}},
  {key:"recruit_ticket",name:"人材紹介状",rarity:"uncommon",desc:"やや優秀な人材が一人加わる。",effect:()=>{if(S.units.length>=unitCap()){chron("兵舎が満員のため、人材紹介状は使えなかった。","");return;}const u=makeUnit();const targetLv=ri(3,6);for(let i=1;i<targetLv;i++)u.exp+=i*10;processLevelUps(u,true);S.units.push(u);chron(`人材紹介状により、${u.nm} ${u.surname}が加わった。`,"big");}},
  {key:"forge_stone",name:"強化の砥石",rarity:"uncommon",desc:"軍事がまとまって上がる。",effect:()=>apply({st:{military:ri(3,6)},log:"武具が念入りに研ぎ澄まされた。"})},
+ {key:"reroll_whetstone",name:"厳選の砥石",rarity:"uncommon",desc:"手持ち(在庫)の最も上等な装備一点の個体差(アフィックス)を鍛え直し、振り直す。より良いロールを狙える。",effect:()=>rerollBestInventoryAffixes()},
  {key:"grimoire_page",name:"魔導書の一頁",rarity:"uncommon",desc:"魔導がまとまって上がる。",effect:()=>apply({st:{magic:ri(3,6)},log:"失われた術式の一端が解読された。"})},
  {key:"trade_route",name:"新たな交易路の記録",rarity:"uncommon",desc:"経済がまとまって上がる。",effect:()=>apply({st:{economy:ri(3,6)},log:"新たな交易路が拓かれた。"})},
  {key:"census_scroll",name:"戸籍簿の写し",rarity:"uncommon",desc:"人口が少し増える。",effect:()=>apply({pop:ri(3,6),log:"戸籍の整理により、行方知れずだった民が数名見つかった。"})},
