@@ -9193,6 +9193,11 @@ function resolveDungeonRun(dungeonId){
         :`――「${dungeon.name}」を踏破し、ボス「${dungeon.bossName}」を打ち破った!${itemGained?`「${itemGained.name}」を手に入れた。`:""}${equipGained?`さらに「${equipDropName}」を入手した。`:""}`,"big");
       maybeClutchVictory(squad,dungeon,centerRoll,tier); // 実力で及ばぬ相手を覆した"番狂わせ"を特筆(演出＋士気の報い)
       maybeTriumphReturn(squad,crit); // 大勝から戻った部隊を迎える、暖かな凱旋の一幕(演出)
+      { // 季節の兆しが実った折、その恵みを一言添えて felt にする(季節×踏破の演出)
+        const _csk=(typeof currentSeason==="function"&&currentSeason())?currentSeason().key:null;
+        const _sflav={summer:"夏の盛りの猛稽古が実を結び、兵たちは一段と腕を上げて戻ってきた。",autumn:"黄金の秋の恵みか、蔵に納まる財貨もいつになく厚い。",winter:"厳しい冬の迷宮は、その分だけ良い獲物を懐に隠していた。",spring:"芽吹きの季の暖かさに、遠征帰りの兵の疲れも、いつしか和らいでいた。"}[_csk];
+        if(_sflav&&Math.random()<0.55)chron(_sflav,"");
+      }
       if(dungeon.treasureVault){ // 財宝の間: 踏破時に追加の宝と財貨
         const tItem=rollItemDrop(dungeon.rarity.key); if(tItem)addItem(tItem.key);
         const tGold=Math.round(ri(30,60)*dungeon.rarity.mult*levelMult);
