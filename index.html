@@ -6877,7 +6877,23 @@ const EVENT_ID_PREFIX=[
   ["captainpromo_",id=>buildCaptainPromoEvent(id.slice(13))],
   ["routebranch_",id=>buildRouteBranchEvent(id.slice(12))],
   ["awaken_",id=>buildAwakenEvent(id.slice(7))],
+  ["__loot_choice__",id=>buildLootChoiceEvent()],
 ];
+/* ===== 戦利品の選択(報酬に選択の妙を):完璧な踏破の折、稀に手つかずの"戦利品の間"に行き当たる。だが
+   持ち帰れるのは一つだけ――財貨か、異国の秘薬(アイテム)か、眠る名品(武具)か。自動で降ってくるだけだった
+   報酬に"何を選ぶか"という一手を与え、その時々の欲しいものを掴む楽しさと迷いを添える新機軸。 ===== */
+function buildLootChoiceEvent(){
+  const pl=(S&&S.pendingLoot)||{rarity:"rare",name:"迷宮"};
+  const rk=pl.rarity||"rare";
+  return {tag:"戦利品",title:"戦利品の間",
+    body:`「${pl.name||"迷宮"}」の最奥に、手つかずの戦利品が遺されていた。財貨の山、異国の秘薬、そして眠る名品――だが疲れた隊が持ち帰れるのは、ただ一つ。何を選ぶ。`,
+    speaker:"セラ「隊の余力では、一つ運び出すのが精一杯にございます。陛下、いずれを?」",
+    choices:[
+     {label:"財貨の山を選ぶ",hint:"まとまった財貨が手に入る",fx:{call:()=>{const g=ri(80,150);S.gold+=g;chron(`戦利品の間から、財貨の山(${g})を選んで持ち帰った。`,"big");S.pendingLoot=null;}}},
+     {label:"異国の秘薬を選ぶ",hint:"貴重なアイテムが手に入る",fx:{call:()=>{const it=rollItemDrop(rk);if(it){addItem(it.key);chron(`戦利品の間から、秘薬「${it.name}」を選んで持ち帰った。`,"big");}else{const g=ri(60,100);S.gold+=g;chron(`めぼしい秘薬はなく、代わりに財貨${g}を持ち帰った。`,"");}S.pendingLoot=null;}}},
+     {label:"眠る名品を選ぶ",hint:"上質な武具が手に入る",fx:{call:()=>{const eq=rollEquipmentDrop(rk==="legendary"?"epic":rk);if(eq){const inst=addEquipment(eq.key);chron(`戦利品の間から、名品「${equipInstName(inst)}」を選んで持ち帰った(${equipInstBonusText(inst)})。`,"big");}else{const g=ri(60,100);S.gold+=g;chron(`名品は朽ちており、代わりに財貨${g}を持ち帰った。`,"");}S.pendingLoot=null;}}},
+    ]};
+}
 function resolveEventId(id){
   if(EVENT_ID_EXACT[id])return EVENT_ID_EXACT[id]();
   for(const[prefix,handler]of EVENT_ID_PREFIX){
@@ -8962,6 +8978,7 @@ function resolveDungeonRun(dungeonId){
         apply({gold:tGold,mood:2});
         chron(`奥には「財宝の間」が隠されていた！${tItem?`「${tItem.name}」と`:""}${tGold}の財貨を持ち帰った。`,"big");
       }
+      if(crit&&!dungeon.treasureVault&&Math.random()<0.3){S.pendingLoot={rarity:dungeon.rarity.key,name:dungeon.name};pushEvent("__loot_choice__");} // 戦利品の選択:完璧な踏破の折、稀に手つかずの戦利品の間に行き当たり、持ち帰る一品を選ぶ
       if(cond==="treasure"){ // 財宝の霊気: 手強い分、討ち果たせば莫大な財と一段上の秘宝が眠る
         const tGold=Math.round(ri(90,160)*dungeon.rarity.mult*levelMult);
         const upKey={common:"uncommon",uncommon:"rare",rare:"epic",epic:"legendary",legendary:"legendary"}[dungeon.rarity.key]||"rare";
