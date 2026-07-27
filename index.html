@@ -2043,7 +2043,8 @@ function sellValue(inst){
   const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return 0;
   const base=SELL_BASE[def.rarity]||10;
   const affixSum=(inst.affixes||[]).reduce((t,a)=>t+((a&&a.val)||0),0);
-  return Math.round(base*(1+0.3*enhLevel(inst))+affixSum*3);
+  const midas=(S.flags&&S.flags.alchemy==="midas")?1.1:1; // 錬金術「黄金の変成」:売却で得る財貨が増す
+  return Math.round((base*(1+0.3*enhLevel(inst))+affixSum*3)*midas);
 }
 function sellEquip(instId){
   S.equipmentInventory=S.equipmentInventory||[];
@@ -3959,6 +3960,43 @@ const RANDOM_RARE=[
      if(goodwill){S.flags.phoenixCharm=(S.flags.phoenixCharm||0)+1;}
      apply({gold:g,mood:goodwill?6:3,st:{magic:goodwill?4:2},log:`星冠の遺産がアルヴェインにもたらされた。${eqName?`至宝「${eqName}」`:"古の秘宝"}と財貨${g}、そして星の加護が王国に宿った。${goodwill?"かつての誠意に、巡礼者は最大の返礼をもって応えた(不死鳥の加護も宿った)。":"巡礼者は静かに礼を述べ、去っていった。"}`,logCls:"big"});
      chron("星を追う巡礼者の物語は、こうして幕を下ろした。その名は、王国史の片隅にそっと書き留められた。","big");
+   }}},
+  ]},
+ // ===== 連続物語(イベント連鎖):流浪の錬金術師。二部に跨り、工房を興せば三つの秘術から一つを永く授かる(既存の売却・祝祭・治療と噛み合う新機軸) =====
+ {tag:"錬金術",title:"流浪の錬金術師",
+  cond:s=>!(s.flags&&s.flags.alchemyArc)&&STAGES[s.stage].rank>=2&&s.day>=30,
+  body:"薬品の匂いを漂わせた風変わりな旅人が、王国を訪ねてきた。「私は錬金術師。金属を、恵みを、時をも変ずる術を修めております。工房を一つ構えさせていただければ――この国に、ささやかな奇跡をお見せしましょう」。眼の奥に、抑えきれぬ探究の火が揺れている。",
+  speaker:"セラ「胡散臭さは否めませぬが……あの手の火傷の痕、確かに本物の術者かと」",
+  choices:[
+   {label:"工房の建設を援助する(50G)",hint:"錬金術師と縁を結ぶ(後日、三つの秘術から一つを永く授かる物語の始まり)",fx:{call:()=>{
+     if(S.gold<50){chron("工房を興す蓄えがなく、錬金術師は残念そうに去っていった。","");return;}
+     S.gold-=50;S.flags=S.flags||{};S.flags.alchemyArc=1;S.flags.alchemyArcDay=S.day+ri(6,10);
+     apply({st:{magic:2},mood:1,log:"王は錬金術師に工房を与えた。炉に火が入り、怪しくも心躍る煙が城下に立ちのぼる。何かが生み出される予感が、国を包んだ(魔導+2)。",logCls:"big"});
+   }}},
+   {label:"胡乱な術と断る",hint:"堅実(治安↑ / この物語は始まらない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.alchemyArc=-1;
+     apply({st:{order:1},log:"王は得体の知れぬ錬金術を退けた。怪しげな煙に惑わされぬ王の分別を、家臣は良しとした(治安+1)。"});
+   }}},
+  ]},
+ {tag:"錬金術",title:"錬金術師の秘術",
+  cond:s=>(s.flags&&s.flags.alchemyArc)===1&&s.day>=(s.flags.alchemyArcDay||0),
+  body:"幾夜もの試行の末、錬金術師が興奮を隠さず王を工房へ招いた。「三つ、成りました。いずれも一つしか安定させられませぬ。どうかお選びを――金を殖やす『黄金の変成』、祝祭の悦びを永らえさせる『祝祭の触媒』、傷を癒す『賢者の霊薬』」。炉の光が、三つの小瓶を金・虹・碧に染めている。",
+  speaker:"ガレオン「一つきり、とのこと。何を国の柱に据えるか――陛下の御心のままに」",
+  choices:[
+   {label:"黄金の変成を選ぶ",hint:"以後、武具の売却と隊商の交易で得る財貨が永続で増える",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.alchemy="midas";S.flags.alchemyArc=2;
+     apply({st:{economy:2},mood:2,log:"錬金術師は黄金の変成を安定させた。卑金属すら価値を帯びるその術のもと、以後は売却も交易も、より多くの財貨を国庫へ運ぶ(経済+2)。",logCls:"big"});
+     chron("流浪の錬金術師の物語は、黄金の輝きとともに幕を下ろした。","big");
+   }}},
+   {label:"祝祭の触媒を選ぶ",hint:"以後、催した祝祭の恵みが永続で長持ちする",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.alchemy="catalyst";S.flags.alchemyArc=2;
+     apply({st:{magic:2},mood:3,log:"錬金術師は祝祭の触媒を練り上げた。祭の悦びを長らえさせるその秘薬のもと、以後は催す祝祭の恵みが、幾日も長く国を照らす(魔導+2 民心↑)。",logCls:"big"});
+     chron("流浪の錬金術師の物語は、絶えぬ祭火とともに幕を下ろした。","big");
+   }}},
+   {label:"賢者の霊薬を選ぶ",hint:"以後、負傷した兵が時折ひとりでに癒える",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.alchemy="elixir";S.flags.alchemyArc=2;
+     apply({st:{magic:2},mood:2,log:"錬金術師は賢者の霊薬を成した。命を巡らせるその碧い雫のもと、以後は傷ついた兵が、時折ひとりでに癒えて戦列へ戻る(魔導+2)。",logCls:"big"});
+     chron("流浪の錬金術師の物語は、癒しの碧光とともに幕を下ろした。","big");
    }}},
   ]},
  {tag:"継 承",title:"王家の家宝を定める",
@@ -6269,6 +6307,10 @@ function dailyEconomySettle(){
   neighborDaily(); // 近隣諸国との関係の推移と、良好な隣国からの交易収入
   checkNeighborIncident(); // 関係に応じた出来事(険悪=脅威/良好=交易の恵み)
   festivalDaily(); // 開催中の祝祭が生む日々の恵み(収穫祭の食糧など)
+  if(S.flags&&S.flags.alchemy==="elixir"&&Math.random()<0.14){ // 錬金術「賢者の霊薬」:時折、負傷した兵を癒す
+    const hurt=S.units.filter(u=>u.injured>0);
+    if(hurt.length){const u=hurt[ri(0,hurt.length-1)];u.injured=Math.max(0,u.injured-ri(2,4));if(u.injured<=0)chron(`賢者の霊薬が効いたか、${fullName(u)}の傷がすっかり癒えた。`,"");}
+  }
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
     const loyaltyDrift=S.mood>=70?(S.mood-70)*0.006:-(30-S.mood)*0.01;
@@ -9492,7 +9534,8 @@ function resolveCaravan(){
     apply({mood:-2,log:`${neighborName(c.key)}へ向かった隊商が道中で野盗に襲われ、荷の多くを失った(元手${c.invest}G→${ret}Gのみ帰還)。備えなき道は、かくも険しい。`,logCls:"grave"});
     if(nb)nb.relation=Math.max(0,nb.relation-1);
   }else{
-    const ret=Math.round(c.invest*(1.3+rnd(0,0.35))*relFactor*allyMult); S.gold+=ret;
+    const midas=(S.flags&&S.flags.alchemy==="midas")?1.1:1; // 錬金術「黄金の変成」:交易の実入りも増す
+    const ret=Math.round(c.invest*(1.3+rnd(0,0.35))*relFactor*allyMult*midas); S.gold+=ret;
     if(nb)nb.relation=Math.min(100,nb.relation+ri(2,5));
     apply({st:{economy:1},log:`${neighborName(c.key)}へ送った隊商が無事に帰った。交易は実を結び、元手${c.invest}Gが${ret}Gとなって国庫に納まった${nb&&nb.allied?"(同盟の誼で上乗せ)":""}。${neighborName(c.key)}との関係もいっそう深まった(経済+1 関係↑)。`,logCls:"big"});
   }
@@ -9520,9 +9563,10 @@ function holdFestival(key){
   if(cost.gold&&S.gold<cost.gold){chron("祭を催すだけの蓄えが足りない。","");return;}
   if(cost.food&&(S.food||0)<cost.food){chron("祭を催すだけの食糧が足りない。","");return;}
   if(cost.gold)S.gold-=cost.gold; if(cost.food)S.food=Math.max(0,(S.food||0)-cost.food);
-  S.festival={key,until:S.day+FESTIVAL_DURATION}; S.lastFestivalDay=S.day;
+  const dur=FESTIVAL_DURATION+((S.flags&&S.flags.alchemy==="catalyst")?3:0); // 錬金術「祝祭の触媒」:祭の恵みが長持ちする
+  S.festival={key,until:S.day+dur}; S.lastFestivalDay=S.day;
   const fx=key==="harvest"?{mood:8,st:{agriculture:1}}:key==="feast"?{mood:6,st:{military:1}}:{mood:5,st:{order:2}};
-  apply(Object.assign({},fx,{log:`${ft.icon} 国を挙げて「${ft.name}」が催された。${ft.effectLabel}(${FESTIVAL_DURATION}日間)。人々の顔に、久方ぶりの華やぎが差した。`,logCls:"big"}));
+  apply(Object.assign({},fx,{log:`${ft.icon} 国を挙げて「${ft.name}」が催された。${ft.effectLabel}(${dur}日間)。人々の顔に、久方ぶりの華やぎが差した。`,logCls:"big"}));
   clamp();render();renderProjects();save();
 }
 function renderProjects(){
