@@ -2224,6 +2224,7 @@ const TITLE_DB=[
  {key:"t_evergreen",name:"生涯現役",desc:"老境に至ってなお現役を貫いている",effect:"moralGrow",value:0.12},
  {key:"t_longlife",name:"長寿の証",desc:"種族の平均寿命を超えて生きている",effect:"injuryMult",value:0.9},
  {key:"t_loyal90",name:"忠義の士",desc:"高い忠誠を長く保ち続けている",effect:"loyaltyGrow",value:0.15},
+ {key:"t_loyal100",name:"絶対の忠臣",desc:"忠誠を極限まで極め、寸分も揺るがぬ忠義を王に捧げる者",effect:"moralGrow",value:0.12},
  {key:"t_morale90",name:"士気の要",desc:"高い士気を長く保ち続けている",effect:"moralGrow",value:0.15},
  {key:"t_favorite",name:"愛され者",desc:"長のお気に入りに選ばれている",effect:"moralGrow",value:0.1},
  {key:"t_bonded",name:"絆の証",desc:"戦友との絆を結んでいる",effect:"loyaltyGrow",value:0.1},
@@ -2728,6 +2729,7 @@ function checkDailyTitles(u){
   const stage=ageStageOf(u);
   const race=RACES.find(r=>r.key===u.race);
   if(u.loyalty>=90)grantTitle(u,"t_loyal90");
+  if(u.loyalty>=100)grantTitle(u,"t_loyal100"); // 忠誠を極限まで極めた者の証
   if(u.moral>=90)grantTitle(u,"t_morale90");
   if(u.favorite)grantTitle(u,"t_favorite");
   if(u.bondWith){grantTitle(u,"t_bonded");if((u.criticalSurvivalCount||0)>=1)grantTitle(u,"t_guardian");}
