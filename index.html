@@ -7362,6 +7362,8 @@ function checkDungeonDiscovery(rewardMult,discoverer){
   const chance=0.6*(rewardMult||1)*(1+finder);
   if(Math.random()<chance){
     const d=generateDungeon();
+    // 討伐依頼(型指定)が出ている時は、時おり発見が依頼の型に噛み合う=依頼を達成できるダンジョンに巡り会える公平性(磨き込み)
+    if(S.bounty&&S.bounty.kind==="type"&&Math.random()<0.4){const bt=DUNGEON_TYPES.find(t=>t.key===S.bounty.target);if(bt)d.type=bt;}
     S.availableDungeons=S.availableDungeons||[];
     S.availableDungeons.push(d);
     if(S.availableDungeons.length>5){
