@@ -8484,13 +8484,17 @@ function renderEquipSelect(){
   $("#itemTargetTitle").textContent=`${fullName(u)}の${EQUIP_SLOT_LABEL[slot]}を選ぶ`;
   const cands=(S.equipmentInventory||[]).map(inst=>({inst,def:EQUIPMENT_DB.find(d=>d.key===inst.key)})).filter(x=>x.def&&x.def.slot===slot);
   cands.sort((a,b)=>equipInstScore(b.inst)-equipInstScore(a.inst)); // 良い装備(格＋個体差)を上位に並べ、掘り出し物の比較を楽にする
-  let h=`<div class="ds" style="margin-bottom:8px">所持している${EQUIP_SLOT_LABEL[slot]}から選んで装備させる。既に何か装備している場合は自動的に外され、手持ちに戻る。</div>`;
+  const curInst=u.equipment&&u.equipment[slot]; const curScore=curInst?equipInstScore(curInst):null; // いま装備中の一品と比べて強化/弱化が一目で分かるようにする(装備選びの磨き込み)
+  let h=`<div class="ds" style="margin-bottom:8px">所持している${EQUIP_SLOT_LABEL[slot]}から選んで装備させる。既に何か装備している場合は自動的に外され、手持ちに戻る。${curInst?`<br>装備中:${equipInstName(curInst)}`:""}</div>`;
   if(!cands.length)h+=`<div class="udet-empty">所持している${EQUIP_SLOT_LABEL[slot]}がない。ダンジョンや遠征の報酬で手に入ることがある。</div>`;
   for(const{inst,def}of cands){
+    let cmp="";
+    if(curScore!==null&&inst.id!==(curInst&&curInst.id)){const s=equipInstScore(inst);if(s>curScore)cmp=`<span style="color:#8fbf6f;font-size:10px;font-weight:700">▲強化</span>`;else if(s<curScore)cmp=`<span style="color:#c98f8f;font-size:10px">▼見劣り</span>`;else cmp=`<span style="color:var(--dim);font-size:10px">≒同等</span>`;}
+    else if(curInst&&inst.id===curInst.id)cmp=`<span style="color:var(--gold);font-size:10px">装備中</span>`;
     h+=`<button class="eq-target-pick" data-id="${inst.id}" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--parch);border-radius:6px;padding:10px;margin-bottom:6px;font-family:'Zen Old Mincho',serif;cursor:pointer">
       <i class="ricon eqp-icon-${def.key}" style="width:32px;height:32px;flex:0 0 auto"></i>
       <span>
-        <span class="trchip t-${def.rarity==="legendary"?"legend":def.rarity==="epic"?"epic":def.rarity==="rare"?"rare":"normal"}" style="font-size:10px">${def.rarity}</span> ${equipInstName(inst)}<br>
+        <span class="trchip t-${def.rarity==="legendary"?"legend":def.rarity==="epic"?"epic":def.rarity==="rare"?"rare":"normal"}" style="font-size:10px">${def.rarity}</span> ${equipInstName(inst)} ${cmp}<br>
         <span style="font-size:11px;color:var(--dim)">${equipInstBonusText(inst)}</span>
       </span>
     </button>`;
