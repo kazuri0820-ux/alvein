@@ -8553,12 +8553,19 @@ function claimOutpost(dungeon){
   chron(`――「${dungeon.name}」の跡地に、王国の前哨として「${t.name}」を築いた。${t.desc}(前哨 ${S.outposts.length}/${outpostCap()})。`,"big");
   return true;
 }
+const OUTPOST_DEVELOP_DAYS=40; // これだけ長く保持すると前哨が地に根付き、実りが増す
 function outpostDaily(){ // 前哨拠点が日々もたらす実り
   for(const o of (S.outposts||[])){
+    // 前哨が根付く:長く保持した拠点は地域に定着し、実りが一段増す(畳まず育てる価値を felt に)
+    if(!o.developed&&(S.day-(o.day||S.day))>=OUTPOST_DEVELOP_DAYS){
+      o.developed=true;
+      if((o.type==="gold"||o.type==="food")&&o.yield)o.yield=Math.round(o.yield*1.5);
+      chron(`「${o.name}」の${outpostTypeName(o.type)}が、長きの営みでこの地にすっかり根付いた。人が集い里が育ち、もたらす実りが一段と増した。`,"");
+    }
     if(o.type==="gold")S.gold+=(o.yield||0);
     else if(o.type==="food")S.food=Math.min(999,(S.food||0)+(o.yield||0));
-    else if(o.type==="order")S.mood=Math.min(100,(S.mood||0)+0.35);
-    else if(o.type==="train"){const c=S.units.filter(u=>u.role==="active"&&u.injured<=0);if(c.length&&Math.random()<0.5){const u=c[Math.floor(Math.random()*c.length)];u.exp+=ri(2,4);processLevelUps(u);}}
+    else if(o.type==="order")S.mood=Math.min(100,(S.mood||0)+(o.developed?0.5:0.35));
+    else if(o.type==="train"){const c=S.units.filter(u=>u.role==="active"&&u.injured<=0);if(c.length&&Math.random()<(o.developed?0.7:0.5)){const u=c[Math.floor(Math.random()*c.length)];u.exp+=ri(2,4);processLevelUps(u);}}
   }
 }
 /* 前哨からの報せ:確保した前哨は、折に触れて思わぬ吉事を届けてくる。金鉱は豊かな鉱脈を掘り当て、
@@ -10574,7 +10581,7 @@ function renderProjects(){
      <div class="ds" style="margin:2px 0 6px">踏破した迷宮の跡地を王国の前哨として確保し、日々の実りを得る。維持できる数には上限があり、空きが無ければ新たな要地は取れない。${ops.length>=cap?`<span style="color:#d99a6a;font-size:10.5px">(上限に達している。畳めば新たな跡地を確保できる)</span>`:`<span style="color:#8fbf6f;font-size:10.5px">(あと${cap-ops.length}箇所、確保の余地あり)</span>`}</div>`;
    if(!ops.length){h+=`<div class="ds" style="color:var(--dim);font-size:11px">まだ前哨はない。迷宮を踏破すると、その跡地を稀に前哨として確保できる。</div>`;}
    for(const o of ops){
-     const detail=(o.type==="gold"||o.type==="food")?`日々 ${yld[o.type]}+${o.yield}`:`日々 ${yld[o.type]}を支える`;
+     const detail=((o.type==="gold"||o.type==="food")?`日々 ${yld[o.type]}+${o.yield}`:`日々 ${yld[o.type]}を支える`)+(o.developed?" ／ 根付いた里":"");
      h+=`<div style="display:flex;align-items:center;gap:8px;border:1px solid rgba(201,162,75,.3);border-radius:6px;padding:8px 10px;margin-bottom:5px">
        <span style="flex:1;min-width:0"><span style="color:var(--gold);font-weight:700">${outpostTypeName(o.type)}</span> <span style="color:var(--dim);font-size:10.5px">― ${o.name}</span><br><span style="font-size:10.5px;color:#8fbf6f">${detail}</span></span>
        <button class="outpost-abandon-btn" data-id="${o.id}" style="flex:0 0 auto;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--dim);border-radius:6px;padding:5px 9px;font-family:'Shippori Mincho',serif;font-size:10.5px;cursor:pointer">畳む</button>
