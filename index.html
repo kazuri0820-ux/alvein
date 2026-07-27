@@ -5019,8 +5019,28 @@ function councilAcademy(){
    speaker:"老師ユグ「学びは、剣と同じほど国を強くいたします」",
    choices:opts};
 }
+/* 軍装会議:兵の武具の調え方を問う。発注・支給・売却のいずれを選ぶかで、武具庫の逸品・軍事・国庫が
+   振れる。国政の決断を"装備の調達(ハクスラの入手経路)"へ結びつけ、週次の方針に軍を整える色を添える。 */
+function councilArmory(){
+  const opts=[
+   {label:"名工に武具を発注する(60G)",hint:"上質な装備が武具庫に入る(出費)",fx:{call:()=>{
+     if(S.gold<60){chron("発注するだけの蓄えがなく、武具の調達は見送られた。","");return;}
+     S.gold-=60;
+     const eq=rollEquipmentDrop(Math.random()<0.3?"epic":"rare");
+     if(eq){const inst=addEquipment(eq.key);chron(`名工に発注した武具「${equipInstName(inst)}」が武具庫に納められた(${equipInstBonusText(inst)})。`,"big");}
+     else{apply({st:{military:2}});chron("名工は多忙で新たな品は仕上がらなかったが、兵の武具の手入れは念入りに進んだ(軍事+2)。","");}
+   }}},
+   {label:"全軍の装備を整える(40G)",hint:"軍事↑↑",fx:{gold:-40,st:{military:4},log:"支給された武具で全軍の装備が一新され、兵の顔つきも引き締まった。"}},
+   {label:"古い武具を売り払う",hint:"当座の国庫↑ 軍事少し↓",fx:{gold:45,st:{military:-1},log:"蔵に眠っていた古い武具を売り払い、当座の国庫を潤した。"}},
+   {label:"今週は特に動かない",hint:"様子見",fx:{log:"武具の調達については、今週は特段の手を打たなかった。"}},
+  ];
+  return{tag:"軍装会議",title:"第"+Math.floor(S.day/7)+"回 定例閣議(軍装)",
+   body:"今週の議題は軍装。兵の武具をいかに調えるか、ガレオンが方針を仰いでいる。",
+   speaker:"ガレオン「良き武具は、兵の命を一つ多く救いましょう」",
+   choices:opts};
+}
 function councilAction(){
-  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill,councilFrontier,councilAcademy];
+  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill,councilFrontier,councilAcademy,councilArmory];
   return types[Math.floor(Math.random()*types.length)]();
 }
 function councilEvent(){return councilPolicy();}
