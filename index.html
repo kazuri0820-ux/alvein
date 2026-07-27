@@ -1998,10 +1998,11 @@ function equipInstName(inst){
   const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return "?";
   const enh=enhLevel(inst)?` +${enhLevel(inst)}`:""; // 鍛冶による強化度を名に添える
   const bond=inst.bonded?"〈相棒〉":""; // 絆を結んだ得物の証
-  if(!inst.affixes||!inst.affixes.length)return bond+def.name+enh;
+  const keep=inst.keepsake?"《形見》":""; // 亡き英傑の遺志を宿す形見の証
+  if(!inst.affixes||!inst.affixes.length)return keep+bond+def.name+enh;
   const pre=inst.affixes.filter(a=>a&&a.pos==="prefix").map(a=>a.name).join("");
   const suf=inst.affixes.filter(a=>a&&a.pos==="suffix").map(a=>a.name).join("");
-  return bond+pre+def.name+suf+enh;
+  return keep+bond+pre+def.name+suf+enh;
 }
 /* 装備インスタンスの効果表示(基礎＋アフィックスを合算)。 */
 function equipInstBonusText(inst){
@@ -2050,6 +2051,37 @@ function equipItem(unitId,instanceId){
     const lbl={uncommon:"上等",rare:"希少",epic:"魔級",legendary:"伝説"}[newSetTier]||newSetTier;
     chron(`――${fullName(u)}が【${lbl}】の武具一式を身に纏った。揃いの装備の力が呼び覚まされ、全身に力が漲っている。`,"big");
   }
+  if(inst.keepsake&&def.slot==="weapon"&&inst.keepsakeHeir!==u.id){ // 形見の得物を新たな継ぐ者が手に取る=世代を越えた継承の一幕(先達の遺志が士気を高ぶらせる)
+    inst.keepsakeHeir=u.id;
+    const dep=inst.keepsake.nm+(inst.keepsake.surname?" "+inst.keepsake.surname:"");
+    u.moral=Math.min(100,(u.moral||0)+8); u.loyalty=Math.min(100,(u.loyalty||0)+5);
+    unitHistory(u,`故${dep}の形見の得物を受け継いだ。先達の遺志を胸に、身の引き締まる思いだ。`);
+    chron(`${fullName(u)}が、故${dep}の形見「${equipInstName(inst)}」を受け継いだ。亡き英傑の遺志が若き手に渡り、その士気は高く燃えている。`,"big");
+  }
+}
+/* ===== 形見の武具:殿堂に名を刻むに足る英傑が斃れた時、共に戦った得物は失われず「形見」として武具庫へ還る。
+   亡き先達の得手を「遺志」の一振りとして宿し、いつか継ぐ者を待つ。喪失を次代への贈り物へ転じ、世代を
+   越えて受け継がれる愛着を生む新たな軸(装備×殿堂×継承)。JS改変で新機軸を厚くする。 ===== */
+function preserveKeepsake(u,reason){
+  if(reason!=="death"&&reason!=="loss")return;
+  if(!isHallWorthy(u))return;
+  const inst=u.equipment&&u.equipment.weapon; if(!inst)return;
+  const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return;
+  const notable=["rare","epic","legendary"].includes(def.rarity)||inst.bonded; // 名のある得物・絆を結んだ相棒のみが形見に足る
+  if(!notable)return;
+  S.equipmentInventory=S.equipmentInventory||[];
+  if(!inst.keepsake){ // 二重付与を防ぐ(既に形見の一振りなら遺志は重ねない)
+    const keys=["str","vit","int","agi","wis","lead"];
+    let spec=keys[0]; for(const k of keys)if((u[k]||0)>(u[spec]||0))spec=k; // 亡き者の最も得手な能力を遺志として宿す
+    inst.affixes=inst.affixes||[];
+    inst.affixes.push({pos:"suffix",stat:spec,val:ri(3,5),name:"(遺志)",legacy:true});
+    inst.keepsake={nm:u.nm,surname:u.surname||"",day:S.day,cls:u.cls};
+  }
+  inst.bonded=false; inst.bondUnitId=null; inst.bondClears=0; // 亡き主との絆は解け、いつか継ぐ者を待つ
+  delete inst.keepsakeHeir; // 継ぐ者は改めて名乗り出る
+  u.equipment.weapon=null;
+  S.equipmentInventory.push(inst);
+  chron(`故${fullName(u)}の得物「${equipInstName(inst)}」は、主を失ってなお武具庫へ還った。亡き英傑の遺志を宿すその一振りは、いつか継ぐ者を待つ形見となった。`,"grave");
 }
 function unequipItem(unitId,slot){
   const u=findAnyUnit(unitId);
@@ -2738,6 +2770,7 @@ function removeUnitById(id,reason){
   if(!u)return;
   handleCaptainLoss(u);
   releaseUniqueIfHolder(u);
+  preserveKeepsake(u,reason); // 形見の武具:斃れた英傑の得物を武具庫へ還し、遺志を次代に遺す
   addToHallOfFame(u,reason);
   if(!S.records)S.records={strongestUnit:null,longestLived:null,fastestHero:null,mostTitles:null,richestDay:null};
   if(!S.records.longestLived||u.age>S.records.longestLived.age){
@@ -7737,7 +7770,8 @@ function rerollBestInventoryAffixes(){
   if(!best){chron("砥石を手にしたが、振り直せる上等な装備が手元(在庫)になかった。","");return;}
   const def=EQUIPMENT_DB.find(d=>d.key===best.key);
   const before=equipInstName(best);
-  best.affixes=rollAffixes(def.rarity);
+  const legacy=(best.affixes||[]).filter(a=>a&&a.legacy); // 形見の「遺志」は振り直しでも失われない(先達の想いは消えない)
+  best.affixes=[...rollAffixes(def.rarity),...legacy];
   chron(`厳選の砥石で「${before}」を鍛え直した。個体差が振り直され、「${equipInstName(best)}」となった(${equipInstBonusText(best)})。`,"big");
 }
 const ITEMS=[
@@ -9944,7 +9978,7 @@ function renderEquipSelect(){
       <i class="ricon eqp-icon-${def.key}" style="width:32px;height:32px;flex:0 0 auto"></i>
       <span style="flex:1;min-width:0">
         <span class="trchip t-${def.rarity==="legendary"?"legend":def.rarity==="epic"?"epic":def.rarity==="rare"?"rare":"normal"}" style="font-size:10px">${def.rarity}</span> ${equipInstName(inst)} ${cmp}<br>
-        <span style="font-size:11px;color:var(--dim)">${equipInstBonusText(inst)}</span>
+        <span style="font-size:11px;color:var(--dim)">${equipInstBonusText(inst)}</span>${inst.keepsake?`<br><span style="font-size:10.5px;color:#c98f7a">故${inst.keepsake.nm}${inst.keepsake.surname?" "+inst.keepsake.surname:""}の形見 — 遺志を継ぐ者を待つ</span>`:""}
       </span>
       <span style="display:flex;flex-direction:column;gap:4px;flex:0 0 auto">
         <button class="eq-target-pick" data-id="${inst.id}" style="background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:6px 9px;font-family:'Shippori Mincho',serif;font-size:11px;cursor:pointer">装備</button>
