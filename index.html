@@ -1915,6 +1915,14 @@ function weaponAffinity(u){
   const main=(CLASS_STAT_PRIORITY[u.cls]||{}).main;
   return (domK&&main&&domK===main)?main:null;
 }
+/* ===== 鍛冶(装備強化):新機軸=財貨を投じて装備そのものを永続で鍛え上げる進行の軸 =====
+   ドロップ運任せだった装備の強さに、財貨を投じて自分の手で伸ばす選択を加える。基礎値に比例して伸びるため
+   「良い装備をさらに鍛える」動機が生まれ、貯まる財貨の使い道(経済の出口)にもなる。上限+5。 */
+const ENH_MAX=5;
+const ENH_COST_BASE={common:25,uncommon:50,rare:110,epic:220,legendary:380};
+function enhLevel(inst){return (inst&&inst.enh)||0;}
+function enhStatBonus(def,enh){const o={};if(!def||!def.statBonus||!enh)return o;for(const k in def.statBonus)o[k]=Math.round(def.statBonus[k]*0.12*enh);return o;}
+function enhanceCost(inst){const def=EQUIPMENT_DB.find(d=>d.key===inst.key);if(!def)return 0;return (ENH_COST_BASE[def.rarity]||60)*(enhLevel(inst)+1);}
 function equipmentEffects(u){
   const e={str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   if(!u.equipment)return e;
@@ -1925,6 +1933,7 @@ function equipmentEffects(u){
     if(!def)continue;
     for(const k in def.statBonus)e[k]+=def.statBonus[k];
     if(inst.affixes)for(const a of inst.affixes)if(a&&a.stat&&e[a.stat]!==undefined)e[a.stat]+=a.val; // 個体差(アフィックス)の追加ロール
+    if(inst.enh){const eb=enhStatBonus(def,inst.enh);for(const k in eb)if(e[k]!==undefined)e[k]+=eb[k];} // 鍛冶による強化分
   }
   const setTier=equipSetTier(u); // 三種を同じ格で揃えたセット効果
   if(setTier){const b=EQUIP_SET_BONUS[setTier];for(const k in e)e[k]+=b;}
@@ -1967,16 +1976,18 @@ function rollAffixes(rarityKey){
 /* 装備インスタンスの表示名(接頭辞＋基礎名＋接尾辞)。アフィックスが無ければ従来通り基礎名。 */
 function equipInstName(inst){
   const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return "?";
-  if(!inst.affixes||!inst.affixes.length)return def.name;
+  const enh=enhLevel(inst)?` +${enhLevel(inst)}`:""; // 鍛冶による強化度を名に添える
+  if(!inst.affixes||!inst.affixes.length)return def.name+enh;
   const pre=inst.affixes.filter(a=>a&&a.pos==="prefix").map(a=>a.name).join("");
   const suf=inst.affixes.filter(a=>a&&a.pos==="suffix").map(a=>a.name).join("");
-  return pre+def.name+suf;
+  return pre+def.name+suf+enh;
 }
 /* 装備インスタンスの効果表示(基礎＋アフィックスを合算)。 */
 function equipInstBonusText(inst){
   const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return "";
   const merged={}; for(const k in def.statBonus)merged[k]=(merged[k]||0)+def.statBonus[k];
   if(inst.affixes)for(const a of inst.affixes)if(a&&a.stat)merged[a.stat]=(merged[a.stat]||0)+a.val;
+  if(inst.enh){const eb=enhStatBonus(def,inst.enh);for(const k in eb)merged[k]=(merged[k]||0)+eb[k];}
   return Object.entries(merged).map(([k,v])=>`${(USTAT_DEF[k]||{lbl:k}).lbl}+${v}`).join("・");
 }
 /* 装備インスタンスの総合評価(格＋基礎＋アフィックス)。装備選択の並べ替えに使う=良個体を上位に。 */
@@ -1984,6 +1995,7 @@ function equipInstScore(inst){
   const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return 0;
   let s=0; for(const k in def.statBonus)s+=def.statBonus[k];
   if(inst.affixes)for(const a of inst.affixes)s+=(a&&a.val)||0;
+  if(inst.enh){const eb=enhStatBonus(def,inst.enh);for(const k in eb)s+=eb[k];}
   const ri2=(typeof EQUIP_RARITY_ORDER!=="undefined")?EQUIP_RARITY_ORDER.indexOf(def.rarity):0;
   return s + ri2*100; // 格を最優先、次いで合計ステータス
 }
@@ -2024,6 +2036,18 @@ function unequipItem(unitId,slot){
   S.equipmentInventory=S.equipmentInventory||[];
   S.equipmentInventory.push(u.equipment[slot]);
   u.equipment[slot]=null;
+}
+/* 鍛冶:装備中の一点を財貨で鍛え上げ、基礎値を永続で底上げする(+5が上限) */
+function enhanceEquip(unitId,slot){
+  const u=findAnyUnit(unitId); if(!u||!u.equipment||!u.equipment[slot])return;
+  const inst=u.equipment[slot]; const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return;
+  if(enhLevel(inst)>=ENH_MAX){chron(`「${equipInstName(inst)}」はこれ以上鍛えられない(+${ENH_MAX}が上限)。`,"");return;}
+  const cost=enhanceCost(inst);
+  if(S.gold<cost){chron("国庫が足らず、鍛冶に出せなかった。","");return;}
+  S.gold-=cost; inst.enh=enhLevel(inst)+1;
+  unitHistory(u,`装備「${equipInstName(inst)}」を鍛え上げた(+${inst.enh})。`);
+  chron(`鍛冶場の炉が唸り、${u.nm}の「${equipInstName(inst)}」が鍛え直された。一段と強く、手に馴染む一品となった。`,"big");
+  clamp();render();renderTroops();if(typeof renderUnitDetail==="function")renderUnitDetail(unitId);save();
 }
 function skillTierWeight(){return[["red",9],["gray",44],["blue",30],["silver",13],["gold",4]];}
 /* ジョブ系統の昇格時専用の重み(灰〜銀中心、赤は低確率、金は3段階目以降の昇格でのみ解放) */
@@ -9983,6 +10007,7 @@ function renderUnitDetail(uid){
           <button class="eq-open-btn" data-slot="${slot}" style="flex:1;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:6px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${def?"付け替える":"装備する"}</button>
           ${def?`<button class="eq-remove-btn" data-slot="${slot}" style="flex:1;background:transparent;border:1px solid rgba(217,122,122,.5);color:#d97a7a;border-radius:6px;padding:6px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">外す</button>`:""}
         </div>
+        ${def?(()=>{const lv=enhLevel(inst);if(lv>=ENH_MAX)return `<div class="ds" style="font-size:11px;color:var(--gold);margin-top:6px">鍛冶:+${ENH_MAX}(最大まで鍛え上げた)</div>`;const cost=enhanceCost(inst);const ok=S.gold>=cost;return `<button class="eq-enhance-btn" data-slot="${slot}" ${ok?"":"disabled"} style="width:100%;margin-top:6px;background:${ok?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${ok?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-weight:800;font-size:11.5px;cursor:${ok?"pointer":"default"}">鍛冶で鍛える(+${lv}→+${lv+1} / ${cost}G)</button>`;})():""}
       </div>`;
     }
     h+=`</div>`;
@@ -10049,6 +10074,9 @@ function renderUnitDetail(uid){
   });
   $("#unitDetailBody").querySelectorAll(".eq-remove-btn").forEach(b=>b.onclick=()=>{
     unequipItem(uid,b.dataset.slot);renderUnitDetail(uid);refreshOpenPanels();save();
+  });
+  $("#unitDetailBody").querySelectorAll(".eq-enhance-btn").forEach(b=>b.onclick=()=>{
+    enhanceEquip(uid,b.dataset.slot);refreshOpenPanels();
   });
   const reBtn=$("#btnReactivate");
   if(reBtn)reBtn.onclick=()=>{reactivateInstructor(u);$("#panelUnitDetail").classList.remove("show");};
