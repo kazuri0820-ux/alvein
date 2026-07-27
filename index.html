@@ -8500,6 +8500,15 @@ function estimateDungeonSuccess(dungeon){
   return{squad,pct,pctGreat,pctCriticalFail};
 }
 const PROVISION_COST=15; // 兵站に割く食糧
+/* 初陣:初めて迷宮の遠征に発つ兵の門出を、年代記と本人の来歴に刻む。凱旋・逆転といった"結果"の
+   演出に対し、これは兵の物語の"始まり"を felt にする一幕。初陣→武功→独り立ち→殿堂、と一人の兵の
+   歩みに起点を与え、新兵一人ひとりへの愛着を育てる(育成の物語演出)。 */
+const FIRST_SORTIE_LINES=[
+ (u,d)=>`${u}にとって、これが初めての迷宮遠征。「${d}」の門前で、武者震いを噛み殺すように深く息を吸った。`,
+ (u,d)=>`初陣の${u}は、先達の背をひたと見つめ、遅れまいと隊列に食らいついていった。`,
+ (u,d)=>`${u}が初めて実戦の遠征に発つ。城門を出る足取りには、隠しきれぬ緊張と高揚が滲んでいた。`,
+ (u,d)=>`「必ず、生きて戻ります」。初陣の${u}は王にそう告げ、「${d}」へ向かう隊に加わった。`,
+];
 function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision){
   const idx=(S.availableDungeons||[]).findIndex(d=>d.id===dungeonId);
   if(idx<0)return;
@@ -8523,6 +8532,10 @@ function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision){
   const ethosSwift=squadEthosOf(squad)==="swift"?2:0; // 隊是「疾風の隊」:探索の所要日数が縮む
   if(marchCut>0||fmDur||ethosSwift)dungeon.duration=Math.max(2,dungeon.duration-marchCut+fmDur-ethosSwift);
   for(const u of squad)u.dungeonBusy=S.day+dungeon.duration;
+  // 初陣:この遠征が初めての兵に、その門出の一幕を添える
+  const debutants=squad.filter(u=>!u.sortied);
+  for(const u of debutants){u.sortied=true;unitHistory(u,`初めて迷宮の遠征に加わった。武者震いと高揚を胸に、隊列に続いた。`);}
+  if(debutants.length&&Math.random()<0.5){const u=debutants[Math.floor(Math.random()*debutants.length)];chron(FIRST_SORTIE_LINES[Math.floor(Math.random()*FIRST_SORTIE_LINES.length)](fullName(u),dungeon.name),"");}
   recordSquadSortie(squad);
   dungeon.ethos=squadEthosOf(squad)||null; // この派遣で発動している小隊の隊是(表示用)
   dungeon.squadIds=squad.map(u=>u.id);
