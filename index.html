@@ -7922,6 +7922,9 @@ function resolveDungeonRun(dungeonId){
         chron(`「${dungeon.name}」の忠魂の霊地で、部隊は古の忠臣たちの魂に触れた。その揺るがぬ忠義が皆の胸に宿り、隊の結束が一段と深まっている。`,"big");
       }
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
+        // 討伐したボスの王のコレクション記録=全種の王を討ち取る収集目標(初討伐は名を刻む)
+        S.flags=S.flags||{};S.flags.bossKings=S.flags.bossKings||{};
+        if(!S.flags.bossKings[dungeon.bossTrait]&&BOSS_TRAITS[dungeon.bossTrait]){S.flags.bossKings[dungeon.bossTrait]=S.day;chron(`――「${BOSS_TRAITS[dungeon.bossTrait].label}」を初めて討ち取った。討伐した王の名が、また一つ王国史に刻まれる。`,"big");}
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
         else if(dungeon.bossTrait==="greedy"){const g=Math.round(ri(45,85)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「貪欲」なボスが溜め込んでいた財貨${g}を回収した。`,"big");}
         else if(dungeon.bossTrait==="hoarder"){const eq=rollEquipmentDrop(dungeon.rarity.key);if(eq){addEquipment(eq.key);chron(`「宝物狂い」のボスの蒐集品から、「${eq.name}」を手に入れた。`,"big");}}
@@ -10253,6 +10256,8 @@ function renderDungeonPanel(){
       const done=Object.keys(S.clearedTypes||{}).length, total=DUNGEON_TYPES.length;
       const remain=DUNGEON_TYPES.filter(x=>!(S.clearedTypes||{})[x.key]);
       h+=`<div class="ds" style="color:var(--dim);font-size:11px;margin-bottom:8px">攻略型 制覇 <span style="color:${done>=total?"var(--gold)":"#c9a86a"};font-weight:700">${done}/${total}</span>${done>=total?" ／ 全型制覇済み":(done<total&&remain.length<=4?" ／ 未踏:"+remain.map(x=>x.label).join("・"):"")}</div>`;
+      const bkDone=Object.keys((S.flags&&S.flags.bossKings)||{}).length, bkTotal=BOSS_TRAIT_KEYS.length;
+      if(bkDone>0)h+=`<div class="ds" style="color:var(--dim);font-size:11px;margin-bottom:8px">討伐した王 <span style="color:${bkDone>=bkTotal?"var(--gold)":"#c9a86a"};font-weight:700">${bkDone}/${bkTotal}</span>${bkDone>=bkTotal?" ／ 全ての王を討伐済み":""}</div>`;
     }
     if(!list.length)h+=`<div class="udet-empty">今のところ、噂に聞くダンジョンはない。ミッションに出れば見つかるかもしれない。</div>`;
     for(const d of list){
