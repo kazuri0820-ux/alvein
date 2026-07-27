@@ -6980,6 +6980,23 @@ const NATIONAL_DOCTRINES=[
 ];
 function doctrineIs(k){return !!(S.flags&&S.flags.doctrine===k);}
 function doctrineName(){const d=NATIONAL_DOCTRINES.find(x=>x.key===(S.flags&&S.flags.doctrine));return d?d.name:null;}
+/* 掲げた国是が"今この瞬間も"効かせている恒久の恵みを、威信カードと同じく具体値で明示する。
+   永続だが抽象的だった大きな決断に、国政を開くたび手応えを持たせる(磨き込み)。 */
+function doctrineEffectText(){
+  const k=S.flags&&S.flags.doctrine;
+  return {
+    arms:"兵の訓練の伸び +10%(常時)",
+    commerce:"日々の国庫収入 +12%(常時)",
+    wisdom:"ダンジョン・任務の経験値効率 +10%(常時)",
+    people:"民心が日々さらに育ち(+0.35/日)、現役兵の忠誠も日々わずかに厚くなる",
+    inquiry:"兵が昇格の折に新たな技を会得する機会 +15%",
+    fortress:"兵が戦場で負う傷 -10%(脱落が永続的に減る)",
+    bonds:"戦友の絆による連携の後押しが約1.5倍に(標準の絆連携を強化)",
+    loot:"ドロップ装備の個体差を二度引いて優れた方を採る(名品が出やすい)",
+    vigor:"兵の疲れの抜けが日々 +4 速く、休みなく戦い続けられる",
+    heroes:"志願兵に隠れた逸材が眠る確率 +35%",
+  }[k]||null;
+}
 function buildDoctrineEvent(){
   return{tag:"国 是",title:"国の在り方を定める",
    body:"王国は一つの節目を迎えた。これから先この国が何を最も重んじるか——その国是を定める時が来た。一度定めれば、それは王国の礎として永く受け継がれる。",
@@ -11374,6 +11391,7 @@ function renderProjects(){
    chips.push(["税制",taxInfo().label,taxLevel()==="heavy"?"#d99a6a":taxLevel()==="light"?"#8fbf6f":"#c9a86a"]);
    chips.push(["移民",immigrationInfo().label,immigrationLevel()==="open"?"#8fbf6f":immigrationLevel()==="closed"?"#d99a6a":"#c9a86a"]);
    if(academyLevel()>0)chips.push(["学院","Lv."+academyLevel(),"#c9a86a"]);
+   if(typeof doctrineName==="function"&&doctrineName())chips.push(["国是",doctrineName(),"#d8b45e"]); // 掲げた永続の国是を一望の要約にも(王国のアイデンティティ)
    if(S.policyFocus)chips.push(["重点",focusLabels[S.policyFocus],"#c9a86a"]);
    const fa=typeof festivalActive==="function"?festivalActive():null; if(fa){const ft=festivalType(fa.key);chips.push(["祝祭",`${ft.name}(残${fa.until-S.day}日)`,"#e0a870"]);}
    if(S.caravan)chips.push(["隊商",`${neighborName(S.caravan.key)}へ(残${Math.max(0,S.caravan.resolveDay-S.day)}日)`,"#c9a86a"]);
@@ -11476,7 +11494,7 @@ function renderProjects(){
    h+=`</div>`;
   }
   // ── 国是 ──
-  if(doctrineName())h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)">国是:${doctrineName()}</div><div class="ds">${(NATIONAL_DOCTRINES.find(d=>d.key===S.flags.doctrine)||{}).desc||""}</div></div>`;
+  if(doctrineName()){const _de=doctrineEffectText();h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)">国是:${doctrineName()}</div><div class="ds">${(NATIONAL_DOCTRINES.find(d=>d.key===S.flags.doctrine)||{}).desc||""}</div>`+(_de?`<div class="ds" style="margin-top:5px;padding-top:5px;border-top:1px solid rgba(201,168,106,.22);font-size:10.5px"><span style="color:var(--gold2)">今も効いている恵み:</span> ${_de}</div>`:"")+`</div>`;}
   // ── 王国の恒久の力(積み上げた永続の恩恵を一望) ──
   {const F=S.flags||{};const boons=[];
    const heir={banner:"不滅の王旗 ― 迷宮での戦死率が下がる",horn:"豊穣の角杯 ― 日々の国庫と食糧が潤う",archive:"賢王の書架 ― 迷宮踏破で得る経験が増える"};
