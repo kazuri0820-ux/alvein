@@ -6759,6 +6759,13 @@ const ITEMS=[
    const ok=(typeof forgeSquadBond==="function")&&forgeSquadBond(active,"義兄弟の盃の儀");
    if(!ok)chron("義兄弟の盃を掲げたが、この度は新たな縁は結ばれなかった。","");
  }},
+ {key:"grand_drill",name:"大演習の令状",rarity:"rare",desc:"王国を挙げた大演習を執り行い、現役の全兵に一斉に経験を積ませる。",effect:()=>{
+   const active=S.units.filter(u=>u.role==="active"||!u.role);
+   if(!active.length){chron("大演習に出せる兵が一人もいなかった。","");return;}
+   for(const u of active){u.exp+=ri(10,20);processLevelUps(u);}
+   apply({mood:1});
+   chron(`王国大演習の令状が発せられ、現役の兵${active.length}名が揃って汗を流し、皆が確かな経験を積んだ。`,"big");
+ }},
  {key:"trial_banner",name:"試練の軍旗",rarity:"rare",desc:"部隊を鍛える強敵の巣「精鋭の巣」を狙って出現させる。討ち果たせば部隊が大きく成長する。",effect:()=>{
    const nd=generateDungeon();
    nd.condition="eliteden"; nd.bossTrait=null; nd.bossPower=Math.round(nd.requiredPower*1.3*1.16);
