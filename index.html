@@ -2222,6 +2222,7 @@ const TITLE_DB=[
  {key:"t_calamityender",name:"厄災を退けし者",desc:"国を脅かす災厄を討ち果たし、王国を救った英傑",effect:"moralGrow",value:0.12},
  {key:"t_grandveteran",name:"百錬の達人",desc:"レベル30に到達し、幾多の研鑽の末に練達の域へと至った",effect:"moralGrow",value:0.12},
  {key:"t_peerless",name:"不世出の兵",desc:"レベル45に到達し、一代の英傑と称される域へと至った",effect:"injuryMult",value:0.85},
+ {key:"t_transcend",name:"神域の兵",desc:"レベル60に到達し、人の理を超えた域へと至った、まさに生ける伝説",effect:"expMult",value:1.12},
  {key:"t_dungeonmaster",name:"迷宮の覇者",desc:"ただ一人で数多の迷宮を踏破し、その名は暗がりの主として畏れられる",effect:"expMult",value:1.08},
  {key:"t_gloryincarnate",name:"栄光の化身",desc:"十指に余る称号を身に帯び、その生き様そのものが王国の栄光となった",effect:"loyaltyGrow",value:0.18},
  {key:"t_shieldbearer",name:"戦友の守り手",desc:"我が身を挺して戦友を死線から救い出した、真の守り手",effect:"loyaltyGrow",value:0.15},
@@ -2710,6 +2711,7 @@ function checkDailyTitles(u){
   if((u.dungeonClearCount||0)>=15)grantTitle(u,"t_dungeonmaster"); // 迷宮の覇者:同じ兵で踏破を重ねる投資に、より高い到達点を用意
   if(u.lv>=30)grantTitle(u,"t_grandveteran"); // 練達:レベルの積み重ね=長期育成の到達点を讃える
   if(u.lv>=45)grantTitle(u,"t_peerless"); // 一代の英傑:さらなる高みへの深い育成に報いる
+  if(u.lv>=60)grantTitle(u,"t_transcend"); // 神域:極限まで育て上げた兵への、最高の到達点
   if(typeof equipSetTier==="function"){const _st=equipSetTier(u);if(_st)grantTitle(u,"t_fullset");if(_st==="epic"||_st==="legendary")grantTitle(u,"t_grandset");} // 至宝の一式:エピック級以上の揃いは装備収集の頂として別格に讃える
   if((u.skills||[]).length>=5)grantTitle(u,"t_skillful"); // 多芸:集めた技の数を讃える
   if((u.skills||[]).length>=9)grantTitle(u,"t_polymath");
