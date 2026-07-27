@@ -12010,6 +12010,9 @@ function renderProjects(){
    if(S.caravan)chips.push(["隊商",`${neighborName(S.caravan.key)}へ(残${Math.max(0,S.caravan.resolveDay-S.day)}日)`,"#c9a86a"]);
    if(S.envoy)chips.push(["使者",`${neighborName(S.envoy.key)}へ(残${Math.max(0,S.envoy.resolveDay-S.day)}日)`,"#c9a86a"]); // 親善の使者の出立中
    if(S.flags&&S.flags.traitorArc===1)chips.push(["内偵",`宮中の影を探索中(残${Math.max(0,(S.flags.traitorDay||S.day)-S.day)}日)`,"#b58fa0"]); // 内通者の疑い:内偵の帰結が近いことを概況に
+   if(S.bounty)chips.push(["依頼",`請負中(残${Math.max(0,(S.bounty.deadline||S.day)-S.day)}日)`,"#8fbf6f"]); // 討伐依頼:請け負った契約の期限を概況に
+   else if(S.bountyOffers&&S.bountyOffers.length)chips.push(["依頼",`掲示板に${S.bountyOffers.length}件`,"#c9a86a"]); // 未請負の依頼が掲示されていることを促す
+
 
 
    if((S.vault||0)>0)chips.push(["金庫",`${S.vault}${(S.vault||0)>=vaultCap()?"(満)":""}`,(S.vault||0)>=vaultCap()?"#d99a6a":"#8fbf6f"]);
