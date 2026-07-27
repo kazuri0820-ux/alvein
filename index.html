@@ -2508,11 +2508,28 @@ const TALK_LINES={
 };
 const TALK_LINES_FAVORITE=["「お気にかけていただき、光栄です」と少し照れた様子だった。","「長のお役に立てるよう、これからも励みます」"];
 const TALK_LINES_CAPTAIN=["「団の皆をしっかりまとめてみせます」と、団長らしい顔つきで応じた。","「団長という立場の重みを、日々感じています」"];
+/* 陣中の語らい・関係性編:話しかけた兵が、戦友・好敵手・師・弟子・憧れの相手を名指しで語る。
+   死や事件でしか表に出なかった関係性の網を、日々のふとした会話に立ち上がらせ、一人ひとりへの愛着を深める(演出)。 */
+function relationTalkLine(u){
+  const nm=id=>{const p=(typeof findAnyUnit==="function")?findAnyUnit(id):null;return p?(typeof fullName==="function"?fullName(p):p.nm):null;};
+  const lines=[];
+  if(u.bondWith){const n=nm(u.bondWith);if(n)lines.push(`「${n}とは、背中を預け合える仲です。あいつが隣にいれば、どんな迷宮も恐くはありません」`,`「${n}ですか。……まあ、腐れ縁ですよ。だが、あいつのいない戦場は考えられません」`);}
+  if(u.rivalWith){const n=nm(u.rivalWith);if(n)lines.push(`「${n}にだけは負けられません。あいつが伸びるほど、こちらも燃えるというもの」`,`「${n}とは、いつか本気で立ち合ってみたい。互いに高め合える、得難い相手です」`);}
+  if(u.masterId){const n=nm(u.masterId);if(n)lines.push(`「${n}様は、私の師です。あの方の技には、まだ遠く及びません」と、誇らしげに語った。`,`「${n}様に教わった一手を、今も毎日鍛え直しています」`);}
+  if(u.pupilId){const n=nm(u.pupilId);if(n)lines.push(`「${n}には見どころがあります。いずれ、私を超えていくでしょうな」と目を細めた。`,`「${n}の成長を見るのが、近頃の何よりの楽しみです」`);}
+  if(u.admires){const n=nm(u.admires);if(n)lines.push(`「${n}様のように……いつか、あんな風に戦えたら。それが私の目標なんです」と、少し照れながら語った。`,`「${n}様の背中を、ずっと追いかけています。まだまだ遠いですが」`);}
+  return lines.length?lines[Math.floor(Math.random()*lines.length)]:null;
+}
 function talkToUnit(u){
-  let pool=TALK_LINES[u.personality]||TALK_LINES.冷静;
-  if(u.captain&&Math.random()<0.4)pool=TALK_LINES_CAPTAIN;
-  else if(u.favorite&&Math.random()<0.35)pool=TALK_LINES_FAVORITE;
-  const line=pool[Math.floor(Math.random()*pool.length)];
+  let line=null;
+  // 関係性を持つ兵は、しばしばその相手について語る(愛着の網を日々に立ち上げる)
+  if(Math.random()<0.5){const rl=relationTalkLine(u);if(rl)line=rl;}
+  if(line===null){
+    let pool=TALK_LINES[u.personality]||TALK_LINES.冷静;
+    if(u.captain&&Math.random()<0.4)pool=TALK_LINES_CAPTAIN;
+    else if(u.favorite&&Math.random()<0.35)pool=TALK_LINES_FAVORITE;
+    line=pool[Math.floor(Math.random()*pool.length)];
+  }
   u.talks=u.talks||[];
   u.talks.push({day:S.day,text:line});
   if(u.talks.length>20)u.talks.shift();
