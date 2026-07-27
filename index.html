@@ -1524,6 +1524,7 @@ const TRAIT_RARE=[
  {key:"trr_44",name:"老いて盛ん",desc:"歳を重ねるほど円熟味を増す遅咲きの質。老いによる衰えが人並より緩やかで、長く一線で戦い続けられる",gm:1.08,ageResist:0.4,vit:4},
  {key:"trr_45",name:"気難しい天才",desc:"目を瞠る才の持ち主だが、気位が高く扱いにくい。才の伸びは抜群だが、忠義はなかなか深まらない(お気に入りや宴で繋ぎ止めたい)",gm:1.35,loyaltyGrow:-0.15},
  {key:"trr_46",name:"生まれつきの癒し手",desc:"傷の手当てに天賦の才を持つ、生来の癒し手。この者を伴う部隊は、迷宮で痛手を負ってもその傷が軽く済みやすい",gm:1.07,fieldMedic:0.5,wis:5},
+ {key:"trr_47",name:"物拾いの目",desc:"転がる品も見逃さぬ、生まれついての目ざとさ。この者を伴う迷宮踏破では、追加の品を拾い集めてくることがある",gm:1.06,itemFind:0.3,agi:4},
 ];
 const TRAIT_EPIC=[
  {key:"swordsaint",name:"剣聖の末裔",desc:"名も知れぬ剣豪の血を引くという",gm:1.4,injuryMult:0.5,deathMult:0.55},
@@ -7977,7 +7978,7 @@ function resolveDungeonRun(dungeonId){
       const crit=tier==="critical_success"; // 大成功はジャックポット扱い(強い部隊を組んだ手応えに報酬で応える)
       itemGained=rollItemDrop(dungeon.rarity.key);
       if(itemGained)addItem(itemGained.key);
-      const squadItemFind=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).itemFind||0)):0; // 「漁りの目」持ちを伴うと追加の品を拾う=収集支援ビルド
+      const squadItemFind=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).itemFind||0,(traitInfo(u.trait).itemFind)||0))):0; // 「漁りの目」(スキル)「物拾いの目」(特性)持ちを伴うと追加の品を拾う=収集支援ビルド(特性/スキル両対応)
       if(squadItemFind>0&&Math.random()<squadItemFind){const ex=rollItemDrop(dungeon.rarity.key);if(ex){addItem(ex.key);chron(`目ざとい兵が、転がっていた「${ex.name}」も拾い集めてきた。`,"");}}
       let equipGained=null, equipInst=null;
       const squadLootLuck=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).lootLuck)||0,(skillEffects(u).lootLuck)||0))):0; // 「宝運」「財宝の嗅覚」(特性)や「宝探しの勘」(スキル)持ちを伴うと掘り出しが増える=編成に意味を持たせる収集レバー
