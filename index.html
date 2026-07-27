@@ -10282,6 +10282,7 @@ function renderDungeonPanel(){
         <div class="nm" style="color:var(--gold)">遠征部隊の編成</div>
         <div class="ds">5人ちょうどで編成し、60〜90日の長期派遣に出す。多額のゴールド・上質な装備やアイテム・部隊の大きな成長・経済/外交の向上、道中で仲間を見出すことも。期間中は他の任務に出せない。</div>
         <div class="ds">選択中:${selSquad.length}/5人</div>
+        ${selSquad.length?(()=>{const tset=[];for(const u of selSquad){for(const t of unitSupportTags(u))if(!tset.includes(t))tset.push(t);}return tset.length?`<div class="ds" style="font-size:11px;color:#a9c47a">編成の支援:${tset.join("・")}${tset.includes("遠征")?"":' <span style="color:var(--dim)">(「遠征」持ちを加えると実入りが増す)</span>'}</div>`:"";})():""}
       </div>`;
       if((S.squads||[]).some(s=>s.unitIds&&s.unitIds.length===5)){
         h+=`<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">`+
