@@ -2391,6 +2391,7 @@ const TITLE_DB=[
  {key:"t_skillful",name:"多芸の兵",desc:"数多の技を身につけ、あらゆる戦場に応じてみせる",effect:"expMult",value:1.04},
  {key:"t_pathwalker",name:"万夫の器",desc:"幾つもの職の道を歩み修め、異なる流派の心得までも我がものとした、器の大きな兵。覚えられる技の枠が広い",effect:"expMult",value:1.05},
  {key:"t_landed",name:"知行持ち",desc:"王より領地を賜り、王国に深く根を張った臣。揺るがぬ忠義をもって仕える",effect:"loyaltyGrow",value:0.15},
+ {key:"t_beastslayer",name:"巨獣狩り",desc:"国を脅かした巨大な獣を討ち取り、辺境に平穏を取り戻した豪の者",effect:"injuryMult",value:0.9},
  {key:"t_polymath",name:"百芸の達人",desc:"ありとあらゆる技を極めた、まさに歩く武芸の宝庫",effect:"expMult",value:1.08},
  {key:"t_legendsquad",name:"伝説の小隊の一員",desc:"幾多の出撃を共にし、伝説と讃えられた小隊の一員",effect:"loyaltyGrow",value:0.12},
  {key:"t_generalslayer",name:"魔将殺し",desc:"魔王軍の名だたる魔将を討ち取った",effect:"injuryMult",value:0.9},
@@ -4832,6 +4833,43 @@ const RANDOM_RARE=[
    }}},
    {label:"賢者を客人として遇するのみ",hint:"魔導↑(塔は建てない)",fx:{call:()=>{S.flags=S.flags||{};S.flags.observatoryArc=-1;apply({st:{magic:3},mood:1,log:"王は塔の建設までは踏み切らず、賢者を客人としてしばし遇した。その講義は宮廷の学識を確かに深めた(魔導+3)。"});}}},
    {label:"眉唾と断る",hint:"治安+1(この物語は始まらない)",fx:{call:()=>{S.flags=S.flags||{};S.flags.observatoryArc=-1;apply({st:{order:1},log:"王は「星で災いが読める」という触れ込みを眉唾と見て、丁重に断った。賢者は恨みもせず、静かに去っていった(治安+1)。"});}}},
+  ]},
+ // ===== 連続物語(イベント連鎖):巨獣。魔王軍(魔の脅威)とは別の、"自然の猛威"としての名のある強敵。討伐隊を
+ //   差し向ければ特別なダンジョンが出現し、討ち果たせば威信・稀なる戦利品・討伐者の称号が得られる。備えるか
+ //   凌ぐかを選ぶ、辺境の危機と大猟の高揚を兼ねた新機軸 =====
+ {tag:"巨 獣",title:"辺境を荒らす巨獣",
+  cond:s=>!(s.flags&&s.flags.beastArc)&&STAGES[s.stage].rank>=2&&s.day>=50,
+  body:"辺境の村々から、悲鳴のような急使が相次いだ。「山より、途方もなく大きな獣が降りてまいりました。家も畑も、ひと薙ぎで……」。魔でも人でもない、ただ純然たる自然の猛威。放てば辺境は蹂躙され、討ち取れば――その巨躯は、稀なる戦利と不朽の武名をもたらすだろう。",
+  speaker:"ガレオン「魔物とは違いまする。あれは、生きた災害。討つならば、覚悟の要る相手かと」",
+  choices:[
+   {label:"精鋭の討伐隊を差し向ける",hint:"巨獣の棲家が出現(討ち果たせば威信・稀なる戦利・討伐者の称号)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.beastArc=1;
+     const beastNames=["地を裂く大猪","森を統べる巨狼王","岩の如き大熊","天を衝く角の巨鹿","古き沼の主","峰より降りし白牙の獣"];
+     const nd=generateDungeon();
+     nd.bossName=beastNames[Math.floor(Math.random()*beastNames.length)];
+     nd.bossPower=Math.round((nd.bossPower||nd.requiredPower||100)*1.35);
+     nd.requiredPower=Math.round((nd.requiredPower||100)*1.15);
+     nd.name=`巨獣の棲家 ―${nd.bossName}の縄張り―`;
+     nd.beastLair=true; nd.bossTrait=null; nd.protected=true; nd.condition=null;
+     S.availableDungeons=S.availableDungeons||[]; S.availableDungeons.push(nd);
+     chron(`王は精鋭の討伐隊を編むと定めた。斥候の報せにより、巨獣「${nd.bossName}」の棲家への道が判明した(討伐の一覧に現れた)。討ち果たせば、その武名は永く語り継がれよう。`,"big");
+   }}},
+   {label:"罠を張り、弱らせてから挑む(70G)",hint:"出費して巨獣を弱らせ、棲家をやや攻略しやすくする",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.beastArc=1;
+     const beastNames=["地を裂く大猪","森を統べる巨狼王","岩の如き大熊","天を衝く角の巨鹿","古き沼の主","峰より降りし白牙の獣"];
+     const nd=generateDungeon();
+     nd.bossName=beastNames[Math.floor(Math.random()*beastNames.length)];
+     nd.beastLair=true; nd.bossTrait=null; nd.protected=true; nd.condition=null;
+     nd.name=`巨獣の棲家 ―${nd.bossName}の縄張り―`;
+     if(S.gold>=70){S.gold-=70;nd.bossPower=Math.round((nd.bossPower||nd.requiredPower||100)*1.1);apply({st:{order:1},log:`巨獣の通り道に大掛かりな罠を仕掛けた。手傷を負った獣は、幾らか討ちやすくなっているだろう(治安+1)。`});}
+     else{nd.bossPower=Math.round((nd.bossPower||nd.requiredPower||100)*1.35);nd.requiredPower=Math.round((nd.requiredPower||100)*1.15);apply({log:"罠を張る費えが足りず、巨獣は万全のまま棲家に潜んでいる。"});}
+     S.availableDungeons=S.availableDungeons||[]; S.availableDungeons.push(nd);
+     chron(`巨獣「${nd.bossName}」の棲家への道が判明した(討伐の一覧に現れた)。`,"big");
+   }}},
+   {label:"柵と堀で守りを固め、去るのを待つ",hint:"治安↑ 軍事↑ / 民心わずかに↓(討伐の栄誉と戦利は得られない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.beastArc=-1;
+     apply({st:{order:3,military:2},mood:-2,log:"王は討伐の危険を避け、辺境の守りを固めることを選んだ。巨獣は幾つかの村を荒らした末、やがて山へと帰っていった。守りは固まったが、討ち取る栄誉を逃したことを惜しむ声もある(治安↑ 軍事↑ 民心↓)。"});
+   }}},
   ]},
  {tag:"外 交",title:"隣国の内乱",
   body:"隣国で王位を巡る内乱が起きたとの報せが届いた。どちらに与するか、静観するか、あるいは混乱に乗じるか――この機の捉え方で、王国の立ち位置は大きく変わる。",
@@ -9498,6 +9536,17 @@ function resolveDungeonRun(dungeonId){
         const fItem=rollItemDrop(dungeon.rarity.key); if(fItem)addItem(fItem.key);
         apply({gold:fGold,mood:3});
         chron(`去り際の主を討ち取った！好機を逃さなかった部隊は、${fItem?`「${fItem.name}」と`:""}厚い財貨${fGold}を戦利として持ち帰った(時限の好機の褒賞)。`,"big");
+      }
+      if(dungeon.beastLair){ // 巨獣の討伐:辺境を脅かした自然の猛威を討ち取った特別な戦果(威信・稀なる戦利・討伐者の称号)
+        S.flags=S.flags||{}; S.flags.beastArc=2;
+        if(typeof grantRenown==="function")grantRenown(5,`巨獣「${dungeon.bossName}」の討伐`);
+        const eq=rollEquipmentDrop("legendary"); let en=""; if(eq){const inst=addEquipment(eq.key); en=inst?equipInstName(inst):eq.name;}
+        const bGold=Math.round(ri(120,200)*(dungeon.rarity.mult||1));
+        apply({gold:bGold,st:{military:3},mood:6});
+        const ldr=squad.filter(Boolean).sort((a,b)=>unitPower(b)-unitPower(a))[0];
+        if(ldr){grantTitle(ldr,"t_beastslayer");if(typeof recordSigFeat==="function")recordSigFeat(ldr,`国を脅かした巨獣「${dungeon.bossName}」を討ち取った`,4);unitHistory(ldr,`巨獣「${dungeon.bossName}」を討ち取り、辺境に平穏を取り戻した。`);}
+        if(typeof recordAnnal==="function")recordAnnal(`辺境を荒らした巨獣「${dungeon.bossName}」を討ち取った。`,"beast",true);
+        chron(`――辺境を脅かしていた巨獣「${dungeon.bossName}」を、ついに討ち取った！${en?`その亡骸からは稀なる「${en}」が得られた。`:""}生きた災害を退けた武勇に、辺境の民は涙して喜び、国中がその名を讃えている(威信↑ 軍事↑ 財貨+${bGold})。`,"big");
       }
       if(crit&&!dungeon.treasureVault&&Math.random()<0.3){S.pendingLoot={rarity:dungeon.rarity.key,name:dungeon.name};pushEvent("__loot_choice__");} // 戦利品の選択:完璧な踏破の折、稀に手つかずの戦利品の間に行き当たり、持ち帰る一品を選ぶ
       if(cond==="treasure"){ // 財宝の霊気: 手強い分、討ち果たせば莫大な財と一段上の秘宝が眠る
