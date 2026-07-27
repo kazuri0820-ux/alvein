@@ -8031,6 +8031,23 @@ function findMatchingSquad(units){
   const ids=new Set(units.map(u=>u.id));
   return (S.squads||[]).find(s=>s.unitIds&&s.unitIds.length===ids.size&&s.unitIds.every(id=>ids.has(id)));
 }
+/* ===== 小隊の隊是(Squad ethos):小隊に恒久の"気風"を持たせ、その顔ぶれで出撃した時だけ効く持続バフ。
+   毎回選ぶ陣形と違い、固定編成に定着する個性=小隊育成(出撃回数・武名)に「どんな隊に育てるか」の
+   方向付けを加える新機軸。四つの気風から選ぶ ===== */
+const SQUAD_ETHOS=[
+  {key:"vanguard",name:"先陣の誉れ",short:"先陣",color:"#d98a5e",desc:"攻めに秀でる。この小隊での踏破報酬(財貨・経験)が増す。"},
+  {key:"bulwark", name:"不動の盾",  short:"不動",color:"#6fa0c9",desc:"守りに徹する。この小隊での迷宮の戦死率が下がる。"},
+  {key:"swift",   name:"疾風の隊",  short:"疾風",color:"#8fbf6f",desc:"迅速。この小隊の探索は所要日数が縮む。"},
+  {key:"fortune", name:"福運の隊",  short:"福運",color:"#c9a24b",desc:"幸運に恵まれる。この小隊は掘り出し物・秘宝の断片を得やすい。"},
+];
+function squadEthosOf(squad){const m=findMatchingSquad(squad);return m&&m.ethos?m.ethos:null;}
+function setSquadEthos(idx,key){
+  const sq=(S.squads||[])[idx]; if(!sq)return;
+  const def=SQUAD_ETHOS.find(e=>e.key===key); if(key&&!def)return;
+  if(sq.ethos===key)sq.ethos=null; else sq.ethos=key||null;
+  chron(sq.ethos?`${sq.name}が「${def.name}」の気風を掲げた。${def.desc}`:`${sq.name}の隊是を解いた。`,"");
+  renderSquadManager();save();
+}
 function recordSquadSortie(squad){
   const matched=findMatchingSquad(squad);
   if(matched){
@@ -8215,10 +8232,10 @@ const RELIC_DEFS=[
 function relicHas(key){return !!(S.flags&&S.flags.relics&&S.flags.relics[key]);}
 function relicDef(key){return RELIC_DEFS.find(r=>r.key===key);}
 function grantRelicShards(n){S.relicShards=(S.relicShards||0)+n;}
-function maybeRelicShard(dungeon,crit){ // 踏破時、稀に秘宝の断片を持ち帰る(大成功・高レア度ほど出やすい)
+function maybeRelicShard(dungeon,crit,fortuneBoost){ // 踏破時、稀に秘宝の断片を持ち帰る(大成功・高レア度ほど出やすい)
   const base=crit?0.4:0.16;
   const rarityBonus=Math.max(0,((dungeon.rarity&&dungeon.rarity.mult)||1)-1)*0.12;
-  if(Math.random()<Math.min(0.75,base+rarityBonus)){
+  if(Math.random()<Math.min(0.8,base+rarityBonus+(fortuneBoost||0))){
     grantRelicShards(1);
     chron(`「${dungeon.name}」の奥で、古の秘宝の断片を一つ見つけた(断片 計${S.relicShards})。集めれば、恒久の遺物を鍛造できる。`,"");
   }
@@ -8267,7 +8284,8 @@ function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision){
   }
   const marchCut=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).marchDays||0,(traitInfo(u.trait).marchDays)||0))):0; // 「迅速な行軍」(スキル)「健脚の血筋」(特性)持ちがいると探索の所要日数が縮む=手数(周回速度)を上げる兵站ビルド
   const fmDur=(FORMATIONS[dungeon.formation]||FORMATIONS.balanced).dur||0; // 迅速陣は所要日数を縮める
-  if(marchCut>0||fmDur)dungeon.duration=Math.max(2,dungeon.duration-marchCut+fmDur);
+  const ethosSwift=squadEthosOf(squad)==="swift"?2:0; // 隊是「疾風の隊」:探索の所要日数が縮む
+  if(marchCut>0||fmDur||ethosSwift)dungeon.duration=Math.max(2,dungeon.duration-marchCut+fmDur-ethosSwift);
   for(const u of squad)u.dungeonBusy=S.day+dungeon.duration;
   recordSquadSortie(squad);
   dungeon.squadIds=squad.map(u=>u.id);
@@ -8426,13 +8444,15 @@ function resolveDungeonRun(dungeonId){
   const streakBonus=Math.min(0.3,(S.winStreak||0)*0.03); // 連勝の勢い:連続踏破が続くほど、この攻略で得る財貨・経験値が増す(最大+30%)=快進撃を続ける動機/途切れさせたくない緊張感
   const heirloomExp=(S.flags&&S.flags.heirloom==="archive")?0.12:0; // 家宝「賢王の書架」:踏破経験値を永続で底上げ
   const festExp=festivalIs("feast")?0.15:0; // 戦勝祭の開催中は踏破経験が増す
+  const squadEthos=squadEthosOf(squad); // 小隊の隊是(この顔ぶれで出撃した時だけ効く気風)
+  const ethosReward=squadEthos==="vanguard"?0.12:0; // 先陣の誉れ:踏破報酬が増す
   let itemGained=null, goldGained=0, died=null, diedWasHallWorthy=false, bossWin=false, dungeonFound=null;
   const memberLog=[];
   if(tier==="critical_success"||tier==="success"){
     const squadBane=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).bossBane||0)):0; // 「討王の心得」持ちがいると、ボス撃破の判定で部隊の力が底上げされる=特別報酬を掴みやすくする討王ビルド
     bossWin=squadPower*(tier==="critical_success"?1.3:1.0)*(1+squadBane)>=dungeon.bossPower*rnd(0.8,1.2);
     const squadTeach=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).squadExpBonus||0,(traitInfo(u.trait).squadExpBonus)||0))):0; // 「歴戦の教え」(スキル)「生来の兄貴分」(特性)持ちがいると部隊全員の踏破経験値が増える=育成支援ビルド
-    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach)*(1+streakBonus)*(1+heirloomExp)*(1+festExp));u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
+    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach)*(1+streakBonus)*(1+heirloomExp)*(1+festExp)*(1+ethosReward));u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
     if(cond==="richaura")chron(`「${dungeon.name}」に満ちた豊穣の気が兵たちの糧となり、いつも以上の経験を持ち帰った。`,"");
     if(cond==="cursed"){ // 呪詛の澱み: 兵を疲れさせるが、呪物の財貨が眠る
       for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(10,20));
@@ -8476,7 +8496,7 @@ function resolveDungeonRun(dungeonId){
       let bonusItem=null;
       if(crit&&Math.random()<0.5){bonusItem=rollItemDrop(dungeon.rarity.key);if(bonusItem)addItem(bonusItem.key);} // 大成功: 追加の秘宝チャンス
       S.dungeonsCleared=(S.dungeonsCleared||0)+1;
-      maybeRelicShard(dungeon,crit); // 踏破の報酬軸:稀に秘宝の断片を持ち帰る
+      maybeRelicShard(dungeon,crit,squadEthos==="fortune"?0.18:0); // 踏破の報酬軸:稀に秘宝の断片を持ち帰る(福運の隊は出やすい)
       checkDungeonTypeFirstClear(dungeon,squad); // 攻略型の初踏破を記念する
       checkDungeonClearMilestone(); // 通算踏破数の節目を年代記に刻む
       tryUnlockDemonLordDungeon();
@@ -8493,7 +8513,7 @@ function resolveDungeonRun(dungeonId){
         }
       }
       const squadGoldFind=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).goldFind)||0,skillEffects(u).goldFind||0))):0; // 「山師の目」(スキル)「生来の商才」(特性)持ちを伴うと持ち帰る財貨が増える=金策ビルドの編成レバー
-      goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1)*(1+squadGoldFind)*(1+streakBonus));
+      goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1)*(1+squadGoldFind)*(1+streakBonus)*(1+ethosReward));
       apply({gold:goldGained,mood:crit?4:2});
       chron(crit
         ?`――完璧な踏破！「${dungeon.name}」を寸分の隙なく制圧し、ボス「${dungeon.bossName}」を圧倒した!${itemGained?`「${itemGained.name}」${bonusItem?`と「${bonusItem.name}」`:""}を手に入れた。`:""}${equipGained?`さらに「${equipDropName}」を入手した。`:""}`
@@ -8663,7 +8683,7 @@ function resolveDungeonRun(dungeonId){
     apply({mood:-2});
     chron(`「${dungeon.name}」への挑戦は失敗に終わった。部隊は撤退した。`,"grave");
   }else{ // critical_fail
-    const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1)*(S.flags.heirloom==="banner"?0.82:1)*(alliedWith("draconis")?0.85:1)*(festivalIs("remembrance")?0.85:1)*(relicHas("ward")?0.88:1); // 治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗/家宝「不滅の王旗」でさらに戦没が減る。竜嶺のドラコニアとの軍事同盟(援軍の約定)でも戦没が減る。慰霊祭の開催中も戦没が減る。遺物「不滅の護符」でも戦没が減る
+    const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1)*(S.flags.heirloom==="banner"?0.82:1)*(alliedWith("draconis")?0.85:1)*(festivalIs("remembrance")?0.85:1)*(relicHas("ward")?0.88:1)*(squadEthos==="bulwark"?0.85:1); // 治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗/家宝「不滅の王旗」でさらに戦没が減る。竜嶺のドラコニアとの軍事同盟(援軍の約定)でも戦没が減る。慰霊祭の開催中も戦没が減る。遺物「不滅の護符」でも戦没が減る
     const hurtOnes=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*0.6)));
     const critW=medicAdjustWeights(formationAdjustWeights(cond==="blessed"?[0.4,0.4,0.2]:[0.1,0.3,0.6],fmKey),squad); // 陣形→古の祝福(大失敗でも深手を和らげる)→従軍医の順に負傷の重さを補正
     for(const u of hurtOnes){inflictInjury(u,critW);unitHistory(u,`「${dungeon.name}」で${INJURY_TIERS[u.injurySeverity].label}を負った。`);memberLog.push({u,gain:0,note:INJURY_TIERS[u.injurySeverity].label});}
@@ -10521,8 +10541,10 @@ function renderSquadManager(){
     const members=sq.unitIds.map(id=>S.units.find(u=>u.id===id)).filter(Boolean);
     const bonus=members.length>=2?Math.round((squadSynergyMult(members)-1)*100):0; // 実際の総合シナジー(履歴・絆・種族・名誉すべて反映)
     const onDuty=sq.duty&&DUTY_TYPES.find(d=>d.key===sq.duty.type);
-    h+=`<div class="pcard"><div class="nm">${sq.name}${sq.honor?`<span style="font-size:10px;color:var(--gold);margin-left:6px">◆${sq.honor}(武名が力に)</span>`:""}${onDuty?`<span style="font-size:10px;color:${onDuty.color};margin-left:6px">▶${onDuty.name}中(残${Math.max(0,sq.duty.resolveDay-S.day)}日)</span>`:""}</div>
+    const ethosDef=sq.ethos?SQUAD_ETHOS.find(e=>e.key===sq.ethos):null;
+    h+=`<div class="pcard"><div class="nm">${sq.name}${sq.honor?`<span style="font-size:10px;color:var(--gold);margin-left:6px">◆${sq.honor}(武名が力に)</span>`:""}${ethosDef?`<span style="font-size:10px;color:${ethosDef.color};margin-left:6px">【${ethosDef.name}】</span>`:""}${onDuty?`<span style="font-size:10px;color:${onDuty.color};margin-left:6px">▶${onDuty.name}中(残${Math.max(0,sq.duty.resolveDay-S.day)}日)</span>`:""}</div>
       <div class="ds">${members.length?members.map(fullName).join("・"):"未編成"}</div>
+      ${!onDuty?`<div style="font-size:10.5px;color:var(--dim);margin:6px 0 4px">隊是(この顔ぶれで出撃した時だけ効く気風・いつでも変更可)</div><div style="display:flex;gap:4px;flex-wrap:wrap">`+SQUAD_ETHOS.map(e=>{const on=sq.ethos===e.key;return `<button class="sq-ethos-btn" data-i="${i}" data-e="${e.key}" title="${e.desc}" style="flex:1;min-width:56px;background:${on?e.color:"transparent"};color:${on?"#1a1206":e.color};border:1px solid ${e.color};border-radius:6px;padding:5px 3px;font-family:'Shippori Mincho',serif;font-size:10.5px;font-weight:${on?"800":"600"};cursor:pointer">${e.short}</button>`;}).join("")+`</div>${ethosDef?`<div class="ds" style="font-size:10.5px;color:${ethosDef.color};margin-top:3px">${ethosDef.desc}</div>`:""}`:""}
       <div class="ds">出撃回数:${sq.sortieCount||0}回 ／ シナジーボーナス+${bonus}%${(sq.dutyCount||0)>0?` ／ 駐屯${sq.dutyCount}回${(sq.dutyCount||0)>=2?`(熟練+${Math.round(Math.min(0.5,(sq.dutyCount-1)*0.1)*100)}%)`:""}`:""}</div>
       ${onDuty?`<div class="ds" style="color:${onDuty.color};font-size:11px;margin-top:4px">${onDuty.name}に就いている。完了まで他の任務には出せない。</div>`
         :`<button class="sq-edit-btn" data-i="${i}" style="margin-top:6px;width:100%;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">編成を変更する</button>
@@ -10530,6 +10552,7 @@ function renderSquadManager(){
     </div>`;
   }
   $("#troopList").innerHTML=h;
+  $("#troopList").querySelectorAll(".sq-ethos-btn").forEach(b=>b.onclick=()=>{setSquadEthos(+b.dataset.i,b.dataset.e);});
   $("#troopList").querySelectorAll(".sq-edit-btn").forEach(b=>b.onclick=()=>{
     const i=+b.dataset.i;
     squadEditIndex=i;squadEditUnitIds=[...S.squads[i].unitIds];
