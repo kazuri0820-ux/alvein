@@ -1514,6 +1514,7 @@ const TRAIT_RARE=[
  {key:"trr_37",name:"石橋を叩く質",desc:"何事にも慎重で、危険を巧みに避ける。めったに傷を負わないが、その分だけ成長はゆっくりしている",gm:1.05,injuryMult:0.5,expMult:1.15},
  {key:"trr_38",name:"竜鱗の肌",desc:"肌のうちに、竜の鱗の名残をわずかに宿す。竜との盟約が結ばれた地では、その守りが呼び覚まされ、比類なき力を発揮する",gm:1.1,injuryMult:0.8,condFlag:"dragonPact",condPw:5},
  {key:"trr_39",name:"生来の兄貴分",desc:"面倒見がよく、背中で戦い方を教える気質。この者を迷宮に伴うと、部隊の皆が踏破からより多くを学び取る",gm:1.06,squadExpBonus:0.2,lead:4},
+ {key:"trr_40",name:"健脚の血筋",desc:"生まれついての健脚で、山も谷も苦にせず駆け抜ける。この者を伴う迷宮探索は所要日数が一日縮み、手数を稼げる",gm:1.06,marchDays:1,agi:5},
 ];
 const TRAIT_EPIC=[
  {key:"swordsaint",name:"剣聖の末裔",desc:"名も知れぬ剣豪の血を引くという",gm:1.4,injuryMult:0.5,deathMult:0.55},
@@ -7443,7 +7444,7 @@ function dispatchDungeon(dungeonId,manualIds){
     if(size<1){chron("ダンジョンに送れる兵がいない(全員が負傷中・疲労・出払い中)。","sys");return;}
     squad=[...eligible].sort((a,b)=>(dungeon.type?dungeon.type.statFn(b):unitPower(b))-(dungeon.type?dungeon.type.statFn(a):unitPower(a))).slice(0,size);
   }
-  const marchCut=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).marchDays||0)):0; // 「迅速な行軍」持ちがいると探索の所要日数が縮む=手数(周回速度)を上げる兵站ビルド
+  const marchCut=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).marchDays||0,(traitInfo(u.trait).marchDays)||0))):0; // 「迅速な行軍」(スキル)「健脚の血筋」(特性)持ちがいると探索の所要日数が縮む=手数(周回速度)を上げる兵站ビルド
   if(marchCut>0)dungeon.duration=Math.max(2,dungeon.duration-marchCut);
   for(const u of squad)u.dungeonBusy=S.day+dungeon.duration;
   recordSquadSortie(squad);
@@ -8848,6 +8849,7 @@ function traitEffectText(tr){
   if(tr.campSupport)parts.push(`遠征時の部隊の疲労蓄積-${Math.round(tr.campSupport*100)}%`);
   if(tr.fortuneRoll)parts.push("部隊の迷宮踏破が大成功に転じやすい");
   if(tr.squadExpBonus)parts.push(`部隊の踏破経験値+${Math.round(tr.squadExpBonus*100)}%`);
+  if(tr.marchDays)parts.push(`迷宮の所要日数-${tr.marchDays}日`);
   if(tr.condFlag==="dragonPact")parts.push(`竜盟約締結中は戦力+${tr.condPw||0}`);
   return parts.join(" / ");
 }
