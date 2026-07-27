@@ -5341,8 +5341,26 @@ function councilIntel(){
     {label:"今週は動かさない",hint:"様子見",fx:{log:"諜報については、今週は特段の手を打たなかった。"}},
    ]};
 }
+/* 入植会議:民をいかに増やすかを問う。開墾や街道整備に投じて移民を募り、人口を能動的に伸ばす。
+   人口は王国の格(ランク)を押し上げる基盤="国を大きくする"投資の軸を国政に加える(国政の彩り)。 */
+function councilColonize(){
+  return{tag:"入植会議",title:"第"+Math.floor(S.day/7)+"回 定例閣議(入植)",
+   body:"今週の議題は入植。国を大きくするには、まず民を増やさねばならぬ。荒地を拓くか、街道を整えて人を呼ぶか。",
+   speaker:"セラ「民あってこその国でございます。地道な入植が、やがて王国の格を押し上げましょう」",
+   choices:[
+    {label:"荒地を開墾し、移民を募る(30G)",hint:"人口↑↑ 農業↑(食糧を少し要する)",fx:{call:()=>{
+      if(S.gold<30){chron("入植の元手が乏しく、開墾は見送られた。","");return;}
+      S.gold-=30;const add=ri(15,30);apply({pop:add,food:-Math.min(S.food,ri(5,12)),st:{agriculture:1},log:`荒地の開墾が進み、移民${add}人あまりが新たな畑とともに根を下ろした(人口+${add} 農業+1)。`,logCls:"big"});
+    }}},
+    {label:"街道と宿場を整え、人を呼ぶ(40G)",hint:"人口↑ 経済↑",fx:{call:()=>{
+      if(S.gold<40){chron("街道整備の費えが足りず、見送られた。","");return;}
+      S.gold-=40;const add=ri(10,20);apply({pop:add,st:{economy:2},log:`街道と宿場が整い、商人や職人が家族を連れて移り住んできた(人口+${add} 経済+2)。`,logCls:"big"});
+    }}},
+    {label:"今週は特に募らない",hint:"様子見",fx:{log:"入植については、今週は特段の手を打たなかった。"}},
+   ]};
+}
 function councilAction(){
-  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill,councilFrontier,councilAcademy,councilArmory,councilWelfare,councilDevelopment,councilIntel];
+  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill,councilFrontier,councilAcademy,councilArmory,councilWelfare,councilDevelopment,councilIntel,councilColonize];
   return types[Math.floor(Math.random()*types.length)]();
 }
 function councilEvent(){return councilPolicy();}
