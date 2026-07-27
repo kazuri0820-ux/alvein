@@ -7419,6 +7419,7 @@ const EVENT_ID_PREFIX=[
   ["__expedition_long_resolve__",id=>{resolveLongExpedition(id.slice("__expedition_long_resolve__".length));return null;}],
   ["__duty_resolve_",id=>{resolveDuty(id.slice("__duty_resolve_".length));return null;}],
   ["__caravan_resolve__",id=>{resolveCaravan();return null;}],
+  ["__envoy_resolve__",id=>{resolveEnvoy();return null;}],
   ["__faith_reveal__",id=>buildFaithRevealEvent(id.slice("__faith_reveal__".length))],
   ["__longexp_result__",id=>buildLongExpeditionResultEvent(+id.slice("__longexp_result__".length))],
   ["statmilestone_",id=>buildStatSMilestoneEvent(id.slice(14))],
@@ -11189,6 +11190,49 @@ function resolveCaravan(){
   }
   clamp();render();renderProjects();save();
 }
+/* ===== 親善の使者(内政×外交の新レバー):隣国との関係は、これまで財貨(贈り物・隊商)か事件でしか動かせなかった。
+   ここに"兵の時間"という別の資源を投じる道を開く。統率・知略に長けた兵を特使として送れば、その器量に応じて関係が
+   深まる。使者に発った兵は数日戦線を離れる(迷宮に出せない)=手隙の逸材と機を計る、財貨とは異なる投資の一手。
+   戦場では控えめな知略型の兵に、外交という晴れ舞台を与える意味もある。 ===== */
+const ENVOY_DAYS=6;                 // 特使が旅立ち、帰るまでの日数
+function envoyActive(){return S.envoy||null;}
+function envoyDiplomatScore(u){return Math.round((u.lead||0)*0.6+(u.wis||0)*0.4);} // 使者の外交手腕=統率6:知略4
+function bestEnvoyCandidate(){ // 手隙の兵から最も外交に長けた一人を特使候補に(陽動の自動選抜に倣う)
+  const elig=(S.units||[]).filter(u=>u.role==="active"&&(u.injured||0)<=0&&!u.dungeonBusy&&!u.campUntil);
+  if(!elig.length)return null;
+  return elig.reduce((b,u)=>envoyDiplomatScore(u)>envoyDiplomatScore(b)?u:b,elig[0]);
+}
+function sendEnvoy(neighborKey){
+  ensureNeighbors();
+  if(S.envoy){chron("いま送り出した使者が、まだ帰っていない。","");return;}
+  const nb=S.neighbors.find(n=>n.key===neighborKey); if(!nb){return;}
+  if(nb.relation>=100){chron(`${neighborName(neighborKey)}との関係は既に盤石だ。`,"");return;}
+  const u=bestEnvoyCandidate();
+  if(!u){chron("使者に立てられる手隙の兵がいない。","");return;}
+  u.dungeonBusy=S.day+ENVOY_DAYS; u.envoyUntil=S.day+ENVOY_DAYS;
+  S.envoy={unitId:u.id,key:neighborKey,resolveDay:S.day+ENVOY_DAYS,score:envoyDiplomatScore(u)};
+  (S.scheduled[S.envoy.resolveDay]=S.scheduled[S.envoy.resolveDay]||[]).push("__envoy_resolve__");
+  unitHistory(u,`${neighborName(neighborKey)}への親善の使者として旅立った。`);
+  chron(`${fullName(u)}が、${neighborName(neighborKey)}への親善の使者として旅立った。${ENVOY_DAYS}日後、誼を深めて帰るだろう(その間、迷宮には出られない)。`,"");
+  render();renderProjects();save();
+}
+function resolveEnvoy(){
+  const e=S.envoy; if(!e){return;}
+  S.envoy=null;
+  ensureNeighbors();
+  const nb=S.neighbors.find(n=>n.key===e.key);
+  const u=(typeof findAnyUnit==="function")?findAnyUnit(e.unitId):null;
+  if(u){u.envoyUntil=null; if(u.dungeonBusy&&u.dungeonBusy<=S.day)u.dungeonBusy=null;}
+  if(!nb){clamp();render();renderProjects();save();return;}
+  const score=e.score||(u?envoyDiplomatScore(u):20);
+  const gain=Math.round(4+score*0.18+ri(0,3));   // 器量が高いほど関係が大きく深まる(概ね+6〜+18)
+  nb.relation=Math.min(100,(nb.relation||0)+gain);
+  let bonus="";
+  if(Math.random()<0.35){const g=ri(20,45);S.gold+=g;bonus=` 先方からの返礼として、財貨${g}も持ち帰った。`;}
+  if(u){unitHistory(u,`${neighborName(e.key)}との折衝を見事にまとめ、親善の使者の務めを果たして帰還した。`);u.loyalty=Math.min(100,(u.loyalty||0)+2);u.exp=(u.exp||0)+ri(3,7);if(typeof processLevelUps==="function")processLevelUps(u);}
+  apply({st:{diplomacy:1},log:`${u?fullName(u):"使者"}が${neighborName(e.key)}から帰還した。誠意ある折衝が実を結び、両国の関係が深まった(関係+${gain} 外交+1)。${bonus}`,logCls:"big"});
+  clamp();render();renderProjects();save();
+}
 /* ===== 王国の祝祭:資源を投じて国を挙げた祭を催し、しばらくの間つづく恵み(民心の高揚と、選んだ祭に応じた恩恵)を得る。
    内政の蓄えを"ここぞ"で燃やして次の攻略や暮らしを後押しする、緩急のある新しいレバー。何の祭を、いつ催すかが選択になる ===== */
 const FESTIVAL_DURATION=8;   // 祭の恵みが続く日数
@@ -11459,6 +11503,8 @@ function renderProjects(){
    if(S.policyFocus)chips.push(["重点",focusLabels[S.policyFocus],"#c9a86a"]);
    const fa=typeof festivalActive==="function"?festivalActive():null; if(fa){const ft=festivalType(fa.key);chips.push(["祝祭",`${ft.name}(残${fa.until-S.day}日)`,"#e0a870"]);}
    if(S.caravan)chips.push(["隊商",`${neighborName(S.caravan.key)}へ(残${Math.max(0,S.caravan.resolveDay-S.day)}日)`,"#c9a86a"]);
+   if(S.envoy)chips.push(["使者",`${neighborName(S.envoy.key)}へ(残${Math.max(0,S.envoy.resolveDay-S.day)}日)`,"#c9a86a"]); // 親善の使者の出立中
+
    if((S.vault||0)>0)chips.push(["金庫",`${S.vault}${(S.vault||0)>=vaultCap()?"(満)":""}`,(S.vault||0)>=vaultCap()?"#d99a6a":"#8fbf6f"]);
    if((S.outposts||[]).length)chips.push(["前哨",`${S.outposts.length}/${outpostCap()}`,"#c9a86a"]);
    if(S.nemesis)chips.push(["宿敵",S.nemesis.name,"#d97a7a"]);
@@ -11718,8 +11764,29 @@ function renderProjects(){
     }
     h+=`</div>`;
   }
+  // ── 親善の使者(兵の時間で誼を深める) ──
+  h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 6px;letter-spacing:.15em">── 親善の使者 ──</div>`;
+  const env=envoyActive();
+  if(env){
+    const left=env.resolveDay-S.day;const eu=(typeof findAnyUnit==="function")?findAnyUnit(env.unitId):null;
+    h+=`<div class="pcard" style="border-color:var(--gold2)"><div class="nm" style="color:var(--gold)">使者 出立中</div><div class="ds" style="margin:2px 0 4px">${eu?fullName(eu):"使者"}が、${neighborName(env.key)}へ親善の使者として旅している。</div><div class="ds" style="color:var(--gold);font-size:11px">帰還まで、あと${left}日。</div></div>`;
+  }else{
+    const cand=bestEnvoyCandidate();
+    if(cand){
+      h+=`<div class="pcard"><div class="ds" style="margin-bottom:7px">統率・知略に長けた兵を特使として隣国へ送り、誼を深められる(${ENVOY_DAYS}日で帰還)。財貨ではなく"兵の時間"を投じる一手――使者に発った兵は、その間、迷宮には出せない。器量の高い兵ほど、関係が大きく深まる。</div>`;
+      h+=`<div class="ds" style="margin-bottom:7px;color:var(--gold)">特使候補:${fullName(cand)}<span style="color:var(--dim);font-size:10.5px">（外交手腕 ${envoyDiplomatScore(cand)}／統率${cand.lead||0}・知略${cand.wis||0}）</span></div>`;
+      for(const nb of S.neighbors){
+        const rel=Math.round(nb.relation);const canSend=rel<100;
+        h+=`<button class="envoy-btn" data-k="${nb.key}" ${canSend?"":"disabled"} style="display:block;width:100%;text-align:left;background:transparent;border:1px solid ${canSend?"var(--gold2)":"rgba(255,255,255,.12)"};color:${canSend?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px 10px;margin-bottom:6px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canSend?"pointer":"default"}">${neighborName(nb.key)}へ使者を送る<span style="color:var(--dim);font-size:10.5px">　関係${rel}${nb.allied?"・同盟":""}</span></button>`;
+      }
+      h+=`</div>`;
+    }else{
+      h+=`<div class="pcard"><div class="ds" style="color:var(--dim)">使者に立てられる手隙の兵がいない(負傷・出撃・休養中でない現役兵が要る)。</div></div>`;
+    }
+  }
   $("#prjList").innerHTML=h;
   $("#prjList").querySelectorAll(".caravan-btn").forEach(b=>b.onclick=()=>{sendCaravan(b.dataset.k);});
+  $("#prjList").querySelectorAll(".envoy-btn").forEach(b=>b.onclick=()=>{sendEnvoy(b.dataset.k);});
   $("#prjList").querySelectorAll(".nb-gift-btn").forEach(b=>b.onclick=()=>{giftNeighbor(+b.dataset.i);});
   $("#prjList").querySelectorAll(".nb-ally-btn").forEach(b=>b.onclick=()=>{allyNeighbor(+b.dataset.i);});
   $("#prjList").querySelectorAll(".festival-btn").forEach(b=>b.onclick=()=>{holdFestival(b.dataset.k);});
