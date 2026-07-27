@@ -2210,6 +2210,7 @@ const TITLE_DB=[
  {key:"t_peerless",name:"不世出の兵",desc:"レベル45に到達し、一代の英傑と称される域へと至った",effect:"injuryMult",value:0.85},
  {key:"t_dungeonmaster",name:"迷宮の覇者",desc:"ただ一人で数多の迷宮を踏破し、その名は暗がりの主として畏れられる",effect:"expMult",value:1.08},
  {key:"t_gloryincarnate",name:"栄光の化身",desc:"十指に余る称号を身に帯び、その生き様そのものが王国の栄光となった",effect:"loyaltyGrow",value:0.18},
+ {key:"t_shieldbearer",name:"戦友の守り手",desc:"我が身を挺して戦友を死線から救い出した、真の守り手",effect:"loyaltyGrow",value:0.15},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -7195,6 +7196,7 @@ function resolveDungeonRun(dungeonId){
         unitHistory(guardian,`「${dungeon.name}」で戦友${victim.nm}を庇い、代わりに深手を負った。`);
         unitHistory(victim,`「${dungeon.name}」で死にかけたところを、戦友${guardian.nm}に命を救われた。`);
         victim.moral=Math.min(100,(victim.moral||0)+3);guardian.loyalty=Math.min(100,(guardian.loyalty||0)+2);
+        guardian.guardianSaveCount=(guardian.guardianSaveCount||0)+1;grantTitle(guardian,"t_shieldbearer");
         chron(`――「${dungeon.name}」は大失敗に終わった。${victim.nm}が致命傷を負いかけたその刹那、戦友${guardian.nm}が身を挺して庇い、その命を守り抜いた。`,"big");
         const rec=memberLog.find(l=>l.u.id===victim.id);if(rec)rec.note="致命傷(戦友に救われた)";
         const grec=memberLog.find(l=>l.u.id===guardian.id);if(grec&&guardian.injured>0)grec.note=INJURY_TIERS[guardian.injurySeverity].label+"(戦友を庇った)";
