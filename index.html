@@ -7854,11 +7854,12 @@ function estimateDungeonSuccess(dungeon){
   const pctCriticalFail=Math.max(0,Math.min(100,100-Math.round((centerRoll-60+20)/40*100))); // 「大失敗」の確率
   return{squad,pct,pctGreat,pctCriticalFail};
 }
-function dispatchDungeon(dungeonId,manualIds,formationKey){
+function dispatchDungeon(dungeonId,manualIds,formationKey,delve){
   const idx=(S.availableDungeons||[]).findIndex(d=>d.id===dungeonId);
   if(idx<0)return;
   const dungeon=S.availableDungeons[idx];
   dungeon.formation=FORMATIONS[formationKey]?formationKey:"balanced"; // 選んだ陣形を記録(未指定は均衡陣)
+  dungeon.delve=!!delve; // 深層まで攻めるか(踏破時に奥の主へ挑む博打)
   const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy&&!u.campUntil);
   let squad;
   if(manualIds&&manualIds.length){
@@ -8203,6 +8204,24 @@ function resolveDungeonRun(dungeonId){
       if(dungeon.id==="demonlord_abyss")spawnDemonAbyssDungeon();
       checkDemonLordNotice();
       if(!dungeon.isFinal&&Math.random()<0.3)dungeonFound=checkDungeonDiscovery(1.2,squad[0]);
+      if(dungeon.delve&&!dungeon.isFinal){ // 深層への強行:疲れた部隊のまま、さらに奥の主に挑む博打(踏破時に上乗せで発生)
+        for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(12,22)); // 深入りの疲労
+        const delvePower=squadPower*0.85*(crit?1.15:1.0); // 疲労で本来の力は出し切れない
+        const delveBossPower=dungeon.bossPower*rnd(1.15,1.45); // 奥の主はより手強い
+        if(delvePower>=delveBossPower){ // 深層踏破=ジャックポット
+          const dGold=Math.round(ri(80,150)*dungeon.rarity.mult*levelMult);
+          const upKey={common:"rare",uncommon:"rare",rare:"epic",epic:"legendary",legendary:"legendary"}[dungeon.rarity.key]||"epic";
+          const dItem=rollItemDrop(upKey); if(dItem)addItem(dItem.key);
+          const dEq=rollEquipmentDrop(upKey==="legendary"?"epic":upKey); let dEqName=""; if(dEq){const di=addEquipment(dEq.key);dEqName=equipInstName(di);}
+          for(const u of squad){const g=Math.round(ri(14,24)*levelMult);u.exp+=g;processLevelUps(u);}
+          apply({gold:dGold,mood:3});
+          chron(`――さらに奥へ踏み込んだ部隊は、「${dungeon.name}」の深層に巣食う主をも討ち果たした！${dItem?`秘宝「${dItem.name}」`:""}${dEqName?`と「${dEqName}」`:""}、そして財貨${dGold}を携え、疲労困憊ながらも意気揚々と凱旋した。`,"big");
+        }else{ // 深層で撤退:疲労と負傷を負うが、第一の戦果は保持
+          const hurt=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*0.4)));
+          for(const u of hurt){if((u.injured||0)<=0){inflictInjury(u,medicAdjustWeights([0.6,0.3,0.1],squad));unitHistory(u,`「${dungeon.name}」の深部で手傷を負った。`);}}
+          chron(`部隊は「${dungeon.name}」の深部まで攻め込んだが、奥に潜む主には及ばず撤退した。深入りの代償に疲れと傷を負ったものの、第一の戦果は失わず持ち帰っている。`,"grave");
+        }
+      }
     }else{
       const squadGoldFind=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).goldFind)||0,skillEffects(u).goldFind||0))):0;
       goldGained=Math.round(ri(12,28)*dungeon.rarity.mult*levelMult*(1+squadGoldFind));
@@ -10123,7 +10142,7 @@ function reactivateInstructor(u){
 }
 /* ---------- ダンジョン・アイテムパネル ---------- */
 let dgTab="available";
-let dgSelectingDungeonId=null, dgSelectedUnitIds=[], dgFormation="balanced";
+let dgSelectingDungeonId=null, dgSelectedUnitIds=[], dgFormation="balanced", dgDelve=false;
 let expSelecting=false, expSelectedUnitIds=[];
 let itemRarityFilter="all";
 /* ===== 行商人の店(新機軸:貯めた財貨を能動的に品へ換える経済の出口) =====
@@ -10552,6 +10571,11 @@ function renderDungeonPanel(){
        <div style="display:flex;gap:5px;flex-wrap:wrap">`+FORMATION_KEYS.map(k=>{const f=FORMATIONS[k];const on=k===cur;return `<button class="dg-formation-btn" data-f="${k}" style="flex:1;min-width:70px;background:${on?f.color:"transparent"};color:${on?"var(--ink)":f.color};border:1px solid ${f.color};border-radius:6px;padding:7px 4px;font-family:'Shippori Mincho',serif;font-size:11.5px;font-weight:${on?"800":"600"};cursor:pointer">${f.label}</button>`;}).join("")+`</div>
        <div class="ds" style="font-size:11px;color:${FORMATIONS[cur].color};margin-top:5px">${FORMATIONS[cur].desc}</div></div>`;
     }
+    // 深層への強行(新ルール):踏破後、疲れた部隊のまま奥の主へ挑む博打。勝てば格上の秘宝、敗れれば疲労と負傷(第一の戦果は保持)
+    h+=`<div style="margin-top:10px">
+      <button id="dgDelveToggle" style="width:100%;background:${dgDelve?"rgba(180,120,90,.25)":"transparent"};border:1px solid ${dgDelve?"#d08f5a":"var(--gold2)"};color:${dgDelve?"#e0a870":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;font-weight:${dgDelve?"800":"600"};cursor:pointer">${dgDelve?"◆ 深層まで攻める(ON)":"深層まで攻める(OFF)"}</button>
+      <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:4px">踏破に成功したら、疲れた部隊のまま奥の主へ挑む。勝てば格上の秘宝・財貨を掴むが、敗れれば疲労と負傷を負う(第一の戦果は失わない)。</div>
+    </div>`;
     h+=`<div style="display:flex;gap:6px;margin-top:10px">
       <button id="dgDispatchConfirm" ${selSquad.length?"":"disabled"} style="flex:1;background:${selSquad.length?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${selSquad.length?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:10px;font-family:'Shippori Mincho',serif;font-weight:800;cursor:${selSquad.length?"pointer":"default"}">この編成で派遣する</button>
       <button id="dgDispatchCancel" style="flex:1;background:transparent;border:1px solid var(--dim);color:var(--dim);border-radius:6px;padding:10px;font-family:'Shippori Mincho',serif;cursor:pointer">戻る</button>
@@ -10577,11 +10601,13 @@ function renderDungeonPanel(){
       $("#panelUnitDetail").classList.add("show");
     });
     $("#dgBody").querySelectorAll(".dg-formation-btn").forEach(el=>el.onclick=()=>{dgFormation=el.dataset.f;renderDungeonPanel();});
+    const delveToggle=$("#dgDelveToggle");
+    if(delveToggle)delveToggle.onclick=()=>{dgDelve=!dgDelve;renderDungeonPanel();};
     const confirmBtn=$("#dgDispatchConfirm");
     if(confirmBtn)confirmBtn.onclick=()=>{
-      const id=dgSelectingDungeonId;const ids=[...dgSelectedUnitIds];const fm=dgFormation;
+      const id=dgSelectingDungeonId;const ids=[...dgSelectedUnitIds];const fm=dgFormation;const dv=dgDelve;
       dgSelectingDungeonId=null;dgSelectedUnitIds=[];
-      dispatchDungeon(id,ids,fm);
+      dispatchDungeon(id,ids,fm,dv);
       dgTab="active";renderDungeonPanel();
     };
     $("#dgDispatchCancel").onclick=()=>{dgSelectingDungeonId=null;dgSelectedUnitIds=[];renderDungeonPanel();};
@@ -10623,7 +10649,7 @@ function renderDungeonPanel(){
       const c=d.rarity&&d.rarity.color;
       h+=`<div class="pcard" style="${c?`border-color:${c}`:""}">
         <div class="nm" style="${c?`color:${c}`:""}"><i class="icon-dungeon"></i>${d.rarity&&d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${bossTraitTag(d)}${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<span style="color:${DUNGEON_CONDITIONS[d.condition].color};font-weight:800">〔${DUNGEON_CONDITIONS[d.condition].label}〕</span>`:""}${d.name}</div>
-        <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span> ／ `:""}${d.formation&&FORMATIONS[d.formation]&&d.formation!=="balanced"?`<span style="color:${FORMATIONS[d.formation].color};font-weight:700">${FORMATIONS[d.formation].label}</span> ／ `:""}帰還まであと${left}日 ／ 派遣部隊:${squad.map(fullName).join("・")||"(不明)"}</div>
+        <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span> ／ `:""}${d.formation&&FORMATIONS[d.formation]&&d.formation!=="balanced"?`<span style="color:${FORMATIONS[d.formation].color};font-weight:700">${FORMATIONS[d.formation].label}</span> ／ `:""}${d.delve?`<span style="color:#d08f5a;font-weight:700">深層</span> ／ `:""}帰還まであと${left}日 ／ 派遣部隊:${squad.map(fullName).join("・")||"(不明)"}</div>
         <div class="uexp" style="margin-top:8px"><i style="width:${pct}%;background:linear-gradient(90deg,${c||"#8fbf6f"}99,${c||"#8fbf6f"})"></i></div>
       </div>`;
     }
