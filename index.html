@@ -1325,12 +1325,14 @@ const JOB_ROUTES={
   {key:"support",label:"補助魔導",main:"wis",sub:"lead",light:"int",aff:"sanctum",names:{elite:"支援術師",captain:"秘術師",hero:"大賢導王"},nickname:"叡智の紡ぎ手"},
   {key:"summon",label:"召喚魔導",main:"int",sub:"wis",light:"agi",aff:"beast",names:{elite:"召喚術師",captain:"幻獣使い",hero:"幻獣導王"},nickname:"獣を呼ぶ者"},
   {key:"curse",label:"呪術",main:"int",sub:"wis",light:"vit",aff:"cursed",names:{elite:"呪術師",captain:"呪詛師",hero:"呪王"},nickname:"呪いを操る者"},
+  {key:"spellblade",label:"魔剣",main:"str",sub:"int",light:"agi",aff:"combat",names:{elite:"魔剣士",captain:"魔剣豪",hero:"魔剣導王"},nickname:"剣に魔を宿す者"},
  ],
  archer:[
   {key:"snipe",label:"狙撃",main:"agi",sub:"wis",light:"str",aff:"trap",names:{elite:"精密射手",captain:"百中の射手",hero:"弓聖(狙撃)"},nickname:"一射必中"},
   {key:"rapid",label:"連射",main:"agi",sub:"str",light:"wis",aff:"combat",names:{elite:"速射手",captain:"乱れ撃ちの弓兵",hero:"弓聖(速射)"},nickname:"矢継ぎ早の風"},
   {key:"skirmish",label:"遊撃",main:"agi",sub:"lead",light:"wis",aff:"tempest",names:{elite:"影走りの射手",captain:"影駆けの射手",hero:"弓聖(遊撃)"},nickname:"影を縫う矢"},
   {key:"trapper",label:"罠術",main:"wis",sub:"agi",light:"int",aff:"trap",names:{elite:"罠師",captain:"罠術の達人",hero:"弓聖(罠)"},nickname:"見えざる罠の主"},
+  {key:"heavybow",label:"強弓",main:"str",sub:"agi",light:"vit",aff:"fortress",names:{elite:"強弓兵",captain:"剛弓の射手",hero:"弓聖(剛)"},nickname:"城壁を貫く一矢"},
  ],
  monk:[
   {key:"hard",label:"剛拳",main:"str",sub:"agi",light:"vit",aff:"combat",names:{elite:"剛拳士",captain:"剛拳王",hero:"拳聖(剛)"},nickname:"岩砕く拳"},
@@ -1344,12 +1346,14 @@ const JOB_ROUTES={
   {key:"bless",label:"祝福",main:"lead",sub:"wis",light:"vit",aff:"sanctum",names:{elite:"祝福師",captain:"祝福司祭",hero:"聖者(祝福)"},nickname:"恵みを注ぐ者"},
   {key:"smite",label:"討魔",main:"str",sub:"int",light:"vit",aff:"abyss",names:{elite:"討魔僧",captain:"討魔司祭",hero:"聖者(討魔)"},nickname:"魔を討つ聖槍"},
   {key:"oracle",label:"神託",main:"wis",sub:"int",light:"agi",aff:"labyrinth",names:{elite:"神託僧",captain:"神託の司祭",hero:"聖者(神託)"},nickname:"天啓を聞く者"},
+  {key:"warden",label:"守護",main:"vit",sub:"lead",light:"wis",aff:"endurance",names:{elite:"守護僧",captain:"守護司祭",hero:"聖者(守護)"},nickname:"盾となる祈り"},
  ],
  hunter:[
   {key:"assassin",label:"暗殺",main:"agi",sub:"str",light:"wis",aff:"stealth",names:{elite:"暗殺者",captain:"必殺の刃",hero:"影王(暗殺)"},nickname:"音無き刃"},
   {key:"intel",label:"諜報",main:"wis",sub:"lead",light:"agi",aff:"puzzle",names:{elite:"諜報員",captain:"諜報頭",hero:"影王(諜報)"},nickname:"千里の耳目"},
   {key:"track",label:"追跡",main:"agi",sub:"wis",light:"lead",aff:"labyrinth",names:{elite:"猟犬遣い",captain:"百鬼追いの猟人",hero:"影王(追跡)"},nickname:"決して逃さぬ者"},
   {key:"beastmaster",label:"獣使い",main:"lead",sub:"agi",light:"wis",aff:"beast",names:{elite:"獣使い",captain:"魔獣の統率者",hero:"影王(獣)"},nickname:"獣を統べる者"},
+  {key:"venom",label:"毒牙",main:"agi",sub:"int",light:"wis",aff:"cursed",names:{elite:"毒手",captain:"暗器の達人",hero:"影王(毒)"},nickname:"静かに命を絶つ者"},
  ],
 };
 function routeInfo(cls,routeKey){return (JOB_ROUTES[cls]||[]).find(r=>r.key===routeKey)||null;}
@@ -7712,7 +7716,7 @@ function buildCaptainPromoEvent(uid){
     {label:"淡々と受け止める",hint:"控えめ",fx:{log:`${u.nm}の「${j.name}」昇進が、静かに記録された。`}},
    ]};
 }
-/* ---------- ジョブ分岐(4段階目到達時、3ルートから1つを選ぶ・以降変更不可) ---------- */
+/* ---------- ジョブ分岐(4段階目到達時、複数ルートから1つを選ぶ・以降変更不可) ---------- */
 function buildRouteBranchEvent(uid){
   const u=S.units.find(x=>x.id===uid);
   if(!u||u.route)return null;
