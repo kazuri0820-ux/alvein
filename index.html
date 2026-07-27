@@ -10495,10 +10495,36 @@ function sendToCamp(unitId){
   u.campDuration=dur;
   chron(`${fullName(u)}が特別訓練場へ入った。${dur}日後に戻る予定。`,"big");
 }
+/* ===== 異国留学(育成の別軸):同盟を結んだ隣国へ兵を送り、その国の特色を帯びた成長を持ち帰る。
+   外交(同盟)の投資を育成へ還元する新レバー=どの国と結ぶかが、どんな兵を育てられるかに繋がる ===== */
+const STUDY_DAYS=24;
+const STUDY_DEST={
+  veltis:{grow:["lead","wis","int"],flavor:"交易と算術、そして世慣れた立ち回りを学び",statLabel:"統率・知力"},
+  draconis:{grow:["str","vit"],flavor:"峻険の地で苛烈な武練に明け暮れ",statLabel:"腕力・体力"},
+  suria:{grow:["wis","agi","vit"],flavor:"水郷の医薬と機知に富んだ身のこなしを修め",statLabel:"知力・敏捷"},
+};
+function studyDestName(key){return typeof neighborName==="function"?neighborName(key):key;}
+function sendToStudy(unitId,destKey){
+  const u=S.units.find(x=>x.id===unitId);
+  if(!u||u.campUntil||u.injured>0||u.dungeonBusy||u.role!=="active")return;
+  if(typeof alliedWith!=="function"||!alliedWith(destKey)){chron(`${studyDestName(destKey)}とは同盟を結んでおらず、兵を送れない。`,"");return;}
+  if(!STUDY_DEST[destKey])return;
+  u.campUntil=S.day+STUDY_DAYS; u.campDuration=STUDY_DAYS; u.studyDest=destKey;
+  chron(`${fullName(u)}が同盟国・${studyDestName(destKey)}へ留学に発った。${STUDY_DAYS}日後、かの地の学びを身につけて戻るだろう。`,"big");
+  render();renderTroops();refreshOpenPanels();save();
+}
 function checkCampReturns(){
   for(const u of S.units){
     if(u.campUntil&&S.day>=u.campUntil){
       u.campUntil=null;u.campDuration=null;
+      if(u.studyDest&&STUDY_DEST[u.studyDest]){ // 異国留学の帰還:留学先の特色を帯びた成長
+        const dest=u.studyDest, info=STUDY_DEST[dest]; u.studyDest=null;
+        for(const k of["str","vit","int","agi","wis","lead"]){u[k]+=(info.grow.includes(k))?ri(8,14):ri(2,5);}
+        const learned=trySkillUp(u);
+        unitHistory(u,`同盟国・${studyDestName(dest)}への留学を終え、${info.flavor}、一回り大きくなって帰国した。`);
+        chron(`――${fullName(u)}が${studyDestName(dest)}への留学から帰国した。${info.flavor}、${info.statLabel}を大きく伸ばしている。${learned?`新たに「${learned.name}」を会得した。`:""}`,"big");
+        continue;
+      }
       const pr=statPriorityFor(u);
       for(const k of["str","vit","int","agi","wis","lead"]){
         const g=(k===pr.main)?ri(10,18):(k===pr.sub)?ri(6,12):ri(3,7);
@@ -10978,6 +11004,18 @@ function renderUnitDetail(uid){
       <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:5px">${u.focusStat?`現在の方針:「${(USTAT_DEF[u.focusStat]||{lbl:u.focusStat}).lbl}」を重点的に(もう一度押すと解除)`:"方針なし(生来の資質のままに伸びる)"}</div>
     </div>`;
   }
+  // ── 異国留学(同盟国で学ぶ) ──
+  if(!isInstructor&&u.role==="active"){
+    const allies=(S.neighbors||[]).filter(n=>n.allied&&STUDY_DEST[n.key]);
+    if(u.studyDest){
+      const info=STUDY_DEST[u.studyDest];
+      h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>異国留学</h4><div class="ds" style="color:var(--gold)">${studyDestName(u.studyDest)}へ留学中。${Math.max(0,(u.campUntil||0)-S.day)}日後に、${info?info.statLabel:"かの地の学び"}を伸ばして帰国する。</div></div>`;
+    }else if(allies.length&&!u.campUntil&&(u.injured||0)<=0&&!u.dungeonBusy){
+      h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>異国留学</h4><div class="ds" style="margin-bottom:6px;font-size:11.5px">同盟国へ${STUDY_DAYS}日間留学させ、その国の特色を帯びた成長を持ち帰らせる(期間中は他の任務に出せない)。</div>`;
+      for(const n of allies){const info=STUDY_DEST[n.key];h+=`<button class="study-btn" data-d="${n.key}" style="display:block;width:100%;text-align:left;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:8px 10px;margin-bottom:5px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${studyDestName(n.key)}へ留学 <span style="color:var(--dim);font-size:10.5px">― ${info.statLabel}が大きく伸びる</span></button>`;}
+      h+=`</div>`;
+    }
+  }
   // ── 生い立ち ──
   if(u.backstory)h+=`<div class="udet-sec"><h4>生い立ち</h4><div style="font-size:12px;color:#d8dbe6;line-height:1.85;font-style:italic">${u.backstory}</div></div>`;
   if(!isInstructor&&u.dream){const dd=UNIT_DREAMS.find(x=>x.key===u.dream);if(dd)h+=`<div class="udet-sec"><h4>${u.dreamDone?"叶えた夢":"抱いている夢"}</h4><div style="font-size:12px;color:${u.dreamDone?"var(--gold)":"#d8dbe6"};font-style:italic">${u.dreamDone?"✦ ":"― "}${dd.text}${u.dreamDone?" ――その願いは、叶えられた。":""}</div></div>`;}
@@ -11218,6 +11256,7 @@ function renderUnitDetail(uid){
   const dismissNo=$("#dismissConfirmNo");
   if(dismissNo)dismissNo.onclick=()=>{dismissConfirmId=null;renderUnitDetail(uid);};
   $("#unitDetailBody").querySelectorAll(".focus-btn").forEach(b=>b.onclick=()=>{setFocusStat(uid,b.dataset.k);renderUnitDetail(uid);});
+  $("#unitDetailBody").querySelectorAll(".study-btn").forEach(b=>b.onclick=()=>{sendToStudy(uid,b.dataset.d);$("#panelUnitDetail").classList.remove("show");});
   const bondBtn=$("#bondArrangeBtn");
   if(bondBtn)bondBtn.onclick=()=>{bondPickForId=uid;renderUnitDetail(uid);};
   $("#unitDetailBody").querySelectorAll(".bond-pick-btn").forEach(b=>b.onclick=()=>{arrangeBond(uid,b.dataset.b);renderUnitDetail(uid);refreshOpenPanels();});
