@@ -9052,6 +9052,10 @@ function squadEffectivePower(squad,type){
    陣形(無償の戦術)・兵站(食糧で消耗軽減)とは別に、"財貨で成否そのものを底上げする"出撃前の準備の一手 ===== */
 const SCOUT_ROLL_BONUS=12;                       // 偵察が攻略判定にもたらす下駄
 const DECOY_ROLL_BONUS=14;                       // 陽動(別動隊)が攻略判定にもたらす下駄
+/* 一戦限りの傭兵(ダンジョンの新レバー):財貨を投じて腕利きの傭兵を一戦だけ雇い、部隊の助太刀とする。兵の手数を
+   割く陽動とは異なり、"金で戦力そのものを買う"一手。手隙の兵がいなくても、財があれば格上の迷宮を崩せる。 */
+const MERC_PW_MULT=1.15;                          // 雇った傭兵の助太刀で、この一戦の部隊戦力が増す
+function mercCost(d){return Math.max(60,Math.round((d&&d.requiredPower||100)*0.5));} // 手強い迷宮ほど、雇う傭兵も高くつく
 function scoutCost(d){return Math.max(20,Math.round((d.requiredPower||100)*0.14));} // 手強い迷宮ほど偵察も高くつく
 function scoutDungeon(dungeonId){
   const d=(S.availableDungeons||[]).find(x=>x.id===dungeonId); if(!d||d.scouted)return;
@@ -9173,10 +9177,12 @@ const FIRST_SORTIE_LINES=[
  (u,d)=>`${u}が初めて実戦の遠征に発つ。城門を出る足取りには、隠しきれぬ緊張と高揚が滲んでいた。`,
  (u,d)=>`「必ず、生きて戻ります」。初陣の${u}は王にそう告げ、「${d}」へ向かう隊に加わった。`,
 ];
-function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision,tactic,decoy){
+function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision,tactic,decoy,merc){
   const idx=(S.availableDungeons||[]).findIndex(d=>d.id===dungeonId);
   if(idx<0)return;
   const dungeon=S.availableDungeons[idx];
+  dungeon.merc=false; // 一戦限りの傭兵を雇うか(財貨で戦力を買う)
+  if(merc){const mc=mercCost(dungeon);if(S.gold>=mc){S.gold-=mc;dungeon.merc=true;}}
   dungeon.formation=FORMATIONS[formationKey]?formationKey:"balanced"; // 選んだ陣形を記録(未指定は均衡陣)
   dungeon.delve=!!delve; // 深層まで攻めるか(踏破時に奥の主へ挑む博打)
   dungeon.provisioned=!!provision&&(S.food||0)>=PROVISION_COST; // 兵站を持たせるか(食糧を割いて帰還時の消耗を和らげる)
@@ -9420,7 +9426,7 @@ function resolveDungeonRun(dungeonId){
   }
   const fmKey=FORMATIONS[dungeon.formation]?dungeon.formation:"balanced"; // 派遣時に選んだ陣形
   const fm=FORMATIONS[fmKey];
-  const squadPower=Math.round(squadEffectivePower(squad,dungeon.type)*(fm.pwMult||1)); // 陣形の戦力倍率を反映(攻勢陣は上振れ・堅守/迅速陣は控えめ)
+  const squadPower=Math.round(squadEffectivePower(squad,dungeon.type)*(fm.pwMult||1)*(dungeon.merc?MERC_PW_MULT:1)); // 陣形の戦力倍率を反映(攻勢陣は上振れ・堅守/迅速陣は控えめ)。雇った傭兵の助太刀で部隊の力が増す
   const fortune=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).fortuneRoll||0,(traitInfo(u.trait).fortuneRoll)||0))):0; // 「勝負師の勘」(スキル)「武運の女神に愛されし者」(特性)持ちは踏破判定に下駄を履く=大成功が出やすくなる
   const scoutRoll=dungeon.scouted?SCOUT_ROLL_BONUS:0; // 偵察済み:罠と地形を知り、この一戦の攻略判定が有利になる
   const weakBonus=weaknessMatched(dungeon,squad)?WEAKNESS_BONUS:0; // 斥候の勘所に噛み合う編成で挑めば、急所を突いて判定が有利になる
@@ -9522,6 +9528,7 @@ function resolveDungeonRun(dungeonId){
       maybeClutchVictory(squad,dungeon,centerRoll,tier); // 実力で及ばぬ相手を覆した"番狂わせ"を特筆(演出＋士気の報い)
       maybeTriumphReturn(squad,crit); // 大勝から戻った部隊を迎える、暖かな凱旋の一幕(演出)
       if(dungeon.decoy&&dungeon.decoyId){const dec=S.units.find(u=>u.id===dungeon.decoyId);if(dec&&Math.random()<0.7)chron(`${dec.nm}率いる別動隊の陽動が功を奏し、本隊は敵の隙を突いて攻略を有利に運んだ。`,"");}
+      if(dungeon.merc&&Math.random()<0.6)chron("雇われの傭兵は約束通り確かな助太刀を務め、報酬を受け取ると、また次の地へと去っていった。","");
       { // 季節の兆しが実った折、その恵みを一言添えて felt にする(季節×踏破の演出)
         const _csk=(typeof currentSeason==="function"&&currentSeason())?currentSeason().key:null;
         const _sflav={summer:"夏の盛りの猛稽古が実を結び、兵たちは一段と腕を上げて戻ってきた。",autumn:"黄金の秋の恵みか、蔵に納まる財貨もいつになく厚い。",winter:"厳しい冬の迷宮は、その分だけ良い獲物を懐に隠していた。",spring:"芽吹きの季の暖かさに、遠征帰りの兵の疲れも、いつしか和らいでいた。"}[_csk];
@@ -12693,7 +12700,7 @@ function reactivateInstructor(u){
 }
 /* ---------- ダンジョン・アイテムパネル ---------- */
 let dgTab="available";
-let dgSelectingDungeonId=null, dgSelectedUnitIds=[], dgFormation="balanced", dgDelve=false, dgProvision=false, dgTactic="none", dgDecoy=false;
+let dgSelectingDungeonId=null, dgSelectedUnitIds=[], dgFormation="balanced", dgDelve=false, dgProvision=false, dgTactic="none", dgDecoy=false, dgMerc=false;
 let expSelecting=false, expSelectedUnitIds=[], expDest="trade";
 /* 遠征の目的地(遠征の新レバー):60〜90日の長期遠征に「どこへ何をしに行くか」を選ばせ、持ち帰る実りの
    偏りを変える。汎用の"送って待つ"を、王国の今の不足(財貨/装備/成長/発見)に合わせて選ぶ戦略判断に変える。 */
@@ -13118,7 +13125,8 @@ function renderDungeonPanel(){
     const selSquad=dgSelectedUnitIds.map(id=>eligible.find(u=>u.id===id)).filter(Boolean);
     const synergy=squadSynergyMult(selSquad);
     const fmPw=(FORMATIONS[dgFormation]||FORMATIONS.balanced).pwMult||1; // 選んだ陣形の戦力倍率を推定値にも反映=表示と実判定を一致させる
-    const selCombined=squadEffectivePower(selSquad,d.type)*fmPw;
+    const selMerc=(dgMerc&&S.gold>=mercCost(d))?MERC_PW_MULT:1; // 傭兵の助太刀を推定にも反映=表示と実判定を一致させる
+    const selCombined=squadEffectivePower(selSquad,d.type)*fmPw*selMerc;
     const selFortune=selSquad.length?Math.max(0,...selSquad.map(u=>Math.max(skillEffects(u).fortuneRoll||0,(traitInfo(u.trait).fortuneRoll)||0))):0; // 「勝負師の勘」(スキル)「武運の女神」(特性)の下駄を推定成功率にも反映=表示と実判定を一致させる
     const selScout=d.scouted?SCOUT_ROLL_BONUS:0; // 偵察の下駄を推定成功率にも反映=表示と実判定を一致させる
     const selDecoy=(dgDecoy&&eligible.filter(u=>!dgSelectedUnitIds.includes(u.id)).length>0)?DECOY_ROLL_BONUS:0; // 陽動の下駄も推定成功率に反映=表示と実判定を一致させる
@@ -13187,6 +13195,13 @@ function renderDungeonPanel(){
       <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:4px">本隊とは別に手隙の一兵(自動で最精鋭)を割き、敵を引きつける。攻略判定+${DECOY_ROLL_BONUS}・本隊の戦没およそ3割減。割いた兵はこの間出撃できず、疲れて戻る。${canDecoy?"":"(割ける手隙の兵がいない)"}</div>
     </div>`;
     }
+    // 一戦限りの傭兵:財貨で戦力そのものを買い、部隊を助太刀させる。手隙の兵がいなくても格上に挑める一手
+    {const mc=mercCost(d);const canMerc=S.gold>=mc;const on=dgMerc&&canMerc;
+     h+=`<div style="margin-top:10px">
+      <button id="dgMercToggle" ${canMerc?"":"disabled"} style="width:100%;background:${on?"rgba(180,150,90,.22)":"transparent"};border:1px solid ${on?"#d0b070":canMerc?"var(--gold2)":"rgba(255,255,255,.12)"};color:${on?"#e0c080":canMerc?"var(--dim)":"rgba(255,255,255,.3)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;font-weight:${on?"800":"600"};cursor:${canMerc?"pointer":"default"}">${on?`◆ 一戦限りの傭兵を雇う(ON・${mc}G)`:`一戦限りの傭兵を雇う(${mc}G)`}</button>
+      <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:4px">腕利きの傭兵を一戦だけ雇い、部隊を助太刀させる。この一戦の部隊戦力が約${Math.round((MERC_PW_MULT-1)*100)}%増す。傭兵は報酬を受け取ると去る(経験も得ない)。${canMerc?"":"(雇う費えが足りない)"}</div>
+    </div>`;
+    }
     {const curT=DUNGEON_TACTICS[dgTactic]?dgTactic:"none";
      h+=`<div style="margin-top:10px"><div class="ds" style="font-size:11px;color:var(--gold);margin-bottom:4px">秘策(この一戦限りの策)</div>
        <div style="display:flex;gap:5px;flex-wrap:wrap">`+DUNGEON_TACTIC_KEYS.map(k=>{const t=DUNGEON_TACTICS[k];const on=k===curT;const afford=!t.cost||S.gold>=t.cost;const dis=!afford&&k!=="none";return `<button class="dg-tactic-btn" data-t="${k}" ${dis?"disabled":""} style="flex:1;min-width:70px;background:${on?t.color:"transparent"};color:${on?"var(--ink)":dis?"rgba(255,255,255,.3)":t.color};border:1px solid ${dis?"rgba(255,255,255,.12)":t.color};border-radius:6px;padding:7px 4px;font-family:'Shippori Mincho',serif;font-size:11px;font-weight:${on?"800":"600"};cursor:${dis?"default":"pointer"}">${t.label}${t.cost?`(${t.cost}G)`:""}</button>`;}).join("")+`</div>
@@ -13224,11 +13239,13 @@ function renderDungeonPanel(){
     if(provToggle)provToggle.onclick=()=>{dgProvision=!dgProvision;renderDungeonPanel();};
     const decoyToggle=$("#dgDecoyToggle");
     if(decoyToggle)decoyToggle.onclick=()=>{dgDecoy=!dgDecoy;renderDungeonPanel();};
+    const mercToggle=$("#dgMercToggle");
+    if(mercToggle)mercToggle.onclick=()=>{dgMerc=!dgMerc;renderDungeonPanel();};
     const confirmBtn=$("#dgDispatchConfirm");
     if(confirmBtn)confirmBtn.onclick=()=>{
-      const id=dgSelectingDungeonId;const ids=[...dgSelectedUnitIds];const fm=dgFormation;const dv=dgDelve;const pv=dgProvision;const tc=dgTactic;const dc=dgDecoy;
-      dgSelectingDungeonId=null;dgSelectedUnitIds=[];dgTactic="none";dgDecoy=false;
-      dispatchDungeon(id,ids,fm,dv,pv,tc,dc);
+      const id=dgSelectingDungeonId;const ids=[...dgSelectedUnitIds];const fm=dgFormation;const dv=dgDelve;const pv=dgProvision;const tc=dgTactic;const dc=dgDecoy;const mc=dgMerc;
+      dgSelectingDungeonId=null;dgSelectedUnitIds=[];dgTactic="none";dgDecoy=false;dgMerc=false;
+      dispatchDungeon(id,ids,fm,dv,pv,tc,dc,mc);
       dgTab="active";renderDungeonPanel();
     };
     $("#dgDispatchCancel").onclick=()=>{dgSelectingDungeonId=null;dgSelectedUnitIds=[];renderDungeonPanel();};
