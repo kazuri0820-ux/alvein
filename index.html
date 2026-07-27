@@ -9534,6 +9534,28 @@ function recordHardship(squad,dungeonName){
     }
   }
 }
+/* 撤退の一幕(敗北の演出):勝ち戦を彩る凱旋・番狂わせに比べ、負け戦は「撤退した」の一行で流れがちだった。
+   敗走にも、絆や献身に根差した一幕を添える。誰かが殿(しんがり)を務め、戦友が背を庇い、師が弟子を先に逃がす――
+   負け戦を単なる数値の失敗でなく、心に残る物語にし、生き延びた兵への愛着を深める(勝敗どちらにも情感を宿す)。 */
+function defeatVignette(squad,dungeon,grave){
+  const alive=(squad||[]).filter(u=>u&&S.units.some(x=>x.id===u.id)); if(!alive.length)return;
+  const ids=new Set(alive.map(u=>u.id));
+  const lines=[];
+  // 師弟:師が弟子を先に逃がす
+  const mp=alive.find(u=>u.pupilId&&ids.has(u.pupilId));
+  if(mp){const pu=alive.find(u=>u.id===mp.pupilId);if(pu)lines.push(`${fullName(mp)}は弟子${pu.nm}を先に逃がし、自らが最後まで敵を食い止めた。師の背は、弟子の胸に深く刻まれた。`);}
+  // 戦友:背を庇い合う
+  const ba=alive.find(u=>u.bondWith&&ids.has(u.bondWith)&&u.id<u.bondWith);
+  if(ba){const bb=alive.find(u=>u.id===ba.bondWith);if(bb)lines.push(`${fullName(ba)}と${bb.nm}は互いに背を庇い合い、傷つきながらも一人も欠けることなく退いた。戦友の絆が、隊を死地から救った。`);}
+  // 古参が若手をかばう
+  if(alive.length>=2){const vet=alive.reduce((a,b)=>(b.lv||1)>(a.lv||1)?b:a);const rookie=alive.reduce((a,b)=>(b.lv||1)<(a.lv||1)?b:a);if(vet.id!==rookie.id&&(vet.lv||1)-(rookie.lv||1)>=4)lines.push(`${fullName(vet)}が身を挺して若い${rookie.nm}をかばい、隊は全滅だけは免れた。`);}
+  // 隊長の意地
+  const cap=alive.find(u=>u.captain);
+  if(cap)lines.push(`${fullName(cap)}は唇を噛み、「次は必ず討つ」と部隊を励ましながら、整然と殿(しんがり)を務めて退いた。`);
+  // 汎用(常に候補に入れて彩りを絶やさない)
+  lines.push(`誰かが殿(しんがり)を買って出たおかげで、隊は算を乱すことなく退くことができた。`,`部隊は歯を食いしばって撤退した。悔しさは、次の戦への糧となるだろう。`);
+  if(Math.random()<(grave?0.7:0.5))chron("――"+lines[Math.floor(Math.random()*lines.length)],grave?"grave":"");
+}
 /* 推しの見せ場:長のお気に入り(favorite)が勝利した戦いで、その奮戦を稀に年代記に刻む。
    目をかけている兵の活躍が物語として立ち上がることで、栄冠ナイン的な"個への愛着"を強める。 */
 const FAVORITE_SPOTLIGHT_LINES=[
@@ -9942,6 +9964,7 @@ function resolveDungeonRun(dungeonId){
     for(const u of squad.filter(x=>!hurtOnes.includes(x)))memberLog.push({u,gain:0,note:"無傷で撤退"});
     apply({mood:-2});
     chron(`「${dungeon.name}」への挑戦は失敗に終わった。部隊は撤退した。`,"grave");
+    defeatVignette(squad,dungeon,false); // 撤退の一幕:敗走にも絆・献身の物語を添える
     recordHardship(squad,dungeon.name); // 叩き上げ:敗北を生き延びた兵が経験から学ぶ
   }else{ // critical_fail
     const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1)*(S.flags.heirloom==="banner"?0.82:1)*(alliedWith("draconis")?0.85:1)*(festivalIs("remembrance")?0.85:1)*(relicHas("ward")?0.88:1)*(squadEthos==="bulwark"?0.85:1)*(S.flags.dragonRaised?0.85:1)*(dungeon.decoy?0.7:1)*(dungeon.tactic==="retreat"?0:1); // 陽動(別動隊)が敵の目を引きつければ、本隊の戦没も減る。秘策「撤収の備え」なら、この一戦では兵を死なせない。治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗/家宝「不滅の王旗」でさらに戦没が減る。竜嶺のドラコニアとの軍事同盟(援軍の約定)でも戦没が減る。慰霊祭の開催中も戦没が減る。遺物「不滅の護符」でも戦没が減る。育て上げた竜が空から戦場を見守れば、戦没はさらに減る
@@ -9994,6 +10017,7 @@ function resolveDungeonRun(dungeonId){
     }else{
       for(const u of hurtOnes)if(u.injurySeverity==="severe"){u.criticalSurvivalCount=(u.criticalSurvivalCount||0)+1;grantTitle(u,"t_survivor");}
       chron(`――「${dungeon.name}」は大失敗に終わった。命からがらの撤退となった。`,"grave");
+      defeatVignette(squad,dungeon,true); // 撤退の一幕(壊滅寸前):献身の物語で命拾いを彩る
     }
     recordHardship(squad,dungeon.name); // 叩き上げ:大失敗を生き延びた兵が経験から学ぶ(戦没者は除外)
   }
