@@ -6383,6 +6383,7 @@ const EVENT_ID_PREFIX=[
   ["__item_result__",id=>buildItemResultEvent(+id.slice("__item_result__".length))],
   ["__dungeon_resolve_",id=>{resolveDungeonRun(id.slice(18));return null;}],
   ["__expedition_long_resolve__",id=>{resolveLongExpedition(id.slice("__expedition_long_resolve__".length));return null;}],
+  ["__duty_resolve_",id=>{resolveDuty(id.slice("__duty_resolve_".length));return null;}],
   ["__faith_reveal__",id=>buildFaithRevealEvent(id.slice("__faith_reveal__".length))],
   ["__longexp_result__",id=>buildLongExpeditionResultEvent(+id.slice("__longexp_result__".length))],
   ["statmilestone_",id=>buildStatSMilestoneEvent(id.slice(14))],
@@ -9705,6 +9706,42 @@ function renderTrainingCamp(){
 }
 /* ---------- 小隊制度:常設の編成を保存し、同じ顔ぶれで出撃を重ねるとシナジーが育つ ---------- */
 let squadEditIndex=null, squadEditUnitIds=[];
+/* ===== 駐屯任務(小隊運用の深掘り):小隊を一定期間の任に就け、国益を生む新機軸 =====
+   保存した小隊を「警備/交易護衛/巡回偵察」の任に出す。期間中その兵は他の任務に出せない代わりに、
+   完了時に治安・国庫・新ダンジョン発見といった国への恵みをもたらす。編成を"眠らせず"活かす選択を追加。 */
+const DUTY_DURATION=10;
+const DUTY_TYPES=[
+ {key:"guard",name:"警備駐屯",short:"警備",desc:"街に駐屯し治安を守る。完了時に治安が上がる。",color:"#8fb0d0"},
+ {key:"trade",name:"交易護衛",short:"交易",desc:"隊商の護衛につく。完了時に国庫が潤い経済も上向く。",color:"#d9c07a"},
+ {key:"scout",name:"巡回偵察",short:"偵察",desc:"辺境を巡回する。完了時に新たなダンジョンを見出すことがある。",color:"#8fbf6f"},
+];
+function dutyDispatch(squadIndex,dutyKey){
+  const sq=S.squads[squadIndex]; if(!sq||sq.duty)return;
+  const duty=DUTY_TYPES.find(d=>d.key===dutyKey); if(!duty)return;
+  const members=sq.unitIds.map(id=>S.units.find(u=>u.id===id)).filter(Boolean);
+  if(!members.length){chron(`${sq.name}は未編成で、駐屯に出せない。`,"");return;}
+  const avail=members.filter(u=>u.injured<=0&&!u.dungeonBusy&&!u.campUntil);
+  if(avail.length<members.length){chron(`${sq.name}に療養中・出払い中の兵がおり、駐屯には出せなかった。`,"");return;}
+  const resolveDay=S.day+DUTY_DURATION;
+  for(const u of members)u.dungeonBusy=resolveDay;
+  sq.duty={type:dutyKey,resolveDay};
+  (S.scheduled[resolveDay]=S.scheduled[resolveDay]||[]).push("__duty_resolve_"+sq.id);
+  chron(`${sq.name}が「${duty.name}」の任に就いた。${DUTY_DURATION}日の間、他の任務には出せない。`,"big");
+  clamp();render();renderTroops();refreshOpenPanels();save();
+}
+function resolveDuty(squadId){
+  const sq=(S.squads||[]).find(s=>s.id===squadId); if(!sq||!sq.duty)return;
+  const members=sq.unitIds.map(id=>S.units.find(u=>u.id===id)).filter(Boolean);
+  for(const u of members)if(u.dungeonBusy&&u.dungeonBusy<=S.day)u.dungeonBusy=null;
+  const dutyKey=sq.duty.type; sq.duty=null;
+  const n=members.length; if(!n){render();renderTroops();return;}
+  const avgLv=members.reduce((a,u)=>a+(u.lv||1),0)/n;
+  for(const u of members){u.exp+=ri(6,12);processLevelUps(u);}
+  if(dutyKey==="guard"){const o=ri(3,6);apply({st:{order:o},mood:1});chron(`${sq.name}の警備駐屯が明けた。街は静穏に保たれ、治安が高まった(治安+${o})。隊も務めの中で経験を積んでいる。`,"big");}
+  else if(dutyKey==="trade"){const g=Math.round(ri(60,110)*(1+avgLv/40));apply({gold:g,st:{economy:2}});chron(`${sq.name}の交易護衛が完了した。隊商は無事に街道を往き、謝礼と交易の活況が国庫を潤した(国庫+${g} 経済+2)。`,"big");}
+  else{const d=checkDungeonDiscovery(1.4,members[0]);chron(d?`${sq.name}の巡回偵察が、新たな「${d.name}」への道を見つけ出した。`:`${sq.name}の巡回偵察が明けた。目立った発見はなかったが、辺境の安寧は保たれている。`,d?"big":"");}
+  render();renderTroops();refreshOpenPanels();save();
+}
 function renderSquadManager(){
   $("#troopSummary").textContent="小隊:兵士を常設の小隊(最大5人×3枠)に編成できる。同じ小隊で出撃を重ねるとシナジーボーナスが育ち、ダンジョン・遠征の派遣時に一括選択できる。";
   $("#troopFilterRow").innerHTML="";
@@ -9753,10 +9790,13 @@ function renderSquadManager(){
     const sq=S.squads[i];
     const members=sq.unitIds.map(id=>S.units.find(u=>u.id===id)).filter(Boolean);
     const bonus=members.length>=2?Math.round((squadSynergyMult(members)-1)*100):0; // 実際の総合シナジー(履歴・絆・種族・名誉すべて反映)
-    h+=`<div class="pcard"><div class="nm">${sq.name}${sq.honor?`<span style="font-size:10px;color:var(--gold);margin-left:6px">◆${sq.honor}(武名が力に)</span>`:""}</div>
+    const onDuty=sq.duty&&DUTY_TYPES.find(d=>d.key===sq.duty.type);
+    h+=`<div class="pcard"><div class="nm">${sq.name}${sq.honor?`<span style="font-size:10px;color:var(--gold);margin-left:6px">◆${sq.honor}(武名が力に)</span>`:""}${onDuty?`<span style="font-size:10px;color:${onDuty.color};margin-left:6px">▶${onDuty.name}中(残${Math.max(0,sq.duty.resolveDay-S.day)}日)</span>`:""}</div>
       <div class="ds">${members.length?members.map(fullName).join("・"):"未編成"}</div>
       <div class="ds">出撃回数:${sq.sortieCount||0}回 ／ シナジーボーナス+${bonus}%</div>
-      <button class="sq-edit-btn" data-i="${i}" style="margin-top:6px;width:100%;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">編成を変更する</button>
+      ${onDuty?`<div class="ds" style="color:${onDuty.color};font-size:11px;margin-top:4px">${onDuty.name}に就いている。完了まで他の任務には出せない。</div>`
+        :`<button class="sq-edit-btn" data-i="${i}" style="margin-top:6px;width:100%;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">編成を変更する</button>
+      ${members.length?`<div style="font-size:10.5px;color:var(--dim);margin:8px 0 4px">駐屯任務に出す(${DUTY_DURATION}日・国益をもたらすが期間中は他の任務に出せない)</div><div style="display:flex;gap:5px;flex-wrap:wrap">`+DUTY_TYPES.map(d=>`<button class="sq-duty-btn" data-i="${i}" data-d="${d.key}" title="${d.desc}" style="flex:1;min-width:64px;background:transparent;border:1px solid ${d.color};color:${d.color};border-radius:6px;padding:6px 4px;font-family:'Shippori Mincho',serif;font-size:11px;cursor:pointer">${d.short}</button>`).join("")+`</div>`:""}`}
     </div>`;
   }
   $("#troopList").innerHTML=h;
@@ -9764,6 +9804,9 @@ function renderSquadManager(){
     const i=+b.dataset.i;
     squadEditIndex=i;squadEditUnitIds=[...S.squads[i].unitIds];
     renderSquadManager();
+  });
+  $("#troopList").querySelectorAll(".sq-duty-btn").forEach(b=>b.onclick=()=>{
+    dutyDispatch(+b.dataset.i,b.dataset.d);renderSquadManager();
   });
 }
 function renderVolunteers(){
