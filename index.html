@@ -9326,14 +9326,47 @@ function generateBounty(){
   S.bounty={kind,target,label,gold,deadline:S.day+ri(12,20),issued:S.day};
   chron(`――冒険者ギルドより討伐依頼が届いた。「${label}」(期限${S.bounty.deadline-S.day}日・報酬:財貨${gold}と品)。ダンジョン画面で確認できる。`,"big");
 }
+/* ===== 討伐依頼の掲示板(依頼に"選択"を持たせる新機軸):これまで討伐依頼はギルドから一件、自動で舞い込むだけ
+   だった。ここに、複数の依頼が張り出され、その中から請け負う一件を王が選ぶ「掲示板」を設ける。狙いの型か、
+   王討伐か、報酬の厚い難物か――今の手駒と迷宮の顔ぶれを見て、どの契約を取るかという采配を加える。惰性を
+   破る"今これを狙う"目的に、能動的な選択を重ねる。 ===== */
+function makeBountyOffer(){
+  const rank=STAGES[S.stage].rank;
+  const kinds=["type"]; if(rank>=2)kinds.push("king");
+  const kind=kinds[Math.floor(Math.random()*kinds.length)];
+  let target=null,label="";
+  if(kind==="type"){const t=DUNGEON_TYPES[Math.floor(Math.random()*DUNGEON_TYPES.length)];target=t.key;label=`「${t.label}」のダンジョンを踏破せよ`;}
+  else label="ボスの「王」を討ち取れ";
+  const gold=Math.round(ri(80,150)*(0.6+rank*0.35));
+  return {kind,target,label,gold};
+}
+function generateBountyOffers(){
+  const offers=[]; const seen={}; let guard=0;
+  while(offers.length<3&&guard<24){guard++;const o=makeBountyOffer();const k=o.kind+":"+o.target;if(seen[k])continue;seen[k]=1;offers.push(o);}
+  if(!offers.length)return;
+  S.bountyOffers=offers; S.bountyOffersExpire=S.day+ri(12,16);
+  chron(`――冒険者ギルドの掲示板に、${offers.length}件の討伐依頼が張り出された。国政画面で、どれを請け負うか選べる(期限あり)。`,"big");
+}
+function acceptBounty(i){
+  const offers=S.bountyOffers||[]; const o=offers[i]; if(!o)return;
+  if(S.bounty){chron("既に請け負っている依頼がある。","");return;}
+  S.bounty={kind:o.kind,target:o.target,label:o.label,gold:o.gold,deadline:S.day+ri(12,20),issued:S.day};
+  S.bountyOffers=null; S.bountyOffersExpire=0;
+  chron(`討伐依頼「${o.label}」を請け負った(期限${S.bounty.deadline-S.day}日・報酬:財貨${o.gold}と品)。ダンジョン画面で対象を確認できる。`,"big");
+  render();renderProjects();save();
+}
 function checkBounty(){
   if(S.bounty){
     if(S.day>S.bounty.deadline){apply({mood:-2});chron(`討伐依頼「${S.bounty.label}」は、期限までに果たされなかった。ギルドの信は少し下がった。`,"grave");S.bounty=null;S.bountyNextDay=S.day+ri(6,10);}
     return;
   }
+  if(S.bountyOffers&&S.bountyOffers.length){ // 未請負の掲示は、期限を過ぎれば流れる
+    if(S.day>(S.bountyOffersExpire||0)){S.bountyOffers=null;S.bountyOffersExpire=0;S.bountyNextDay=S.day+ri(6,10);}
+    return;
+  }
   if((S.dungeonsCleared||0)<1)return; // 最初の踏破を経てから依頼が舞い込む
   if(S.day<(S.bountyNextDay||0))return;
-  if(Math.random()<0.5)generateBounty();
+  if(Math.random()<0.5)generateBountyOffers();
 }
 function tryFulfillBounty(dungeon,bossWin){
   if(!S.bounty)return;
@@ -11952,6 +11985,17 @@ function renderProjects(){
       ${rup?`<div class="ds" style="font-size:10px;color:var(--dim)">次に近い呼び名:〈${rup.t.name}〉 ― 治世の色を寄せれば、この名で呼ばれることもある。</div>`:""}
     </div>`;
    }}
+  // ── 討伐依頼(掲示板/請負中) ──
+  if(S.bounty){const left=Math.max(0,(S.bounty.deadline||S.day)-S.day);
+    h+=`<div class="pcard" style="border-color:#8fbf6f;margin-bottom:10px"><div class="nm" style="color:#8fbf6f"><i class="icon-dungeon"></i>討伐依頼 ― 請負中 <span style="color:var(--dim);font-size:10.5px">(期限まで${left}日)</span></div>
+      <div class="ds" style="margin:2px 0 3px">${S.bounty.label}</div>
+      <div class="ds" style="font-size:10.5px;color:var(--dim)">達成報酬:財貨${S.bounty.gold}と品。ダンジョン画面で対象の迷宮に◎依頼の印が付く。</div></div>`;
+  }else if(S.bountyOffers&&S.bountyOffers.length){const left=Math.max(0,(S.bountyOffersExpire||S.day)-S.day);
+    h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-dungeon"></i>討伐依頼の掲示板 <span style="color:var(--dim);font-size:10.5px">(掲示の期限まで${left}日)</span></div>
+      <div class="ds" style="margin:2px 0 6px;font-size:10.5px">ギルドに張り出された依頼から、請け負う一件を選ぶ。請け負えるのは一件のみ。今の手駒と迷宮の顔ぶれを見て、狙う契約を定めよ。</div>`;
+    S.bountyOffers.forEach((o,i)=>{h+=`<button class="bounty-accept-btn" data-i="${i}" style="display:block;width:100%;text-align:left;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:8px 10px;margin-bottom:5px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${o.label}<br><span style="color:var(--dim);font-size:10px">報酬:財貨${o.gold}と品${o.kind==="king"?" ／ 難物(王討伐)":""}</span></button>`;});
+    h+=`</div>`;
+  }
   // ── 王の執務室(現在の統治を一望) ──
   {const chips=[];
    if(typeof kingTitleName==="function"&&kingTitleName())chips.push(["王号",`〈${kingTitleName()}〉`,"#d8b45e"]); // 治世の色を映す呼び名を一望にも
@@ -12303,6 +12347,7 @@ function renderProjects(){
   {const tb=$("#prjList").querySelector(".tourney-btn");if(tb)tb.onclick=()=>holdTournament();}
   $("#prjList").querySelectorAll(".tax-btn").forEach(b=>b.onclick=()=>{setTaxRate(b.dataset.k);});
   $("#prjList").querySelectorAll(".ration-btn").forEach(b=>b.onclick=()=>{setRation(b.dataset.k);});
+  $("#prjList").querySelectorAll(".bounty-accept-btn").forEach(b=>b.onclick=()=>{acceptBounty(+b.dataset.i);});
   $("#prjList").querySelectorAll(".immig-btn").forEach(b=>b.onclick=()=>{setImmigration(b.dataset.k);});
   {const ab=$("#prjList").querySelector(".academy-btn");if(ab)ab.onclick=()=>buildAcademy();}
   $("#prjList").querySelectorAll(".civic-btn").forEach(b=>b.onclick=()=>{commissionCivicWork(b.dataset.k);renderProjects();});
