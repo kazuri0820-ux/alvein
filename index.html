@@ -4365,6 +4365,41 @@ const RANDOM_RARE=[
      clamp();
    }}},
   ]},
+ // ===== 連続物語(イベント連鎖):疫病。飢饉が"資源"の危機なら、こちらは"兵の健康(名簿)"の危機。備え次第で
+ //   兵の病臥が軽くも重くもなる。ローテーション・英気・療養の仕組みと噛み合う、備えを試す第二の stakes 型連鎖 =====
+ {tag:"疫 病",title:"流行り病の兆し",
+  cond:s=>!(s.flags&&s.flags.plagueArc)&&STAGES[s.stage].rank>=2&&s.day>=55&&(s.pop||0)>=18,
+  body:"城下で、高熱と咳に倒れる者が相次いでいるという。神殿の治療院は、早くも患者で溢れ始めた。「悪い病が広がる前触れやもしれませぬ」と、医師が眉を曇らせる。手を打つなら、今をおいて他にない。",
+  speaker:"セラ「陛下、病は人から人へ。放置すれば、兵にも及びましょう」",
+  choices:[
+   {label:"城下を隔離し、病の広がりを断つ",hint:"出費なし・治安↑ 民心やや↓・強力に封じ込める",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.plagueArc=1;S.flags.plaguePrep="quarantine";S.flags.plagueDay=S.day+ri(7,12);
+     apply({st:{order:1},mood:-2,log:"王は城下の一部を隔離し、人の行き来を厳しく制限した。民は不便を託ちつつも、病を断つためと耐えている(治安+1 民心↓)。"});
+   }}},
+   {label:"薬師を雇い、治療に注力する(70G)",hint:"出費・病を和らげ、倒れた者も軽く済む",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.plagueArc=1;S.flags.plagueDay=S.day+ri(7,12);
+     if(S.gold<70){S.flags.plaguePrep="none";apply({log:"薬師を雇う蓄えが乏しく、十分な備えはできなかった。"});return;}
+     S.gold-=70;S.flags.plaguePrep="treat";apply({mood:1,log:"王は各地から薬師を招き、治療院を増やした。薬草が煎じられ、病に備える態勢が整ってゆく(民心↑)。"});
+   }}},
+   {label:"神殿に平癒を祈らせる",hint:"出費なし・気休め程度(民心↑)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.plagueArc=1;S.flags.plaguePrep="pray";S.flags.plagueDay=S.day+ri(7,12);
+     apply({mood:2,log:"王は神殿に病の平癒を祈らせた。民は祈りに一縷の望みを託したが、備えとしては心許ない(民心↑)。"});
+   }}},
+  ]},
+ {tag:"疫 病",title:"病、広がる",
+  cond:s=>(s.flags&&s.flags.plagueArc)===1&&s.day>=(s.flags.plagueDay||0),
+  body:"恐れていた病が、ついに王国に広がった。城下のみならず、兵舎にも倒れる者が出始めている。この難局を、王国はいかに乗り越えるのか――その帰趨は、あの日の備えにかかっている。",
+  speaker:"ガレオン「陛下、兵にも病者が出ております……。あの日の備えが、いま試されまする」",
+  choices:[
+   {label:"総力を挙げて病に立ち向かう",hint:"あの日の備えの分だけ、兵と民への痛手は軽く済む",fx:{call:()=>{
+     const prep=(S.flags&&S.flags.plaguePrep)||"none";S.flags.plagueArc=2;
+     const healthy=()=>S.units.filter(u=>u.role==="active"&&u.injured<=0);
+     if(prep==="quarantine"){const c=healthy();const n=Math.min(1,c.length);for(let i=0;i<n;i++){const u=c[i];u.fatigue=Math.min(100,(u.fatigue||0)+ri(15,25));}apply({mood:1,log:"厳しい隔離が功を奏し、病はほとんど広がらず収束した。倒れた兵もわずかで、王国は難を逃れた(民心↑)。",logCls:"big"});chron("――疫病の試練は、素早い封じ込めによって軽々と越えられた。王の英断が、多くの命を守った。","big");}
+     else if(prep==="treat"){const c=healthy();const n=Math.min(2,c.length);for(let i=0;i<n;i++){const u=c[i];if(u.injured<=0){inflictInjury(u,[0.9,0.1,0]);unitHistory(u,"流行り病に倒れたが、手厚い治療で程なく癒えた。");}}apply({mood:-1,log:"薬師たちの奮闘で、病は程なく抑え込まれた。数名の兵が床に伏せたが、いずれも軽く済み、じきに戻るだろう(数名が短い病臥 民心↓)。",logCls:"big"});chron("――疫病の試練は、薬師たちの尽力によって乗り越えられた。","big");}
+     else{const c=healthy();const n=Math.min(Math.max(2,Math.round(c.length*0.4)),c.length);for(let i=0;i<n;i++){const u=c[i];if(u.injured<=0){inflictInjury(u,[0.5,0.4,0.1]);unitHistory(u,"流行り病に倒れ、長く床に伏せることになった。");}}S.mood=Math.max(0,(S.mood||0)-6);S.pop=Math.max(1,(S.pop||0)-ri(2,4));apply({st:{order:-1},log:`備えなき王国を、病は容赦なく蝕んだ。兵${n}名が床に伏せ、城下にも倒れる者が相次いだ。王は、油断を悔いた(兵が病臥 民心↓↓ 人口↓ 治安↓)。`,logCls:"grave"});chron("――疫病の試練は、大きな爪痕を残して過ぎ去った。健やかさの尊さを、王国は身をもって学んだ。","grave");}
+     clamp();render();renderTroops();
+   }}},
+  ]},
  // ===== 連続物語(イベント連鎖):星鉄の一振り。二部に跨り、支援すれば一点物の名剣が鍛え上がる(記憶に残るアーティファクトを得る新報酬) =====
  {tag:"星 鉄",title:"星鉄の一振り",
   cond:s=>!(s.flags&&s.flags.starsteelArc)&&STAGES[s.stage].rank>=3&&(s.dungeonsCleared||0)>=3&&s.day>=45,
