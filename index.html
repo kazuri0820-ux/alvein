@@ -7424,6 +7424,31 @@ const ITEMS=[
    unitHistory(u,`血脈昇華の秘薬により、眠れる才が「${t.name}」へと開花した。`);
    chron(`――${u.nm}の血脈が呼び覚まされた。新たに「${traitInfo(u.trait).name}」の位階へと昇華している。`,"big");
  }},
+ {key:"master_chisel",name:"名匠の鑿",rarity:"epic",desc:"選んだ兵が装備している逸品を、名匠が鍛え直す。個体差(アフィックス)を何度も打ち直し、最も優れた一組へと磨き上げる(通常品・素の品には効かない)。",needsTarget:true,effect:(targetId)=>{
+   const u=findAnyUnit(targetId); if(!u)return;
+   const eq=u.equipment||{};
+   const rarOrder={uncommon:1,rare:2,epic:3,legendary:4};
+   let best=null; // 装備中で最も格の高い逸品を選ぶ
+   for(const slot of ["weapon","armor","accessory"]){
+     const inst=eq[slot]; if(!inst||!inst.affixes||!inst.affixes.length)continue;
+     const def=EQUIPMENT_DB.find(d=>d.key===inst.key);
+     if(!def||def.rarity==="common")continue;
+     const rk=rarOrder[def.rarity]||0;
+     if(!best||rk>best.rk){best={inst,def,rk};}
+   }
+   if(!best){chron(`${u.nm}には打ち直すに足る逸品が無く、名匠の鑿は大切に仕舞い直された。`,"");return;}
+   const cur=(best.inst.affixes||[]).reduce((t,a)=>t+((a&&a.val)||0),0);
+   const alt=rollAffixesBest(best.def.rarity,3); // 3回打ち直し、最良の一組を採る
+   const altSum=alt.reduce((t,a)=>t+((a&&a.val)||0),0);
+   const oldName=equipInstName(best.inst);
+   if(altSum>cur){
+     best.inst.affixes=alt;
+     unitHistory(u,`名匠の鑿により、「${oldName}」が「${equipInstName(best.inst)}」へと鍛え直された。`);
+     chron(`――名匠の鑿が唸った。${u.nm}の「${oldName}」は、より優れた「${equipInstName(best.inst)}」へと磨き上げられた(${equipInstBonusText(best.inst)})。`,"big");
+   }else{
+     chron(`名匠が${u.nm}の「${oldName}」を検めたが、既にこれ以上ないほど鍛え上げられていた。鑿は次の機会へと仕舞われた。`,"");
+   }
+ }},
  {key:"grand_library",name:"大図書館の蔵書",rarity:"epic",desc:"全兵士に経験値、魔導・知識面の国力も上がる。",effect:()=>{for(const u of S.units){u.exp+=ri(8,15);processLevelUps(u);}apply({st:{magic:6,diplomacy:4}});chron("大図書館の蔵書が、国全体に知の恩恵をもたらした。","big");}},
  {key:"titan_bone",name:"巨人の骨",rarity:"epic",desc:"軍事・農業が大きく上昇する。",effect:()=>apply({st:{military:9,agriculture:9},log:"巨人の骨から得た知見が、様々な分野に活かされた。"})},
  // ── レジェンド追加(第2弾) ──
