@@ -5243,8 +5243,29 @@ function councilDevelopment(){
    speaker:"セラ「国の力は、まず足元の生業から。地道な投資が、やがて大きく実りましょう」",
    choices:opts};
 }
+/* 諜報会議:国の目と耳をどこに向けるかを問う。斥候で旨味のあるダンジョンの噂を掴む/密偵で他国を探る
+   等、"情報"という新たな軸を国政に加える。斥候は攻略の好機を、密偵は外交と守りをもたらす(国政の彩り)。 */
+function councilIntel(){
+  return{tag:"諜報会議",title:"第"+Math.floor(S.day/7)+"回 定例閣議(諜報)",
+   body:"今週の議題は諜報。放った斥候や密偵から、様々な報せが届いている。国の目と耳を、どこに向けるべきか。",
+   speaker:"セラ「聞き耳を立てておくのは、いつだって損にはなりませぬ」",
+   choices:[
+    {label:"斥候を放ち、好機を探る(30G)",hint:"特別な報酬を持つダンジョンの噂を掴む(出費)",fx:{call:()=>{
+      if(S.gold<30){chron("斥候を出す元手すら乏しく、諜報は見送られた。","");return;}
+      S.gold-=30;
+      S.availableDungeons=S.availableDungeons||[];
+      const nd=generateDungeon();
+      if(!nd.bossTrait&&!nd.treasureVault){ if(Math.random()<0.5)nd.treasureVault=true; else nd.bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)]; }
+      S.availableDungeons.push(nd);
+      if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected&&x.id!==nd.id);if(di>=0)S.availableDungeons.splice(di,1);}
+      chron(`斥候の報せにより、旨味のあるダンジョン${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」の在り処が判明した(討伐の一覧に加わった)。`,"big");
+    }}},
+    {label:"密偵網で他国の内情を探る",hint:"外交↑ 治安↑",fx:{st:{diplomacy:2,order:1},log:"密偵網が張り巡らされ、他国の動きが手に取るように分かるようになった。国の守りと外交の備えが増した(外交+2 治安+1)。"}},
+    {label:"今週は動かさない",hint:"様子見",fx:{log:"諜報については、今週は特段の手を打たなかった。"}},
+   ]};
+}
 function councilAction(){
-  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill,councilFrontier,councilAcademy,councilArmory,councilWelfare,councilDevelopment];
+  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill,councilFrontier,councilAcademy,councilArmory,councilWelfare,councilDevelopment,councilIntel];
   return types[Math.floor(Math.random()*types.length)]();
 }
 function councilEvent(){return councilPolicy();}
