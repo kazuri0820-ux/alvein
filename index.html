@@ -3537,6 +3537,26 @@ const RANDOM_RARE=[
    {label:"中立を保ち、難民を受け入れる",hint:"人口↑ 民心↑ / 食糧を割く",fx:{pop:ri(3,6),food:-20,mood:2,st:{order:-1},log:"アルヴェインは中立を保ち、戦火を逃れた人々を受け入れた。谷に新たな民が加わった。"}},
    {label:"混乱に乗じ、交易で儲ける",hint:"経済↑ 国庫↑ / 民心わずかに↓",fx:{gold:ri(50,90),st:{economy:3},mood:-1,log:"隣国の混乱に乗じ、物資を高値で売りさばいた。国庫は潤ったが、火事場泥棒めいた商いに眉をひそめる者もいた。"}},
   ]},
+ {tag:"来 訪",title:"謎めいた宝箱売り",
+  body:"フードを目深に被った行商人が、中身の見えぬ封印済みの宝箱を並べている。「開けてのお楽しみ。掘り出し物か、はずれか――運次第だがね」。",
+  speaker:"ガレオン「博打めいておりますが……たまには、こういう楽しみも一興かと」",
+  choices:[
+   {label:"上等な宝箱を買う(90G)",hint:"レア〜稀にエピックの装備(個体差つき)",fx:{call:()=>{
+     if(S.gold<90){chron("宝箱を買う持ち合わせがなく、行商人は肩をすくめて去っていった。","");return;}
+     S.gold-=90;
+     const eq=rollEquipmentDrop(Math.random()<0.25?"epic":"rare");
+     if(eq){const inst=addEquipment(eq.key);chron(`封を解くと――「${equipInstName(inst)}」が現れた!(${equipInstBonusText(inst)})`,"big");}
+     else chron("宝箱は空だった。行商人は素知らぬ顔で次の客のもとへ。","");
+   }}},
+   {label:"手頃な宝箱を買う(40G)",hint:"アンコモン〜レアの装備(個体差つき)",fx:{call:()=>{
+     if(S.gold<40){chron("手頃な宝箱すら買う持ち合わせがなかった。","");return;}
+     S.gold-=40;
+     const eq=rollEquipmentDrop(Math.random()<0.3?"rare":"uncommon");
+     if(eq){const inst=addEquipment(eq.key);chron(`封を解くと、「${equipInstName(inst)}」が出てきた。(${equipInstBonusText(inst)})`,"");}
+     else chron("宝箱は空だった。まあ、こういう日もある。","");
+   }}},
+   {label:"胡散臭いので相手にしない",hint:"様子見",fx:{log:"怪しげな宝箱売りは、相手にされずに去っていった。"}},
+  ]},
  {tag:"外 交",title:"隣国からの使者",
   body:"隣接する小国から、丁重な使者が遣わされてきた。「両国のよしみのため、交易の便宜と、いくばくかの貢納を」との申し出である。応じれば友好が深まるが、どこか足元を見られているようでもある。",
   speaker:"セラ「相手は本気で誼を通じたいのか、それとも品定めか……ご判断を、陛下」",
