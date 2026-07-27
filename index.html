@@ -5718,6 +5718,23 @@ function checkRealmVignette(){
   if((S.mood||0)<55)return; // 民心が十分に高い、平穏な日にのみ
   chron(REALM_VIGNETTES[Math.floor(Math.random()*REALM_VIGNETTES.length)],"");
 }
+/* 英霊を偲ぶ:殿堂に名を刻んだ、かつての英傑を稀に思い起こす一幕。去りし者への追慕を年代記に織り込み、
+   殿堂を"ただの記録"から"語り継がれる物語"へと変える(過去の兵への愛着・王国史の重み)。 */
+const REMEMBRANCE_VIGNETTES=[
+ (n,t)=>`古参の兵が若い者に、かつての英傑${t?`《${t}》`:""}${n}の武勇伝を語り聞かせていた。`,
+ (n,t)=>`酒場では今も、${n}${t?`――《${t}》`:""}の名が伝説として語り草になっている。`,
+ (n)=>`城下の子らが、往年の英雄${n}の名を叫びながら遊び回っていた。その名は世代を越えて受け継がれている。`,
+ (n)=>`殿堂に飾られた${n}の肖像の前で、一人の兵が静かに頭を垂れていた。`,
+ (n,t)=>`吟遊詩人が新たに、${t?`《${t}》`:""}${n}の生涯を讃える一節を歌に加えたという。`,
+];
+function checkRemembranceVignette(){
+  if(Math.random()>=0.018)return; // ごく稀に
+  const hall=S.hallOfFame||[];
+  if(!hall.length)return;
+  const rec=hall[Math.floor(Math.random()*hall.length)];
+  const name=`${rec.nm}${rec.surname?" "+rec.surname:""}`;
+  chron(REMEMBRANCE_VIGNETTES[Math.floor(Math.random()*REMEMBRANCE_VIGNETTES.length)](name,rec.uniqueJobName),"");
+}
 function checkSeasonTurn(){
   const s=currentSeason();
   if(S.seasonSeen===s.key)return;
@@ -5863,6 +5880,7 @@ function dailyEconomySettle(){
   checkRivalVignette(); // 同職の兵同士が競い合い、互いを高め合う一幕
   checkGearVignette(); // 一級の武具を帯びた兵が、その得物を大切に手入れする一幕
   checkRealmVignette(); // 民の暮らしの何気ない一場面(平穏な国の息づかい)
+  checkRemembranceVignette(); // 殿堂に名を刻んだ、かつての英傑を偲ぶ一幕
   checkSeasonalVignette(); // 巡る季節に寄せた兵の一場面
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
