@@ -9276,6 +9276,7 @@ function renderTroops(){
       <div class="ucard-body-pad">
         ${nick}${reserveTag}${u.captain?`<span style="font-size:9.5px;color:#1a1420;background:linear-gradient(135deg,#e8c874,#b8892c);border-radius:3px;padding:0 5px;margin-left:4px;font-weight:800">★ 騎士団長</span>`:""}${u.founder?`<span style="font-size:9.5px;color:var(--gold2);border:1px solid var(--gold2);border-radius:3px;padding:0 4px;margin-left:4px">建国の志士</span>`:""}${(u.titles&&u.titles.length)?`<span style="font-size:9.5px;color:var(--dim);margin-left:4px" title="${u.titles.map(k=>{const t=TITLE_DB.find(x=>x.key===k);return t?t.name:"";}).filter(Boolean).join("・")}">称号×${u.titles.length}</span>`:""}${traitBadge(u)}
         <div class="usub"><span>${JOB_TREES[u.cls].label}・${displayJobName(u)}${u.awakened?"":"Lv."+u.lv}・${stage.label}${stageTimingLabel(u)?`(${stageTimingLabel(u)})`:""}(${Math.floor(u.age)}歳)</span></div>
+        ${(()=>{const t=unitSupportTags(u);return t.length?`<div class="usub" style="color:#8fbf6f;font-size:10px" title="この兵が部隊にもたらす支援効果"><span>支援 ${t.join("・")}</span></div>`:"";})()}
         <div class="ucard-condrow">
           <div class="ucard-condbox"><span class="ccb-lbl">調子</span><span class="ccb-val" style="color:${cond.color}">${cond.label}</span></div>
           <div class="ucard-condbox"><span class="ccb-lbl">疲労</span><span class="ccb-val" style="color:#d9b56a">${Math.round(u.fatigue||0)}/100</span></div>
