@@ -6505,6 +6505,7 @@ const DUNGEON_CONDITIONS={
   richloot:{label:"秘宝の鉱脈",color:"#e0c060",desc:"稀少な鉱脈が眠る地。踏破すれば、選りすぐりの個体差を宿した逸品の装備を掘り当てる"},
   dojo:{label:"武の霊場",color:"#c9a86a",desc:"古の武人が修行を積んだ霊場。踏破した部隊の中から、才ある者が新たな技を会得することがある"},
   prodigyhall:{label:"研鑽の回廊",color:"#9fc98f",desc:"才を伸ばす気に満ちた回廊。踏破すれば、隊で最も未熟な者が驚くほどの成長を遂げる"},
+  starwatch:{label:"星読みの天文台",color:"#8f9fd0",desc:"星々を読む古の天文台。踏破すれば天啓を得て、新たな秘境への道が開ける"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 /* 個体差(アフィックス)を複数回ロールして最良の一組を返す=マジックファインド(良個体を引き当てる) */
@@ -7359,6 +7360,14 @@ function resolveDungeonRun(dungeonId){
       if(cond==="prodigyhall"){ // 研鑽の回廊: 隊で最も未熟な者が大きく成長する(ベテランに新兵を混ぜる編成に報いる)
         const active=squad.filter(u=>u);
         if(active.length){const rookie=active.reduce((a,b)=>b.lv<a.lv?b:a);const g=Math.round(ri(35,60)*levelMult);rookie.exp+=g;processLevelUps(rookie);unitHistory(rookie,`「${dungeon.name}」の研鑽の回廊で、めきめきと力をつけた。`);chron(`「${dungeon.name}」の研鑽の回廊に満ちた気が、隊で最も未熟な${rookie.nm}を大きく成長させた。`,"big");}
+      }
+      if(cond==="starwatch"){ // 星読みの天文台: 天啓を得て新たな秘境が姿を現す(探索が探索を呼ぶ content連鎖)
+        apply({st:{magic:1}});
+        const nd=generateDungeon();
+        S.availableDungeons=S.availableDungeons||[];
+        S.availableDungeons.push(nd);
+        if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}
+        chron(`「${dungeon.name}」の天文台で星々を読み解くと、天啓とともに新たな秘境${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」への道が浮かび上がった(魔導+1)。`,"big");
       }
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
