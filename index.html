@@ -2520,10 +2520,25 @@ function relationTalkLine(u){
   if(u.admires){const n=nm(u.admires);if(n)lines.push(`「${n}様のように……いつか、あんな風に戦えたら。それが私の目標なんです」と、少し照れながら語った。`,`「${n}様の背中を、ずっと追いかけています。まだまだ遠いですが」`);}
   return lines.length?lines[Math.floor(Math.random()*lines.length)]:null;
 }
+/* 陣中の語らい・来歴編:兵が自らの歩み――語り草の武勲・叶えた夢や願い・軍位・賜った領地・数々の称号――を語る。
+   育成で積み上げた一人ひとりの物語を日々の会話に映し、飾り立てた古参と初々しい新兵とで語り口が変わる愛着の演出。 */
+function selfStoryTalkLine(u){
+  const lines=[];
+  if(u.sigFeat&&u.sigFeat.text)lines.push(`「${u.sigFeat.text}――あの一戦のことは、今も忘れられません」と、遠い目をした。`);
+  if(u.dreamDone)lines.push("「かねての夢を、この隊で叶えられました。長には、感謝の言葉もありません」と晴れやかに語った。");
+  else if(u.dream){const d=(typeof UNIT_DREAMS!=="undefined")&&UNIT_DREAMS.find(x=>x.key===u.dream);if(d&&d.text)lines.push(`「${d.text}――それが、私のひそかな願いなんです」と、少し照れながら打ち明けた。`);}
+  if(u.fief)lines.push("「賜った領地は、大切に治めております。この御恩、戦場での働きでお返しいたします」");
+  if(typeof militaryRankIndex==="function"&&militaryRankIndex(u)>=3){const rk=militaryRank(u);lines.push(`「${rk.name}の位を賜った身。その名に恥じぬよう、日々気を引き締めております」`);}
+  if((u.titles||[]).length>=3)lines.push("「過分な称号をいくつも頂きましたが、驕らず、ただ務めを果たすのみです」");
+  if(u.awakened)lines.push("「あの日、自分の中で何かが目覚めたのです。……この力の底は、まだ自分でも見えません」");
+  return lines.length?lines[Math.floor(Math.random()*lines.length)]:null;
+}
 function talkToUnit(u){
   let line=null;
   // 関係性を持つ兵は、しばしばその相手について語る(愛着の網を日々に立ち上げる)
   if(Math.random()<0.5){const rl=relationTalkLine(u);if(rl)line=rl;}
+  // 来歴ある兵は、しばしば自らの歩みを語る(育成の積み重ねを会話に映す)
+  if(line===null&&Math.random()<0.45){const sl=selfStoryTalkLine(u);if(sl)line=sl;}
   if(line===null){
     let pool=TALK_LINES[u.personality]||TALK_LINES.冷静;
     if(u.captain&&Math.random()<0.4)pool=TALK_LINES_CAPTAIN;
