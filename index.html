@@ -8756,6 +8756,25 @@ function battleBondSpotlight(squad,foeLabel){
   chron(line(a.nm,b.nm,foeLabel),"");
   a.moral=Math.min(100,(a.moral||0)+2); b.moral=Math.min(100,(b.moral||0)+2);
 }
+/* 憧れの見せ場:憧れる若手が、その英雄と同じ部隊で勝利を掴んだ時の一幕。憧憬(育成軸)を戦場の felt な
+   場面へ広げ、"憧れの人と肩を並べて戦う"という composition の意味と、間近で背中を見て伸びる手応えを添える。 */
+const ADMIRE_SPOTLIGHT_LINES=[
+ (y,h,f)=>`${y}は、憧れの${h}と同じ戦場に立てたことに胸を高鳴らせ、いつも以上の働きを見せた。${f}を前にしてなお、その眼は英雄の背を追い続けていた。`,
+ (y,h,f)=>`${h}の鮮やかな戦いぶりを間近に見た${y}は、「自分もいつか、あの高みへ」と歯を食いしばった。${f}との一戦は、若き兵の何よりの糧となった。`,
+ (y,h,f)=>`危地に怯みかけた${y}を、${h}の一声が奮い立たせた。憧れの人の背中に導かれ、若き兵は${f}に食らいついていった。`,
+ (y,h,f)=>`勝利の後、${y}は憧れの${h}にぎこちなく礼を述べた。${f}を共に退けたこの日を、若き兵は生涯忘れぬだろう。`,
+];
+function battleAdmireSpotlight(squad,foeLabel){
+  if(!squad||squad.length<2||Math.random()>=0.28)return;
+  const ids=new Set(squad.map(u=>u.id));
+  const pairs=[];
+  for(const u of squad)if(u.admires&&ids.has(u.admires)){const h=squad.find(x=>x.id===u.admires);if(h)pairs.push([u,h]);}
+  if(!pairs.length)return;
+  const [young,hero]=pairs[Math.floor(Math.random()*pairs.length)];
+  const g=ri(6,11); young.exp+=g; processLevelUps(young); young.moral=Math.min(100,(young.moral||0)+3);
+  chron(ADMIRE_SPOTLIGHT_LINES[Math.floor(Math.random()*ADMIRE_SPOTLIGHT_LINES.length)](young.nm,hero.nm,foeLabel),"");
+  unitHistory(young,`憧れの${hero.nm}と肩を並べて${foeLabel}と戦い、その背中から多くを学んだ。`);
+}
 /* ===== 叩き上げ(逆境の育成軸):迷宮での敗北を生き延びた兵は、その手痛い経験から学びを得る。苦杯を
    重ねるほど、時に敗北から糧を掴み(経験)、やがて何があっても膝を屈さぬ"叩き上げの古兵"となる(忠誠・
    士気が篤くなる)。勝利だけでなく敗北にも育成の意味を与え、負け戦を乗り越えた兵への愛着と、諦めずに
@@ -9098,6 +9117,7 @@ function resolveDungeonRun(dungeonId){
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
       battleBondSpotlight(squad,`ボス「${dungeon.bossName}」`); // 戦友の連携が勝利を手繰り寄せた一幕
+      battleAdmireSpotlight(squad,`ボス「${dungeon.bossName}」`); // 憧れる若手が英雄と肩を並べて戦った一幕
       battleFavoriteSpotlight(squad,`ボス「${dungeon.bossName}」`); // 推しの奮戦の一幕
       if(dungeon.isFinal){
         for(const u of squad)grantTitle(u,"t_demonslayer");
@@ -9530,6 +9550,7 @@ function resolveDemonDefense(){
       chron(`――魔将「${genName}」を討ち取った！${leader?leader.nm:"部隊"}の武勇が魔王軍に一泡吹かせ、防衛の練度が大きく上がった(魔王軍対応Lv.${S.demonArmyLevel})。${itemMsg}`,"big");
       battleSkillSpotlight(squad,`魔将「${genName}」`); // 集めた一流・固有の技が魔将戦でも光る
       battleBondSpotlight(squad,`魔将「${genName}」`); // 戦友の連携が魔将戦を切り抜ける一幕
+      battleAdmireSpotlight(squad,`魔将「${genName}」`); // 憧れる若手が英雄と共に魔将に挑んだ一幕
       battleFavoriteSpotlight(squad,`魔将「${genName}」`); // 推しの奮戦の一幕
     }else{
       apply({mood:2,st:{military:1}});
@@ -9732,6 +9753,7 @@ function resolveExpedition(riskKey,rewardMult){
     chron(`――ミッション「${theme.name}」は大成功に終わった。${leader.nm}率いる部隊が、意気揚々と帰還した。${itemGained?`「${itemGained.name}」を手に入れた。`:""}`,"big");
     battleSkillSpotlight(squad,`ミッション「${theme.name}」`); // 集めた一流・固有の技がミッションでも光る
     battleBondSpotlight(squad,`ミッション「${theme.name}」`); // 戦友の連携がミッションでも光る
+    battleAdmireSpotlight(squad,`ミッション「${theme.name}」`); // 憧れる若手が英雄と共に挑んだ一幕
     battleFavoriteSpotlight(squad,`ミッション「${theme.name}」`); // 推しの奮戦の一幕
     if(leader.favorite){leader.loyalty=Math.min(100,leader.loyalty+5);apply({mood:2});chron(`長が目をかける${leader.nm}の見事な采配に、皆が誇らしさを覚えた。本人も、期待に応えた誇りを噛みしめている。`,"");} // お気に入りの活躍を喜ぶ
   }else if(tier==="success"){
