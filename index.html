@@ -7748,6 +7748,20 @@ function rollAffixesBest(rarityKey,tries){
   for(let i=0;i<(tries||2);i++){const a=rollAffixes(rarityKey);const s=a.reduce((t,x)=>t+(x.val||0),0);if(s>bestSum){bestSum=s;best=a;}}
   return best;
 }
+/* ===== 斥候の勘所(攻略の新レバー):迷宮のボスには時に"急所(弱み)"があり、偵察で明らかになる。その勘所に
+   噛み合う編成(魔に弱いなら魔導兵、数で圧せるなら5名、個を要するなら傑出した一騎、機動を突けるなら敏捷兵)で
+   挑めば、踏破判定が有利になる。偵察の価値を"数値を知る"から"攻略法を見抜き編成で応える"へ引き上げ、隊組みを
+   パズルにする新機軸。type(適性)とは別軸の、狙って刺す攻略の妙。 ===== */
+const DUNGEON_WEAKNESSES={
+ arcane:{tag:"魔に弱い",hint:"魔導に長けた兵(魔術師・祈祷師)を伴えば急所を突ける",match:(sq)=>sq.some(u=>u.cls==="mage"||u.cls==="priest")},
+ swarm:{tag:"数で圧せる",hint:"5名の隊で挑めば、数の利で圧倒できる",match:(sq)=>sq.length>=5},
+ champion:{tag:"個を要する",hint:"傑出した一騎(この迷宮の要求戦力を単独で超える兵)を擁すれば付け入れる",match:(sq,d)=>sq.some(u=>unitPower(u)>=((d&&d.requiredPower)||1))},
+ fleet:{tag:"機動を突ける",hint:"敏捷を旨とする兵(弓・狩人など)を伴えば、裏をかける",match:(sq)=>sq.some(u=>{const pr=(typeof statPriorityFor==="function")&&statPriorityFor(u);return pr&&pr.main==="agi";})},
+};
+const DUNGEON_WEAKNESS_KEYS=Object.keys(DUNGEON_WEAKNESSES);
+const WEAKNESS_BONUS=14; // 勘所に噛み合う編成で踏破判定に上乗せ
+function weaknessInfo(d){return d&&d.weakness&&DUNGEON_WEAKNESSES[d.weakness]?DUNGEON_WEAKNESSES[d.weakness]:null;}
+function weaknessMatched(d,squad){const w=weaknessInfo(d);return !!(w&&squad&&squad.length&&w.match(squad,d));}
 function generateDungeon(){
   const[lo,hi]=dungeonLevelRange();
   const level=ri(lo,hi);
@@ -7770,6 +7784,7 @@ function generateDungeon(){
     bossName:generateBossName(rarity.key),bossPower,bossTrait,
     treasureVault:Math.random()<0.12, // 稀に「財宝の間」を秘める(踏破で追加の宝)
     condition,
+    weakness:Math.random()<0.5?DUNGEON_WEAKNESS_KEYS[Math.floor(Math.random()*DUNGEON_WEAKNESS_KEYS.length)]:null, // 稀にボスの急所(勘所)を宿す。偵察で露わになる
     discoveredDay:S.day,
   };
 }
@@ -8583,7 +8598,8 @@ function estimateDungeonSuccess(dungeon){
   const squadPower=squadEffectivePower(squad,dungeon.type);
   const fortune=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).fortuneRoll||0,(traitInfo(u.trait).fortuneRoll)||0))):0; // 「勝負師の勘」(スキル)「武運の女神に愛されし者」(特性)持ちは踏破判定に下駄を履く
   const scout=dungeon.scouted?SCOUT_ROLL_BONUS:0; // 偵察済みなら判定が有利
-  const centerRoll=squadPower/dungeon.requiredPower*100+fortune+scout;
+  const weak=weaknessMatched(dungeon,squad)?WEAKNESS_BONUS:0; // 斥候の勘所に噛み合う編成なら判定が有利
+  const centerRoll=squadPower/dungeon.requiredPower*100+fortune+scout+weak;
   // roll = centerRoll + rnd(-20,20) の分布から、各tierの概算確率を出す(判定式と同じ閾値60/105/165を使用)
   const pct=Math.max(0,Math.min(100,Math.round((centerRoll-105+20)/40*100))); // 「成功」以上(success/critical_success)の確率
   const pctGreat=Math.max(0,Math.min(100,Math.round((centerRoll-165+20)/40*100))); // 「大成功」の確率
@@ -8785,7 +8801,9 @@ function resolveDungeonRun(dungeonId){
   const squadPower=Math.round(squadEffectivePower(squad,dungeon.type)*(fm.pwMult||1)); // 陣形の戦力倍率を反映(攻勢陣は上振れ・堅守/迅速陣は控えめ)
   const fortune=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).fortuneRoll||0,(traitInfo(u.trait).fortuneRoll)||0))):0; // 「勝負師の勘」(スキル)「武運の女神に愛されし者」(特性)持ちは踏破判定に下駄を履く=大成功が出やすくなる
   const scoutRoll=dungeon.scouted?SCOUT_ROLL_BONUS:0; // 偵察済み:罠と地形を知り、この一戦の攻略判定が有利になる
-  const centerRoll=squadPower/dungeon.requiredPower*100+fortune+scoutRoll; // 揺らぎ抜きの実力中央値(逆転勝ちの判定に使う)
+  const weakBonus=weaknessMatched(dungeon,squad)?WEAKNESS_BONUS:0; // 斥候の勘所に噛み合う編成で挑めば、急所を突いて判定が有利になる
+  const centerRoll=squadPower/dungeon.requiredPower*100+fortune+scoutRoll+weakBonus; // 揺らぎ抜きの実力中央値(逆転勝ちの判定に使う)
+  if(weakBonus>0){const w=weaknessInfo(dungeon);if(w)chron(`斥候の見立て通り、${dungeon.name}のボスの急所(${w.tag})を突く布陣が功を奏した。`,"");}
   const roll=centerRoll+rnd(-20,20);
   const tier=roll>=165?"critical_success":roll>=105?"success":roll>=60?"fail":"critical_fail";
   const level=dungeon.level;
@@ -12191,6 +12209,7 @@ function renderDungeonPanel(){
       ${(()=>{const ek=squadEthosOf(selSquad);const e=ek&&SQUAD_ETHOS.find(x=>x.key===ek);return e?`<div class="ds" style="font-size:11px;color:${e.color};font-weight:700">◆ 隊是「${e.name}」発動 <span style="color:var(--dim);font-weight:400">― ${e.desc}</span></div>`:"";})()}
       ${selSquad.length&&d.bossPower?(()=>{const bane=selSquad.length?Math.max(0,...selSquad.map(u=>skillEffects(u).bossBane||0)):0;const r=selCombined*(1+bane)/d.bossPower;const lbl=r>=1?"圏内":r>=0.8?"五分":"苦しい";const col=r>=1?"#8fbf6f":r>=0.8?"#d9b56a":"#d97a7a";return `<div class="ds" style="font-size:11px">ボス撃破:<span style="color:${col};font-weight:700">${lbl}</span>${bane>0?`<span style="color:#8fbf6f">(討王+${Math.round(bane*100)}%)</span>`:""}${d.bossTrait?`<span style="color:var(--dim)"> ／ 撃破でボスの特別報酬</span>`:""}</div>`;})():""}
       ${d.condition==="heroordeal"?(()=>{const n=selSquad.length;const q=n>=1&&n<=3;return `<div class="ds" style="font-size:11px;color:${q?"#d08f5a":"var(--dim)"}">英傑の試練:${n<1?"少数(3名以下)で挑むと破格の恩賞":q?`現在${n}名=恩賞【該当】${n===1?"・単騎(最大の旨み)":n===2?"・二人(大)":"・三人(中)"}`:`現在${n}名=4名以上は恩賞の対象外(3名以下で討つと破格の恩賞)`}</div>`;})():""}
+      ${d.scouted&&weaknessInfo(d)?(()=>{const w=weaknessInfo(d);const m=weaknessMatched(d,selSquad);return `<div class="ds" style="font-size:11px;color:${m?"#8fbf6f":"#d08f5a"}">斥候の勘所:ボスは【${w.tag}】。${w.hint}。${selSquad.length?(m?`いまの編成は勘所に噛み合う【該当】(踏破判定+${WEAKNESS_BONUS})`:"いまの編成では勘所を突けていない"):""}</div>`;})():""}
       ${d.condition==="fatebound"&&selSquad.length?(()=>{const ids=new Set(selSquad.map(x=>x.id));const paired=new Set();for(const x of selSquad){if(x.bondWith&&ids.has(x.bondWith)){paired.add(x.id);paired.add(x.bondWith);}if(x.rivalWith&&ids.has(x.rivalWith)){paired.add(x.id);paired.add(x.rivalWith);}if(x.masterId&&ids.has(x.masterId)){paired.add(x.id);paired.add(x.masterId);}if(x.pupilId&&ids.has(x.pupilId)){paired.add(x.id);paired.add(x.pupilId);}}const q=paired.size>0;return `<div class="ds" style="font-size:11px;color:${q?"#d99ab0":"var(--dim)"}">宿縁の霊地:${q?`縁ある組を含む【該当】(${paired.size}名が大きく成長)`:"戦友・好敵手・師弟の組を含めると特別な成長"}</div>`;})():""}
       ${selSquad.length?(()=>{const tset=[];for(const u of selSquad){for(const t of unitSupportTags(u))if(!tset.includes(t))tset.push(t);}return tset.length?`<div class="ds" style="font-size:11px;color:#a9c47a">編成の支援:${tset.join("・")}</div>`:"";})():""}
     </div>`;
@@ -12310,7 +12329,7 @@ function renderDungeonPanel(){
         ${d.bossTrait&&BOSS_TRAITS[d.bossTrait]?`<div class="ds" style="color:${BOSS_TRAITS[d.bossTrait].color};font-size:11px">主:${BOSS_TRAITS[d.bossTrait].desc}</div>`:""}
         <div class="ds"><i class="icon-boss"></i>ボス:${d.bossName}(戦力${d.bossPower})</div>
         ${est.squad.length?`<div class="ds" style="margin-top:4px;padding-top:6px;border-top:1px dotted rgba(154,122,47,.25)">派遣候補(自動選抜時):${est.squad.map(fullName).join("・")}<br><span style="color:${rateColor};font-weight:700">推定成功率 約${est.pct}%</span>${est.pctGreat>5?` <span style="color:var(--gold)">(大成功 約${est.pctGreat}%)</span>`:""}${est.pctCriticalFail>10?` <span style="color:#d97a7a">(大失敗 約${est.pctCriticalFail}%)</span>`:""}</div>`:`<div class="ds" style="color:#d97a7a;margin-top:4px">派遣できる兵がいない</div>`}
-        ${d.scouted?`<div class="ds" style="color:#8fbf6f;font-size:11px;margin-top:4px">〔偵察済〕罠と地形を把握。攻略判定+${SCOUT_ROLL_BONUS}</div>`:(()=>{const sc=scoutCost(d);const ok=S.gold>=sc;return `<button class="dg-scout-btn" data-id="${d.id}" ${ok?"":"disabled"} style="margin-top:8px;width:100%;background:transparent;border:1px solid ${ok?"var(--gold2)":"rgba(255,255,255,.12)"};color:${ok?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${ok?"pointer":"default"}">斥候を放って偵察する(${sc}G・この迷宮の攻略判定が有利に)</button>`;})()}
+        ${d.scouted?`<div class="ds" style="color:#8fbf6f;font-size:11px;margin-top:4px">〔偵察済〕罠と地形を把握。攻略判定+${SCOUT_ROLL_BONUS}${weaknessInfo(d)?` ／ 勘所:ボスは【${weaknessInfo(d).tag}】`:""}</div>`:(()=>{const sc=scoutCost(d);const ok=S.gold>=sc;return `<button class="dg-scout-btn" data-id="${d.id}" ${ok?"":"disabled"} style="margin-top:8px;width:100%;background:transparent;border:1px solid ${ok?"var(--gold2)":"rgba(255,255,255,.12)"};color:${ok?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${ok?"pointer":"default"}">斥候を放って偵察する(${sc}G・この迷宮の攻略判定が有利に)</button>`;})()}
         <button class="dg-go-btn" data-id="${d.id}" ${est.squad.length?"":"disabled"} style="margin-top:8px;width:100%;background:${est.squad.length?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${est.squad.length?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:800;cursor:${est.squad.length?"pointer":"default"}">派遣する兵を選ぶ</button>
       </div>`;
     }
