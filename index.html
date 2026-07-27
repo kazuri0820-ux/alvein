@@ -4690,6 +4690,31 @@ const RANDOM_RARE=[
    }}},
    {label:"丁重にもてなし、見送る",hint:"民心+2 外交+2",fx:{mood:2,st:{diplomacy:2},log:"名高き来訪者は手厚くもてなされ、王国の評判を胸に次の地へと旅立った。良き噂が、また一つ遠くへ広まっていく。"}},
   ]},
+ {tag:"外 交",title:"大陸会議への招請",
+  cond:(s)=>(typeof renownTierIndex==="function")&&renownTierIndex()>=3&&!(s.flags&&s.flags.contCouncil),
+  body:"大陸に轟くアルヴェインの武名は、ついに諸国の王侯を動かした。「大陸会議」――幾つもの国が卓を囲む列強の合議に、王国は正式な席を与えられたのだ。もはや辺境の一村ではない。この晴れ舞台で、王はいかなる国として振る舞うのか——その一挙手一投足を、大陸中が見つめている。",
+  speaker:"フィオナ「かつて誰も、我らをこの卓に招きはしませんでした。……感慨深うございます、陛下。ここでの立ち居振る舞いが、この先の外交を決めましょう」",
+  choices:[
+   {label:"盟主として諸国をまとめ上げる",hint:"全ての隣国との関係が大きく前進 外交↑↑ 民心↑",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.contCouncil="leader";
+     if(typeof ensureNeighbors==="function")ensureNeighbors();
+     let n=0;for(const nb of (S.neighbors||[])){if(!nb.allied){nb.relation=Math.min(100,(nb.relation||0)+ri(15,25));n++;}}
+     apply({st:{diplomacy:6},mood:6,log:`アルヴェイン王は列強を前に堂々と持論を述べ、諸国の利を調停してみせた。${n?`${n}の隣国が王国に一目置き、関係が大きく前進した。`:""}小国から始まったこの国は、いまや大陸の秩序を導く一極となった(外交↑↑ 民心↑ 隣国との関係↑)。`,logCls:"big"});
+     chron("――大陸会議の席で、アルヴェインは盟主としての格を示した。かつて雪深い谷にあった小村を思えば、隔世の感がある。","big");
+   }}},
+   {label:"交易の中心地として名乗りを上げる",hint:"経済↑↑ 国庫↑ 隣国との関係↑",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.contCouncil="trade";
+     if(typeof ensureNeighbors==="function")ensureNeighbors();
+     for(const nb of (S.neighbors||[])){if(!nb.allied)nb.relation=Math.min(100,(nb.relation||0)+ri(8,12));}
+     const g=ri(180,280);apply({st:{economy:6,diplomacy:2},gold:g,mood:3,log:`王は会議で、アルヴェインを東西交易の結節点として売り込んだ。諸国の商隊が王国を目指すことが約され、早くも国庫に${g}の交易利が転がり込んだ(経済↑↑ 国庫+${g} 隣国との関係↑)。`,logCls:"big"});
+     chron("――大陸会議を機に、アルヴェインは大陸交易の要衝としての地歩を固めた。","big");
+   }}},
+   {label:"威を示しつつ、しがらみを避けて退く",hint:"軍事↑ 治安↑ 独立不羈(関係は動かさず)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.contCouncil="neutral";
+     apply({st:{military:3,order:3},mood:2,log:"王は会議で王国の武威だけを静かに示し、いずれの陣営にも与せず席を立った。しがらみを負わぬ独立の姿勢に、諸国はかえって王国を侮れぬものと見た(軍事↑ 治安↑)。",logCls:"big"});
+     chron("――大陸会議において、アルヴェインは独立不羈の気概を貫いた。誰の駒にもならぬ一国として、その名は畏れをもって記憶された。","big");
+   }}},
+  ]},
  {tag:"災 い",title:"燃え広がる炎",
   body:"乾いた風にあおられ、谷の一角から火の手が上がった。放てば町全体に燃え広がりかねない。今すぐ手を打たねばならない。",
   speaker:"ガレオン「消し止めるも、延焼を断つも、御下知を急ぎ!」",
