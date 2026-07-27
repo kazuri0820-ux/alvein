@@ -6478,6 +6478,16 @@ function currentSeason(){
   const idx=Math.min(3,Math.floor(d/(AGE_YEAR_DAYS/4)));
   return SEASONS[idx];
 }
+/* 季節の兆し:巡る季節が遠征にも表情をつける。夏は鍛錬が捗り、秋は実りの分け前が厚く、
+   冬は厳しい代わりに獲物が良く、春は帰還した兵の癒えが早い。四季を「いつ大遠征に出るか」の
+   駆け引きに変える、季節×ダンジョンの組み替え新レバー。数値ではなく体験(遠征の潮時)で効かせる。 */
+const SEASON_DUNGEON_MODS={
+  spring:{expBonus:0,   goldMult:1.0,  equipBonus:0,    restHeal:1, note:"芽吹きの春:遠征帰りの兵の癒えが早い"},
+  summer:{expBonus:0.12,goldMult:1.0,  equipBonus:0,    restHeal:0, note:"実りゆく夏:鍛錬が捗り、踏破の経験が増す(経験+12%)"},
+  autumn:{expBonus:0,   goldMult:1.22, equipBonus:0,    restHeal:0, note:"黄金の秋:実りの分け前が厚く、持ち帰る財貨が増える(財貨+22%)"},
+  winter:{expBonus:0,   goldMult:1.0,  equipBonus:0.1,  restHeal:0, note:"静寂の冬:厳しくも獲物は良い。掘り出しの得物が出やすい"},
+};
+function seasonDungeonMods(){ const cs=(typeof currentSeason==="function")?currentSeason():null; return (cs&&SEASON_DUNGEON_MODS[cs.key])||{expBonus:0,goldMult:1.0,equipBonus:0,restHeal:0,note:""}; }
 /* 季節の風物詩:巡る季節に寄せた、兵の何気ない一場面を稀に拾い上げる。四季の移ろいを人の営みとして
    感じさせ、王国に流れる時間に彩りと情感を添える(季節の演出)。 */
 const SEASONAL_VIGNETTES={
@@ -9111,7 +9121,8 @@ function resolveDungeonRun(dungeonId){
     const squadBane=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).bossBane||0)):0; // 「討王の心得」持ちがいると、ボス撃破の判定で部隊の力が底上げされる=特別報酬を掴みやすくする討王ビルド
     bossWin=squadPower*(tier==="critical_success"?1.3:1.0)*(1+squadBane)>=dungeon.bossPower*rnd(0.8,1.2);
     const squadTeach=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).squadExpBonus||0,(traitInfo(u.trait).squadExpBonus)||0))):0; // 「歴戦の教え」(スキル)「生来の兄貴分」(特性)持ちがいると部隊全員の踏破経験値が増える=育成支援ビルド
-    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach)*(1+streakBonus)*(1+heirloomExp)*(1+festExp)*(1+ethosReward)*(1+explorerExp));u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
+    const seasonMods=(typeof seasonDungeonMods==="function")?seasonDungeonMods():{expBonus:0,goldMult:1,equipBonus:0,restHeal:0}; // 季節の兆し:夏は経験、秋は財貨、冬は得物、春は癒えに効く
+    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach)*(1+streakBonus)*(1+heirloomExp)*(1+festExp)*(1+ethosReward)*(1+explorerExp)*(1+(seasonMods.expBonus||0)));u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
     if(cond==="richaura")chron(`「${dungeon.name}」に満ちた豊穣の気が兵たちの糧となり、いつも以上の経験を持ち帰った。`,"");
     if(cond==="cursed"){ // 呪詛の澱み: 兵を疲れさせるが、呪物の財貨が眠る
       for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(10,20));
@@ -9148,7 +9159,7 @@ function resolveDungeonRun(dungeonId){
       if(squadItemFind>0&&Math.random()<squadItemFind){const ex=rollItemDrop(dungeon.rarity.key);if(ex){addItem(ex.key);chron(`目ざとい兵が、転がっていた「${ex.name}」も拾い集めてきた。`,"");}}
       let equipGained=null, equipInst=null;
       const squadLootLuck=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).lootLuck)||0,(skillEffects(u).lootLuck)||0))):0; // 「宝運」「財宝の嗅覚」(特性)や「宝探しの勘」(スキル)持ちを伴うと掘り出しが増える=編成に意味を持たせる収集レバー
-      if(Math.random()<(crit?0.6:0.3)+squadLootLuck+((S.flags&&S.flags.grandWork==="forge")?0.1:0)){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained){equipInst=addEquipment(equipGained.key);
+      if(Math.random()<(crit?0.6:0.3)+squadLootLuck+((S.flags&&S.flags.grandWork==="forge")?0.1:0)+(seasonMods.equipBonus||0)){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained){equipInst=addEquipment(equipGained.key);
         if(squadLootLuck>0&&equipInst){const edef=EQUIPMENT_DB.find(d=>d.key===equipGained.key);if(edef&&edef.rarity!=="common"){const alt=rollAffixesBest(edef.rarity,2);const cur=(equipInst.affixes||[]).reduce((t,a)=>t+(a.val||0),0);const altSum=alt.reduce((t,a)=>t+(a.val||0),0);if(altSum>cur)equipInst.affixes=alt;}} // 財を嗅ぎ分ける才は、個体差もより優れたものを引き当てる
       }}
       const equipDropName=equipInst?equipInstName(equipInst):(equipGained?equipGained.name:""); // ドロップ時に個体差(アフィックス)を含む名を見せる=掘り出しの手応え
@@ -9174,8 +9185,9 @@ function resolveDungeonRun(dungeonId){
         }
       }
       const squadGoldFind=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).goldFind)||0,skillEffects(u).goldFind||0))):0; // 「山師の目」(スキル)「生来の商才」(特性)持ちを伴うと持ち帰る財貨が増える=金策ビルドの編成レバー
-      goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1)*(1+squadGoldFind)*(1+streakBonus)*(1+ethosReward));
+      goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1)*(1+squadGoldFind)*(1+streakBonus)*(1+ethosReward)*(seasonMods.goldMult||1));
       apply({gold:goldGained,mood:crit?4:2});
+      if(seasonMods.restHeal>0){for(const u of squad){if(u){u.fatigue=Math.max(0,(u.fatigue||0)-8);if(u.injured>0){u.injured=Math.max(0,u.injured-1);if(u.injured<=0)u.injurySeverity=null;}}}} // 芽吹きの春:遠征帰りの兵の疲れと傷の癒えが早い
       chron(crit
         ?`――完璧な踏破！「${dungeon.name}」を寸分の隙なく制圧し、ボス「${dungeon.bossName}」を圧倒した!${itemGained?`「${itemGained.name}」${bonusItem?`と「${bonusItem.name}」`:""}を手に入れた。`:""}${equipGained?`さらに「${equipDropName}」を入手した。`:""}`
         :`――「${dungeon.name}」を踏破し、ボス「${dungeon.bossName}」を打ち破った!${itemGained?`「${itemGained.name}」を手に入れた。`:""}${equipGained?`さらに「${equipDropName}」を入手した。`:""}`,"big");
@@ -12503,6 +12515,7 @@ function renderDungeonPanel(){
   if((S.winStreak||0)>=2){const sb=Math.min(30,(S.winStreak||0)*3);summary+=` ／ <span style="color:#e0a870;font-weight:700" title="連続踏破が続くほど、次の攻略で得る財貨・経験値が増える(最大+30%)">連勝 ${S.winStreak}(勢い報酬+${sb}%)</span>`;}
   if(S.bounty){const left=Math.max(0,S.bounty.deadline-S.day);summary+=`<div style="font-size:11px;color:#8fbf6f;margin-top:3px" title="期限内に達成すると報酬。ダンジョン画面で狙える"><i class="icon-mission"></i>討伐依頼:${S.bounty.label}(残${left}日 / 報酬 財貨${S.bounty.gold}と品)</div>`;}
   {const fa=typeof festivalActive==="function"?festivalActive():null; if(fa&&(fa.key==="feast"||fa.key==="remembrance")){const ft=festivalType(fa.key);const left=fa.until-S.day;const eff=fa.key==="feast"?"踏破経験+15%":"戦死率↓";summary+=`<div style="font-size:11px;color:#e0a870;margin-top:3px" title="祝祭の恵みが迷宮攻略に及んでいる。国政画面で催せる">${ft.icon} ${ft.name} 開催中(${eff}・残${left}日)</div>`;}}
+  {const sm=typeof seasonDungeonMods==="function"?seasonDungeonMods():null; if(sm&&sm.note){const cs=typeof currentSeason==="function"?currentSeason():null; summary+=`<div style="font-size:11px;color:#c9a86a;margin-top:3px" title="巡る季節が遠征の実りを左右する。大遠征の潮時を計るのも王の器量">季節の兆し―${sm.note}</div>`;}}
   if(S.flags.demonLordDefeated)summary+=` ／ <span style="color:#e8c874">魔王討伐済み</span>`;
   else if(S.flags.demonLordDungeonUnlocked)summary+=` ／ <span style="color:#d97a7a">「魔王の玉座」出現中</span>`;
   else if(S.flags.demonNoticed){
