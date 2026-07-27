@@ -3464,6 +3464,27 @@ const EARLY_GROWTH=[
 ];
 /* ---------- レアイベント:通常より低頻度・高インパクト ---------- */
 const RANDOM_RARE=[
+ {tag:"商 い",title:"流れの武具商",
+  body:"一風変わった武具商が、荷を広げて城下に立ち寄った。「掘り出し物がございますよ。お目が高ければ、掘り出し物とお分かりでしょう」。品は確かに、なかなかのものらしい。",
+  speaker:"セラ「掘り出し物か、はたまた口だけか……見極めが肝要でございますね」",
+  choices:[
+   {label:"掘り出し物を買い求める(80G)",hint:"上質な装備が武具庫に入る(出費)",fx:{call:()=>{
+     if(S.gold<80){chron("持ち合わせが足りず、掘り出し物は他所へ流れていった。","");return;}
+     S.gold-=80;
+     const eq=rollEquipmentDrop(Math.random()<0.35?"epic":"rare");
+     if(eq){const inst=addEquipment(eq.key);chron(`流れの武具商から「${equipInstName(inst)}」を買い求めた(${equipInstBonusText(inst)})。`,"big");}
+     else{const g=ri(40,70);apply({gold:g});chron(`掘り出し物と聞いて開けてみれば、ただの飾り物だった。売り払って財貨${g}を取り戻した。`,"");}
+   }}},
+   {label:"値切って安く仕入れる(45G)",hint:"知力が高いほど良い品を掘り当てる(出費)",fx:{call:()=>{
+     if(S.gold<45){chron("値切る元手すらなく、商談は流れた。","");return;}
+     S.gold-=45;
+     const good=S.st.magic>=45||Math.random()<0.45;
+     const eq=rollEquipmentDrop(good?(Math.random()<0.25?"epic":"rare"):"uncommon");
+     if(eq){const inst=addEquipment(eq.key);chron(`巧みな値切りの末、「${equipInstName(inst)}」を安く仕入れた(${equipInstBonusText(inst)})。`,good?"big":"");}
+     else chron("粘り強く値切ったが、これといった品は残っていなかった。","");
+   }}},
+   {label:"見送る",hint:"様子見",fx:{log:"王国は武具商を丁重に見送った。財布の紐は固く締められている。"}},
+  ]},
  {tag:"祝 祭",title:"王国大祭",
   body:"実りと平穏に感謝する、王国大祭の季節が巡ってきた。民も兵も、この日を心待ちにしている。王として、どう祝おうか。",
   speaker:"セラ「祭りは民の心を一つにし、兵の労苦をも癒しましょう」",
