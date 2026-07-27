@@ -7546,6 +7546,9 @@ const BOSS_TRAITS={
   cartographer:{label:"地誌の王",color:"#8fb0c0",desc:"あらゆる地の理を記した秘図を守る王。討ち果たせば、その秘図が財宝の間を秘めた未知のダンジョンへの道を照らし出す"},
   mutator:{label:"変貌の王",color:"#b09fd0",desc:"生命の理を歪める異形の王。討ち果たせば、その力の残滓が兵一人の眠れる血脈を一段上の位階へと呼び覚ます(特性が昇華する)"},
   titanking:{label:"巨兵の王",color:"#b5794a",desc:"山の如き巨躯を誇る太古の巨兵。桁外れの強敵だが、討ち果たせばその威名が国中に響き、より多くの兵が旗の下に集う(定員が永続で+1)"},
+  hoardmaster:{label:"秘蔵の王",color:"#e0c060",desc:"古の秘宝の欠片を溜め込む王。討ち果たせば、秘宝の断片をどっさり持ち帰る(遺物の鍛造が進む)"},
+  starseer:{label:"星読みの王",color:"#8fb8e0",desc:"星の巡りから地の理を読む王。討ち果たせば、その知見が今ある全ての迷宮を偵察済みにする"},
+  mentorking:{label:"教導の王",color:"#9fc98f",desc:"戦いながら兵を導く不思議な王。討ち果たせば、その教えから部隊の皆が大きく成長する(経験値)"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
 /* ダンジョンの環境(異変):一部のダンジョンに宿る特性。挑む前に見え、危険と実入りの綾を変える(ダンジョンの個性) */
@@ -7602,7 +7605,7 @@ function generateDungeon(){
   const duration=Math.max(3,Math.round(level/6)+Math.round((rarity.mult-1)*2.2));
   let bossPower=Math.round(requiredPower*1.3);
   let bossTrait=null;
-  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief"||bossTrait==="dragonlord"||bossTrait==="titanking")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift"||bossTrait==="revenant"||bossTrait==="treasurelord"||bossTrait==="mutator")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning"||bossTrait==="trialking"||bossTrait==="calamity")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier"||bossTrait==="renowned"||bossTrait==="forgelord"||bossTrait==="phantom"||bossTrait==="trickster"||bossTrait==="bountiful"||bossTrait==="sage"||bossTrait==="rallyking"||bossTrait==="fountwarden"||bossTrait==="cartographer")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
+  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief"||bossTrait==="dragonlord"||bossTrait==="titanking")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift"||bossTrait==="revenant"||bossTrait==="treasurelord"||bossTrait==="mutator")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning"||bossTrait==="trialking"||bossTrait==="calamity")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier"||bossTrait==="renowned"||bossTrait==="forgelord"||bossTrait==="phantom"||bossTrait==="trickster"||bossTrait==="bountiful"||bossTrait==="sage"||bossTrait==="rallyking"||bossTrait==="fountwarden"||bossTrait==="cartographer"||bossTrait==="hoardmaster"||bossTrait==="starseer"||bossTrait==="mentorking")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
   const condition=Math.random()<0.3?DUNGEON_CONDITION_KEYS[Math.floor(Math.random()*DUNGEON_CONDITION_KEYS.length)]:null; // 稀に環境の異変を宿す
   if(condition==="treasure")bossPower=Math.round(bossPower*1.18); // 財宝の霊気は守りが堅く、ボスが手強い
   if(condition==="eliteden")bossPower=Math.round(bossPower*1.16); // 精鋭の巣は強敵揃いで、ボスが手強い
@@ -8768,6 +8771,9 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="cartographer"){S.availableDungeons=S.availableDungeons||[];const nd=generateDungeon();nd.treasureVault=true;S.availableDungeons.push(nd);if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected&&x.id!==nd.id);if(di>=0)S.availableDungeons.splice(di,1);}chron(`「地誌の王」を討ち果たすと、守られていた秘図が手に入った。図に記された道を辿れば――財宝の間を秘めたダンジョン${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」への道が拓けている(討伐の一覧に加わった)。`,"big");}
         else if(dungeon.bossTrait==="mutator"){const order={normal:0,rare:1,epic:2,legend:3};const cands=squad.filter(u=>u&&(order[u.traitTier]||0)<3);if(cands.length){cands.sort((a,b)=>(order[a.traitTier]||0)-(order[b.traitTier]||0));const u=cands[0];const pools=[TRAIT_NORMAL,TRAIT_RARE,TRAIT_EPIC,TRAIT_LEGEND];const tiers=["normal","rare","epic","legend"];const nt=(order[u.traitTier]||0)+1;const t=pools[nt][Math.floor(Math.random()*pools[nt].length)];u.trait=t.key;u.traitTier=tiers[nt];u.gm=t.gm||1;u.pw=t.pw||0;u.ascended=true;grantTitle(u,"t_bloodascend");unitHistory(u,`「変貌の王」を討った際、その力の残滓を浴びて血脈が「${t.name}」へと昇華した。`);chron(`「変貌の王」を討ち果たすと、その歪んだ力の残滓が${u.nm}に宿った。眠れる血脈が呼び覚まされ、「${traitInfo(u.trait).name}」の位階へと昇華している。`,"big");}else chron(`「変貌の王」を討ち果たしたが、部隊は皆すでに伝説の血脈を宿しており、その力は静かに霧散した。`,"");}
         else if(dungeon.bossTrait==="titanking"){S.flags=S.flags||{};S.flags.barracksBonus=(S.flags.barracksBonus||0)+1;apply({mood:3});chron(`「巨兵の王」を討ち果たした武名は、瞬く間に国中へ轟いた。その旗の下に集わんとする者が増え、より多くの兵を抱えられるようになった(定員が${unitCap()}名に拡がった)。`,"big");}
+        else if(dungeon.bossTrait==="hoardmaster"){const n=ri(3,5);grantRelicShards(n);apply({mood:2});chron(`「秘蔵の王」を討ち果たすと、溜め込まれていた古の秘宝の欠片が零れ落ちた。秘宝の断片を${n}つ持ち帰った(計${S.relicShards||0}・遺物の鍛造が進む)。`,"big");}
+        else if(dungeon.bossTrait==="starseer"){const avail=(S.availableDungeons||[]).filter(x=>!x.scouted&&!x.isFinal);for(const x of avail)x.scouted=true;chron(avail.length?`「星読みの王」を討ち果たすと、その星読みの知見が王国のものとなった。今ある${avail.length}つの迷宮の罠と地形が、ことごとく見通せるようになった(すべて偵察済みに)。`:`「星読みの王」を討ち果たし、星読みの知見を得た。今は他に噂の迷宮がなく、次に現れる迷宮でその眼が活きるだろう。`,"big");}
+        else if(dungeon.bossTrait==="mentorking"){for(const u of squad){const g=Math.round(ri(16,26)*levelMult);u.exp+=g;processLevelUps(u);}chron(`「教導の王」を討ち果たした部隊は、その死闘のさなかに授けられた教えを胸に、見違えて成長した(部隊全員が大きく経験を積んだ)。`,"big");}
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
