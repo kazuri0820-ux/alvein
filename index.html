@@ -6627,6 +6627,28 @@ function checkFullClassRoster(){
 }
 /* 栄華の只中:民心・国庫・食糧がそろって潤う日々が続くと、稀に王国の栄華を年代記に讃える。
    危機や別れの一節が多い年代記に、良き統治が報われる"満ち足りた時代"の手応えを添える(演出)。 */
+/* ===== 国中の熱狂(演出×運用の新機軸):大きな武勲を挙げると、王国全体が数日のあいだ沸き立つ。栄華(受動的な
+   平穏の讃辞)とは違い、勝ち取った"高揚の窓"=民心が日々昂ぶり、志願兵が門に押し寄せ、兵は熱に浮かされたように
+   鍛錬に励む。この熱狂の間に徴募や訓練を回せば得るものが大きい——武勲が短期の追い風となり、勝ちを次の勢いへ
+   繋ぐ判断を促す。栄光を felt な"波"として遊びに変える新レバー。 ===== */
+function fervorActive(){return !!(S&&S.fervorUntil!=null&&S.day<=S.fervorUntil);}
+function igniteFervor(days,reason){
+  const until=S.day+(days||5);
+  if((S.fervorUntil||0)<until)S.fervorUntil=until;
+  if(!S._fervorAnnounced||S.day>(S._fervorAnnouncedDay||-99)){
+    S._fervorAnnounced=true;S._fervorAnnouncedDay=S.day;
+    chron(`――${reason||"武勲"}に、国中が沸き立った！ 民は歓喜に酔い、若者は我も我もと入隊を望み、兵たちは熱に浮かされたように武を磨いている。この熱狂は、しばし続くだろう。`,"big");
+  }
+}
+function checkFervor(){
+  if(!fervorActive()){ if(S._fervorWasActive){S._fervorWasActive=false;chron("国中を包んだ熱狂も、やがて穏やかな誇りへと落ち着いていった。","");} return; }
+  S._fervorWasActive=true;
+  S.mood=Math.min(100,(S.mood||0)+0.6); // 熱狂の間、民心が日々昂ぶる
+  // 兵は熱に浮かされて鍛錬に励む
+  if(Math.random()<0.5){const c=S.units.filter(u=>u.role==="active"&&u.injured<=0);if(c.length){const u=c[Math.floor(Math.random()*c.length)];u.exp+=ri(2,5);processLevelUps(u);}}
+  // 志願兵が門に押し寄せる
+  if(Math.random()<0.12){S.volunteers=S.volunteers||[];if(S.volunteers.length<8){const v=makeVolunteer();v.comment="国中の熱狂に胸を焦がし、我こそはと志願してきた。";S.volunteers.push(v);}}
+}
 function checkGoldenAge(){
   const prosperous=(S.mood>=85)&&(S.gold>=400)&&(S.food>=150)&&(S.units.length>=6);
   if(!prosperous){S._goldenAgeStreak=0;return;}
@@ -6765,6 +6787,7 @@ function dailyEconomySettle(){
   checkYearTurn();
   checkFestival();
   checkPetition(); // 民の声:折に触れて城下から嘆願・陳情が届き、王の裁定を仰ぐ(応/否の内政の選択)
+  checkFervor(); // 国中の熱狂:大武勲で沸き立った王国の高揚の窓(民心↑・入隊殺到・鍛錬に熱)
   checkGoldenAge(); // 栄華の只中を稀に讃える(良き統治への手応え)
   checkFullClassRoster(); // 全職種が揃った布陣を一度だけ讃える(多彩な編成への到達)
   checkArmySizeMilestone(); // 軍の規模が節目に達したことを一度だけ讃える
@@ -8904,6 +8927,7 @@ function checkWinStreakMilestone(){
   for(const u of S.units)if(u.role==="active")u.moral=Math.min(100,(u.moral||0)+2);
   apply({mood:m.mood});
   chron(`――部隊は${m.text}を達成した。負け知らずの勢いに、国中が沸いている。`,"big");
+  if(s>=10)igniteFervor(s>=20?7:5,`${m.text}の快進撃`); // 大きな連勝は国中の熱狂に火をつける
 }
 function checkDungeonTypeFirstClear(dungeon,squad){
   const t=dungeon&&dungeon.type;
@@ -9136,7 +9160,7 @@ function resolveDungeonRun(dungeonId){
         for(const su of squad){if(su)su.kingsSlain=(su.kingsSlain||0)+1;} // 個々の兵の「王」討伐数=歴戦の証(討王の称号へ)
         S.flags=S.flags||{};S.flags.bossKings=S.flags.bossKings||{};
         if(!S.flags.bossKings[dungeon.bossTrait]&&BOSS_TRAITS[dungeon.bossTrait]){S.flags.bossKings[dungeon.bossTrait]=S.day;chron(`――「${BOSS_TRAITS[dungeon.bossTrait].label}」を初めて討ち取った。討伐した王の名が、また一つ王国史に刻まれる。`,"big");
-          if(Object.keys(S.flags.bossKings).length>=BOSS_TRAIT_KEYS.length&&!S.flags.allKingsSlain){S.flags.allKingsSlain=true;for(const x of S.units){if(x.role==="active"){x.moral=Math.min(100,(x.moral||0)+6);x.loyalty=Math.min(100,(x.loyalty||0)+6);}}apply({mood:12,st:{military:5}});chron(`――ありとあらゆる「王」を、アルヴェインの兵は討ち果たした。${BOSS_TRAIT_KEYS.length}種すべての強大なる王を屠りし武名は、大陸の隅々にまで轟いている。この偉業に、全軍が誇りと闘志をみなぎらせている。`,"big");}}
+          if(Object.keys(S.flags.bossKings).length>=BOSS_TRAIT_KEYS.length&&!S.flags.allKingsSlain){S.flags.allKingsSlain=true;for(const x of S.units){if(x.role==="active"){x.moral=Math.min(100,(x.moral||0)+6);x.loyalty=Math.min(100,(x.loyalty||0)+6);}}apply({mood:12,st:{military:5}});chron(`――ありとあらゆる「王」を、アルヴェインの兵は討ち果たした。${BOSS_TRAIT_KEYS.length}種すべての強大なる王を屠りし武名は、大陸の隅々にまで轟いている。この偉業に、全軍が誇りと闘志をみなぎらせている。`,"big");igniteFervor(10,"あらゆる王を討ち果たした空前の偉業");}}
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
         else if(dungeon.bossTrait==="greedy"){const g=Math.round(ri(45,85)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「貪欲」なボスが溜め込んでいた財貨${g}を回収した。`,"big");}
         else if(dungeon.bossTrait==="hoarder"){const eq=rollEquipmentDrop(dungeon.rarity.key);if(eq){addEquipment(eq.key);chron(`「宝物狂い」のボスの蒐集品から、「${eq.name}」を手に入れた。`,"big");}}
@@ -10761,6 +10785,7 @@ function renderProjects(){
    if((S.vault||0)>0)chips.push(["金庫",`${S.vault}${(S.vault||0)>=vaultCap()?"(満)":""}`,(S.vault||0)>=vaultCap()?"#d99a6a":"#8fbf6f"]);
    if((S.outposts||[]).length)chips.push(["前哨",`${S.outposts.length}/${outpostCap()}`,"#c9a86a"]);
    if(S.nemesis)chips.push(["宿敵",S.nemesis.name,"#d97a7a"]);
+   if(fervorActive())chips.push(["熱狂",`残${Math.max(0,(S.fervorUntil||0)-S.day)}日`,"#e0a870"]); // 国中の熱狂:入隊殺到・鍛錬に熱の高揚窓
    {const food=Math.round(S.food||0),need=(S.pop||0)*0.085;if(food<Math.max(20,need*40))chips.push(["兵糧",food<Math.max(12,need*20)?"僅少・要備え":"やや心許ない","#d97a7a"]);} // 兵糧が細ると警告(飢饉に備える一手を促す)
    h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-project"></i>王の執務室</div>
      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px">`+chips.map(c=>`<span style="font-size:10.5px;border:1px solid ${c[2]};color:${c[2]};border-radius:5px;padding:2px 7px"><span style="color:var(--dim)">${c[0]}:</span>${c[1]}</span>`).join("")+`</div></div>`;
