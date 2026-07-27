@@ -6399,6 +6399,7 @@ function rollRandomTurnEvent(){
   // ミッションとは無関係に、ふとした噂話からダンジョンが見つかることもある
   if(S.day>10&&Math.random()<0.012)checkDungeonDiscovery(1.0);
   checkFleetingDungeons(); // 時限の好機:主が移り去った迷宮を探索先から消す
+  checkObservatoryPortent(); // 星見の塔:折に触れ、星が吉兆を告げる
   if(S.units.length&&Math.random()<0.004){pushEvent("__old_equipment__");return;}
   if(S.units.length&&Math.random()<0.0035){pushEvent("__job_change_surprise__");return;}
   // 日常フレーバー(パラメータに影響しない、ログを賑やかにするためだけの小さな一言)は1日1回程度
@@ -6936,6 +6937,20 @@ function commissionCivicWork(key){
   }});
   chron(`王の勅令により、「${w.name}」の普請が始まった。数十日の後、成るだろう(国庫${w.cost})。`,"big");
   clamp();render();renderProjects();save();
+}
+/* 星見の塔の吉兆:塔が成った後、折に触れて星が吉兆を告げ、ささやかな恵みをもたらす。危機を先読みする恒久の
+   備え(#星見の塔)に、日々の"felt な存在感"を添える演出。頻度は低く、鬱陶しくならない程度に。 */
+const OBSERVATORY_PORTENTS=[
+ ()=>{S.mood=Math.min(100,(S.mood||0)+ri(2,4));return "星見の賢者が吉兆を読んだ。「近く、良き風が吹きましょう」。その言葉に、城下の気も晴れやかになった(民心↑)。";},
+ ()=>{const g=ri(15,30);S.gold+=g;return `賢者が財運の星の巡りを告げ、王はそれに従って蔵を検めた。埋もれていた${g}の余財が見つかった(国庫↑)。`;},
+ ()=>{const f=ri(8,16);S.food=Math.min(999,(S.food||0)+f);return `星読みが好天の続くことを告げ、民は先んじて刈り入れに励んだ。蔵に${f}の実りが積み増された(食糧↑)。`;},
+ ()=>{if((S.st.magic||0)<100)S.st.magic=Math.min(100,S.st.magic+1);return "塔の頂で新たな星が観測された。天の理への理解が、また一つ深まった(魔導↑)。";},
+];
+function checkObservatoryPortent(){
+  if(!(S.flags&&S.flags.observatory))return;
+  if(Math.random()>=0.02)return; // 稀に(概ね50日に一度ほど)
+  const pick=OBSERVATORY_PORTENTS[Math.floor(Math.random()*OBSERVATORY_PORTENTS.length)];
+  const msg=pick(); chron("――"+msg,"big");
 }
 function immigrationDaily(){
   const info=immigrationInfo();
@@ -11110,6 +11125,7 @@ function renderProjects(){
    if((S.renown||0)>0)chips.push(["威信",renownTier().name,"#c9a86a"]); // 王国の名声の階梯
    {const cc=S.flags&&S.flags.contCouncil;if(cc)chips.push(["大陸会議",{leader:"盟主として臨席",trade:"交易の中心地",neutral:"独立不羈"}[cc]||"臨席",cc==="leader"?"#d8b45e":"#c9a86a"]);} // 大陸会議で示した立ち位置=王国の外交の顔
    {if(typeof CIVIC_WORKS!=="undefined"){const bld=CIVIC_WORKS.filter(w=>civicWorkState(w.key)==="building").length;const av=CIVIC_WORKS.filter(w=>civicWorkAvailable(w)&&S.gold>=w.cost).length;if(bld)chips.push(["普請",`${bld}件 普請中`,"#c9a86a"]);else if(av)chips.push(["普請","興せる勅令普請あり","#8fa9c4"]);}} // 勅令普請の進行・着手余地を概況に
+   if(S.flags&&S.flags.observatory)chips.push(["星見","塔が天を読む(危機を先読み)","#8f9fd0"]); // 星見の塔:危機への恒久の備え
    {const fl=(S.availableDungeons||[]).filter(d=>d&&d.fleeting&&!d.isFinal);if(fl.length){const soon=Math.min(...fl.map(d=>Math.max(0,(d.expireDay||S.day)-S.day)));chips.push(["好機",`時限の迷宮 残${soon}日`,"#e08a5e"]);}} // 時限の迷宮:見逃さぬよう概況にも出す
    {const food=Math.round(S.food||0),need=(S.pop||0)*0.085;if(food<Math.max(20,need*40))chips.push(["兵糧",food<Math.max(12,need*20)?"僅少・要備え":"やや心許ない","#d97a7a"]);} // 兵糧が細ると警告(飢饉に備える一手を促す)
    if((S.mood||100)<40){const inArc=(S.flags&&S.flags.unrestArc)===1;const rankOk=STAGES[S.stage].rank>=2;chips.push(["民心",inArc?"憤懣くすぶる・一揆の恐れ":((S.mood||0)<28?(rankOk?"危険・一揆の芽":"危険・要慰撫"):"低下"),"#d97a7a"]);} // 民心が下がると警告。放置は一揆の連鎖を招くため、その芽を明示して施し/対話等の一手を促す
