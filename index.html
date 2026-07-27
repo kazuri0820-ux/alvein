@@ -9500,6 +9500,18 @@ let jobChangeUIOpen=false, jobChangeConfirmCls=null, dismissConfirmId=null, bond
    部隊連携や宿縁の霊地に活きる絆を能動的に育てる。関係性システムを"作れる"レバーに変える新機軸 ===== */
 const BOND_ARRANGE_COST=70;
 function bondArrangeCandidates(u){return S.units.filter(o=>o.id!==u.id&&o.role==="active"&&!o.bondWith&&(o.injured||0)<=0);}
+/* ===== 研鑽の方針(育成の別軸):兵ごとに"どの能力を伸ばすか"を選ぶ。以後の昇格でその能力が主軸並みに伸びる代わりに
+   生来の主軸は控えめになる=能力の水増しでなく成長の"方向"を選ぶレバー。攻略型の得意を狙って育てられる ===== */
+const FOCUS_KEYS=["str","vit","int","agi","wis","lead"];
+function setFocusStat(uid,stat){
+  const u=findAnyUnit(uid); if(!u)return;
+  if(stat&&!FOCUS_KEYS.includes(stat))return;
+  if(u.focusStat===stat)u.focusStat=null; // 同じものを再選択で解除
+  else u.focusStat=stat||null;
+  const lbl=u.focusStat?(USTAT_DEF[u.focusStat]||{lbl:u.focusStat}).lbl:null;
+  chron(u.focusStat?`${fullName(u)}の研鑽は「${lbl}」を伸ばす方針に定められた。以後の成長が、その方向へ傾いていく。`:`${fullName(u)}の研鑽の方針を解いた。以後は生来の資質のままに伸びる。`,"");
+  save();
+}
 function arrangeBond(aId,bId){
   const a=S.units.find(x=>x.id===aId), b=S.units.find(x=>x.id===bId);
   if(!a||!b||a.id===b.id||a.bondWith||b.bondWith||a.role!=="active"||b.role!=="active")return;
@@ -10732,6 +10744,15 @@ function renderUnitDetail(uid){
     }
   }
 
+  // ── 研鑽の方針(成長フォーカス) ──
+  if(!isInstructor&&u.role==="active"){
+    const pr=statPriorityFor(u);
+    h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>研鑽の方針</h4>
+      <div class="ds" style="margin-bottom:6px;font-size:11.5px">伸ばす能力を選ぶと、以後の昇格でその能力が主軸並みに伸びる代わりに、生来の主軸(${(USTAT_DEF[pr.main]||{lbl:pr.main}).lbl})は控えめになる。攻略型の得意を狙って育てられる(いつでも変更可)。</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">`+FOCUS_KEYS.map(k=>{const on=u.focusStat===k;const c=(USTAT_DEF[k]||{}).color||"var(--gold)";return `<button class="focus-btn" data-k="${k}" style="flex:1;min-width:52px;background:${on?c:"transparent"};color:${on?"#1a1206":c};border:1px solid ${c};border-radius:6px;padding:6px 3px;font-family:'Shippori Mincho',serif;font-size:11px;font-weight:${on?"800":"600"};cursor:pointer">${(USTAT_DEF[k]||{lbl:k}).lbl}</button>`;}).join("")+`</div>
+      <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:5px">${u.focusStat?`現在の方針:「${(USTAT_DEF[u.focusStat]||{lbl:u.focusStat}).lbl}」を重点的に(もう一度押すと解除)`:"方針なし(生来の資質のままに伸びる)"}</div>
+    </div>`;
+  }
   // ── 生い立ち ──
   if(u.backstory)h+=`<div class="udet-sec"><h4>生い立ち</h4><div style="font-size:12px;color:#d8dbe6;line-height:1.85;font-style:italic">${u.backstory}</div></div>`;
   if(!isInstructor&&u.dream){const dd=UNIT_DREAMS.find(x=>x.key===u.dream);if(dd)h+=`<div class="udet-sec"><h4>${u.dreamDone?"叶えた夢":"抱いている夢"}</h4><div style="font-size:12px;color:${u.dreamDone?"var(--gold)":"#d8dbe6"};font-style:italic">${u.dreamDone?"✦ ":"― "}${dd.text}${u.dreamDone?" ――その願いは、叶えられた。":""}</div></div>`;}
@@ -10971,6 +10992,7 @@ function renderUnitDetail(uid){
   if(dismissYes)dismissYes.onclick=()=>{dismissConfirmId=null;dismissUnit(u);$("#panelUnitDetail").classList.remove("show");};
   const dismissNo=$("#dismissConfirmNo");
   if(dismissNo)dismissNo.onclick=()=>{dismissConfirmId=null;renderUnitDetail(uid);};
+  $("#unitDetailBody").querySelectorAll(".focus-btn").forEach(b=>b.onclick=()=>{setFocusStat(uid,b.dataset.k);renderUnitDetail(uid);});
   const bondBtn=$("#bondArrangeBtn");
   if(bondBtn)bondBtn.onclick=()=>{bondPickForId=uid;renderUnitDetail(uid);};
   $("#unitDetailBody").querySelectorAll(".bond-pick-btn").forEach(b=>b.onclick=()=>{arrangeBond(uid,b.dataset.b);renderUnitDetail(uid);refreshOpenPanels();});
@@ -11615,8 +11637,18 @@ function processLevelUps(u,silent,noRival){
     u.lv++;
     const sb=tr.statBonus||0;
     const pr=statPriorityFor(u);
+    const focus=u.focusStat; // 研鑽の方針:伸ばす能力を選ぶと、その能力が主軸並みに伸びる代わりに、生来の主軸は控えめになる(伸ばす方向の選択=水増しでなく振り分け)
     for(const k of["str","vit","int","agi","wis","lead"]){
-      const g=(k===pr.main)?ri(2,4):(k===pr.sub)?ri(1,3):ri(0,2);
+      let rate;
+      if(focus){
+        if(k===focus)rate="main";
+        else if(k===pr.main&&focus!==pr.main)rate="sub"; // 選んだ方針を優先し、生来の主軸は一段下げる
+        else if(k===pr.sub)rate="sub";
+        else rate="minor";
+      }else{
+        rate=(k===pr.main)?"main":(k===pr.sub)?"sub":"minor";
+      }
+      const g=rate==="main"?ri(2,4):rate==="sub"?ri(1,3):ri(0,2);
       u[k]+=g+sb;
     }
     const newJob=jobFor(u.cls,u.lv,u.route);
