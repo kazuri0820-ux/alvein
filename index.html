@@ -6553,7 +6553,8 @@ function recordEraChapterClose(closingIdx){
   if(dHall>0)parts.push(`${dHall}名が殿堂にその名を刻んだ`);
   let body=parts.length?parts.join("、")+"。":"王国は静かに、しかし確かに時を重ねた。";
   if(!/。$/.test(body))body+="。";
-  chron(`――${eraChapterLabel(closingIdx)}『${era.era}』、ここに幕。${yrs>=1?`およそ${yrs}年の`:"この"}治世に、${body}${hero?`この時代を象徴するは${hero.nm}。`:""}`,"big");
+  const ktName=(typeof kingTitleName==="function")?kingTitleName():null;
+  chron(`――${eraChapterLabel(closingIdx)}『${era.era}』、ここに幕。${yrs>=1?`およそ${yrs}年の`:"この"}治世に、${body}${hero?`この時代を象徴するは${hero.nm}。`:""}${ktName?`民はこの時代、陛下を〈${ktName}〉と呼んだ。`:""}`,"big");
 }
 function checkMilestone(){
   if(S.eraChapterStart===undefined)S.eraChapterStart=snapshotEra(); // 初回・レガシー救済で時代の起点を記録
