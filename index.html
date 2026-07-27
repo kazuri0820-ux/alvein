@@ -4107,6 +4107,41 @@ const RANDOM_RARE=[
      chron("山の隠者の物語は、絶えぬ叡智の泉とともに幕を下ろした。","big");
    }}},
   ]},
+ // ===== 連続物語(イベント連鎖):禁書の誘惑。力と代償を併せ持つ諸刃の永続選択(これまでの純粋な恩恵とは異なる新機軸) =====
+ {tag:"禁 書",title:"封じられし禁書",
+  cond:s=>!(s.flags&&s.flags.forbiddenArc)&&STAGES[s.stage].rank>=3&&s.day>=50,
+  body:"王立書庫の奥、鎖で封じられた一冊の書が見つかった。頁を開けば、失われた時代の途方もない魔導の理が記されているという。だが同時に、それに触れた者は皆、正気を保てなかったとも伝わる。学者たちは、この禁書をいかに扱うべきか王の裁定を仰いだ。",
+  speaker:"セラ「陛下……あれは、触れてはならぬものやもしれませぬ。されど、あの知識は……」",
+  choices:[
+   {label:"学者に研究させる",hint:"魔導↑ / 禁書の力を解き明かす物語の始まり(だが代償の影も)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.forbiddenArc=1;S.flags.forbiddenDay=S.day+ri(6,10);
+     apply({st:{magic:2},log:"王は禁書の研究を許した。書庫の奥で、幾人もの学者が夜を徹して古き理と向き合い始めた。城には、どこか張り詰めた気が満ちている(魔導+2)。",logCls:"big"});
+   }}},
+   {label:"厳重に封印する",hint:"堅実(治安↑ / この物語は始まらない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.forbiddenArc=-1;
+     apply({st:{order:2},mood:1,log:"王は禁書を再び鎖で封じ、書庫の最奥に隠させた。危ういものに手を出さぬ王の分別を、家臣は安堵とともに受け止めた(治安+2)。"});
+   }}},
+   {label:"焼き捨てる",hint:"民心↑ / 禍根を断つ",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.forbiddenArc=-2;
+     apply({mood:3,log:"王は禁書を炎にくべた。渦巻く黒い煙が細く空へ消えると、城を覆っていた重い気配も晴れた。民は王の潔さを讃えた(民心↑)。"});
+   }}},
+  ]},
+ {tag:"禁 書",title:"禁書の理",
+  cond:s=>(s.flags&&s.flags.forbiddenArc)===1&&s.day>=(s.flags.forbiddenDay||0),
+  body:"研究は実を結んだ。学者たちは禁書の一部を解読し、驚くべき魔導の理を掴んだ。だが同時に、書に触れた者の幾人かが悪夢にうなされ、書庫からは夜ごと、あるはずのない囁きが聞こえるという。この力を、国のものとするか――それとも、ここで手を引くか。",
+  speaker:"ガレオン「力は本物にございます。……が、代償もまた。陛下、いかがなさいますか」",
+  choices:[
+   {label:"禁書の力を受け入れる",hint:"魔導が大きく伸びる。以後、禁書は時に恩恵を、時に禍いをもたらす(諸刃)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.forbiddenArc=2;S.flags.forbiddenLore=true;
+     apply({st:{magic:5},log:"王は禁書の力を国のものとすると決した。解き明かされた理は王国の魔導を大きく押し上げたが、その代償がいつ牙を剥くかは、誰にも分からない(魔導+5)。以後、禁書は時に恵みを、時に禍いをもたらすだろう。",logCls:"big"});
+     chron("禁書の誘惑の物語は、封じられた力を解き放って幕を下ろした。吉と出るか凶と出るかは、これからの王国が知る。","big");
+   }}},
+   {label:"ここで手を引き、封印する",hint:"堅実(得た知識の一部は残る・禍根は断つ)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.forbiddenArc=3;
+     apply({st:{magic:2,order:2},mood:1,log:"王は深追いを避け、禁書を再び封じた。それでも解読された知の一部は王国に残り、無用な災いの芽は摘まれた(魔導+2 治安+2)。",logCls:"big"});
+     chron("禁書の誘惑の物語は、賢明な自制とともに幕を下ろした。","big");
+   }}},
+  ]},
  {tag:"継 承",title:"王家の家宝を定める",
   cond:s=>!(s.flags&&s.flags.heirloom)&&STAGES[s.stage].rank>=4,
   body:"王国が確かな地歩を築いた今、家臣たちが進言した。「陛下、そろそろ我が王家の『家宝』を定められては。末代まで受け継がれ、王国を永く支える一つの象徴を」。三つの候補が、王の前に並べられた。一度選べば、二度とは選び直せない。",
@@ -6424,6 +6459,7 @@ function dailyEconomySettle(){
   checkRivalVignette(); // 同職の兵同士が競い合い、互いを高め合う一幕
   checkDreamVignette(); // 兵が己の夢(個人的な目標)を語る一幕
   checkHermitWisdom(); // 山の隠者が、ときおり兵に技を授けたり国に叡智をもたらす(庵を結んだ後のみ)
+  checkForbiddenOmen(); // 禁書の力:時に恵みを、時に禍いをもたらす(諸刃/受け入れた後のみ)
   checkGearVignette(); // 一級の武具を帯びた兵が、その得物を大切に手入れする一幕
   checkRealmVignette(); // 民の暮らしの何気ない一場面(平穏な国の息づかい)
   checkRemembranceVignette(); // 殿堂に名を刻んだ、かつての英傑を偲ぶ一幕
@@ -9988,6 +10024,21 @@ function checkHermitWisdom(){
   }
   // 国に叡智をもたらす
   apply({st:{magic:1},mood:1,log:"霊峰の隠者から、農事や医薬の知恵を記した書簡が届いた。役人たちがさっそく学び始めている(魔導+1)。"});
+}
+/* 禁書の力(諸刃の永続):受け入れた後、時に禁断の知が恵みをもたらし、時にその代償が禍いを呼ぶ。
+   純粋な恩恵の永続フラグとは違い、良くも悪くも転ぶ緊張=力を得た代償を"生きた不確実性"として持ち続ける */
+function checkForbiddenOmen(){
+  if(!(S.flags&&S.flags.forbiddenLore))return;
+  if(Math.random()>=0.02)return; // ごく稀に
+  if(Math.random()<0.6){ // 恵み:禁断の知が実を結ぶ
+    const r=Math.random();
+    if(r<0.5){apply({st:{magic:1},log:"禁書の一節が新たに解き明かされ、王国の魔導がまた一段深まった(魔導+1)。禁断の知は、確かに国を利している。"});}
+    else{const c=S.units.filter(u=>u.role==="active"&&u.injured<=0&&u.skills&&u.skills.length<skillCap(u));if(c.length){const u=c[ri(0,c.length-1)];const l=trySkillUp(u);if(l){unitHistory(u,`禁書の理に触れ、「${l.name}」を会得した。`);chron(`${fullName(u)}が禁書の理に触れ、「${l.name}」の秘技を会得した。禁断の知が、思わぬ形で実を結んだ。`,"big");}else{apply({st:{magic:1},log:"禁書から新たな理が得られた(魔導+1)。"});}}else{apply({st:{magic:1},log:"禁書から新たな理が得られた(魔導+1)。"});}}
+  }else{ // 禍い:代償が牙を剥く
+    const r=Math.random();
+    if(r<0.5){apply({st:{order:-1},mood:-2,log:"書庫から夜ごと漏れる囁きに、城の者が怯えている。禁書の禍いか、街に不穏な噂が広がった(治安↓ 民心↓)。",logCls:"grave"});}
+    else{const g=ri(15,35);S.gold=Math.max(0,S.gold-g);apply({mood:-1,log:`禁書の頁が独りでに燃え、書庫の一角が焼けた。消火と復旧に費えがかさんだ(国庫-${g})。禁断の力は、時にこうして牙を剥く。`,logCls:"grave"});}
+  }
 }
 function renderProjects(){
   let h="";
