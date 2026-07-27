@@ -2207,12 +2207,13 @@ const TITLE_DB=[
  {key:"t_grandveteran",name:"百錬の達人",desc:"レベル30に到達し、幾多の研鑽の末に練達の域へと至った",effect:"moralGrow",value:0.12},
  {key:"t_peerless",name:"不世出の兵",desc:"レベル45に到達し、一代の英傑と称される域へと至った",effect:"injuryMult",value:0.85},
  {key:"t_dungeonmaster",name:"迷宮の覇者",desc:"ただ一人で数多の迷宮を踏破し、その名は暗がりの主として畏れられる",effect:"expMult",value:1.08},
+ {key:"t_gloryincarnate",name:"栄光の化身",desc:"十指に余る称号を身に帯び、その生き様そのものが王国の栄光となった",effect:"loyaltyGrow",value:0.18},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
    讃えられる晴れ舞台(big演出＋民心の高揚)を持つ。称号集めの中に"格の違う到達点"を作り、
    偉業の重みを実感させる(称号の見せ場)。史上初の授与にはさらに特別な一節を添える。 */
-const PRESTIGE_TITLES=new Set(["t_demonslayer","t_awakened","t_hero","t_legendborn","t_starchosen","t_unscathed","t_lastfounder","t_pillar"]);
+const PRESTIGE_TITLES=new Set(["t_demonslayer","t_awakened","t_hero","t_legendborn","t_starchosen","t_unscathed","t_lastfounder","t_pillar","t_gloryincarnate"]);
 function grantTitle(u,key){
   if(!u.titles)u.titles=[];
   if(u.titles.includes(key))return;
@@ -2229,6 +2230,7 @@ function grantTitle(u,key){
   }else{
     chron(`${u.nm}が称号「${t.name}」を得た。`,"");
   }
+  if(key!=="t_gloryincarnate"&&u.titles.length>=10&&!u.titles.includes("t_gloryincarnate"))grantTitle(u,"t_gloryincarnate"); // 称号を十指に余るほど集めた者を「栄光の化身」として顕彰=称号収集そのものに到達点を用意
 }
 function titleEffectsFor(u){
   const e={loyaltyGrow:0,moralGrow:0,injuryMult:1,expMult:1};
