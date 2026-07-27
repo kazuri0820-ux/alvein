@@ -6265,6 +6265,7 @@ function dailyEconomySettle(){
   checkRemembranceVignette(); // 殿堂に名を刻んだ、かつての英傑を偲ぶ一幕
   checkSeasonalVignette(); // 巡る季節に寄せた兵の一場面
   if(S.shop&&S.shop.stock&&S.day>=(S.shop.refreshDay||0))ensureShopStock(); // 行商人の品替えを日々見計らい、入荷を年代記に告げる(店を一度でも覗いた後のみ)
+  checkBounty(); // 討伐依頼の発生・期限切れを見計らう
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
     const loyaltyDrift=S.mood>=70?(S.mood-70)*0.006:-(30-S.mood)*0.01;
@@ -7966,6 +7967,38 @@ function dungeonTypeStatHint(type){
   if(scored.length>=5){const maxD=scored[0].d;const even=scored.filter(s=>s.d>=maxD*0.9).length;if(even>=5)return "均衡・万能";}
   return scored.slice(0,2).map(s=>labels[s.k]).join("・");
 }
+/* ===== 討伐依頼(bounty):期限付きの指名依頼。惰性になりがちな周回に「今これを狙う」目的を与える新機軸 ===== */
+function generateBounty(){
+  const rank=STAGES[S.stage].rank;
+  const kinds=["type"]; if(rank>=2)kinds.push("king"); // 王討伐依頼(討王メタと連動)
+  const kind=kinds[Math.floor(Math.random()*kinds.length)];
+  let target=null,label="";
+  if(kind==="type"){const t=DUNGEON_TYPES[Math.floor(Math.random()*DUNGEON_TYPES.length)];target=t.key;label=`「${t.label}」のダンジョンを踏破せよ`;}
+  else label="ボスの「王」を討ち取れ";
+  const gold=Math.round(ri(80,150)*(0.6+rank*0.35));
+  S.bounty={kind,target,label,gold,deadline:S.day+ri(12,20),issued:S.day};
+  chron(`――冒険者ギルドより討伐依頼が届いた。「${label}」(期限${S.bounty.deadline-S.day}日・報酬:財貨${gold}と品)。ダンジョン画面で確認できる。`,"big");
+}
+function checkBounty(){
+  if(S.bounty){
+    if(S.day>S.bounty.deadline){apply({mood:-2});chron(`討伐依頼「${S.bounty.label}」は、期限までに果たされなかった。ギルドの信は少し下がった。`,"grave");S.bounty=null;S.bountyNextDay=S.day+ri(6,10);}
+    return;
+  }
+  if((S.dungeonsCleared||0)<1)return; // 最初の踏破を経てから依頼が舞い込む
+  if(S.day<(S.bountyNextDay||0))return;
+  if(Math.random()<0.5)generateBounty();
+}
+function tryFulfillBounty(dungeon,bossWin){
+  if(!S.bounty)return;
+  let done=false;
+  if(S.bounty.kind==="type"){if(dungeon.type&&dungeon.type.key===S.bounty.target)done=true;}
+  else if(S.bounty.kind==="king"){if(bossWin&&dungeon.bossTrait)done=true;}
+  if(!done)return;
+  const g=S.bounty.gold;const it=rollItemDrop("rare");if(it)addItem(it.key);
+  apply({gold:g,mood:3,st:{diplomacy:1}});
+  chron(`討伐依頼「${S.bounty.label}」を達成した！ギルドより報酬の財貨${g}${it?`と「${it.name}」`:""}が届けられた。`,"big");
+  S.bounty=null;S.bountyNextDay=S.day+ri(6,10);
+}
 const TYPE_MASTERY_NEED=5; // 同じ攻略型をこの回数踏破すると、その型を「得意」にする
 function routeDungeonBonus(u,type){
   if(!u||!type||!type.key)return 1;
@@ -8391,6 +8424,7 @@ function resolveDungeonRun(dungeonId){
       apply({gold:goldGained});
       chron(`「${dungeon.name}」は踏破したが、ボス「${dungeon.bossName}」には及ばなかった。`,"sys");
     }
+    tryFulfillBounty(dungeon,bossWin); // 討伐依頼の達成判定(踏破時)
   }else if(tier==="fail"){
     const hurtOnes=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*0.4)));
     const failW=medicAdjustWeights(formationAdjustWeights(cond==="blessed"?[0.7,0.25,0.05]:[0.4,0.4,0.2],fmKey),squad); // 陣形(攻勢=重傷寄り/堅守=軽傷寄り)→古の祝福→従軍医の順に負傷の重さを補正
@@ -10665,6 +10699,7 @@ function renderDungeonPanel(){
   const cleared=S.dungeonsCleared||0;
   let summary=`累計踏破:${cleared}件`;
   if((S.winStreak||0)>=2){const sb=Math.min(30,(S.winStreak||0)*3);summary+=` ／ <span style="color:#e0a870;font-weight:700" title="連続踏破が続くほど、次の攻略で得る財貨・経験値が増える(最大+30%)">連勝 ${S.winStreak}(勢い報酬+${sb}%)</span>`;}
+  if(S.bounty){const left=Math.max(0,S.bounty.deadline-S.day);summary+=`<div style="font-size:11px;color:#8fbf6f;margin-top:3px" title="期限内に達成すると報酬。ダンジョン画面で狙える"><i class="icon-mission"></i>討伐依頼:${S.bounty.label}(残${left}日 / 報酬 財貨${S.bounty.gold}と品)</div>`;}
   if(S.flags.demonLordDefeated)summary+=` ／ <span style="color:#e8c874">魔王討伐済み</span>`;
   else if(S.flags.demonLordDungeonUnlocked)summary+=` ／ <span style="color:#d97a7a">「魔王の玉座」出現中</span>`;
   else if(S.flags.demonNoticed){
