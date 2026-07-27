@@ -9319,6 +9319,7 @@ function resolveDungeonRun(dungeonId){
         for(const su of squad){if(su)su.kingsSlain=(su.kingsSlain||0)+1;} // 個々の兵の「王」討伐数=歴戦の証(討王の称号へ)
         S.flags=S.flags||{};S.flags.bossKings=S.flags.bossKings||{};
         if(!S.flags.bossKings[dungeon.bossTrait]&&BOSS_TRAITS[dungeon.bossTrait]){S.flags.bossKings[dungeon.bossTrait]=S.day;grantRenown(4,`「${BOSS_TRAITS[dungeon.bossTrait].label}」の討伐`);chron(`――「${BOSS_TRAITS[dungeon.bossTrait].label}」を初めて討ち取った。討伐した王の名が、また一つ王国史に刻まれる。`,"big");
+          {const ldr=squad.filter(Boolean).sort((a,b)=>unitPower(b)-unitPower(a))[0];if(ldr)recordSigFeat(ldr,`いまだ誰も討たぬ強大な王「${BOSS_TRAITS[dungeon.bossTrait].label}」を、王国で初めて討ち取った`,4);} // 未踏の王の初討伐は語り草に
           if(Object.keys(S.flags.bossKings).length>=BOSS_TRAIT_KEYS.length&&!S.flags.allKingsSlain){S.flags.allKingsSlain=true;for(const x of S.units){if(x.role==="active"){x.moral=Math.min(100,(x.moral||0)+6);x.loyalty=Math.min(100,(x.loyalty||0)+6);}}apply({mood:12,st:{military:5}});chron(`――ありとあらゆる「王」を、アルヴェインの兵は討ち果たした。${BOSS_TRAIT_KEYS.length}種すべての強大なる王を屠りし武名は、大陸の隅々にまで轟いている。この偉業に、全軍が誇りと闘志をみなぎらせている。`,"big");igniteFervor(10,"あらゆる王を討ち果たした空前の偉業");}}
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
         else if(dungeon.bossTrait==="greedy"){const g=Math.round(ri(45,85)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「貪欲」なボスが溜め込んでいた財貨${g}を回収した。`,"big");}
@@ -9549,6 +9550,17 @@ const CLUTCH_LINES=[
  (u,d)=>`劣勢の中、${u}の一喝が部隊を奮い立たせた。気迫が実力の差を呑み込み、「${d}」は思いがけぬ勝利に終わった。`,
  (u,d)=>`勝ち目は薄かった。それでも諦めなかった${u}たちは、幾度も窮地を凌ぎ、ついに「${d}」を攻略してのけた。この一戦は、長く語り草となろう。`,
 ];
+/* 語り草の武勲:一人ひとりの"生涯で最も輝いた一戦"を、ただ一つだけ刻む。称号(分類)や来歴(記録の連なり)とは
+   別に、その兵を語る時に真っ先に挙がる決定的な武勲を持たせ、愛着と誇りを felt にする。より格上の武勲を立てれば
+   更新され、その兵の"頂き"を映し続ける。刻まれた時は当人の誇りとなり(士気・忠義↑)、散った時は弔いに引かれる。 */
+function recordSigFeat(u,text,weight){
+  if(!u||!text)return;
+  const cur=u.sigFeat;
+  if(cur&&(cur.weight||0)>=weight)return; // 既により格上の"頂き"がある
+  const isNew=!cur;
+  u.sigFeat={text,day:S.day,weight};
+  if(isNew){u.moral=Math.min(100,(u.moral||0)+3);u.loyalty=Math.min(100,(u.loyalty||0)+3);} // 生涯の誇りを得た手応え(初めて刻まれた時のみ)
+}
 function maybeClutchVictory(squad,dungeon,centerRoll,tier){
   if(!squad||!squad.length)return;
   if(tier!=="success"&&tier!=="critical_success")return;
@@ -9560,6 +9572,7 @@ function maybeClutchVictory(squad,dungeon,centerRoll,tier){
   chron(line(fullName(u),dungeon.name),"big");
   for(const m of alive){m.moral=Math.min(100,(m.moral||0)+4);} // 逆転劇は隊の士気を大きく高める
   grantTitle(u,"t_survivor"); // 死線を越えた証
+  recordSigFeat(u,`絶体絶命の「${dungeon.name}」を、力の差を覆して制した番狂わせの立役者`,3); // 番狂わせの主役は、その兵の語り草となる
 }
 /* 散り際の弔い:歩みを重ねた名のある兵が斃れた時、その生涯を偲ぶ一幕を年代記に添える。
    ただ「戻らなかった」で流さず、失った兵の重みと遺した功を刻む(演出＝喪失に物語の重みを与える) */
@@ -9580,6 +9593,7 @@ function fallenEulogy(u,placeName,hallWorthy){
   const featTxt=feats.length?`(${feats.join("・")}を遺して)`:"";
   const line=EULOGY_LINES[ri(0,EULOGY_LINES.length-1)];
   chron(line(fullName(u),placeName||"迷宮")+featTxt,"grave");
+  if(u.sigFeat&&u.sigFeat.text)chron(`いくさ場では、いまも語り草になっている――${u.sigFeat.text}、あの${u.nm}の武勇が。`,"grave"); // 生涯の語り草を、弔いの最後に今一度
 }
 /* ===== 宿敵(Nemesis):討ち逃した強敵が"宿敵"として心に刻まれ、再戦の迷宮が現れる。討てば因縁の決着と特別報酬。
    失敗を「いつか討つ」未来の目標に変え、格上への挑戦に個人的な因縁の物語を宿す新機軸 ===== */
@@ -9787,7 +9801,7 @@ function resolveDemonDefense(){
       let itemMsg="";
       const item=rollItemDrop(S.demonArmyLevel>=5?"epic":"rare"); // 魔将は必ず遺物を落とす
       if(item){addItem(item.key);itemMsg=`魔将の遺物「${item.name}」を手に入れた。`;}
-      if(leader)unitHistory(leader,`魔将「${genName}」を討ち取り、その名を魔王軍に知らしめた。`);
+      if(leader){unitHistory(leader,`魔将「${genName}」を討ち取り、その名を魔王軍に知らしめた。`);recordSigFeat(leader,`魔王軍の魔将「${genName}」を、先陣に立って討ち取った`,5);} // 魔将討伐は、その兵の生涯の語り草となる大殊勲
       for(const u of squad)grantTitle(u,"t_generalslayer"); // 魔将を討った部隊に「魔将殺し」の称号
       chron(`――魔将「${genName}」を討ち取った！${leader?leader.nm:"部隊"}の武勇が魔王軍に一泡吹かせ、防衛の練度が大きく上がった(魔王軍対応Lv.${S.demonArmyLevel})。${itemMsg}`,"big");
       igniteFervor(6,`魔将「${genName}」を討ち取った大殊勲`); // 魔将討伐は国中の熱狂に火をつける
@@ -11992,6 +12006,7 @@ function renderUnitDetail(uid){
   // ── 生い立ち ──
   if(u.backstory)h+=`<div class="udet-sec"><h4>生い立ち</h4><div style="font-size:12px;color:#d8dbe6;line-height:1.85;font-style:italic">${u.backstory}</div></div>`;
   if(!isInstructor&&u.dream){const dd=UNIT_DREAMS.find(x=>x.key===u.dream);if(dd)h+=`<div class="udet-sec"><h4>${u.dreamDone?"叶えた夢":"抱いている夢"}</h4><div style="font-size:12px;color:${u.dreamDone?"var(--gold)":"#d8dbe6"};font-style:italic">${u.dreamDone?"✦ ":"― "}${dd.text}${u.dreamDone?" ――その願いは、叶えられた。":""}</div></div>`;}
+  if(u.sigFeat&&u.sigFeat.text)h+=`<div class="udet-sec"><h4>語り草の武勲</h4><div style="font-size:12px;color:#e0be6f;line-height:1.8;font-style:italic;border-left:2px solid var(--gold2,#c9a24b);padding-left:9px">❖ ${u.sigFeat.text}<span style="color:var(--dim);font-style:normal">（DAY ${u.sigFeat.day}）</span></div></div>`; // その兵を語る時、真っ先に挙がる生涯の一戦
   // ── 戦績(この兵が歩んできた道のりを数字で刻む=愛着と成長実感) ──
   {
     const rec=[];
