@@ -13207,6 +13207,16 @@ function renderDungeonPanel(){
        <div style="display:flex;gap:5px;flex-wrap:wrap">`+DUNGEON_TACTIC_KEYS.map(k=>{const t=DUNGEON_TACTICS[k];const on=k===curT;const afford=!t.cost||S.gold>=t.cost;const dis=!afford&&k!=="none";return `<button class="dg-tactic-btn" data-t="${k}" ${dis?"disabled":""} style="flex:1;min-width:70px;background:${on?t.color:"transparent"};color:${on?"var(--ink)":dis?"rgba(255,255,255,.3)":t.color};border:1px solid ${dis?"rgba(255,255,255,.12)":t.color};border-radius:6px;padding:7px 4px;font-family:'Shippori Mincho',serif;font-size:11px;font-weight:${on?"800":"600"};cursor:${dis?"default":"pointer"}">${t.label}${t.cost?`(${t.cost}G)`:""}</button>`;}).join("")+`</div>
        ${DUNGEON_TACTICS[curT]&&DUNGEON_TACTICS[curT].desc?`<div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:4px">${DUNGEON_TACTICS[curT].desc}</div>`:""}</div>`;
     }
+    // この派遣で仕込む備えと、その合計費用を一望できるように(複数レバーの総額を出立前に確かめる)
+    {const parts=[];let goldSpend=0,foodSpend=0;
+     const canProv=(S.food||0)>=PROVISION_COST;if(dgProvision&&canProv){parts.push("兵站");foodSpend+=PROVISION_COST;}
+     const curT2=DUNGEON_TACTICS[dgTactic]?dgTactic:"none";if(curT2!=="none"){const tc=DUNGEON_TACTICS[curT2];if(!tc.cost||S.gold>=tc.cost){parts.push(`秘策「${tc.label}」`);goldSpend+=tc.cost||0;}}
+     const spareN=eligible.filter(u=>!dgSelectedUnitIds.includes(u.id)).length;if(dgDecoy&&spareN>0)parts.push("陽動(兵1)");
+     const mc2=mercCost(d);if(dgMerc&&S.gold>=mc2){parts.push("傭兵");goldSpend+=mc2;}
+     if(dgDelve)parts.push("深層強行");
+     if(parts.length&&(goldSpend>0||foodSpend>0))h+=`<div class="ds" style="font-size:11px;color:#c9a86a;margin-top:8px">この派遣の備え:${parts.join("・")} ／ 費用 ${goldSpend>0?`${goldSpend}G`:""}${goldSpend>0&&foodSpend>0?"・":""}${foodSpend>0?`食糧${foodSpend}`:""}</div>`;
+     else if(parts.length)h+=`<div class="ds" style="font-size:11px;color:#c9a86a;margin-top:8px">この派遣の備え:${parts.join("・")}</div>`;
+    }
     h+=`<div style="display:flex;gap:6px;margin-top:10px">
       <button id="dgDispatchConfirm" ${selSquad.length?"":"disabled"} style="flex:1;background:${selSquad.length?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${selSquad.length?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:10px;font-family:'Shippori Mincho',serif;font-weight:800;cursor:${selSquad.length?"pointer":"default"}">この編成で派遣する</button>
       <button id="dgDispatchCancel" style="flex:1;background:transparent;border:1px solid var(--dim);color:var(--dim);border-radius:6px;padding:10px;font-family:'Shippori Mincho',serif;cursor:pointer">戻る</button>
