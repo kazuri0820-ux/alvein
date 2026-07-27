@@ -6884,6 +6884,7 @@ const DUNGEON_CONDITIONS={
   prodigyhall:{label:"研鑽の回廊",color:"#9fc98f",desc:"才を伸ばす気に満ちた回廊。踏破すれば、隊で最も未熟な者が驚くほどの成長を遂げる"},
   starwatch:{label:"星読みの天文台",color:"#8f9fd0",desc:"星々を読む古の天文台。踏破すれば天啓を得て、新たな秘境への道が開ける"},
   trainground:{label:"研武の霊場",color:"#c98f8f",desc:"武を練る気が満ちる霊場。踏破した部隊は皆わずかに永続で鍛え上げられる(全能力+1)"},
+  valor:{label:"忠魂の霊地",color:"#d0a86a",desc:"忠義に殉じた古の兵たちの魂が眠る霊地。共に潜り抜けた部隊には、揺るがぬ忠誠が芽生える"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 /* 個体差(アフィックス)を複数回ロールして最良の一組を返す=マジックファインド(良個体を引き当てる) */
@@ -7802,6 +7803,10 @@ function resolveDungeonRun(dungeonId){
       if(cond==="trainground"){ // 研武の霊場: 踏破した部隊が全能力を永続でわずかに鍛え上げる(選んで通える育成の場)
         for(const u of squad){if(!u)continue;for(const k of ["str","vit","int","agi","wis","lead"])u[k]+=1;}
         chron(`「${dungeon.name}」の研武の霊場で、部隊は皆一様に鍛えられた。その体に、確かな力が永く刻まれている(全能力+1)。`,"big");
+      }
+      if(cond==="valor"){ // 忠魂の霊地: 共に潜り抜けた部隊に揺るがぬ忠誠が芽生える(育ちにくい忠義の入手経路)
+        for(const u of squad){if(!u)continue;u.loyalty=Math.min(100,(u.loyalty||0)+ri(6,12));u.moral=Math.min(100,(u.moral||0)+3);}
+        chron(`「${dungeon.name}」の忠魂の霊地で、部隊は古の忠臣たちの魂に触れた。その揺るがぬ忠義が皆の胸に宿り、隊の結束が一段と深まっている。`,"big");
       }
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
