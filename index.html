@@ -6369,6 +6369,7 @@ const DUNGEON_CONDITIONS={
   kinship:{label:"絆の霊地",color:"#d99ab0",desc:"互いに背を預けねば抜けられぬ難所。共に潜り抜けた部隊には、戦友の絆が芽生えやすい"},
   richloot:{label:"秘宝の鉱脈",color:"#e0c060",desc:"稀少な鉱脈が眠る地。踏破すれば、選りすぐりの個体差を宿した逸品の装備を掘り当てる"},
   dojo:{label:"武の霊場",color:"#c9a86a",desc:"古の武人が修行を積んだ霊場。踏破した部隊の中から、才ある者が新たな技を会得することがある"},
+  prodigyhall:{label:"研鑽の回廊",color:"#9fc98f",desc:"才を伸ばす気に満ちた回廊。踏破すれば、隊で最も未熟な者が驚くほどの成長を遂げる"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 /* 個体差(アフィックス)を複数回ロールして最良の一組を返す=マジックファインド(良個体を引き当てる) */
@@ -7195,6 +7196,10 @@ function resolveDungeonRun(dungeonId){
         let learnedAny=false;
         for(const u of picks){ if(Math.random()<0.7){ const learned=trySkillUp(u); if(learned){learnedAny=true;chron(`「${dungeon.name}」の武の霊場で、${u.nm}が新たな技「${learned.name}」を会得した。`,"big");} } }
         if(!learnedAny)chron(`「${dungeon.name}」の武の霊場で、部隊は黙々と技を磨いた。実りは、いずれ形になるだろう。`,"");
+      }
+      if(cond==="prodigyhall"){ // 研鑽の回廊: 隊で最も未熟な者が大きく成長する(ベテランに新兵を混ぜる編成に報いる)
+        const active=squad.filter(u=>u);
+        if(active.length){const rookie=active.reduce((a,b)=>b.lv<a.lv?b:a);const g=Math.round(ri(35,60)*levelMult);rookie.exp+=g;processLevelUps(rookie);unitHistory(rookie,`「${dungeon.name}」の研鑽の回廊で、めきめきと力をつけた。`);chron(`「${dungeon.name}」の研鑽の回廊に満ちた気が、隊で最も未熟な${rookie.nm}を大きく成長させた。`,"big");}
       }
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
