@@ -3450,6 +3450,39 @@ const EARLY_GROWTH=[
 ];
 /* ---------- レアイベント:通常より低頻度・高インパクト ---------- */
 const RANDOM_RARE=[
+ {tag:"果たし合い",title:"道場破りの挑戦者",
+  body:"腕に覚えのある武者が一人、城下の練兵場に乗り込んできた。「この国で一番強い者と、一手お手合わせ願いたい」。堂々たる面構え――ただ者ではなさそうだ。",
+  speaker:"ガレオン「無下に追い返すのも角が立ちましょう。いかがなさいますか」",
+  choices:[
+   {label:"最強の兵で受けて立つ",hint:"勝てば挑戦者が仲間に / 敗れれば面目を失う",fx:{call:()=>{
+     const cands=S.units.filter(u=>u.role==="active"&&u.injured<=0);
+     if(!cands.length){chron("だが、立ち合える兵が一人もおらず、挑戦者は失望して去っていった。","");return;}
+     const champ=cands.reduce((a,b)=>unitPower(b)>unitPower(a)?b:a);
+     const foe=unitPower(champ)*rnd(0.7,1.15); // 挑戦者は自軍最強と伯仲(やや自軍有利)
+     if(unitPower(champ)>=foe){
+       champ.exp+=ri(15,28); processLevelUps(champ); champ.moral=Math.min(100,(champ.moral||0)+5);
+       unitHistory(champ,"道場破りの挑戦者を退け、その武名を高めた。");
+       S.volunteers=S.volunteers||[];
+       let name=null;
+       if(S.volunteers.length<8){const v=makeVolunteer();v.hiddenPotential=true;v.comment="果たし合いに敗れ、その腕に惚れ込んで弟子入りを願い出た。";name=`${v.unit.nm} ${v.unit.surname}`;S.volunteers.push(v);}
+       apply({mood:3,log:name?`――${champ.nm}が道場破りの挑戦者を見事に打ち破った！敗れた挑戦者「${name}」は「参りました」と頭を垂れ、弟子入りを願い出ている(志願一覧に加わった)。`:`――${champ.nm}が道場破りの挑戦者を見事に打ち破った！その武名は城下に轟いた。`,logCls:"big"});
+     }else{
+       champ.moral=Math.max(0,(champ.moral||0)-4);
+       if(Math.random()<0.3)inflictInjury(champ,[0.8,0.18,0.02]);
+       apply({mood:-2,log:`${champ.nm}が受けて立ったが、挑戦者の一手が上だった。挑戦者は「良い稽古だった」と言い残し、颯爽と去っていった。`});
+     }
+   }}},
+   {label:"賞金を賭けて立ち合う(50G)",hint:"勝てば賞金と武名 / 賭け",fx:{call:()=>{
+     if(S.gold<50){chron("賭け金を用意できず、果たし合いは流れた。","");return;}
+     S.gold-=50;
+     const cands=S.units.filter(u=>u.role==="active"&&u.injured<=0);
+     if(!cands.length){chron("立ち合える兵がおらず、賭け金だけが虚しく残った。","");return;}
+     const champ=cands.reduce((a,b)=>unitPower(b)>unitPower(a)?b:a);
+     if(Math.random()<0.55){const g=ri(120,200);champ.exp+=ri(12,22);processLevelUps(champ);apply({gold:g,mood:3,log:`${champ.nm}が賭けの果たし合いを制した！賞金${g}を手にし、城下は大いに沸いた。`,logCls:"big"});}
+     else apply({mood:-1,log:`${champ.nm}は善戦したが惜しくも敗れ、賭け金は挑戦者の手に渡った。`});
+   }}},
+   {label:"果たし合いを断る",hint:"治安+1",fx:{st:{order:1},log:"王国は無用な私闘を戒め、丁重に挑戦者を送り返した。"}},
+  ]},
  {tag:"嘆 願",title:"飢えた隣村の願い",
   body:"隣村から使いが来た。「不作で蓄えが尽き、このままでは冬を越せませぬ。どうか、お慈悲を」。分け与えれば蔵は軽くなるが、恩義は民の心に長く残るだろう。",
   speaker:"セラ「食糧は我らとて余ってはおりませぬが……見捨てれば、王国の評判にも関わりましょう」",
