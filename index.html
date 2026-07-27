@@ -6445,6 +6445,7 @@ function rollRandomTurnEvent(){
   if(S.day>10&&Math.random()<0.012)checkDungeonDiscovery(1.0);
   checkFleetingDungeons(); // 時限の好機:主が移り去った迷宮を探索先から消す
   checkObservatoryPortent(); // 星見の塔:折に触れ、星が吉兆を告げる
+  checkKingsReflection(); // 王の述懐:国の実情に即した、統べる者の独白を稀に綴る
   if(S.units.length&&Math.random()<0.004){pushEvent("__old_equipment__");return;}
   if(S.units.length&&Math.random()<0.0035){pushEvent("__job_change_surprise__");return;}
   // 日常フレーバー(パラメータに影響しない、ログを賑やかにするためだけの小さな一言)は1日1回程度
@@ -6991,6 +6992,58 @@ const OBSERVATORY_PORTENTS=[
  ()=>{const f=ri(8,16);S.food=Math.min(999,(S.food||0)+f);return `星読みが好天の続くことを告げ、民は先んじて刈り入れに励んだ。蔵に${f}の実りが積み増された(食糧↑)。`;},
  ()=>{if((S.st.magic||0)<100)S.st.magic=Math.min(100,S.st.magic+1);return "塔の頂で新たな星が観測された。天の理への理解が、また一つ深まった(魔導↑)。";},
 ];
+/* 王の述懐(演出の新軸):これまで声を持たなかった"王"に、内面の独白を与える。兵の語らいや季節の風物詩が
+   "兵"の視点なのに対し、これは統べる者だけが背負う想いを、国の実情(危機・喪失・栄光・泰平・戦・長い治世)に
+   即して稀に綴る。プレイヤー自身の治世が"felt"になり、数字の裏にある物語の重みを立ち上げる。頻度は低く抑える。 */
+const KING_REFLECTIONS={
+ crisis:[
+  "王は独り、執務室の灯を見つめていた。「守ると誓った民が、いま苦しんでいる。……この重さこそが、玉座に座る者の負うべきものか」。",
+  "眠れぬ夜、王は窓辺に立った。城下に灯る、頼りなくも消えぬ無数の明かり。「あの一つ一つが、余を頼りにしている。倒れるわけには、いかぬ」。",
+ ],
+ grief:[
+  "戦没者の名簿を前に、王はしばし言葉を失った。「名もなき兵と、余は思わぬ。皆、確かにこの国の空の下にいた者たちだ」。",
+  "ひとり祭壇に向かい、王は静かに頭を垂れた。「征くと決めたのは余だ。ならばこの痛みも、余が引き受けねばなるまい」。",
+ ],
+ war:[
+  "地図に広がる魔の影を、王はじっと見据えた。「恐れは、ある。だが恐れぬ者に、民は預けられぬ。……征くしかあるまい」。",
+  "夜更け、遠く軍馬のいななきが聞こえた。王はふと剣の柄に手を置いた。「この剣が民を守るのか、民が余を守るのか。……いずれ、共に生き延びるまでよ」。",
+ ],
+ triumph:[
+  "轟く王国の武名を耳にしても、王の胸に驕りはなかった。「名声は、預かりものだ。積み上げた兵たちの汗を、忘れてはならぬ」。",
+  "祝勝の喧騒を離れ、王は星空を仰いだ。「かつて雪深い谷にあった小村が、ここまで来た。……よくぞ、ついてきてくれた」。",
+ ],
+ prosperity:[
+  "市の賑わいを城壁から眺め、王は口元をゆるめた。「笑い声が絶えぬ国。それこそが、いくさに勝るとも劣らぬ勝利であろう」。",
+  "満ちた蔵と、穏やかな民の顔。王は静かに息をついた。「この平穏を守ることが、次の務めだ。奢らず、緩まず」。",
+ ],
+ reign:[
+  "長く玉座にあった王は、白くなった己の指先を見た。「幾多の顔を見送り、幾多の顔を迎えた。……この国は、余ひとりのものではないな」。",
+  "積み重なった年代記の背表紙を、王はそっと撫でた。「ここに刻まれた一頁一頁が、余の生きた証か。まだ、書き終える気はないが」。",
+ ],
+ solitude:[
+  "政務の合間、王はふと羽ペンを置いた。「王とは、孤独なものだと誰かが言った。……だが、これほど多くの者に支えられて、何が孤独か」。",
+  "静かな午後、王は執務室の椅子に深く身を預けた。「今日も、国はまわっている。当たり前のようでいて、それがどれほど得難いことか」。",
+ ],
+};
+function kingReflectionCategory(){
+  const crisis=(S.flags&&((S.flags.famineArc===1)||(S.flags.plagueArc===1)||(S.flags.unrestArc===1)))||(S.mood||100)<24||(S.food||99)<8;
+  if(crisis)return "crisis";
+  if(S.flags&&S.flags.griefUntil&&S.day<S.flags.griefUntil)return "grief";
+  if(S.flags&&S.flags.demonNoticed&&!S.flags.demonLordDefeated)return "war";
+  if((typeof renownTierIndex==="function"&&renownTierIndex()>=3)||(typeof fervorActive==="function"&&fervorActive()))return "triumph";
+  if((S.mood||0)>75&&(S.gold||0)>300)return "prosperity";
+  if((S.day||0)/AGE_YEAR_DAYS>=8)return "reign";
+  return "solitude";
+}
+function checkKingsReflection(){
+  if((S.day||0)<16)return;
+  if(S.flags&&S.flags.lastKingReflect&&(S.day-S.flags.lastKingReflect)<18)return; // 述懐は間を置いて、稀に
+  if(Math.random()>=0.03)return;
+  const cat=kingReflectionCategory();
+  const pool=KING_REFLECTIONS[cat]||KING_REFLECTIONS.solitude;
+  S.flags=S.flags||{}; S.flags.lastKingReflect=S.day;
+  chron("〈王の述懐〉 "+pool[Math.floor(Math.random()*pool.length)],"big");
+}
 function checkObservatoryPortent(){
   if(!(S.flags&&S.flags.observatory))return;
   if(Math.random()>=0.02)return; // 稀に(概ね50日に一度ほど)
@@ -9797,6 +9850,7 @@ function fallenEulogy(u,placeName,hallWorthy){
   const featTxt=feats.length?`(${feats.join("・")}を遺して)`:"";
   const line=EULOGY_LINES[ri(0,EULOGY_LINES.length-1)];
   chron(line(fullName(u),placeName||"迷宮")+featTxt,"grave");
+  S.flags=S.flags||{}; S.flags.griefUntil=S.day+ri(4,8); // 名のある兵の喪失は、しばし王の述懐に影を落とす
   if(u.sigFeat&&u.sigFeat.text)chron(`いくさ場では、いまも語り草になっている――${u.sigFeat.text}、あの${u.nm}の武勇が。`,"grave"); // 生涯の語り草を、弔いの最後に今一度
 }
 /* ===== 宿敵(Nemesis):討ち逃した強敵が"宿敵"として心に刻まれ、再戦の迷宮が現れる。討てば因縁の決着と特別報酬。
