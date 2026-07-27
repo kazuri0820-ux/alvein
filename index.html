@@ -4253,6 +4253,43 @@ const RANDOM_RARE=[
      chron("王は大普請を急がず、蓄えを金庫に温存することにした。大事業の機会は、また改めて訪れよう。","");
    }}},
   ]},
+ // ===== 連続物語(イベント連鎖):竜の卵。長い抱卵を経て孵し、育て上げれば王国を守る竜となる。時間をかけて
+ //   育む長期の目標と、生き物への愛着、そして戦場を見守る恒久の守りという新報酬を一続きの物語で結ぶ新機軸 =====
+ {tag:"竜の卵",title:"竜の卵",
+  cond:s=>!(s.flags&&s.flags.dragonEggArc)&&STAGES[s.stage].rank>=3&&s.day>=55,
+  body:"遠国帰りの隊商が、藁を敷き詰めた籠を恐る恐る差し出した。中には、大人が両腕で抱えるほどの巨大な卵。鈍い鱗のような殻は、触れると仄かに温かく、ときおり内側から確かな鼓動が伝わってくる。「山の民は、これを竜の卵だと申しました。……手に負えず、こちらへ」。真偽は分からぬ。だが、この温もりは本物だ。",
+  speaker:"セラ「竜の卵……もし本物なら、育て上げるには長い年月と手間がかかりましょう。それでも――夢のある話にございます」",
+  choices:[
+   {label:"城で大切に温め、孵るのを待つ",hint:"長い抱卵の物語が始まる(孵し育てれば、王国を守る竜となるかもしれない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.dragonEggArc=1;S.flags.dragonEggDay=S.day+ri(16,24);
+     apply({mood:2,log:"王は卵を城の暖炉のそばに据え、番の者をつけて大切に温めさせた。城の子らは毎日そっと様子を見に来ては、いつ孵るのかと胸を躍らせている。長い抱卵の日々が始まった。",logCls:"big"});
+   }}},
+   {label:"好事家に高く売る",hint:"堅実(まとまった財貨が手に入る・この物語は始まらない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.dragonEggArc=-1;const g=ri(180,260);S.gold+=g;
+     apply({log:`王は卵を、蒐集家の貴族に高値で売り払った。財貨${g}が国庫に入ったが、あの温もりの行く末を、王は少しだけ気にかけた。`});
+   }}},
+   {label:"山へ還してやる",hint:"民心↑(あるべき場所へ・情け深い王の裁定)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.dragonEggArc=-2;
+     apply({mood:3,log:"王は卵を、それが見つかった山の奥へ静かに還させた。命をあるべき場所へ返す王の情けを、民は敬いをもって受け止めた(民心↑)。"});
+   }}},
+  ]},
+ {tag:"竜の卵",title:"竜、孵る",
+  cond:s=>(s.flags&&s.flags.dragonEggArc)===1&&s.day>=(s.flags.dragonEggDay||0),
+  body:"ある未明、城中に甲高い産声が響いた。長い抱卵を経て、ついに卵が割れたのだ。殻の中から現れたのは、濡れた翼を懸命に広げる、仔竜――紛れもない、生きた竜の子だった。つぶらな瞳が、真っ先に王を見上げる。この小さな命を、これからどう遇するか。",
+  speaker:"ガレオン「おお……本物の竜にございます！ この子をいかに育てるか、それが王国の未来を左右いたしましょう」",
+  choices:[
+   {label:"王国の守り竜として育て上げる",hint:"以後、竜が空から戦場を見守り、迷宮での戦没が永続で減る(育てた命が王国の盾となる)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.dragonEggArc=2;S.flags.dragonRaised=true;
+     apply({st:{military:2},mood:4,log:"王は仔竜を王国の守り竜として育てると定めた。兵たちに可愛がられ、糧を分け与えられて、竜はすくすくと育っていく。やがて翼を得たその竜は、遠征のたび空高くから戦場を見守り、危地の兵を守るだろう(軍事+2 民心↑)。以後、迷宮での戦没が永続的に減る。",logCls:"big"});
+     chron("――竜の卵の物語は、一頭の守り竜の誕生をもって幕を開けた。アルヴェインの空には今、確かな翼影がある。","big");
+   }}},
+   {label:"大空へ、自由に放ってやる",hint:"民心↑・竜は礼に宝を遺す(慈悲の選択・恒久の守りは得られない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.dragonEggArc=3;const g=ri(120,200);S.gold+=g;
+     const eq=rollEquipmentDrop(Math.random()<0.4?"epic":"rare");let en="";if(eq){const inst=addEquipment(eq.key);en=equipInstName(inst);}
+     apply({mood:5,log:`王は仔竜を縛らず、大空へ放ってやることを選んだ。竜は名残惜しげに城の上を三度旋回し、王の足元に古き宝――財貨${g}${en?`と「${en}」`:""}――を置いて、山の彼方へ飛び去った。命を尊ぶ王の心を、民は長く語り継いだ(民心↑)。`,logCls:"big"});
+     chron("――竜の卵の物語は、一頭の若き竜を大空へ送り出して幕を下ろした。いつかまた、どこかの空で巡り会うのかもしれない。","big");
+   }}},
+  ]},
  // ===== 連続物語(イベント連鎖):星鉄の一振り。二部に跨り、支援すれば一点物の名剣が鍛え上がる(記憶に残るアーティファクトを得る新報酬) =====
  {tag:"星 鉄",title:"星鉄の一振り",
   cond:s=>!(s.flags&&s.flags.starsteelArc)&&STAGES[s.stage].rank>=3&&(s.dungeonsCleared||0)>=3&&s.day>=45,
@@ -8949,7 +8986,7 @@ function resolveDungeonRun(dungeonId){
     apply({mood:-2});
     chron(`「${dungeon.name}」への挑戦は失敗に終わった。部隊は撤退した。`,"grave");
   }else{ // critical_fail
-    const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1)*(S.flags.heirloom==="banner"?0.82:1)*(alliedWith("draconis")?0.85:1)*(festivalIs("remembrance")?0.85:1)*(relicHas("ward")?0.88:1)*(squadEthos==="bulwark"?0.85:1); // 治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗/家宝「不滅の王旗」でさらに戦没が減る。竜嶺のドラコニアとの軍事同盟(援軍の約定)でも戦没が減る。慰霊祭の開催中も戦没が減る。遺物「不滅の護符」でも戦没が減る
+    const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1)*(S.flags.heirloom==="banner"?0.82:1)*(alliedWith("draconis")?0.85:1)*(festivalIs("remembrance")?0.85:1)*(relicHas("ward")?0.88:1)*(squadEthos==="bulwark"?0.85:1)*(S.flags.dragonRaised?0.85:1); // 治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗/家宝「不滅の王旗」でさらに戦没が減る。竜嶺のドラコニアとの軍事同盟(援軍の約定)でも戦没が減る。慰霊祭の開催中も戦没が減る。遺物「不滅の護符」でも戦没が減る。育て上げた竜が空から戦場を見守れば、戦没はさらに減る
     const hurtOnes=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*0.6)));
     const critW=medicAdjustWeights(formationAdjustWeights(cond==="blessed"?[0.4,0.4,0.2]:[0.1,0.3,0.6],fmKey),squad); // 陣形→古の祝福(大失敗でも深手を和らげる)→従軍医の順に負傷の重さを補正
     for(const u of hurtOnes){inflictInjury(u,critW);unitHistory(u,`「${dungeon.name}」で${INJURY_TIERS[u.injurySeverity].label}を負った。`);memberLog.push({u,gain:0,note:INJURY_TIERS[u.injurySeverity].label});}
@@ -10396,6 +10433,7 @@ function renderProjects(){
    if(F.explorerRank>=1){const el=["","名うての探検家(発見機会↑)","熟練の探検家(発見・踏破経験↑)","大陸の踏破者(発見・踏破経験↑・断片↑)"];boons.push(["探検家の格",el[Math.min(3,F.explorerRank)]]);}
    const gw={finance:"王立金融府 ― 王室金庫の利率が倍・運用上限も広い",forge:"常設の大工房 ― 鍛冶費が2割安く、迷宮での武具の出土が増える",hall:"英霊廟 ― 殿堂の加護が厚く、兵の忠誠がより育つ"};
    if(gw[F.grandWork])boons.push(["大いなる普請",gw[F.grandWork]]);
+   if(F.dragonRaised)boons.push(["王国の守り竜","空から戦場を見守り、迷宮での戦没を永く減らす"]);
    if(boons.length){
      h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 6px;letter-spacing:.15em">── 王国の恒久の力 ──</div>`;
      h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px">`+boons.map(bo=>`<div class="ds" style="margin:1px 0"><span style="color:var(--gold);font-weight:700">◆ ${bo[0]}</span> <span style="color:var(--dim)">― ${bo[1]}</span></div>`).join("")+`</div>`;
