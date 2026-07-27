@@ -7127,6 +7127,23 @@ const TAX_LEVELS={
 const TAX_KEYS=["light","normal","heavy"];
 function taxLevel(){return TAX_LEVELS[S.taxRate]?S.taxRate:"normal";}
 function taxInfo(){return TAX_LEVELS[taxLevel()];}
+/* ===== 食糧配給(内政の新軸):民に糧をどう配るかの常設政策。税制(国庫⇄民心)・移民(人口⇄治安)に続く第三の
+   ダイヤルで、蔵の食糧と民心を秤にかける。潤沢に配れば民心は上向くが蔵の減りが早まり、切り詰めれば食糧は
+   長持ちするが民心がじわり冷える。豊穣期に潤沢・端境期に倹約と、季節に合わせて配給を采配する日々の判断を生む。 ===== */
+const RATION_LEVELS={
+  generous:{label:"潤 沢",useMult:1.18,moodDelta:0.3,desc:"民に潤沢に糧を配る。民心が上向くが、蔵の食糧の減りが早まる。"},
+  normal:{label:"通常配給",useMult:1.0,moodDelta:0,desc:"穏当な配給。食糧の消費も民心も、特に偏りなく推移する。"},
+  austere:{label:"倹 約",useMult:0.78,moodDelta:-0.3,desc:"配給を切り詰める。食糧は長持ちするが、民心がじわりと冷えていく。"},
+};
+const RATION_KEYS=["generous","normal","austere"];
+function rationLevel(){return RATION_LEVELS[S.rationRate]?S.rationRate:"normal";}
+function rationInfo(){return RATION_LEVELS[rationLevel()];}
+function setRation(key){
+  if(!RATION_LEVELS[key]||S.rationRate===key)return;
+  S.rationRate=key;
+  chron(`食糧配給の方針が「${RATION_LEVELS[key].label}」に改められた。${RATION_LEVELS[key].desc}`,"big");
+  render();renderProjects();save();
+}
 function setTaxRate(key){
   if(!TAX_LEVELS[key]||S.taxRate===key)return;
   S.taxRate=key;
@@ -7279,12 +7296,12 @@ function dailyEconomySettle(){
   const heirloomHorn=(S.flags&&S.flags.heirloom==="horn"); // 家宝「豊穣の角杯」:日々の国庫・食糧を永続で底上げ
   S.gold+=income-upkeep+(heirloomHorn?(3+S.st.economy*0.12):0);
   const seasonMult=currentSeason().foodMult; // 収穫期の巡り:秋は実り豊か、冬は端境で生産が細る
-  S.food+=S.st.agriculture*0.7*noise*seasonMult-S.pop*0.085*(1-Math.min(0.3,S.st.agriculture*0.003))*(S.flags.statS_agriculture?0.95:1)+(heirloomHorn?4:0); // 農業が高いほど備蓄・分配も効率化し消費が抑えられる。農業Sで恒久的にさらに抑制。家宝「豊穣の角杯」で日々の実りが増す
+  S.food+=S.st.agriculture*0.7*noise*seasonMult-S.pop*0.085*(1-Math.min(0.3,S.st.agriculture*0.003))*(S.flags.statS_agriculture?0.95:1)*rationInfo().useMult+(heirloomHorn?4:0); // 農業が高いほど備蓄・分配も効率化し消費が抑えられる。農業Sで恒久的にさらに抑制。家宝「豊穣の角杯」で日々の実りが増す。食糧配給の方針(潤沢/倹約)で消費が増減する
   const growChance=(0.16+Math.max(0,(S.food-20)/700)+Math.max(0,(S.mood-45)/400)+Math.max(0,(S.st.agriculture-40)/900))*immigrationInfo().popMult; // 農業が豊かなほど人口増加率も上がる。移民政策(入植方針)でも人口の伸びが変わる
   if(S.food>15&&S.mood>38&&Math.random()<Math.min(0.6,growChance))S.pop+=ri(1,3);
   if(S.food<0){S.food=0;S.mood-=2;if(S.day%3===0)chron("食糧が底を突きつつある。配給に長い列ができている。","grave");}
   if(S.gold<0&&S.day%5===0){S.mood-=1.5;chron("蓄えが底を突いている。倹約令が敷かれた。","grave");}
-  S.mood+=(S.st.order-50)*0.02+(S.st.agriculture-30)*0.006+(S.st.diplomacy-30)*0.004+rnd(-0.5,0.5)+(doctrineIs("people")?0.35:0)+taxInfo().moodDelta; // 農業(食の安定)・外交(国の評判)も民心に影響。民の国は民心が日々育つ。徴税の軽重(税制)も民心をじわり左右する
+  S.mood+=(S.st.order-50)*0.02+(S.st.agriculture-30)*0.006+(S.st.diplomacy-30)*0.004+rnd(-0.5,0.5)+(doctrineIs("people")?0.35:0)+taxInfo().moodDelta+rationInfo().moodDelta; // 農業(食の安定)・外交(国の評判)も民心に影響。民の国は民心が日々育つ。徴税の軽重(税制)と食糧配給の厚薄(配給)も民心をじわり左右する
   if(S.policyFocus){
     const streakMult=1+Math.min(0.6,(S.policyStreak||0)*0.15); // 同じ方針を継続するほど伸びが強化(専念のご褒美)
     const cur=S.st[S.policyFocus];
@@ -11890,6 +11907,8 @@ function renderProjects(){
    if(typeof kingTitleName==="function"&&kingTitleName())chips.push(["王号",`〈${kingTitleName()}〉`,"#d8b45e"]); // 治世の色を映す呼び名を一望にも
    chips.push(["税制",taxInfo().label,taxLevel()==="heavy"?"#d99a6a":taxLevel()==="light"?"#8fbf6f":"#c9a86a"]);
    chips.push(["移民",immigrationInfo().label,immigrationLevel()==="open"?"#8fbf6f":immigrationLevel()==="closed"?"#d99a6a":"#c9a86a"]);
+   if(rationLevel()!=="normal")chips.push(["配給",rationInfo().label,rationLevel()==="generous"?"#8fbf6f":"#d99a6a"]); // 食糧配給の方針が通常でない時、一望に出す
+
    if(academyLevel()>0)chips.push(["学院","Lv."+academyLevel(),"#c9a86a"]);
    if(typeof doctrineName==="function"&&doctrineName())chips.push(["国是",doctrineName(),"#d8b45e"]); // 掲げた永続の国是を一望の要約にも(王国のアイデンティティ)
    if(S.policyFocus)chips.push(["重点",focusLabels[S.policyFocus],"#c9a86a"]);
@@ -11969,6 +11988,14 @@ function renderProjects(){
      <div class="ds" style="margin:2px 0 6px">${ti.desc}</div>
      <div style="display:flex;gap:5px;flex-wrap:wrap">`+TAX_KEYS.map(k=>{const t=TAX_LEVELS[k];const on=k===cur;const col=k==="heavy"?"#d99a6a":k==="light"?"#8fbf6f":"#c9a86a";return `<button class="tax-btn" data-k="${k}" style="flex:1;min-width:72px;background:${on?col:"transparent"};color:${on?"var(--ink)":col};border:1px solid ${col};border-radius:6px;padding:7px 4px;font-family:'Shippori Mincho',serif;font-size:11.5px;font-weight:${on?"800":"600"};cursor:pointer">${t.label}</button>`;}).join("")+`</div>
      <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:5px">徴税収入 ${Math.round(ti.incomeMult*100)}% ／ 民心 ${ti.moodDelta>0?"日々上向く":ti.moodDelta<0?"日々冷える":"変わらず"}</div>
+   </div>`;
+  }
+  // ── 食糧配給 ──
+  {const cur=rationLevel();const ri2=RATION_LEVELS[cur];
+   h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-market"></i>食糧配給 ― ${ri2.label}</div>
+     <div class="ds" style="margin:2px 0 6px">${ri2.desc}</div>
+     <div style="display:flex;gap:5px;flex-wrap:wrap">`+RATION_KEYS.map(k=>{const t=RATION_LEVELS[k];const on=k===cur;const col=k==="generous"?"#8fbf6f":k==="austere"?"#d99a6a":"#c9a86a";return `<button class="ration-btn" data-k="${k}" style="flex:1;min-width:72px;background:${on?col:"transparent"};color:${on?"var(--ink)":col};border:1px solid ${col};border-radius:6px;padding:7px 4px;font-family:'Shippori Mincho',serif;font-size:11.5px;font-weight:${on?"800":"600"};cursor:pointer">${t.label}</button>`;}).join("")+`</div>
+     <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:5px">食糧消費 ${Math.round(ri2.useMult*100)}% ／ 民心 ${ri2.moodDelta>0?"日々上向く":ri2.moodDelta<0?"日々冷える":"変わらず"}</div>
    </div>`;
   }
   // ── 移民政策 ──
@@ -12219,6 +12246,7 @@ function renderProjects(){
   $("#prjList").querySelectorAll(".festival-btn").forEach(b=>b.onclick=()=>{holdFestival(b.dataset.k);});
   {const tb=$("#prjList").querySelector(".tourney-btn");if(tb)tb.onclick=()=>holdTournament();}
   $("#prjList").querySelectorAll(".tax-btn").forEach(b=>b.onclick=()=>{setTaxRate(b.dataset.k);});
+  $("#prjList").querySelectorAll(".ration-btn").forEach(b=>b.onclick=()=>{setRation(b.dataset.k);});
   $("#prjList").querySelectorAll(".immig-btn").forEach(b=>b.onclick=()=>{setImmigration(b.dataset.k);});
   {const ab=$("#prjList").querySelector(".academy-btn");if(ab)ab.onclick=()=>buildAcademy();}
   $("#prjList").querySelectorAll(".civic-btn").forEach(b=>b.onclick=()=>{commissionCivicWork(b.dataset.k);renderProjects();});
