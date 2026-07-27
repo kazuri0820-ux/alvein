@@ -7733,6 +7733,8 @@ function dungeonTypeStatHint(type){
   const base={str:10,vit:10,int:10,agi:10,wis:10,lead:10};
   const b0=type.statFn(base);
   const scored=keys.map(k=>{const u=Object.assign({},base);u[k]=20;return {k,d:type.statFn(u)-b0};}).filter(s=>s.d>0.01).sort((a,b)=>b.d-a.d);
+  // 全能力がほぼ均等に効く型(混沌型 等)は個別の能力名ではなく「均衡・万能」と示す=専門特化が効かないことを一目で伝える(磨き込み)
+  if(scored.length>=5){const maxD=scored[0].d;const even=scored.filter(s=>s.d>=maxD*0.9).length;if(even>=5)return "均衡・万能";}
   return scored.slice(0,2).map(s=>labels[s.k]).join("・");
 }
 function routeDungeonBonus(u,type){
