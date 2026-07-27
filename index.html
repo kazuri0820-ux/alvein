@@ -2011,7 +2011,7 @@ function rollAffixes(rarityKey){
 function equipInstName(inst){
   const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return "?";
   const enh=enhLevel(inst)?` +${enhLevel(inst)}`:""; // 鍛冶による強化度を名に添える
-  const bond=inst.bonded?(inst.mei?`《銘・${inst.mei}》`:"〈相棒〉"):""; // 絆を結んだ得物の証。銘を得た一振りはその名で呼ぶ
+  const bond=inst.mei?`《銘・${inst.mei}》`:(inst.bonded?"〈相棒〉":""); // 銘を得た一振りはその名で呼ぶ。銘は主が斃れても失われず、形見となっても継がれても、その名で残り続ける
   const keep=inst.keepsake?"《形見》":""; // 亡き英傑の遺志を宿す形見の証
   if(!inst.affixes||!inst.affixes.length)return keep+bond+def.name+enh;
   const pre=inst.affixes.filter(a=>a&&a.pos==="prefix").map(a=>a.name).join("");
