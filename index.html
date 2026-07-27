@@ -1518,6 +1518,7 @@ const TRAIT_RARE=[
  {key:"trr_39",name:"生来の兄貴分",desc:"面倒見がよく、背中で戦い方を教える気質。この者を迷宮に伴うと、部隊の皆が踏破からより多くを学び取る",gm:1.06,squadExpBonus:0.2,lead:4},
  {key:"trr_40",name:"健脚の血筋",desc:"生まれついての健脚で、山も谷も苦にせず駆け抜ける。この者を伴う迷宮探索は所要日数が一日縮み、手数を稼げる",gm:1.06,marchDays:1,agi:5},
  {key:"trr_41",name:"座持ちの才",desc:"その場に居るだけで皆の呼吸が揃う不思議な人徳。この者を部隊に加えると、隊全体の連携が自然と高まる",gm:1.06,squadSynergy:0.05,lead:5},
+ {key:"trr_42",name:"一匹狼",desc:"抜きん出た才を持つが、群れることを嫌う一匹狼。単身では滅法強いが、その独りよがりが部隊の連携をわずかに乱す(才の伸びは大きい)",gm:1.32,squadSynergy:-0.06,agi:4},
 ];
 const TRAIT_EPIC=[
  {key:"swordsaint",name:"剣聖の末裔",desc:"名も知れぬ剣豪の血を引くという",gm:1.4,injuryMult:0.5,deathMult:0.55},
@@ -8958,7 +8959,7 @@ function traitEffectText(tr){
   if(tr.fortuneRoll)parts.push("部隊の迷宮踏破が大成功に転じやすい");
   if(tr.squadExpBonus)parts.push(`部隊の踏破経験値+${Math.round(tr.squadExpBonus*100)}%`);
   if(tr.marchDays)parts.push(`迷宮の所要日数-${tr.marchDays}日`);
-  if(tr.squadSynergy)parts.push(`部隊の連携+${Math.round(tr.squadSynergy*100)}%`);
+  if(tr.squadSynergy)parts.push(`部隊の連携${tr.squadSynergy>=0?"+":""}${Math.round(tr.squadSynergy*100)}%`);
   if(tr.condFlag==="dragonPact")parts.push(`竜盟約締結中は戦力+${tr.condPw||0}`);
   return parts.join(" / ");
 }
