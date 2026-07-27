@@ -1225,6 +1225,7 @@ html,body{height:auto!important;min-height:100%!important}
   <h3>アイテム <span class="x" data-close="panelItems">×</span></h3>
   <div id="itemsSummary" style="font-size:12px;color:var(--dim);margin-bottom:8px"></div>
   <div id="itemsBoons"></div>
+  <div id="itemsShop"></div>
   <div class="troopfilters" id="itemRarityRow"></div>
   <div id="itemsBody"></div>
 </div></div>
@@ -10076,7 +10077,68 @@ let dgTab="available";
 let dgSelectingDungeonId=null, dgSelectedUnitIds=[], dgFormation="balanced";
 let expSelecting=false, expSelectedUnitIds=[];
 let itemRarityFilter="all";
+/* ===== 行商人の店(新機軸:貯めた財貨を能動的に品へ換える経済の出口) =====
+   これまで財貨は貯まる一方で使い道が受動的(イベント/閣議)に限られていた。定期的に品揃えが替わる
+   店を設け、「今ある金で何を買うか」という能動的な選択と、狙った品を買い集める楽しさを加える。 */
+const SHOP_PRICE={common:45,uncommon:100,rare:210,epic:440};
+const SHOP_REFRESH_DAYS=12;
+function refreshShopStock(){
+  const pool=ITEMS.filter(i=>i.rarity!=="legendary"); // 伝説級は店には並ばない(入手はダンジョン/遠征の到達点として残す)
+  const weight={common:5,uncommon:4,rare:2,epic:0.6};
+  const stock=[];
+  const used=new Set();
+  let guard=0;
+  while(stock.length<4&&guard++<200){
+    let tot=0;for(const it of pool)if(!used.has(it.key))tot+=(weight[it.rarity]||1);
+    if(tot<=0)break;
+    let r=Math.random()*tot, pick=null;
+    for(const it of pool){if(used.has(it.key))continue;r-=(weight[it.rarity]||1);if(r<0){pick=it;break;}}
+    if(!pick)break;
+    used.add(pick.key);
+    stock.push({key:pick.key,price:SHOP_PRICE[pick.rarity]||100,sold:false});
+  }
+  S.shop={stock,refreshDay:S.day+SHOP_REFRESH_DAYS};
+}
+function ensureShopStock(){ if(!S.shop||!S.shop.stock||S.day>=(S.shop.refreshDay||0))refreshShopStock(); }
+function buyShopItem(idx){
+  ensureShopStock();
+  const entry=S.shop.stock[idx];
+  if(!entry||entry.sold)return;
+  if(S.gold<entry.price){chron("国庫が足らず、その品は買えなかった。","");return;}
+  const def=ITEMS.find(i=>i.key===entry.key);
+  S.gold-=entry.price; entry.sold=true;
+  if(def)addItem(def.key);
+  chron(`行商人から「${def?def.name:"品"}」を${entry.price}Gで買い求めた。`,"big");
+  clamp();render();renderItemsPanel();save();
+}
+function renderItemsShop(){
+  const el=$("#itemsShop"); if(!el)return;
+  ensureShopStock();
+  const left=Math.max(0,(S.shop.refreshDay||0)-S.day);
+  let h=`<div style="border:1px solid rgba(201,162,75,.4);border-radius:8px;padding:10px;margin-bottom:12px;background:rgba(0,0,0,.16)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="color:var(--gold);font-weight:800;font-size:13px"><i class="icon-market"></i>行商人の店</span>
+      <span style="font-size:10.5px;color:var(--dim)">品替えまで${left}日 ／ 国庫${Math.round(S.gold)}G</span>
+    </div>`;
+  h+=`<div style="display:flex;flex-direction:column;gap:6px">`;
+  S.shop.stock.forEach((entry,i)=>{
+    const def=ITEMS.find(x=>x.key===entry.key); if(!def)return;
+    const c=RARITY_COLOR[def.rarity];
+    const afford=S.gold>=entry.price&&!entry.sold;
+    h+=`<div style="display:flex;align-items:center;gap:8px;border:1px solid ${entry.sold?"rgba(255,255,255,.08)":c+"55"};border-radius:6px;padding:7px 9px;${entry.sold?"opacity:.45":""}">
+      <div style="flex:1;min-width:0">
+        <div style="color:${c};font-weight:700;font-size:12px"><i class="gemicon gem-${def.rarity}"></i>${def.name}</div>
+        <div style="font-size:10.5px;color:var(--dim);line-height:1.5">${def.desc}</div>
+      </div>
+      <button class="shop-buy-btn" data-i="${i}" ${afford?"":"disabled"} style="flex:0 0 auto;background:${afford?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${afford?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:7px 10px;font-family:'Shippori Mincho',serif;font-weight:800;font-size:11.5px;cursor:${afford?"pointer":"default"};white-space:nowrap">${entry.sold?"売切":entry.price+"G"}</button>
+    </div>`;
+  });
+  h+=`</div></div>`;
+  el.innerHTML=h;
+  el.querySelectorAll(".shop-buy-btn").forEach(b=>b.onclick=()=>buyShopItem(Number(b.dataset.i)));
+}
 function renderItemsPanel(){
+  renderItemsShop();
   const items=S.items||[];
   const totalCount=items.reduce((a,i)=>a+i.count,0);
   $("#itemsSummary").textContent=`所持アイテム:${items.length}種・計${totalCount}個`;
