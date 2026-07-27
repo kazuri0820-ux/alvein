@@ -1934,12 +1934,31 @@ function equipmentEffects(u){
     for(const k in def.statBonus)e[k]+=def.statBonus[k];
     if(inst.affixes)for(const a of inst.affixes)if(a&&a.stat&&e[a.stat]!==undefined)e[a.stat]+=a.val; // 個体差(アフィックス)の追加ロール
     if(inst.enh){const eb=enhStatBonus(def,inst.enh);for(const k in eb)if(e[k]!==undefined)e[k]+=eb[k];} // 鍛冶による強化分
+    if(slot==="weapon"&&inst.bonded&&inst.bondUnitId===u.id){ // 手に馴染んだ相棒の得物:絆を結んだ本人が振るう時だけ主要能力を底上げ(愛着が力になる)
+      const keys=Object.keys(def.statBonus||{});
+      if(keys.length){let best=keys[0];for(const k of keys)if((def.statBonus[k]||0)>(def.statBonus[best]||0))best=k;if(e[best]!==undefined)e[best]+=WEAPON_BOND_BONUS;}
+    }
   }
   const setTier=equipSetTier(u); // 三種を同じ格で揃えたセット効果
   if(setTier){const b=EQUIP_SET_BONUS[setTier];for(const k in e)e[k]+=b;}
   const aff=weaponAffinity(u); // 職に合った得物の相性ボーナス
   if(aff)e[aff]+=WEAPON_AFFINITY_BONUS;
   return e;
+}
+/* ===== 武具との絆:同じ得物を手に幾度も迷宮を潜り抜けた兵は、やがてその武器と分かちがたい絆を結ぶ。
+   金で買う鍛冶とは違い、"共に戦った時間"だけが育てる愛着の成長軸。絆を結んだ得物は本人が振るう時だけ力を増し、名に証が刻まれる ===== */
+const WEAPON_BOND_NEED=8;   // この回数を共に踏破すると絆が結ばれる
+const WEAPON_BOND_BONUS=3;  // 絆を結んだ得物が本人にもたらす主要能力の上乗せ
+function weaponBondTick(u){
+  const inst=u&&u.equipment&&u.equipment.weapon; if(!inst||inst.bonded)return;
+  if(inst.bondUnitId!==u.id){inst.bondUnitId=u.id;inst.bondClears=0;} // 持ち主が替われば絆は結び直し(その兵との共戦だけが数えられる)
+  inst.bondClears=(inst.bondClears||0)+1;
+  if(inst.bondClears>=WEAPON_BOND_NEED){
+    inst.bonded=true;
+    const def=EQUIPMENT_DB.find(d=>d.key===inst.key);
+    unitHistory(u,`幾多の死線を共にした得物「${def?def.name:"武器"}」と、分かちがたい絆で結ばれた。`);
+    chron(`${fullName(u)}は、幾度も共に潜り抜けた相棒の得物「${equipInstName(inst)}」と深い絆を結んだ。手に馴染んだその一振りは、いまや我が身の一部だ(振るう力が増す)。`,"big");
+  }
 }
 /* レア度に応じた装備を1件生成しS.equipmentInventoryに追加する(ダンジョン/遠征のドロップから呼ぶ) */
 function rollEquipmentDrop(maxRarityKey){
@@ -1977,10 +1996,11 @@ function rollAffixes(rarityKey){
 function equipInstName(inst){
   const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return "?";
   const enh=enhLevel(inst)?` +${enhLevel(inst)}`:""; // 鍛冶による強化度を名に添える
-  if(!inst.affixes||!inst.affixes.length)return def.name+enh;
+  const bond=inst.bonded?"〈相棒〉":""; // 絆を結んだ得物の証
+  if(!inst.affixes||!inst.affixes.length)return bond+def.name+enh;
   const pre=inst.affixes.filter(a=>a&&a.pos==="prefix").map(a=>a.name).join("");
   const suf=inst.affixes.filter(a=>a&&a.pos==="suffix").map(a=>a.name).join("");
-  return pre+def.name+suf+enh;
+  return bond+pre+def.name+suf+enh;
 }
 /* 装備インスタンスの効果表示(基礎＋アフィックスを合算)。 */
 function equipInstBonusText(inst){
@@ -8311,6 +8331,7 @@ function resolveDungeonRun(dungeonId){
       const _tk=dungeon.type&&dungeon.type.key;
       for(const u of squad){
         u.dungeonClearCount=(u.dungeonClearCount||0)+1;
+        weaponBondTick(u); // 装備中の得物との絆を、共に潜った踏破ごとに深める
         if(u.dungeonClearCount>=5)grantTitle(u,"t_conqueror5");
         if(u.dungeonClearCount>=20)grantTitle(u,"t_conqueror20");
         if(itemGained&&itemGained.rarity==="legendary")grantTitle(u,"t_treasurehunter");
@@ -10545,6 +10566,12 @@ function renderUnitDetail(uid){
       h+=`<div class="pcard" style="margin-bottom:6px">
         <div class="nm" style="font-size:12.5px"><i class="ricon ${def?`eqp-icon-${def.key}`:`eqicon-${slot}`}" style="width:16px;height:16px;margin-right:3px"></i>${EQUIP_SLOT_LABEL[slot]}</div>
         <div class="ds">${def?`${equipInstName(inst)}(${equipInstBonusText(inst)})`:"未装備"}</div>
+        ${def&&slot==="weapon"?(()=>{
+          if(inst.bonded&&inst.bondUnitId===u.id)return `<div class="ds" style="font-size:11px;color:var(--gold);margin-top:3px">◆ 相棒の絆 ― 共に潜り抜けた得物。振るう時、主要能力+${WEAPON_BOND_BONUS}</div>`;
+          if(inst.bonded)return `<div class="ds" style="font-size:11px;color:var(--dim);margin-top:3px">かつて別の兵と絆を結んだ得物(この兵には絆の力は宿らない)</div>`;
+          const c=inst.bondUnitId===u.id?(inst.bondClears||0):0;
+          return `<div class="ds" style="font-size:11px;color:var(--dim);margin-top:3px">相棒の絆:共に踏破 ${c}/${WEAPON_BOND_NEED}(結べば、この兵が振るう時に力を増す)</div>`;
+        })():""}
         <div style="display:flex;gap:6px;margin-top:6px">
           <button class="eq-open-btn" data-slot="${slot}" style="flex:1;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:6px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${def?"付け替える":"装備する"}</button>
           ${def?`<button class="eq-remove-btn" data-slot="${slot}" style="flex:1;background:transparent;border:1px solid rgba(217,122,122,.5);color:#d97a7a;border-radius:6px;padding:6px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">外す</button>`:""}
