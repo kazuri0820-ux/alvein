@@ -9500,6 +9500,23 @@ function checkOutpostReport(){
   else if(o.type==="order"){S.mood=Math.min(100,(S.mood||0)+2);const g=ri(10,25);S.gold+=g;chron(`「${o.name}」の辺境の砦が街道を荒らす野盗の一味を退けた。周辺の民は安堵し、押収した財貨${g}が国庫に納められた(民心↑)。`,"");}
   else if(o.type==="train"){const c=S.units.filter(u=>u.role==="active"&&u.injured<=0);if(c.length){const u=c[Math.floor(Math.random()*c.length)];u.exp+=ri(8,16);processLevelUps(u);unitHistory(u,`「${o.name}」の錬武の砦で猛稽古を積み、腕を上げて戻った。`);chron(`「${o.name}」の錬武の砦での鍛錬が実を結び、${fullName(u)}が一段と腕を上げた。`,"");}}
 }
+/* ===== 前哨の転換(内政の新軸=版図の采配):前哨は確保時に型が定まるが、これを財を投じて別の産業へ作り替えられる。
+   金鉱を豊穣の砦へ、辺境の砦を錬武の砦へ――今の国に足りぬものへ、確保済みの版図を能動的に振り向ける。ただし
+   産業を興し直すため根付き(定着の実り増)はやり直しとなる。受け身だった前哨(確保時の運任せ)に、"手持ちの土地を
+   どう活かすか"という采配を与える内政レバー。 ===== */
+function outpostRepurposeCost(){const rank=((typeof STAGES!=="undefined"&&STAGES[S.stage]&&STAGES[S.stage].rank)||1);return 60+rank*30;}
+function repurposeOutpost(id,newType){
+  const o=(S.outposts||[]).find(x=>x.id===id); if(!o)return;
+  if(!OUTPOST_TYPES.some(t=>t.key===newType)||o.type===newType)return;
+  const cost=outpostRepurposeCost();
+  if(S.gold<cost){chron(`前哨を作り替える費え(${cost}G)が足りない。`,"");return;}
+  S.gold-=cost;
+  o.type=newType; o.developed=false; o.day=S.day; // 産業を一から興し直す(根付きはやり直し)
+  const rank=((typeof STAGES!=="undefined"&&STAGES[S.stage]&&STAGES[S.stage].rank)||1);
+  o.yield=(newType==="gold"||newType==="food")?Math.round(3+rank*1.5):0;
+  chron(`王は「${o.name}」を「${outpostTypeName(newType)}」へと作り替えた。新たな産業が根を張り直すには時を要するが、これで国の今の入用に応えられる。`,"big");
+  clamp();render();renderProjects();save();
+}
 function abandonOutpost(id){
   S.outposts=S.outposts||[];
   const idx=S.outposts.findIndex(o=>o.id===id);
@@ -12068,9 +12085,15 @@ function renderProjects(){
    if(!ops.length){h+=`<div class="ds" style="color:var(--dim);font-size:11px">まだ前哨はない。迷宮を踏破すると、その跡地を稀に前哨として確保できる。</div>`;}
    for(const o of ops){
      const detail=((o.type==="gold"||o.type==="food")?`日々 ${yld[o.type]}+${o.yield}`:`日々 ${yld[o.type]}を支える`)+(o.developed?" ／ 根付いた里":"");
-     h+=`<div style="display:flex;align-items:center;gap:8px;border:1px solid rgba(201,162,75,.3);border-radius:6px;padding:8px 10px;margin-bottom:5px">
-       <span style="flex:1;min-width:0"><span style="color:var(--gold);font-weight:700">${outpostTypeName(o.type)}</span> <span style="color:var(--dim);font-size:10.5px">― ${o.name}</span><br><span style="font-size:10.5px;color:#8fbf6f">${detail}</span></span>
-       <button class="outpost-abandon-btn" data-id="${o.id}" style="flex:0 0 auto;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--dim);border-radius:6px;padding:5px 9px;font-family:'Shippori Mincho',serif;font-size:10.5px;cursor:pointer">畳む</button>
+     const rpCost=outpostRepurposeCost();
+     h+=`<div style="border:1px solid rgba(201,162,75,.3);border-radius:6px;padding:8px 10px;margin-bottom:5px">
+       <div style="display:flex;align-items:center;gap:8px">
+         <span style="flex:1;min-width:0"><span style="color:var(--gold);font-weight:700">${outpostTypeName(o.type)}</span> <span style="color:var(--dim);font-size:10.5px">― ${o.name}</span><br><span style="font-size:10.5px;color:#8fbf6f">${detail}</span></span>
+         <button class="outpost-abandon-btn" data-id="${o.id}" style="flex:0 0 auto;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--dim);border-radius:6px;padding:5px 9px;font-family:'Shippori Mincho',serif;font-size:10.5px;cursor:pointer">畳む</button>
+       </div>
+       <div style="display:flex;align-items:center;gap:4px;margin-top:6px;flex-wrap:wrap"><span style="color:var(--dim);font-size:10px;flex:0 0 auto">${rpCost}Gで転換▸</span>`+
+         OUTPOST_TYPES.filter(t=>t.key!==o.type).map(t=>`<button class="outpost-repurpose-btn" data-id="${o.id}" data-t="${t.key}" ${S.gold>=rpCost?"":"disabled"} title="${t.desc}(根付きはやり直し)" style="flex:1;min-width:56px;background:transparent;border:1px solid ${S.gold>=rpCost?"var(--gold2)":"rgba(255,255,255,.12)"};color:${S.gold>=rpCost?"var(--gold)":"var(--dim)"};border-radius:5px;padding:5px 3px;font-family:'Shippori Mincho',serif;font-size:10px;cursor:${S.gold>=rpCost?"pointer":"default"}">${outpostTypeName(t.key)}</button>`).join("")+
+       `</div>
      </div>`;
    }
    h+=`</div>`;
@@ -12275,6 +12298,7 @@ function renderProjects(){
   $("#prjList").querySelectorAll(".loan-take-btn").forEach(b=>b.onclick=()=>{takeLoan(+b.dataset.amt);});
   $("#prjList").querySelectorAll(".loan-repay-btn").forEach(b=>b.onclick=()=>{const a=b.dataset.amt;repayLoan(a==="all"?"all":+a);});
   $("#prjList").querySelectorAll(".outpost-abandon-btn").forEach(b=>b.onclick=()=>abandonOutpost(b.dataset.id));
+  $("#prjList").querySelectorAll(".outpost-repurpose-btn").forEach(b=>b.onclick=()=>repurposeOutpost(b.dataset.id,b.dataset.t));
   {const pg=$("#prjList").querySelector(".petition-grant");if(pg)pg.onclick=()=>grantPetition();
    const pd=$("#prjList").querySelector(".petition-deny");if(pd)pd.onclick=()=>denyPetition();}
   $("#prjList").querySelectorAll(".decree-btn").forEach(b=>b.onclick=()=>{
