@@ -6401,6 +6401,7 @@ function dailyEconomySettle(){
     if(p.p>=100){p.p=100;p.done=true;p.fx&&p.fx();}
   }
   facilityDailyProduce();
+  ministerDaily(); // 重臣の執政:要職に就いた兵の器量に応じ、日々その分野の国力が育つ
   clamp();
   checkMilestone();
   checkStatSMilestone();
@@ -9619,6 +9620,59 @@ function facilityDailyProduce(){
   }
 }
 const FACILITY_PRODUCE_LABEL={gold:"国庫",food:"食糧",exp:"経験値",heal:"療養支援",mood:"民心",equip:"鍛冶",skill:"技の研鑽"};
+/* ===== 重臣の任命(内政の新軸):有能な兵を国政の要職に就け、その器量で分野の国力を日々育てる。
+   戦うだけでなく"国を治める"活躍の場と、限られた席に誰を据えるかという配置の選択を加える新機軸 ===== */
+const MINISTER_OFFICES=[
+  {key:"steward",name:"財務卿",boost:"economy",icon:"icon-market",statFn:u=>((u.lead||0)*0.6+(u.wis||0)*0.4),desc:"統率と知力に長けた者が向く。日々、国の経済が育つ。"},
+  {key:"marshal",name:"軍務卿",boost:"military",icon:"icon-project",statFn:u=>((u.lead||0)*0.6+(u.str||0)*0.4),desc:"統率と武勇に富む者が向く。日々、国の軍事が育つ。"},
+  {key:"sage",   name:"賢者",  boost:"magic",   icon:"icon-project",statFn:u=>((u.int||0)*0.6+(u.wis||0)*0.4),desc:"魔力と知力に秀でた者が向く。日々、国の魔導が育つ。"},
+];
+function ensureMinisters(){S.ministers=S.ministers||{};}
+function ministerOf(key){ensureMinisters();const id=S.ministers[key];return id?findAnyUnit(id):null;}
+function ministerOffice(key){return MINISTER_OFFICES.find(o=>o.key===key);}
+function ministerContribution(off,u){return off.statFn(u)*0.0026;} // 器量に応じた日々の国力の伸び(控えめ・上限付き)
+function ministerDaily(){
+  ensureMinisters();
+  for(const off of MINISTER_OFFICES){
+    const id=S.ministers[off.key]; if(!id)continue;
+    const u=findAnyUnit(id);
+    if(!u||u.role==="retired"){S.ministers[off.key]=null;continue;} // 欠けた要職は空席に戻す
+    const cur=S.st[off.boost]||0;
+    S.st[off.boost]=Math.min(100,cur+ministerContribution(off,u)*statDiminish(cur));
+  }
+}
+function appointMinister(officeKey,unitId){
+  ensureMinisters();
+  const off=ministerOffice(officeKey); if(!off)return;
+  // 同一人物の兼任は不可:他の席に就いていたら外す
+  for(const o of MINISTER_OFFICES)if(o.key!==officeKey&&S.ministers[o.key]===unitId)S.ministers[o.key]=null;
+  S.ministers[officeKey]=unitId;
+  const u=findAnyUnit(unitId);
+  if(u){u.loyalty=Math.min(100,(u.loyalty||0)+4);unitHistory(u,`${off.name}に任じられ、国政の一翼を担うことになった。`);chron(`${fullName(u)}が${off.name}に任じられた。その器量が、これより国の${STATDEF.find(s=>s[0]===off.boost)?STATDEF.find(s=>s[0]===off.boost)[1]:off.boost}を日々育てていく。`,"big");}
+  clamp();render();renderProjects();save();
+}
+function dismissMinister(officeKey){ensureMinisters();S.ministers[officeKey]=null;renderProjects();save();}
+let ministerAssignKey=null;
+function renderMinisterAssignSelect(){
+  const off=ministerOffice(ministerAssignKey); if(!off)return;
+  $("#itemTargetTitle").textContent=`${off.name}に任じる者を選ぶ`;
+  const eligible=S.units.filter(u=>u.injured<=0&&u.role==="active");
+  let h=`<div class="ds" style="margin-bottom:8px">${off.desc}</div>`;
+  if(!eligible.length)h+=`<div class="udet-empty">任じられる兵がいない。</div>`;
+  const sorted=[...eligible].sort((a,b)=>off.statFn(b)-off.statFn(a));
+  for(const u of sorted){
+    h+=`<button class="minister-target-pick" data-id="${u.id}" style="display:block;width:100%;text-align:left;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--parch);border-radius:6px;padding:10px;margin-bottom:6px;font-family:'Zen Old Mincho',serif;cursor:pointer">
+      ${fullName(u)} <span style="font-size:11px;color:var(--dim)">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span><br>
+      <span style="font-size:11px;color:var(--dim)">執政の器量:${Math.round(off.statFn(u))}(1日あたり ${STATDEF.find(s=>s[0]===off.boost)?STATDEF.find(s=>s[0]===off.boost)[1]:off.boost} +${(ministerContribution(off,u)).toFixed(2)}前後)</span>
+    </button>`;
+  }
+  $("#itemTargetBody").innerHTML=h;
+  $("#itemTargetBody").querySelectorAll(".minister-target-pick").forEach(b=>b.onclick=()=>{
+    appointMinister(ministerAssignKey,b.dataset.id);
+    $("#panelItemTarget").classList.remove("show");
+  });
+  $("#panelItemTarget").classList.add("show");
+}
 let facilityAssignKey=null;
 function renderFacilityAssignSelect(){
   const ft=FACILITY_TYPES.find(f=>f.key===facilityAssignKey);
@@ -9960,6 +10014,22 @@ function renderProjects(){
   }
   if(fin.length){h+=`<div style="font-size:11px;color:var(--dim);margin:12px 0 6px;letter-spacing:.15em">── 完了した事業 ──</div>`;
    for(const p of fin)h+=`<div class="pcard prj" style="opacity:.55"><div class="nm">${p.nm} ✓</div></div>`;}
+  // ── 重臣(要職の任命) ──
+  h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 6px;letter-spacing:.15em">── 重臣 ──</div>`;
+  ensureMinisters();
+  {const boostLabel={economy:"経済",military:"軍事",magic:"魔導"};
+   for(const off of MINISTER_OFFICES){
+     const m=ministerOf(off.key);
+     h+=`<div class="pcard"><div class="nm"><i class="${off.icon}"></i>${off.name}${m?`<span style="font-size:10px;color:var(--gold);margin-left:6px">${boostLabel[off.boost]||off.boost}を育成中</span>`:""}</div>
+       <div class="ds" style="margin:2px 0 6px">${off.desc}</div>
+       <div class="ds">${m?`就任中:${fullName(m)}(器量${Math.round(off.statFn(m))} ／ 1日あたり ${boostLabel[off.boost]||off.boost}+${ministerContribution(off,m).toFixed(2)}前後)`:"空席"}</div>
+       <div style="display:flex;gap:6px;margin-top:6px">
+         <button class="minister-assign-btn" data-k="${off.key}" style="flex:1;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${m?"任を解く/替える":"任じる"}</button>
+         ${m?`<button class="minister-dismiss-btn" data-k="${off.key}" style="flex:0 0 auto;background:transparent;border:1px solid rgba(217,122,122,.5);color:#d97a7a;border-radius:6px;padding:7px 12px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">解任</button>`:""}
+       </div>
+     </div>`;
+   }
+  }
   h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 6px;letter-spacing:.15em">── 施設 ──</div>`;
   for(const ft of FACILITY_TYPES){
     const built=S.facilities.find(f=>f.typeKey===ft.key);
@@ -10046,6 +10116,11 @@ function renderProjects(){
     facilityAssignKey=b.dataset.k;
     renderFacilityAssignSelect();
   });
+  $("#prjList").querySelectorAll(".minister-assign-btn").forEach(b=>b.onclick=()=>{
+    ministerAssignKey=b.dataset.k;
+    renderMinisterAssignSelect();
+  });
+  $("#prjList").querySelectorAll(".minister-dismiss-btn").forEach(b=>b.onclick=()=>{dismissMinister(b.dataset.k);});
   $("#prjList").querySelectorAll(".fac-upgrade-btn").forEach(b=>b.onclick=()=>{
     const ft=FACILITY_TYPES.find(x=>x.key===b.dataset.k);
     const f=S.facilities.find(x=>x.typeKey===b.dataset.k);
