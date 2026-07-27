@@ -7855,6 +7855,10 @@ function squadSynergyMult(squad){
   let bondPairs=0;
   for(const u of squad)if(u.bondWith&&ids.has(u.bondWith)&&u.id<u.bondWith)bondPairs++;
   const bondBonus=bondPairs*(doctrineIs("bonds")?0.09:0.06); // 「絆の国」の国是では、戦友の絆の連携が一層強まる
+  // 好敵手の火花:同じ部隊に好敵手のペアがいると、互いに負けじと奮い立ち、部隊の力が一段高まる(競争の関係性を編成の妙に繋げる)
+  let rivalPairs=0;
+  for(const u of squad)if(u.rivalWith&&ids.has(u.rivalWith)&&u.id<u.rivalWith)rivalPairs++;
+  const rivalBonus=rivalPairs*0.07;
   // 獣人は群れで動くことを好む:同じ部隊に2人以上いると連携(群れの戦法)が上乗せされる(種族の個性)
   const beastCount=squad.filter(u=>u.race==="beastkin").length;
   const packBonus=beastCount>=2?Math.min(0.12,(beastCount-1)*0.05):0;
@@ -7866,7 +7870,7 @@ function squadSynergyMult(squad){
     const trS=(traitInfo(u.trait)||{}).squadSynergy; if(trS)tacticianBonus+=trS; // 「座持ちの才」等の特性も采配系と同様に連携を高める(特性/スキル両対応)
   }
   tacticianBonus=Math.min(0.12,tacticianBonus);
-  return Math.max(0.9,Math.min(1.45,1+sameRouteBonus-overlapPenalty+historyBonus+bondBonus+packBonus+honorBonus+tacticianBonus));
+  return Math.max(0.9,Math.min(1.45,1+sameRouteBonus-overlapPenalty+historyBonus+bondBonus+rivalBonus+packBonus+honorBonus+tacticianBonus));
 }
 // パーティの「質」を測る指標。人数を増やすだけで有利にならないよう平均戦力を基準にし、
 // 5人編成を基準にしたrequiredPowerとそのまま比較できるよう5倍して正規化する。
