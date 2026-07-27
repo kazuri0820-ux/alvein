@@ -6998,6 +6998,7 @@ const DUNGEON_CONDITIONS={
   starwatch:{label:"星読みの天文台",color:"#8f9fd0",desc:"星々を読む古の天文台。踏破すれば天啓を得て、新たな秘境への道が開ける"},
   trainground:{label:"研武の霊場",color:"#c98f8f",desc:"武を練る気が満ちる霊場。踏破した部隊は皆わずかに永続で鍛え上げられる(全能力+1)"},
   valor:{label:"忠魂の霊地",color:"#d0a86a",desc:"忠義に殉じた古の兵たちの魂が眠る霊地。共に潜り抜けた部隊には、揺るがぬ忠誠が芽生える"},
+  elixir:{label:"秘薬の霊気",color:"#a0d0a0",desc:"薬効ある霊気が満ちる地。踏破すれば、貴重な秘薬や品々を持ち帰ることがある"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 /* 個体差(アフィックス)を複数回ロールして最良の一組を返す=マジックファインド(良個体を引き当てる) */
@@ -7921,6 +7922,11 @@ function resolveDungeonRun(dungeonId){
       if(cond==="valor"){ // 忠魂の霊地: 共に潜り抜けた部隊に揺るがぬ忠誠が芽生える(育ちにくい忠義の入手経路)
         for(const u of squad){if(!u)continue;u.loyalty=Math.min(100,(u.loyalty||0)+ri(6,12));u.moral=Math.min(100,(u.moral||0)+3);}
         chron(`「${dungeon.name}」の忠魂の霊地で、部隊は古の忠臣たちの魂に触れた。その揺るがぬ忠義が皆の胸に宿り、隊の結束が一段と深まっている。`,"big");
+      }
+      if(cond==="elixir"){ // 秘薬の霊気: 踏破で貴重な消耗品を持ち帰る(アイテム入手の攻略先)
+        const got=[];const n=ri(1,2);
+        for(let i=0;i<n;i++){const it=rollItemDrop(Math.random()<0.3?"rare":"uncommon");if(it){addItem(it.key);got.push(it.name);}}
+        chron(got.length?`「${dungeon.name}」に満ちる秘薬の霊気の中から、${got.map(x=>`「${x}」`).join("、")}を持ち帰った。`:`「${dungeon.name}」の霊気を浴びて帰ったが、持ち帰れる品は見当たらなかった。`,got.length?"big":"");
       }
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
         // 討伐したボスの王のコレクション記録=全種の王を討ち取る収集目標(初討伐は名を刻む)
