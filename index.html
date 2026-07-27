@@ -4872,6 +4872,44 @@ const RANDOM_RARE=[
      apply({st:{order:3,military:2},mood:-2,log:"王は討伐の危険を避け、辺境の守りを固めることを選んだ。巨獣は幾つかの村を荒らした末、やがて山へと帰っていった。守りは固まったが、討ち取る栄誉を逃したことを惜しむ声もある(治安↑ 軍事↑ 民心↓)。"});
    }}},
   ]},
+ // ===== 連続物語(イベント連鎖):古代遺構の発掘。滅びた古王朝の地下遺構を発掘し、眠る叡智を国のものとする。
+ //   全面支援すれば数十日後に正体が明かされ、恒久の恩恵(軍事/魔導/秘宝)を選べる。目先の財を掘るか、時をかけて
+ //   叡智を得るかの選択と、封印を解く賭けを備えた、発掘という新機軸の物語 =====
+ {tag:"発 掘",title:"地の底の遺構",
+  cond:s=>!(s.flags&&s.flags.ruinsArc)&&STAGES[s.stage].rank>=2&&s.day>=52,
+  body:"開墾中の一隊が、地面の下に石造りの構造物を掘り当てた。「陛下、これは……滅びた古王朝の、地下遺構かと。奥には、失われた叡智や財宝が眠っているやもしれませぬ」。だが、地の底に眠るものを掘り起こすには、相応の時と手間がかかる。",
+  speaker:"ネロ「腰を据えて発掘すれば大きな実り。されど、目先の財だけ掘り出して手仕舞う道もございます」",
+  choices:[
+   {label:"発掘を全面的に支援する(100G)",hint:"時をかけて遺構を解明し、恒久の恩恵を得る物語の始まり",fx:{call:()=>{
+     if(S.gold<100){chron("発掘を支える蓄えが足りず、遺構は再び土に埋め戻された。","");return;}
+     S.gold-=100;S.flags=S.flags||{};S.flags.ruinsArc=1;S.flags.ruinsDay=S.day+ri(9,14);
+     apply({st:{economy:1},mood:1,log:"王は本格的な発掘を命じた。学者と人足が遺構に入り、土と時をかけて、眠る過去を掘り起こしていく。",logCls:"big"});
+   }}},
+   {label:"目先の財だけ掘り出す",hint:"すぐに国庫↑(この物語は終わる)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.ruinsArc=-1;const g=ri(70,120);apply({gold:g,log:`王は手早く掘り出せる財貨だけを回収させ、遺構は埋め戻させた。目先の${g}は得たが、奥に眠っていたであろう叡智は、再び土の下に還った。`});
+   }}},
+   {label:"触れてはならぬと封じる",hint:"治安+2(この物語は始まらない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.ruinsArc=-1;apply({st:{order:2},log:"王は「古の眠りを妨げるべからず」と、遺構を丁重に封じさせた。浮ついた欲に走らぬ姿勢を、民は畏敬をもって受け止めた(治安+2)。"});
+   }}},
+  ]},
+ {tag:"遺 構",title:"遺構、明かされる",
+  cond:s=>(s.flags&&s.flags.ruinsArc)===1&&s.day>=(s.flags.ruinsDay||0),
+  body:"長い発掘の末、遺構の最奥が開かれた。古王朝の英知を記した石板、精緻な魔導の陣、そして固く封じられた宝物庫――。どれも余りある価値を秘めている。だが、宝物庫の封には「解く者に災いあれ」との古語が刻まれていた。何を、この国の礎とするか。",
+  speaker:"セラ「滅びた王朝が遺した叡智にございます。……いずれを継ぐにせよ、後の世まで王国を形づくりましょう」",
+  choices:[
+   {label:"古の兵法書を写し、軍に伝える",hint:"軍事が大きく上がる(恒久)",fx:{call:()=>{
+     S.flags.ruinsArc=2;apply({st:{military:7},mood:2,log:"古王朝の兵法書が写し取られ、将兵に伝えられた。失われていた陣立てと用兵の理が、王国の武を一段と確かなものにした(軍事↑↑)。",logCls:"big"});if(typeof recordAnnal==="function")recordAnnal("古代遺構より兵法の叡智を継ぎ、王国の武を高めた。","ruins",true);
+   }}},
+   {label:"魔導の秘奥を学院に納める",hint:"魔導が大きく上がる(恒久)",fx:{call:()=>{
+     S.flags.ruinsArc=2;apply({st:{magic:7},mood:2,log:"精緻な魔導の陣が解読され、学院に納められた。古の理を得て、王国の魔導は飛躍的に深まった(魔導↑↑)。",logCls:"big"});if(typeof recordAnnal==="function")recordAnnal("古代遺構より魔導の秘奥を継ぎ、王国の魔導を高めた。","ruins",true);
+   }}},
+   {label:"呪いの封を解き、眠る宝を奪う",hint:"賭け:大抵は秘宝の断片＋財貨＋名声。稀に古の災いが牙を剥く",fx:{call:()=>{
+     S.flags.ruinsArc=2;
+     if(Math.random()<0.72){const g=ri(120,200);S.relicShards=(S.relicShards||0)+2;if(typeof grantRenown==="function")grantRenown(3,"古代の宝物庫の開封");apply({gold:g,mood:4,log:`封を解くと、宝物庫には古王朝の秘宝が眠っていた。秘宝の断片+2と財貨${g}を得て、その武名は近隣に轟いた(秘宝の断片↑ 財貨↑ 威信↑)。災いは、幸いにも降りかからなかった。`,logCls:"big"});chron("――古代遺構の封は解かれ、眠れる秘宝は王国のものとなった。","big");}
+     else{const act=S.units.filter(u=>u&&u.role==="active"&&(u.injured||0)<=0);if(act.length){const u=act[Math.floor(Math.random()*act.length)];inflictInjury(u,[0.5,0.4,0.1]);unitHistory(u,"古代遺構の封を解いた際、噴き出した瘴気を浴びて倒れた。");}S.mood=Math.max(0,(S.mood||0)-6);apply({st:{order:-2},log:"封を解いた刹那、澱んだ瘴気が噴き出した。古語は偽りではなかった。宝は手に入ったものの、発掘隊に倒れる者が出て、城下にも不吉な噂が広がった(兵が負傷 民心↓ 治安↓)。",logCls:"grave"});chron("――古代遺構の封は、災いと共に解かれた。欲は、時に高くつく。","grave");}
+     clamp();render();renderTroops();
+   }}},
+  ]},
  {tag:"外 交",title:"隣国の内乱",
   body:"隣国で王位を巡る内乱が起きたとの報せが届いた。どちらに与するか、静観するか、あるいは混乱に乗じるか――この機の捉え方で、王国の立ち位置は大きく変わる。",
   speaker:"フィオナ「火中の栗を拾うか、高みの見物と決め込むか。ご判断を、陛下」",
