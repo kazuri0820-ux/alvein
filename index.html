@@ -4989,6 +4989,27 @@ const RANDOM_RARE=[
      clamp();render();
    }}},
   ]},
+ {tag:"密 偵",title:"宮中に潜む影",
+  cond:s=>!(s.flags&&s.flags.traitorArc)&&STAGES[s.stage].rank>=2&&s.day>=64&&(s.units||[]).length>=5&&(s.units||[]).filter(u=>u.role==="active"&&(u.injured||0)<=0&&!u.favorite&&!u.captain&&!u.uniqueJob&&!u.bondWith&&!u.masterId&&!u.pupilId&&!u.fief).length>=1,
+  body:"財務卿が、青い顔で報告に上がった。「陛下、由々しきことにございます。こちらの動きが、逐一 隣国に筒抜けの節が……。宮中の誰かが、内より情報を流しているのやもしれませぬ」。忠臣たちの顔が、脳裏をよぎる。まさか、あの中に。",
+  speaker:"セラ「疑心は毒にございます。されど、放置もまた毒。いかがなさいます」",
+  choices:[
+   {label:"密かに内偵を放つ(50G)",hint:"数日かけて疑わしき者を絞り込む物語の始まり(確証は得られぬまま裁きを迫られる)",fx:{call:()=>{
+     if(S.gold<50){chron("内偵を放つ費えが足りず、疑いは宙に浮いたままとなった。","");return;}
+     S.gold-=50;S.flags=S.flags||{};S.flags.traitorArc=1;S.flags.traitorDay=S.day+ri(8,12);S.flags.traitorReal=Math.random()<0.6;
+     const plain=(S.units||[]).filter(u=>u.role==="active"&&(u.injured||0)<=0&&!u.favorite&&!u.captain&&!u.uniqueJob&&!u.bondWith&&!u.masterId&&!u.pupilId&&!u.fief);
+     const suspect=plain[Math.floor(Math.random()*plain.length)];
+     S.flags.traitorSuspectId=suspect?suspect.id:null;
+     (S.scheduled[S.flags.traitorDay]=S.scheduled[S.flags.traitorDay]||[]).push("__traitor_reveal__");
+     apply({log:"王は腹心に命じ、密かに内偵を放った。数日のうちに疑わしき者の目星はつくだろう。だが、確たる証まで掴めるとは限らない。",logCls:"big"});
+   }}},
+   {label:"見張りと機密の扱いを固める",hint:"治安+2(疑心を煽らず備えを固める。この物語は始まらない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.traitorArc=-1;apply({st:{order:2},log:"王は犯人探しに走らず、見張りと機密の扱いを厳格にした。無用な疑心を宮中に広げぬ、堅実な備えである(治安+2)。"});
+   }}},
+   {label:"気の回しすぎと聞き流す",hint:"何もしない",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.traitorArc=-1;chron("王は「気の回しすぎであろう」と、報告を意に介さなかった。","");
+   }}},
+  ]},
  {tag:"外 交",title:"隣国の内乱",
   body:"隣国で王位を巡る内乱が起きたとの報せが届いた。どちらに与するか、静観するか、あるいは混乱に乗じるか――この機の捉え方で、王国の立ち位置は大きく変わる。",
   speaker:"フィオナ「火中の栗を拾うか、高みの見物と決め込むか。ご判断を、陛下」",
@@ -7426,6 +7447,7 @@ const EVENT_ID_EXACT={
   "__training_pick__":()=>buildTrainingPickEvent(),
   "__recruit__":()=>buildRecruitEvent(),
   "__recruit2__":()=>buildRecruit2Event(),
+  "__traitor_reveal__":()=>buildTraitorRevealEvent(),
   "arc_heir_1":()=>buildHeirArc1(),
   "arc_heir_2":()=>buildHeirArc2(),
   "arc_heir_3":()=>buildHeirArc3(),
@@ -7498,6 +7520,51 @@ function buildDelveDeeperEvent(){
      {label:"深追いはせず、引き上げる",hint:"手にした勝利を確実に持ち帰る",fx:{call:()=>{
        apply({log:`王は深追いを戒め、部隊に引き上げを命じた。手にした勝利を、確かに持ち帰る堅実な判断だった。`});
        S.pendingDelve=null;clamp();
+     }}},
+    ]};
+}
+/* ===== 宮中に潜む影(内通者の連鎖・"疑いの裁き"という新機軸):国の秘事が外へ漏れる兆しに、王は内偵を放つ。
+   数日後、疑わしき者の目星はつくが確証はない――忠臣かもしれぬ者を断ずるか、時と財をかけて精査するか、
+   不問に付すか。確証なき裁きの賭け(図星なら禍根を断つが、濡れ衣なら忠臣を失い宮中の信が揺らぐ)を突きつける、
+   既存の危機連鎖(飢饉・疫病・一揆=資源/健康/民心)とは別軸の"人を疑う"緊張を持ち込む物語。 ===== */
+function exileTraitor(u){
+  if(!u)return;
+  if(u.captain){S.flags.knightOrder=false;S.captainId=null;}
+  if(typeof releaseUniqueIfHolder==="function")releaseUniqueIfHolder(u);
+  S.units=(S.units||[]).filter(x=>x.id!==u.id);
+  S.instructors=(S.instructors||[]).filter(x=>x.id!==u.id);
+}
+function buildTraitorRevealEvent(){
+  S.flags=S.flags||{};
+  const real=!!S.flags.traitorReal;
+  const suspect=(typeof findAnyUnit==="function")?findAnyUnit(S.flags.traitorSuspectId):null;
+  const nm=suspect?fullName(suspect):"かの兵";
+  const clearArc=()=>{S.flags.traitorArc=2;S.flags.traitorReal=undefined;S.flags.traitorSuspectId=undefined;};
+  if(!suspect){
+    return {tag:"密 偵",title:"内偵の帰結",body:"内偵が報告に戻った頃には、疑わしき影は既に宮中から消えていた。真偽は闇の中だが、ひとまず騒ぎは収まったようだ。",
+      speaker:"セラ「……事は、自然に流れたようにございます」",
+      choices:[{label:"ひとまず胸を撫で下ろす",fx:{call:()=>{clearArc();}}}]};
+  }
+  return {tag:"密 偵",title:"疑わしき者",
+    body:`内偵の報告が上がった。「陛下、国の動きを外へ流している疑いが最も濃いのは……${nm}にございます。ただ、確たる証はまだ挙がっておりませぬ。状況が、そう指し示しているに過ぎませぬ」。忠臣かもしれぬ者を、確証なく断じてよいものか。`,
+    speaker:"セラ「お指図を、陛下。……この裁きは、宮中の信のありようを左右いたします」",
+    choices:[
+     {label:`${suspect.nm}を追放する`,hint:"確証なき賭け。図星なら禍根を断てるが、濡れ衣なら忠臣を失い皆の信が揺らぐ",fx:{call:()=>{
+       if(real){exileTraitor(suspect);apply({st:{order:2},mood:3,log:`${nm}を追放した。果たして――その者の荷から、隣国へ宛てた密書が見つかった。図星であった。宮中に巣食っていた影は断たれ、家臣たちは王の眼力に胸を撫で下ろした(治安↑ 民心↑)。`,logCls:"big"});if(typeof recordAnnal==="function")recordAnnal("宮中に潜んでいた内通者を見抜き、禍根を断った。","intrigue",true);}
+       else{exileTraitor(suspect);S.mood=Math.max(0,(S.mood||0)-7);for(const u of (S.units||[]))u.loyalty=Math.max(0,(u.loyalty||0)-4);apply({st:{order:-2},log:`${nm}を追放した。だが後になって、その者に非はなかったと分かる。忠実な兵を確証なく追った王に、家臣たちは言葉を失った。宮中には、疑心の冷たい風が吹いている(忠臣を失い 民心↓ 治安↓ 皆の忠誠↓)。`,logCls:"grave"});}
+       clearArc();clamp();render();renderTroops();
+     }}},
+     {label:"証拠を精査する(70G)",hint:"時と財をかけ、真偽を確かめてから裁く。過ちは犯さぬが費えがかさむ",fx:{call:()=>{
+       if(S.gold<70){chron("精査を尽くす費えが足りず、うやむやのまま沙汰止みとなった。","");clearArc();return;}
+       S.gold-=70;
+       if(real){exileTraitor(suspect);apply({st:{order:2},mood:2,log:`証拠を丹念に精査した末、${nm}が内通者であるとの確たる証が挙がった。言い逃れの余地なく、その者は追放された。手順を尽くした裁きに、家臣は深く得心した(治安↑ 民心↑)。`,logCls:"big"});if(typeof recordAnnal==="function")recordAnnal("精査の末に内通者を突き止め、禍根を断った。","intrigue",true);}
+       else{suspect.loyalty=Math.min(100,(suspect.loyalty||0)+8);if(typeof unitHistory==="function")unitHistory(suspect,"内通の疑いをかけられたが、王の精査により濡れ衣が晴れ、かえって王への信を深めた。");apply({mood:2,log:`証拠を精査した結果、${nm}に非はないと明らかになった。濡れ衣は晴れ、王が確証を重んじたことに、${suspect.nm}はかえって忠を篤くした(民心↑ 当人の忠誠↑)。`,logCls:"big"});}
+       clearArc();clamp();render();renderTroops();
+     }}},
+     {label:"不問に付す",hint:"確証なき裁きを避ける。図星なら情報は漏れ続け、濡れ衣なら寛大さが伝わる",fx:{call:()=>{
+       if(real){const g=ri(60,120);S.gold=Math.max(0,S.gold-g);apply({st:{order:-2},mood:-2,log:`王は確証なき裁きを避け、事を不問に付した。だが疑いは的中しており、以後も国の秘事は外へ流れ続けた。放置の代償は小さくない(国庫-${g} 治安↓ 民心↓)。`,logCls:"grave"});}
+       else{apply({mood:2,log:"王は確証なき裁きを避け、事を不問に付した。疑いは杞憂であった。軽々に忠臣を疑わぬ王の度量を、家臣たちは静かに敬した(民心↑)。"});}
+       clearArc();clamp();render();
      }}},
     ]};
 }
