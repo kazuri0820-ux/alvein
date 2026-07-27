@@ -2193,6 +2193,28 @@ function tryInheritInstructorSkill(u){
   u.skills.push(pick.key);
   return {skill:pick.s,from:pick.ins};
 }
+/* 師の免許皆伝:師弟の薫陶を経て独り立ちする弟子は、師が磨き上げた技を一つ受け継ぐことがある。
+   師弟の縁を"日々わずかな経験値"で終わらせず、師の武の一端が次代に生き続ける育成の到達点にする
+   (関係×スキル継承の新機軸。師を鍛えるほど、弟子に遺せるものも豊かになる)。 */
+function tryInheritMasterSkill(pupil,master){
+  if(!pupil||!master||!pupil.skills)return null;
+  if(pupil.skills.length>=skillCap(pupil))return null;
+  const pool=[];
+  for(const key of (master.skills||[])){
+    if(pupil.skills.includes(key))continue;
+    const s=SKILL_DB.find(x=>x.key===key);
+    if(!s||s.tier==="unique")continue; // 固有技は継がせない
+    if(s.cls&&s.cls!==pupil.cls)continue; // 職に合わぬ技は伝わらない
+    if(s.onlyCaptain&&!pupil.captain)continue;
+    pool.push({key,s});
+  }
+  if(!pool.length)return null;
+  const tierRank={red:0,gray:1,blue:2,silver:3,gold:4};
+  pool.sort((a,b)=>(tierRank[b.s.tier]||0)-(tierRank[a.s.tier]||0)); // 師が磨いた最も位の高い技を優先して伝授(免許皆伝の重みを felt に)
+  const pick=pool[0];
+  pupil.skills.push(pick.key);
+  return pick.s;
+}
 /* ジョブ系統の昇格時(新兵→兵士、兵士→古参兵…)にのみ呼ぶ。3段階目(古参兵)以降の昇格で金も解放 */
 function trySkillUpOnPromotion(u,tierIndex){
   if(u.skills.length>=skillCap(u))return null;
@@ -2993,9 +3015,10 @@ function checkAging(){
           master.pupilId=null;u.masterId=null;
           master.mentorCount=(master.mentorCount||0)+1;master.moral=Math.min(100,(master.moral||0)+5);master.loyalty=Math.min(100,(master.loyalty||0)+3);
           u.moral=Math.min(100,(u.moral||0)+5);
-          unitHistory(u,`師${master.nm}の薫陶のもと研鑽を積み、ついに独り立ちした。`);
-          unitHistory(master,`弟子${u.nm}を一人前に育て上げ、誇らしく送り出した。`);
-          chron(`――${u.nm}が、師${master.nm}の薫陶のもと、ついに独り立ちを果たした。師はその成長を、我がことのように誇ったという。`,"big");
+          const passed=(Math.random()<0.55)?tryInheritMasterSkill(u,master):null; // 免許皆伝:師の技を一つ受け継ぐことがある
+          unitHistory(u,`師${master.nm}の薫陶のもと研鑽を積み、ついに独り立ちした。${passed?`その証に、師の技「${passed.name}」を授かった。`:""}`);
+          unitHistory(master,`弟子${u.nm}を一人前に育て上げ、誇らしく送り出した。${passed?`我が技「${passed.name}」を、しかと継がせた。`:""}`);
+          chron(`――${u.nm}が、師${master.nm}の薫陶のもと、ついに独り立ちを果たした。${passed?`師はその門出に、生涯かけて磨いた技「${passed.name}」を免許皆伝として授けた。師の武は、こうして次代へ受け継がれてゆく。`:"師はその成長を、我がことのように誇ったという。"}`,"big");
         }
       }
     }
