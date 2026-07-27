@@ -3504,6 +3504,14 @@ const EARLY_GROWTH=[
 ];
 /* ---------- レアイベント:通常より低頻度・高インパクト ---------- */
 const RANDOM_RARE=[
+ {tag:"寄 進",title:"篤志家の寄進",
+  body:"王国の歩みに感じ入ったという裕福な篤志家が、城を訪ねてきた。「ささやかながら、王国のお役に立てれば」。何を賜るか、こちらで選ばせてくれるという。",
+  speaker:"セラ「有難いお申し出でございます。今、王国に最も要るものを選ぶがよろしいかと」",
+  choices:[
+   {label:"財貨を賜る",hint:"まとまった国庫の足し",fx:{call:()=>{const g=ri(90,150);apply({gold:g,log:`篤志家より財貨${g}が国庫に納められた。`,logCls:"big"});}}},
+   {label:"武具を賜る",hint:"上質な装備が武具庫に加わる",fx:{call:()=>{const eq=rollEquipmentDrop(Math.random()<0.3?"epic":"rare");if(eq){const inst=addEquipment(eq.key);chron(`篤志家より、上質な武具「${equipInstName(inst)}」を賜った(${equipInstBonusText(inst)})。`,"big");}else{const g=ri(60,100);apply({gold:g});chron(`めぼしい武具はなかったが、代わりに財貨${g}を賜った。`,"");}}}},
+   {label:"人材の紹介を賜る",hint:"見込みある志願者が加わる",fx:{call:()=>{S.volunteers=S.volunteers||[];if(S.volunteers.length>=8){const g=ri(60,100);apply({gold:g});chron(`志願所は既に一杯で、代わりに支度金${g}を賜った。`,"");return;}const v=makeVolunteer();v.hiddenPotential=Math.random()<0.5;v.comment="篤志家の紹介で、王国の門を叩いた人材。";S.volunteers.push(v);chron(`篤志家の紹介で、${v.unit.nm} ${v.unit.surname}が志願所に加わった。`,"big");}}},
+  ]},
  {tag:"天 変",title:"隕鉄の落下",
   body:"夜空を一条の光が裂き、轟音とともに何かが辺境の丘に落ちた。焼け焦げた地の底に、鈍く輝く見慣れぬ鉄塊が埋まっているという。星の鉄――そう囁く者もいる。",
   speaker:"セラ「星より降りし鉄。うまく扱えば、比類なき武具の材となりましょう」",
