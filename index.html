@@ -1840,6 +1840,7 @@ const EQUIPMENT_DB=[
  {key:"eqp_sword_rare",name:"名工の剣",slot:"weapon",rarity:"rare",statBonus:{str:12,agi:4}},
  {key:"eqp_sword_epic",name:"魔剣ヴァルグレン",slot:"weapon",rarity:"epic",statBonus:{str:18,agi:7}},
  {key:"eqp_sword_legendary",name:"星喰らいの剣",slot:"weapon",rarity:"legendary",statBonus:{str:26,agi:12,lead:6}},
+ {key:"eqp_sword_starsteel",name:"星鉄の剣アステリオン",slot:"weapon",rarity:"legendary",statBonus:{str:24,vit:8,agi:10,lead:10}},// イベント連鎖「星鉄の一振り」でのみ得られる一点物の名剣
  // 武器・杖(知力寄り=魔法職向け)
  {key:"eqp_staff_uncommon",name:"樫の杖",slot:"weapon",rarity:"uncommon",statBonus:{int:7,wis:2}},
  {key:"eqp_staff_rare",name:"賢者の杖",slot:"weapon",rarity:"rare",statBonus:{int:12,wis:4}},
@@ -4140,6 +4141,34 @@ const RANDOM_RARE=[
      S.flags=S.flags||{};S.flags.forbiddenArc=3;
      apply({st:{magic:2,order:2},mood:1,log:"王は深追いを避け、禁書を再び封じた。それでも解読された知の一部は王国に残り、無用な災いの芽は摘まれた(魔導+2 治安+2)。",logCls:"big"});
      chron("禁書の誘惑の物語は、賢明な自制とともに幕を下ろした。","big");
+   }}},
+  ]},
+ // ===== 連続物語(イベント連鎖):星鉄の一振り。二部に跨り、支援すれば一点物の名剣が鍛え上がる(記憶に残るアーティファクトを得る新報酬) =====
+ {tag:"星 鉄",title:"星鉄の一振り",
+  cond:s=>!(s.flags&&s.flags.starsteelArc)&&STAGES[s.stage].rank>=3&&(s.dungeonsCleared||0)>=3&&s.day>=45,
+  body:"白髪の老刀匠が、布に包んだ黒い鉄塊を携えて王を訪ねた。「これは、遠い昔に空から墜ちた星の鉄。生涯に一度、これを打てる時を待っておりました。……なれど、常の炉では歯が立たぬ。王国の力添えがあれば、伝説の一振りを鍛え上げてご覧に入れましょう」。老いた瞳の奥に、職人の火が燃えていた。",
+  speaker:"ガレオン「星鉄……伝承にのみ聞く神代の鋼。もし本物なら、後の世に残る名剣となりましょう」",
+  choices:[
+   {label:"鍛刀を全面的に支援する(120G)",hint:"星鉄の名剣を鍛え上げる物語の始まり(完成すれば一点物の武具が手に入る)",fx:{call:()=>{
+     if(S.gold<120){chron("鍛刀を支える蓄えがなく、老刀匠は残念そうに星鉄を包み直した。","");return;}
+     S.gold-=120;S.flags=S.flags||{};S.flags.starsteelArc=1;S.flags.starsteelDay=S.day+ri(7,11);
+     apply({st:{military:1},mood:1,log:"王は星鉄の鍛刀を全面的に支えると約した。城下の外れに特別な炉が築かれ、昼夜を分かたず槌の音が響き始めた。",logCls:"big"});
+   }}},
+   {label:"眉唾と断る",hint:"堅実(この物語は始まらない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.starsteelArc=-1;
+     apply({st:{order:1},log:"王は「星の鉄」という触れ込みを眉唾と見て、丁重に断った。老刀匠は寂しげに、しかし恨みもせず去っていった(治安+1)。"});
+   }}},
+  ]},
+ {tag:"星 鉄",title:"名剣、成る",
+  cond:s=>(s.flags&&s.flags.starsteelArc)===1&&s.day>=(s.flags.starsteelDay||0),
+  body:"幾夜もの鍛錬の末、老刀匠が一振りの剣を捧げ持って現れた。刃は夜空のように深く沈み、鎬には無数の星の瞬きが宿っている。「……打ち上げました。名を『アステリオン』。この老骨の、生涯の一振りにございます。どうか、しかるべき者の手に」。剣は、静かに、しかし確かな覇気を放っていた。",
+  speaker:"セラ「なんという……。これほどの剣、見たことがございませぬ」",
+  choices:[
+   {label:"名剣アステリオンを受け取る",hint:"一点物の伝説の名剣が武具庫に加わる",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.starsteelArc=2;
+     const inst=addEquipment("eqp_sword_starsteel");
+     apply({st:{military:2},mood:4,log:`老刀匠の生涯の一振り、星鉄の名剣「${inst?equipInstName(inst):"アステリオン"}」が王国の武具庫に納められた。しかるべき兵に佩かせれば、その武は戦場を切り拓くだろう(軍事+2 民心↑)。`,logCls:"big"});
+     chron("星鉄の一振りの物語は、後の世に残る名剣とともに幕を下ろした。老刀匠は満ち足りた顔で、静かに筆を折った(槌を置いた)。","big");
    }}},
   ]},
  {tag:"継 承",title:"王家の家宝を定める",
