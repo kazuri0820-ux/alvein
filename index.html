@@ -3444,6 +3444,27 @@ const EARLY_GROWTH=[
 ];
 /* ---------- レアイベント:通常より低頻度・高インパクト ---------- */
 const RANDOM_RARE=[
+ {tag:"来 訪",title:"腕利きの傭兵団",
+  body:"名うての傭兵団が城下を通りかかった。その隊長が謁見を求める。「金払いさえよろしければ、我らの腕、貴国のために振るいましょう」。腕は確かだが、安くはないという。",
+  speaker:"ガレオン「腕は本物のようですが……値も相応に張りましょうな」",
+  choices:[
+   {label:"隊ごと雇い入れる(120G)",hint:"腕利きが複数、志願に加わる(出費大)",fx:{call:()=>{
+     if(S.gold<120){chron("傭兵団を雇うだけの蓄えがなく、隊長は肩をすくめて去っていった。","");return;}
+     S.volunteers=S.volunteers||[];
+     if(S.volunteers.length>=8){chron("志願所は既に満杯で、傭兵たちを迎え入れる余地がなかった。","");return;}
+     S.gold-=120; let added=0; const names=[];
+     for(let i=0;i<2;i++){ if(S.volunteers.length>=8)break; const v=makeVolunteer(); v.hiddenPotential=true; v.comment="金で雇われた身だが、腕は確かだという。"; names.push(`${v.unit.nm} ${v.unit.surname}`); S.volunteers.push(v); added++; }
+     chron(`傭兵団を雇い入れた。腕利き${added}名(${names.join("、")})が志願一覧に加わった。`,"big");
+   }}},
+   {label:"一人だけ引き抜く(60G)",hint:"腕利きが一人、志願に加わる(出費)",fx:{call:()=>{
+     if(S.gold<60){chron("引き抜くだけの蓄えもなく、傭兵団は去っていった。","");return;}
+     S.volunteers=S.volunteers||[];
+     if(S.volunteers.length>=8){chron("志願所は既に満杯で、迎え入れる余地がなかった。","");return;}
+     S.gold-=60; const v=makeVolunteer(); v.hiddenPotential=true; v.comment="傭兵団から引き抜かれた腕利き。"; S.volunteers.push(v);
+     chron(`傭兵団から腕利き「${v.unit.nm} ${v.unit.surname}」を引き抜いた。志願一覧を確かめよう。`,"big");
+   }}},
+   {label:"丁重に断る",hint:"治安+1",fx:{st:{order:1},log:"王国は傭兵に頼らず、自前の兵で立つ道を選んだ。金で買えぬ結束こそ我らの力、と長は静かに言った。"}},
+  ]},
  {tag:"来 訪",title:"遍歴の吟遊詩人",
   body:"諸国を巡る吟遊詩人が城を訪れた。「この国の英雄譚を、一曲お聞かせ願えませんか。良き物語は、風に乗って遠くまで運ばれましょう」。",
   speaker:"セラ「良い詩は、千の兵にも勝る宣伝になりましょう」",
