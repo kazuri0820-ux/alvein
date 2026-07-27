@@ -8369,6 +8369,31 @@ function skillEffectText(s){
   if(s.condFlag==="dragonPact")parts.push(`竜盟約締結中はさらに体力+${s.condVit}・腕力+${s.condStr}`);
   return parts.length?parts.join(" / "):"目立った効果はない";
 }
+/* 特性の効能を人物詳細で読めるようにする=特性の当たり/役割が数値で伝わり、編成判断の助けになる(磨き込み) */
+function traitEffectText(tr){
+  if(!tr)return "";
+  const parts=[];
+  const statLabels={str:"腕力",vit:"体力",int:"魔力",agi:"敏捷",wis:"知力",lead:"統率"};
+  for(const k in statLabels)if(tr[k])parts.push(`${statLabels[k]}${tr[k]>0?"+":""}${tr[k]}`);
+  if(tr.gm&&tr.gm!==1)parts.push(`成長率×${tr.gm}`);
+  if(tr.expMult&&tr.expMult!==1)parts.push(`必要経験値×${tr.expMult}`);
+  if(tr.injuryMult&&tr.injuryMult!==1)parts.push(`負傷率×${tr.injuryMult}`);
+  if(tr.deathMult&&tr.deathMult!==1)parts.push(`戦死率×${tr.deathMult}`);
+  if(tr.statBonus)parts.push(`昇格時に能力+${tr.statBonus}`);
+  if(tr.skillUpChance)parts.push("技の習得率↑");
+  if(tr.fatigueRecover)parts.push(`疲労回復+${tr.fatigueRecover}/日`);
+  if(tr.lifespanMult&&tr.lifespanMult!==1)parts.push(`寿命×${tr.lifespanMult}`);
+  if(tr.ageResist)parts.push("老いの衰えに強い");
+  if(tr.ageTrainResist)parts.push("加齢による訓練低下に強い");
+  if(tr.loyaltyGrow)parts.push(`忠誠成長+${tr.loyaltyGrow}/日`);
+  if(tr.moralGrow)parts.push(`士気成長+${tr.moralGrow}/日`);
+  if(tr.instructorMult&&tr.instructorMult!==1)parts.push(`教官時の指導効果×${tr.instructorMult}`);
+  if(tr.guardianSave)parts.push(`戦友の致命傷を${Math.round(tr.guardianSave*100)}%で肩代わり`);
+  if(tr.lootLuck)parts.push(`迷宮のドロップ率+${Math.round(tr.lootLuck*100)}%`);
+  if(tr.goldFind)parts.push(`迷宮の獲得財貨+${Math.round(tr.goldFind*100)}%`);
+  if(tr.condFlag==="dragonPact")parts.push(`竜盟約締結中は戦力+${tr.condPw||0}`);
+  return parts.join(" / ");
+}
 function traitBadge(u){
   const tr=traitInfo(u.trait);
   const tierMap={normal:"normal",rare:"rare",epic:"epic",legend:"legend"};
@@ -8983,7 +9008,7 @@ function renderUnitDetail(uid){
 
   // ── 特性 ──
   const TRAIT_TIER_LABEL={normal:"通常",rare:"レア",epic:"エピック",legend:"レジェンド"};
-  h+=`<div class="udet-sec"><h4>特性</h4><div style="margin-bottom:4px">${traitBadge(u)}<span style="font-size:10px;color:var(--dim);margin-left:6px">${TRAIT_TIER_LABEL[u.traitTier]||"通常"}特性</span></div><div style="font-size:12px;color:var(--parch);margin-bottom:3px">${tr.name}</div><div style="font-size:11px;color:var(--dim)">${tr.desc}</div></div>`;
+  h+=`<div class="udet-sec"><h4>特性</h4><div style="margin-bottom:4px">${traitBadge(u)}<span style="font-size:10px;color:var(--dim);margin-left:6px">${TRAIT_TIER_LABEL[u.traitTier]||"通常"}特性</span></div><div style="font-size:12px;color:var(--parch);margin-bottom:3px">${tr.name}</div><div style="font-size:11px;color:var(--dim)">${tr.desc}</div>${(()=>{const et=traitEffectText(tr);return et?`<div style="font-size:10.5px;color:var(--gold2);margin-top:3px">${et}</div>`:"";})()}</div>`;
 
   // ── 称号(バッジは常時表示、詳細はタップで展開) ──
   if(u.titles&&u.titles.length){
