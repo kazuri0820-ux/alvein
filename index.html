@@ -5397,6 +5397,19 @@ function checkYearTurn(){
   const refl=YEAR_REFLECTIONS[(yr-1)%YEAR_REFLECTIONS.length];
   chron(`――${yr}年目の暮れ。${stg.name}の王国に兵${S.units.length}名が仕え、国庫${Math.round(S.gold)}・民${S.pop}を数える。${cleared?`踏破したダンジョンは${cleared}件、`:""}${hall?`${hall}名が殿堂に名を刻んだ。`:""}${eldest?`最古参は${eldest.nm}(${Math.floor(eldest.age)}歳)。`:""}${refl}`,"big");
 }
+/* 全職種の布陣:剣・魔・弓・拳・祈り・影――六つの道の兵がすべて揃った瞬間を、一度だけ讃える。
+   多彩な適性を集める編成の到達点を演出で祝い、職種コンプリートという収集目標に手応えを与える。 */
+function checkFullClassRoster(){
+  if(S.flags&&S.flags.fullClassSeen)return;
+  const active=S.units.filter(u=>u.role==="active"||!u.role);
+  const classes=new Set(active.map(u=>u.cls));
+  const need=Object.keys(JOB_TREES);
+  if(need.every(c=>classes.has(c))){
+    S.flags.fullClassSeen=true;
+    apply({mood:3});
+    chron("――アルヴェインの軍は、剣も魔も弓も拳も、祈りも影も、あらゆる道の者で満ちた。多彩な才が一堂に会し、いかなる戦場にも応じられる布陣が整った。","big");
+  }
+}
 /* 栄華の只中:民心・国庫・食糧がそろって潤う日々が続くと、稀に王国の栄華を年代記に讃える。
    危機や別れの一節が多い年代記に、良き統治が報われる"満ち足りた時代"の手応えを添える(演出)。 */
 function checkGoldenAge(){
@@ -5477,6 +5490,7 @@ function dailyEconomySettle(){
   checkYearTurn();
   checkFestival();
   checkGoldenAge(); // 栄華の只中を稀に讃える(良き統治への手応え)
+  checkFullClassRoster(); // 全職種が揃った布陣を一度だけ讃える(多彩な編成への到達)
   checkDoctrineUnlock(); // 中盤の節目に国是を定める
   checkFavoriteMoment(); // 推しの日常の一幕
   checkSoldierVignette(); // 名のある兵の何気ない日常
