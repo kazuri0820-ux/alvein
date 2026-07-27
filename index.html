@@ -7737,6 +7737,8 @@ function buildRetireEvent(uid){
 const UNIQUE_JOBS=[
  {key:"protagonist",name:"主人公",nickname:"主人公",
   check:(u)=>u.founder||((u.totalExpEarned||0)>0&&S.units.every(o=>o.id===u.id||(o.totalExpEarned||0)<=(u.totalExpEarned||0)))},
+ {key:"aegis_god",name:"守護神",nickname:"不落の守護神",
+  check:(u)=>(u.guardianSaveCount||0)>=3}, // 我が身を挺して幾度も戦友の命を救い抜いた、部隊の絶対の盾(守護を極める道)
  {key:"guardian_saint",name:"守護聖",nickname:"守護聖",
   check:(u)=>(u.criticalSurvivalCount||0)>=1&&S.units.every(o=>o.id===u.id||(o.vit+skillEffects(o).vit)<=(u.vit+skillEffects(u).vit))},
  {key:"phoenix",name:"不死鳥",nickname:"不死鳥",
@@ -7769,6 +7771,8 @@ const UNIQUE_JOBS=[
   check:(u)=>!!u.bondWith&&(u.loyalty||0)>=90&&(S.day-(u.joinDay||S.day))>=200}, // 戦友と背を預け合い、長く忠義を貫いた者(絆の道)
  {key:"hero_unique",name:"勇者",nickname:"勇者",
   check:(u)=>(u.titles||[]).length>=3&&u.traitTier==="legend"},
+ {key:"roving_hero",name:"遍歴の英傑",nickname:"遍歴の英傑",
+  check:(u)=>(u.dungeonClearCount||0)>=8&&(u.leaderCount||0)>=10}, // 迷宮を潜り抜け、幾度も部隊を率いた――攻守いずれにも通じた歴戦の万能兵(遍歴の道)
 ];
 function checkUniqueJobOnHero(u){
   if(u.uniqueJob)return null;
