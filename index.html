@@ -4371,7 +4371,8 @@ const RANDOM_RARE=[
   speaker:"セラ「陛下……民は皆、王の御決断を見つめております」",
   choices:[
    {label:"王国を挙げて飢饉に立ち向かう",hint:"あの日の備えの分だけ、被害は軽く済む",fx:{call:()=>{
-     const prep=(S.flags&&S.flags.faminePrep)||"none";S.flags.famineArc=2;
+     let prep=(S.flags&&S.flags.faminePrep)||"none";S.flags.famineArc=2;
+     if(S.flags&&S.flags.observatory&&prep==="none"){prep="frugal";chron("――星見の塔が凶作の兆しを予め読み解いていた。無策のはずが、王国は先んじて食を切り詰め、最悪だけは避けられた(星読みの備え)。","big");}
      if(prep==="stock"){S.food=Math.max(0,(S.food||0)-20);apply({mood:2,st:{order:1},log:"積み増した蔵の糧が、民を飢えから守った。王国は大した傷も負わず飢饉を乗り切り、民は王の先見に深く感謝した(民心↑ 治安+1)。",logCls:"big"});chron("――飢饉の試練は、賢明な備えによって軽々と乗り越えられた。王の先見は、長く語り草となった。","big");}
      else if(prep==="frugal"){S.food=Math.max(0,(S.food||0)-45);S.mood=Math.max(0,(S.mood||0)-3);apply({log:"倹約が功を奏し、辛くも飢饉を凌いだ。ひもじい冬ではあったが、民は互いに支え合い、一人の餓死者も出さなかった(食糧↓ 民心↓)。",logCls:"big"});chron("――飢饉の試練は、民の耐えと支え合いによって越えられた。王国はまた一つ、厳しい季節を生き延びた。","big");}
      else{S.food=Math.max(0,(S.food||0)-90);S.mood=Math.max(0,(S.mood||0)-8);S.pop=Math.max(1,(S.pop||0)-ri(2,5));apply({st:{order:-2},log:"備えなき王国を、飢饉は容赦なく蹂躙した。蔵は空となり、飢えた民の一部は谷を離れていった。王は、備えを怠った己を深く悔いた(食糧↓↓ 民心↓↓ 人口↓ 治安↓)。",logCls:"grave"});chron("――飢饉の試練は、大きな爪痕を残して過ぎ去った。備えの尊さを、王国は身をもって学んだ。","grave");}
@@ -4406,7 +4407,8 @@ const RANDOM_RARE=[
   speaker:"ガレオン「陛下、兵にも病者が出ております……。あの日の備えが、いま試されまする」",
   choices:[
    {label:"総力を挙げて病に立ち向かう",hint:"あの日の備えの分だけ、兵と民への痛手は軽く済む",fx:{call:()=>{
-     const prep=(S.flags&&S.flags.plaguePrep)||"none";S.flags.plagueArc=2;
+     let prep=(S.flags&&S.flags.plaguePrep)||"none";S.flags.plagueArc=2;
+     if(S.flags&&S.flags.observatory&&prep==="none"){prep="treat";chron("――星見の塔が病の予兆を星に読み、王国は先んじて薬師を手配していた。無策のはずが、被害は最小に抑えられた(星読みの備え)。","big");}
      const healthy=()=>S.units.filter(u=>u.role==="active"&&u.injured<=0);
      if(prep==="quarantine"){const c=healthy();const n=Math.min(1,c.length);for(let i=0;i<n;i++){const u=c[i];u.fatigue=Math.min(100,(u.fatigue||0)+ri(15,25));}apply({mood:1,log:"厳しい隔離が功を奏し、病はほとんど広がらず収束した。倒れた兵もわずかで、王国は難を逃れた(民心↑)。",logCls:"big"});chron("――疫病の試練は、素早い封じ込めによって軽々と越えられた。王の英断が、多くの命を守った。","big");}
      else if(prep==="treat"){const c=healthy();const n=Math.min(2,c.length);for(let i=0;i<n;i++){const u=c[i];if(u.injured<=0){inflictInjury(u,[0.9,0.1,0]);unitHistory(u,"流行り病に倒れたが、手厚い治療で程なく癒えた。");}}apply({mood:-1,log:"薬師たちの奮闘で、病は程なく抑え込まれた。数名の兵が床に伏せたが、いずれも軽く済み、じきに戻るだろう(数名が短い病臥 民心↓)。",logCls:"big"});chron("――疫病の試練は、薬師たちの尽力によって乗り越えられた。","big");}
@@ -4444,7 +4446,8 @@ const RANDOM_RARE=[
   speaker:"フィオナ「陛下、御決断を。抜くも収めるも、今この時にございます」",
   choices:[
    {label:"王国を挙げて事態の収拾にあたる",hint:"あの日の備えの分だけ、痛手は軽く済む",fx:{call:()=>{
-     const prep=(S.flags&&S.flags.unrestPrep)||"none";S.flags.unrestArc=2;
+     let prep=(S.flags&&S.flags.unrestPrep)||"none";S.flags.unrestArc=2;
+     if(S.flags&&S.flags.observatory&&prep==="none"){prep="dialogue";S.st.order=Math.max(S.st.order,45);chron("――星見の塔が民の不穏を早くに察し、王は先んじて代表との対話に動いていた。無策のはずが、流血は避けられた(星読みの備え)。","big");}
      if(prep==="relief"){apply({mood:4,st:{order:1},log:"施しを受けていた民は、そもそも刃を執るには及ばなかった。集まった人々も王の使者の説得に応じ、騒ぎは大きくならずに収まった。王の情けが、火種を未然に消していたのだ(民心↑ 治安+1)。",logCls:"big"});chron("――一揆の兆しは、日頃の施しによって未然に鎮められた。善政こそ最良の備えであると、王国は知った。","big");}
      else if(prep==="dialogue"){const ord=(S.st&&S.st.order)||0;if(ord>=45){apply({st:{order:1},mood:2,log:"かつて膝を交えた代表たちが、逸る民をなだめて回った。王が約した改革が一つ二つと形になっていたことも幸いし、一揆は流血なく解かれた(治安+1 民心↑)。",logCls:"big"});chron("――一揆は、対話の積み重ねによって血を見ずに収められた。","big");}else{S.mood=Math.max(0,(S.mood||0)-4);apply({st:{order:-1},log:"対話は尽くしたものの、治安の緩みがつけ入る隙を与えた。小競り合いのうちに騒ぎは鎮まったが、しこりは残った(民心↓ 治安↓)。",logCls:"grave"});chron("――一揆は辛くも収められたが、治めの甘さが小さからぬ傷を残した。","grave");}}
      else if(prep==="suppress"){S.mood=Math.max(0,(S.mood||0)-9);S.pop=Math.max(1,(S.pop||0)-ri(2,4));const act=S.units.filter(u=>u&&u.role==="active"&&u.injured<=0);if(act.length){const u=act[Math.floor(Math.random()*act.length)];inflictInjury(u,[0.7,0.3,0]);unitHistory(u,"一揆の鎮圧に駆り出され、民との衝突で手傷を負った。");}apply({st:{order:-3},log:"抑えつけられていた憤懣は、堰を切って荒れ狂った。城下で衝突が起き、鎮圧に出た兵にも怪我人が出た。谷を離れる民もあり、王は力に頼った己を悔いた(民心↓↓ 人口↓ 治安↓ 兵が負傷)。",logCls:"grave"});chron("――一揆は、大きな爪痕を残して鎮められた。力で伏せた不満は、いつか必ず牙を剥くと、王国は学んだ。","grave");}
@@ -4761,6 +4764,27 @@ const RANDOM_RARE=[
    }}},
    {label:"軽く見てもらう",hint:"魔導少し↑(出費15G)",fx:{gold:-15,st:{magic:1},log:"占星術師はひとしきり星を読み、当たり障りのない助言を残して去っていった。"}},
    {label:"迷信は取り合わない",hint:"治安+1",fx:{st:{order:1},log:"占星術師は丁重に、しかしきっぱりと追い返された。浮ついた占いに頼らぬという王国の姿勢が示された。"}},
+  ]},
+ // ===== 連続物語(イベント連鎖):星見の塔。占いの当たり外れではなく、恒久の"備え"を得る物語。塔が成れば
+ //   星読みが凶兆を予め告げ、迫る危機(飢饉・疫病・一揆)への備えが自ずと間に合う=危機連鎖への恒久の対抗手段
+ //   という新機軸。危機stakes型と噛み合い、"無策で最悪を食らう"確率を下げる先見への投資 =====
+ {tag:"星 見",title:"星見の賢者、来たる",
+  cond:s=>!(s.flags&&s.flags.observatoryArc)&&STAGES[s.stage].rank>=2&&s.day>=55,
+  body:"白い髭を蓄えた老賢者が、大きな真鍮の観測儀を背負って王を訪ねた。「わしは生涯を星に捧げた者。……この地に『星見の塔』を建てさせてはもらえぬか。天の理を読み解けば、来る旱魃も、疫の兆しも、民のざわめきも、事が起こる前に察せられよう。備えあれば、憂いは半ばに減じる」。眼の奥に、深く澄んだ知の光があった。",
+  speaker:"セラ「占いの類とは、格が違うようにございます。恒久の備えとなるなら……安いものやもしれませぬ」",
+  choices:[
+   {label:"塔の建設を支援する(150G)",hint:"星見の塔を建て始める(成れば危機の予兆を先読みし、備えが間に合う)",fx:{call:()=>{
+     if(S.gold<150){chron("塔を建てるだけの蓄えが工面できず、賢者は残念そうに観測儀を背負い直した。","");return;}
+     S.gold-=150;S.flags=S.flags||{};S.flags.observatoryArc=1;
+     S.projects.push({id:"observatory",nm:"星見の塔の建設",desc:"完成すると、迫る危機の予兆を星に読み、備えが間に合うようになる。",p:0,rate:1.4,done:false,fx:()=>{
+       S.flags.observatory=true;S.flags.observatoryArc=2;
+       apply({st:{magic:3},mood:2,log:"――星見の塔、成る。天を衝く尖塔の頂で、老賢者が夜ごと星を読む。以後、迫る飢饉・疫病・一揆の兆しは事前に察せられ、たとえ無策でも王国が最悪の事態に陥ることは減るだろう(魔導+3 民心↑)。",logCls:"big"});
+       if(typeof recordAnnal==="function")recordAnnal("星見の塔が成り、天の理をもって危機を先読みできるようになった。","observatory",true);
+     }});
+     apply({st:{magic:1},mood:1,log:"星見の塔の建設が始まった。城下の丘に、少しずつ石が積み上げられていく。",logCls:"big"});
+   }}},
+   {label:"賢者を客人として遇するのみ",hint:"魔導↑(塔は建てない)",fx:{call:()=>{S.flags=S.flags||{};S.flags.observatoryArc=-1;apply({st:{magic:3},mood:1,log:"王は塔の建設までは踏み切らず、賢者を客人としてしばし遇した。その講義は宮廷の学識を確かに深めた(魔導+3)。"});}}},
+   {label:"眉唾と断る",hint:"治安+1(この物語は始まらない)",fx:{call:()=>{S.flags=S.flags||{};S.flags.observatoryArc=-1;apply({st:{order:1},log:"王は「星で災いが読める」という触れ込みを眉唾と見て、丁重に断った。賢者は恨みもせず、静かに去っていった(治安+1)。"});}}},
   ]},
  {tag:"外 交",title:"隣国の内乱",
   body:"隣国で王位を巡る内乱が起きたとの報せが届いた。どちらに与するか、静観するか、あるいは混乱に乗じるか――この機の捉え方で、王国の立ち位置は大きく変わる。",
