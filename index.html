@@ -4626,6 +4626,33 @@ const RANDOM_RARE=[
    }}},
    {label:"様子を見てから判断する",hint:"民心+1(機会は逃す)",fx:{mood:1,log:"神童の噂は、ひとまず様子を見ることにした。真偽の定かでない話に飛びつかぬ慎重さも、王の務めだ。"}},
   ]},
+ {tag:"来 訪",title:"武名を慕う来訪者",
+  cond:(s)=>(typeof renownTierIndex==="function")&&renownTierIndex()>=2,
+  body:"アルヴェインの武名を風の便りに聞いたという、名うての武人が谷を訪れた。「貴国の勇名、遠く異郷にまで轟いておる。願わくば、その旗の下に加えてはもらえぬか」。名声が、遠方の逸材を引き寄せたのだ——王国の格が試される好機である。",
+  speaker:"セラ「王国の名が、ついに人を呼ぶまでになりましたな。得難き来訪にございます」",
+  choices:[
+   {label:"名を惜しむその者を、客将として迎える",hint:"名だたる逸材が志願所に加わる(要・支度金)",fx:{call:()=>{
+     S.volunteers=S.volunteers||[];
+     if(S.volunteers.length>=8){const g=ri(80,130);apply({gold:g});chron(`だが志願所は既に一杯で、名高き来訪者は名残惜しげに去り、餞別の${g}だけが国庫に残された。`,"");return;}
+     const v=makeVolunteer(); v.hiddenPotential=true; if(Math.random()<0.7)v.unit.talented=true;
+     v.comment="王国の武名を慕い、はるばる仕官を願い出た名うての武人。";
+     S.volunteers.push(v);
+     apply({mood:3});
+     chron(`アルヴェインの武名を慕い、${fullName(v.unit)}が仕官を願い出た。名声が引き寄せた逸材が、志願所に加わっている(志願所に加わった 民心+3)。`,"big");
+   }}},
+   {label:"逗留を請い、兵に一手指南を願う(60G)",hint:"現役兵ひとりが薫陶を受け大きく成長(出費)",fx:{call:()=>{
+     if(S.gold<60){chron("だが、名うての客人をもてなす費えが工面できず、来訪者は静かに旅立っていった。","");return;}
+     S.gold-=60;
+     const act=S.units.filter(u=>u&&u.role==="active"&&!(u.injured>0));
+     if(!act.length){apply({st:{military:2},log:"手ほどきを受ける兵の手が空かず、来訪者は鍛錬の心得だけを書き置いて去った(軍事+2)。"});return;}
+     const u=act[Math.floor(Math.random()*act.length)];
+     u.exp=(u.exp||0)+ri(30,50); u.moral=Math.min(100,(u.moral||0)+4);
+     unitHistory(u,"名うての来訪者から一手の指南を受け、腕を上げた。");
+     processLevelUps(u);
+     chron(`${u.nm}は、名高き来訪者から直々の指南を受けた。得難い薫陶が、その武をひと回り大きく育てた(経験値↑ 士気+4)。`,"big");
+   }}},
+   {label:"丁重にもてなし、見送る",hint:"民心+2 外交+2",fx:{mood:2,st:{diplomacy:2},log:"名高き来訪者は手厚くもてなされ、王国の評判を胸に次の地へと旅立った。良き噂が、また一つ遠くへ広まっていく。"}},
+  ]},
  {tag:"災 い",title:"燃え広がる炎",
   body:"乾いた風にあおられ、谷の一角から火の手が上がった。放てば町全体に燃え広がりかねない。今すぐ手を打たねばならない。",
   speaker:"ガレオン「消し止めるも、延焼を断つも、御下知を急ぎ!」",
