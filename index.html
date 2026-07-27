@@ -10993,6 +10993,7 @@ function renderProjects(){
    if(S.nemesis)chips.push(["宿敵",S.nemesis.name,"#d97a7a"]);
    if(fervorActive())chips.push(["熱狂",`残${Math.max(0,(S.fervorUntil||0)-S.day)}日`,"#e0a870"]); // 国中の熱狂:入隊殺到・鍛錬に熱の高揚窓
    if((S.renown||0)>0)chips.push(["威信",renownTier().name,"#c9a86a"]); // 王国の名声の階梯
+   {const fl=(S.availableDungeons||[]).filter(d=>d&&d.fleeting&&!d.isFinal);if(fl.length){const soon=Math.min(...fl.map(d=>Math.max(0,(d.expireDay||S.day)-S.day)));chips.push(["好機",`時限の迷宮 残${soon}日`,"#e08a5e"]);}} // 時限の迷宮:見逃さぬよう概況にも出す
    {const food=Math.round(S.food||0),need=(S.pop||0)*0.085;if(food<Math.max(20,need*40))chips.push(["兵糧",food<Math.max(12,need*20)?"僅少・要備え":"やや心許ない","#d97a7a"]);} // 兵糧が細ると警告(飢饉に備える一手を促す)
    if((S.mood||100)<40){const inArc=(S.flags&&S.flags.unrestArc)===1;const rankOk=STAGES[S.stage].rank>=2;chips.push(["民心",inArc?"憤懣くすぶる・一揆の恐れ":((S.mood||0)<28?(rankOk?"危険・一揆の芽":"危険・要慰撫"):"低下"),"#d97a7a"]);} // 民心が下がると警告。放置は一揆の連鎖を招くため、その芽を明示して施し/対話等の一手を促す
    h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-project"></i>王の執務室</div>
@@ -12601,6 +12602,7 @@ function renderDungeonPanel(){
   if(S.bounty){const left=Math.max(0,S.bounty.deadline-S.day);summary+=`<div style="font-size:11px;color:#8fbf6f;margin-top:3px" title="期限内に達成すると報酬。ダンジョン画面で狙える"><i class="icon-mission"></i>討伐依頼:${S.bounty.label}(残${left}日 / 報酬 財貨${S.bounty.gold}と品)</div>`;}
   {const fa=typeof festivalActive==="function"?festivalActive():null; if(fa&&(fa.key==="feast"||fa.key==="remembrance")){const ft=festivalType(fa.key);const left=fa.until-S.day;const eff=fa.key==="feast"?"踏破経験+15%":"戦死率↓";summary+=`<div style="font-size:11px;color:#e0a870;margin-top:3px" title="祝祭の恵みが迷宮攻略に及んでいる。国政画面で催せる">${ft.icon} ${ft.name} 開催中(${eff}・残${left}日)</div>`;}}
   {const sm=typeof seasonDungeonMods==="function"?seasonDungeonMods():null; if(sm&&sm.note){const cs=typeof currentSeason==="function"?currentSeason():null; summary+=`<div style="font-size:11px;color:#c9a86a;margin-top:3px" title="巡る季節が遠征の実りを左右する。大遠征の潮時を計るのも王の器量">季節の兆し―${sm.note}</div>`;}}
+  {const fl=(S.availableDungeons||[]).filter(d=>d&&d.fleeting&&!d.isFinal).sort((a,b)=>(a.expireDay||0)-(b.expireDay||0)); if(fl.length){const d=fl[0];const left=Math.max(0,(d.expireDay||S.day)-S.day);summary+=`<div style="font-size:11px;color:#e08a5e;margin-top:3px" title="主は数日で去る。討てば厚い褒賞、逃せば消える"><i class="icon-boss"></i>時限の好機:「${d.name}」―残${left}日${fl.length>1?` ほか${fl.length-1}件`:""}、逃す前に討て</div>`;}}
   if(S.flags.demonLordDefeated)summary+=` ／ <span style="color:#e8c874">魔王討伐済み</span>`;
   else if(S.flags.demonLordDungeonUnlocked)summary+=` ／ <span style="color:#d97a7a">「魔王の玉座」出現中</span>`;
   else if(S.flags.demonNoticed){
