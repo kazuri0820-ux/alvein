@@ -1952,6 +1952,17 @@ function equipmentEffects(u){
    金で買う鍛冶とは違い、"共に戦った時間"だけが育てる愛着の成長軸。絆を結んだ得物は本人が振るう時だけ力を増し、名に証が刻まれる ===== */
 const WEAPON_BOND_NEED=8;   // この回数を共に踏破すると絆が結ばれる
 const WEAPON_BOND_BONUS=3;  // 絆を結んだ得物が本人にもたらす主要能力の上乗せ
+/* 武具の銘(愛着の収集軸):同じ兵と幾多の死線を共にし絆を結んだ得物は、やがて一振りごとに固有の「銘」で
+   呼ばれるようになる。ドロップの汎用品が、共に戦った時間だけを糧に"世に一つの名品"へと育つ——金で買う鍛冶とも、
+   個体差(アフィックス)とも違う、物語が宿す銘。名を得た相棒の得物が、兵とその歩みへの愛着を一段深める。 */
+const WEAPON_MEI_PRE=["蒼","紅","漆黒の","白","星","嵐","雷","氷","朽ちぬ","残","暁","黄昏の","黄金の","月影の","業火の","霜","疾風の","天翔る","鬼","古の"];
+const WEAPON_MEI_SUF=["牙","刃","丸","爪","光","焔","霜","雷","嵐","狼","竜","華","楔","星","翼","閃","咆哮","一文字","雫","轟"];
+function assignWeaponMei(inst){
+  if(!inst)return null;
+  if(inst.mei)return inst.mei;
+  inst.mei=WEAPON_MEI_PRE[Math.floor(Math.random()*WEAPON_MEI_PRE.length)]+WEAPON_MEI_SUF[Math.floor(Math.random()*WEAPON_MEI_SUF.length)];
+  return inst.mei;
+}
 function weaponBondTick(u){
   const inst=u&&u.equipment&&u.equipment.weapon; if(!inst||inst.bonded)return;
   if(inst.bondUnitId!==u.id){inst.bondUnitId=u.id;inst.bondClears=0;} // 持ち主が替われば絆は結び直し(その兵との共戦だけが数えられる)
@@ -1959,8 +1970,9 @@ function weaponBondTick(u){
   if(inst.bondClears>=WEAPON_BOND_NEED){
     inst.bonded=true;
     const def=EQUIPMENT_DB.find(d=>d.key===inst.key);
-    unitHistory(u,`幾多の死線を共にした得物「${def?def.name:"武器"}」と、分かちがたい絆で結ばれた。`);
-    chron(`${fullName(u)}は、幾度も共に潜り抜けた相棒の得物「${equipInstName(inst)}」と深い絆を結んだ。手に馴染んだその一振りは、いまや我が身の一部だ(振るう力が増す)。`,"big");
+    const mei=assignWeaponMei(inst); // 絆を結んだ相棒の得物は、固有の銘を得る
+    unitHistory(u,`幾多の死線を共にした得物「${def?def.name:"武器"}」と、分かちがたい絆で結ばれた。その一振りは、いつしか「${mei}」の銘で呼ばれるようになった。`);
+    chron(`${fullName(u)}は、幾度も共に潜り抜けた相棒の得物と深い絆を結んだ。手に馴染んだその一振りを、兵たちは「${mei}」の銘で呼び始めた。いまやそれは、我が身の一部だ(振るう力が増す)。`,"big");
   }
 }
 /* レア度に応じた装備を1件生成しS.equipmentInventoryに追加する(ダンジョン/遠征のドロップから呼ぶ) */
@@ -1999,7 +2011,7 @@ function rollAffixes(rarityKey){
 function equipInstName(inst){
   const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return "?";
   const enh=enhLevel(inst)?` +${enhLevel(inst)}`:""; // 鍛冶による強化度を名に添える
-  const bond=inst.bonded?"〈相棒〉":""; // 絆を結んだ得物の証
+  const bond=inst.bonded?(inst.mei?`《銘・${inst.mei}》`:"〈相棒〉"):""; // 絆を結んだ得物の証。銘を得た一振りはその名で呼ぶ
   const keep=inst.keepsake?"《形見》":""; // 亡き英傑の遺志を宿す形見の証
   if(!inst.affixes||!inst.affixes.length)return keep+bond+def.name+enh;
   const pre=inst.affixes.filter(a=>a&&a.pos==="prefix").map(a=>a.name).join("");
