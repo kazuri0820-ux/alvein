@@ -5610,6 +5610,33 @@ function checkRivalVignette(){
   for(const u of [a,b]){u.exp+=ri(3,7);processLevelUps(u);u.moral=Math.min(100,(u.moral||0)+1);}
   chron(RIVAL_VIGNETTES[Math.floor(Math.random()*RIVAL_VIGNETTES.length)](a,b),"");
 }
+/* 得物への愛着:一級(エピック級以上)の武具を帯びた兵が、その得物を惚れ惚れと手入れする一幕を稀に拾い上げる。
+   苦労して掘り当てた逸品(ハクスラの成果)に、兵の愛着という物語を添える=収集の喜びを情感に繋ぐ(装備の彩り)。 */
+const GEAR_VIGNETTES=[
+ (u,g)=>`${u.nm}が「${g}」の刃を丹念に研ぎ、惚れ惚れと見入っていた。`,
+ (u,g)=>`${u.nm}が愛用の「${g}」を布で磨き上げ、我が子のように大切に扱っていた。`,
+ (u,g)=>`若い兵が「${g}」を見せてくれとせがみ、${u.nm}が誇らしげにそれを掲げてみせた。`,
+ (u,g)=>`${u.nm}は「${g}」を手にしてから、どこか背筋が伸びたように見える。`,
+ (u,g)=>`夜更け、${u.nm}が「${g}」の手入れをしながら、明日の戦に思いを馳せていた。`,
+];
+function checkGearVignette(){
+  if(Math.random()>=0.024)return; // ごく稀に
+  const hi=new Set(["epic","legendary"]);
+  const cands=[];
+  for(const u of S.units){
+    if(u.role!=="active"||u.injured>0||!u.equipment)continue;
+    for(const slot of ["weapon","armor","accessory"]){
+      const inst=u.equipment[slot];
+      if(!inst)continue;
+      const def=EQUIPMENT_DB.find(d=>d.key===inst.key);
+      if(def&&hi.has(def.rarity)){cands.push({u,g:equipInstName(inst)});break;}
+    }
+  }
+  if(!cands.length)return;
+  const c=cands[Math.floor(Math.random()*cands.length)];
+  c.u.moral=Math.min(100,(c.u.moral||0)+1);
+  chron(GEAR_VIGNETTES[Math.floor(Math.random()*GEAR_VIGNETTES.length)](c.u,c.g),"");
+}
 function checkSeasonTurn(){
   const s=currentSeason();
   if(S.seasonSeen===s.key)return;
@@ -5753,6 +5780,7 @@ function dailyEconomySettle(){
   checkMentorVignette(); // 師弟(教官と若手)の稽古の一幕
   checkFameVignette(); // 功を立てた兵の武名が市井で語られる一幕
   checkRivalVignette(); // 同職の兵同士が競い合い、互いを高め合う一幕
+  checkGearVignette(); // 一級の武具を帯びた兵が、その得物を大切に手入れする一幕
   checkSeasonalVignette(); // 巡る季節に寄せた兵の一場面
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
