@@ -2193,6 +2193,7 @@ const TITLE_DB=[
  {key:"t_legendsquad",name:"伝説の小隊の一員",desc:"幾多の出撃を共にし、伝説と讃えられた小隊の一員",effect:"loyaltyGrow",value:0.12},
  {key:"t_generalslayer",name:"魔将殺し",desc:"魔王軍の名だたる魔将を討ち取った",effect:"injuryMult",value:0.9},
  {key:"t_dragonslayer",name:"竜殺し",desc:"伝説に謳われる古龍を討ち取った、不世の武功の持ち主",effect:"injuryMult",value:0.88},
+ {key:"t_calamityender",name:"厄災を退けし者",desc:"国を脅かす災厄を討ち果たし、王国を救った英傑",effect:"moralGrow",value:0.12},
  {key:"t_grandveteran",name:"百錬の達人",desc:"レベル30に到達し、幾多の研鑽の末に練達の域へと至った",effect:"moralGrow",value:0.12},
  {key:"t_peerless",name:"不世出の兵",desc:"レベル45に到達し、一代の英傑と称される域へと至った",effect:"injuryMult",value:0.85},
  {key:"t_dungeonmaster",name:"迷宮の覇者",desc:"ただ一人で数多の迷宮を踏破し、その名は暗がりの主として畏れられる",effect:"expMult",value:1.08},
@@ -7011,7 +7012,7 @@ function resolveDungeonRun(dungeonId){
           else{const eq=rollEquipmentDrop(dungeon.rarity.key);if(eq){addEquipment(eq.key);chron(`「鍛人の王」を討ち、その工房から名品「${eq.name}」を持ち帰った。`,"big");}else chron(`「鍛人の王」を討ち果たし、その工房を検めた。`,"");}
         }
         else if(dungeon.bossTrait==="trialking"){for(const u of squad){const b=ri(1,2);for(const k of ["str","vit","int","agi","wis","lead"])u[k]+=b;}chron(`「試練の王」との死闘を制した部隊は、限界を越えて一回り逞しくなった。その体に、確かな力が永く刻まれている。`,"big");}
-        else if(dungeon.bossTrait==="calamity"){apply({mood:6,st:{military:3,order:3}});chron(`国を脅かす「災厄の王」が討ち果たされた――報せは瞬く間に国中を駆け巡り、民は歓喜に沸いた。脅威を退けた王国の備えと結束は、一段と固まっている。`,"big");}
+        else if(dungeon.bossTrait==="calamity"){for(const u of squad)grantTitle(u,"t_calamityender");apply({mood:6,st:{military:3,order:3}});chron(`国を脅かす「災厄の王」が討ち果たされた――報せは瞬く間に国中を駆け巡り、民は歓喜に沸いた。脅威を退けた王国の備えと結束は、一段と固まっている。討ち果たした部隊は「厄災を退けし者」と讃えられた。`,"big");}
         else if(dungeon.bossTrait==="dragonlord"){for(const u of squad){u.moral=Math.min(100,(u.moral||0)+6);grantTitle(u,"t_dragonslayer");}apply({mood:5,st:{magic:2}});chron(`――伝説の「古龍」が、ついに討ち取られた。竜を屠りし部隊の名は、末代まで「竜殺し」として語り継がれるだろう。`,"big");}
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
