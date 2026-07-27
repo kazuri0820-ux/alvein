@@ -9755,6 +9755,26 @@ function holdFestival(key){
   apply(Object.assign({},fx,{log:`${ft.icon} 国を挙げて「${ft.name}」が催された。${ft.effectLabel}(${dur}日間)。人々の顔に、久方ぶりの華やぎが差した。`,logCls:"big"}));
   clamp();render();renderProjects();save();
 }
+/* ===== 兵糧市(資源の新しい使い道):余剰の食糧を国庫へ、あるいは国庫を食糧へ換える。豊作の実りを金に、
+   飢饉や冬の端境には金で糧を買い付ける。売買には差(手数料)があり、平時の備えと緊急の安全弁を兼ねる新レバー ===== */
+const GRAIN_BATCH=30;                 // 一度に取引する量
+const GRAIN_SELL_UNIT=0.8;            // 食糧1→金(売値)
+const GRAIN_BUY_UNIT=1.4;            // 食糧1あたりに要する金(買値。売値より高く=手数料の差)
+function grainSellGain(){return Math.round(GRAIN_BATCH*GRAIN_SELL_UNIT);} // 食糧30→金24
+function grainBuyCost(){return Math.round(GRAIN_BATCH*GRAIN_BUY_UNIT);}   // 金42→食糧30
+function sellGrain(){
+  if((S.food||0)<GRAIN_BATCH){chron("売りに出せるほどの余剰の糧がない。","");return;}
+  S.food-=GRAIN_BATCH; const g=grainSellGain(); S.gold+=g;
+  chron(`余剰の糧${GRAIN_BATCH}を市に卸し、国庫に${g}を得た。`,"");
+  clamp();render();renderProjects();save();
+}
+function buyGrain(){
+  const cost=grainBuyCost();
+  if(S.gold<cost){chron("糧を買い付けるだけの蓄えが足りない。","");return;}
+  S.gold-=cost; S.food=Math.min(999,(S.food||0)+GRAIN_BATCH);
+  chron(`国庫から${cost}を投じ、糧${GRAIN_BATCH}を買い付けて蔵に納めた。`,"");
+  clamp();render();renderProjects();save();
+}
 function renderProjects(){
   let h="";
   const focusLabels={military:"軍事",economy:"経済",agriculture:"農業",magic:"魔導",order:"治安",diplomacy:"外交"};
@@ -9769,6 +9789,16 @@ function renderProjects(){
      <div class="ds" style="margin:2px 0 6px">${ti.desc}</div>
      <div style="display:flex;gap:5px;flex-wrap:wrap">`+TAX_KEYS.map(k=>{const t=TAX_LEVELS[k];const on=k===cur;const col=k==="heavy"?"#d99a6a":k==="light"?"#8fbf6f":"#c9a86a";return `<button class="tax-btn" data-k="${k}" style="flex:1;min-width:72px;background:${on?col:"transparent"};color:${on?"var(--ink)":col};border:1px solid ${col};border-radius:6px;padding:7px 4px;font-family:'Shippori Mincho',serif;font-size:11.5px;font-weight:${on?"800":"600"};cursor:pointer">${t.label}</button>`;}).join("")+`</div>
      <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:5px">徴税収入 ${Math.round(ti.incomeMult*100)}% ／ 民心 ${ti.moodDelta>0?"日々上向く":ti.moodDelta<0?"日々冷える":"変わらず"}</div>
+   </div>`;
+  }
+  // ── 兵糧市(食糧⇄国庫) ──
+  {const canSell=(S.food||0)>=GRAIN_BATCH;const canBuy=S.gold>=grainBuyCost();
+   h+=`<div class="pcard" style="margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-farm"></i>兵糧市</div>
+     <div class="ds" style="margin:2px 0 6px">余剰の糧を国庫へ、あるいは国庫を糧へ。豊作を金に換え、冬や飢饉には金で糧を買う。<span style="color:var(--dim);font-size:10.5px">(現在 食糧${Math.round(S.food)}／国庫${Math.round(S.gold)})</span></div>
+     <div style="display:flex;gap:6px">
+       <button class="grain-sell-btn" ${canSell?"":"disabled"} style="flex:1;background:transparent;border:1px solid ${canSell?"var(--gold2)":"rgba(255,255,255,.12)"};color:${canSell?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canSell?"pointer":"default"}">糧を売る（食糧${GRAIN_BATCH}→金${grainSellGain()}）</button>
+       <button class="grain-buy-btn" ${canBuy?"":"disabled"} style="flex:1;background:transparent;border:1px solid ${canBuy?"var(--gold2)":"rgba(255,255,255,.12)"};color:${canBuy?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canBuy?"pointer":"default"}">糧を買う（金${grainBuyCost()}→食糧${GRAIN_BATCH}）</button>
+     </div>
    </div>`;
   }
   // ── 国是 ──
@@ -9869,6 +9899,8 @@ function renderProjects(){
   $("#prjList").querySelectorAll(".nb-ally-btn").forEach(b=>b.onclick=()=>{allyNeighbor(+b.dataset.i);});
   $("#prjList").querySelectorAll(".festival-btn").forEach(b=>b.onclick=()=>{holdFestival(b.dataset.k);});
   $("#prjList").querySelectorAll(".tax-btn").forEach(b=>b.onclick=()=>{setTaxRate(b.dataset.k);});
+  {const gs=$("#prjList").querySelector(".grain-sell-btn");if(gs)gs.onclick=()=>sellGrain();
+   const gb=$("#prjList").querySelector(".grain-buy-btn");if(gb)gb.onclick=()=>buyGrain();}
   $("#prjList").querySelectorAll(".decree-btn").forEach(b=>b.onclick=()=>{
     if(decreeCooldownLeft()>0)return;
     const d=ROYAL_DECREES.find(x=>x.key===b.dataset.k);
