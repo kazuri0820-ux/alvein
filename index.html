@@ -5211,6 +5211,27 @@ function checkBondVignette(){
   a.moral=Math.min(100,(a.moral||0)+1); b.moral=Math.min(100,(b.moral||0)+1); a.loyalty=Math.min(100,(a.loyalty||0)+1); b.loyalty=Math.min(100,(b.loyalty||0)+1);
   chron(BOND_VIGNETTES[Math.floor(Math.random()*BOND_VIGNETTES.length)](a,b),"");
 }
+/* 師弟の情景:指南役(教官)と若手の、稽古場での何気ない一幕を稀に拾い上げる。育成が数値だけでなく
+   人から人へ受け継がれる営みとして立ち上がり、次代を育てる手応えと愛着を静かに深める(育成の彩り)。 */
+const MENTOR_VIGNETTES=[
+ (m,y)=>`${m.nm}が${y.nm}の構えをじっと見て、短く助言を与えた。${y.nm}は目を見開いて深く頷いた。`,
+ (m,y)=>`稽古の後、${m.nm}が${y.nm}に自らの古傷の由来を語って聞かせていた。`,
+ (m,y)=>`${y.nm}が何度打ち込んでも${m.nm}に軽くいなされ、悔しさに歯を食いしばっていた。`,
+ (m,y)=>`${m.nm}が${y.nm}の得物の握りをそっと直してやると、太刀筋が見違えるように鋭くなった。`,
+ (m,y)=>`日暮れの稽古場で、${m.nm}と${y.nm}が飽きることなく打ち合いを続けていた。`,
+ (m,y)=>`${m.nm}が「筋がいい」と褒めると、${y.nm}は照れくさそうに、しかし誇らしげに笑った。`,
+];
+function checkMentorVignette(){
+  if(Math.random()>=0.03)return; // ごく稀に
+  if(!S.instructors||!S.instructors.length)return;
+  const young=S.units.filter(u=>u.role==="active"&&u.injured<=0&&ageStageOf(u).key==="young");
+  const learners=young.length?young:S.units.filter(u=>u.role==="active"&&u.injured<=0&&u.lv<10);
+  if(!learners.length)return;
+  const m=S.instructors[Math.floor(Math.random()*S.instructors.length)];
+  const y=learners[Math.floor(Math.random()*learners.length)];
+  y.exp+=ri(4,9); processLevelUps(y); y.moral=Math.min(100,(y.moral||0)+1);
+  chron(MENTOR_VIGNETTES[Math.floor(Math.random()*MENTOR_VIGNETTES.length)](m,y),"");
+}
 /* 四季と収穫期の巡り:一年(25日)を春夏秋冬に分け、食糧生産に季節の波を与える。
    実りの秋(豊穣期)に蓄え、端境の冬に食いつなぐ——備蓄と農業への投資に意味の綾を添える。
    一年平均はほぼ等倍に保ち、既存の収支バランスは崩さない。 */
@@ -5337,6 +5358,7 @@ function dailyEconomySettle(){
   checkFavoriteMoment(); // 推しの日常の一幕
   checkSoldierVignette(); // 名のある兵の何気ない日常
   checkBondVignette(); // 戦友同士の何気ない一幕
+  checkMentorVignette(); // 師弟(教官と若手)の稽古の一幕
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
     const loyaltyDrift=S.mood>=70?(S.mood-70)*0.006:-(30-S.mood)*0.01;
