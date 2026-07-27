@@ -2774,7 +2774,7 @@ function chronHallInduction(rec,reason){
   chron(`――${rec.nm}${rec.surname?" "+rec.surname:""}、${title}。${featStr}その生涯をもって王国に尽くし、${verb}。その名は殿堂に刻まれ、永く語り継がれるだろう。`,"grave");
 }
 /* 殿堂の加護:名を刻んだ英霊が多いほど、王国に仕える誇りが現役兵の忠誠を日々わずかに育てる(殿堂を築く見返り) */
-function hallLegacyGrow(){return Math.min(0.05,((S.hallOfFame||[]).length)*0.001);}
+function hallLegacyGrow(){const boon=(S.flags&&S.flags.grandWork==="hall");return Math.min(boon?0.09:0.05,((S.hallOfFame||[]).length)*(boon?0.0018:0.001));} // 英霊廟(大いなる普請)を建てると、殿堂の加護がより厚く忠誠を育てる
 function handleCaptainLoss(u){
   if(!u.captain)return;
   S.flags.knightOrder=false;S.captainId=null;
@@ -4197,6 +4197,37 @@ const RANDOM_RARE=[
      S.flags=S.flags||{};S.flags.forbiddenArc=3;
      apply({st:{magic:2,order:2},mood:1,log:"王は深追いを避け、禁書を再び封じた。それでも解読された知の一部は王国に残り、無用な災いの芽は摘まれた(魔導+2 治安+2)。",logCls:"big"});
      chron("禁書の誘惑の物語は、賢明な自制とともに幕を下ろした。","big");
+   }}},
+  ]},
+ // ===== 大いなる普請:王室金庫に蓄えた大資を、国に一つだけ許される"大事業"へ注ぎ込む。溜めた蓄えに
+ //   一世一代の使い道(強力な永続の恩恵)を与え、"貯める→大きく賭ける"という長期の目標と決断を生む新機軸 =====
+ {tag:"大普請",title:"大いなる普請",
+  cond:s=>!(s.flags&&s.flags.grandWork)&&(s.vault||0)>=800&&STAGES[s.stage].rank>=4,
+  body:"王室金庫に、いまや国を一つ動かせるほどの蓄えが満ちた。財務府と重臣たちが揃って進言する。「陛下、これほどの大資、日々の些事に散じては惜しゅうございます。いま一度限りの『大いなる普請』――後の世まで残る大事業に注いでは如何。何を建てるかは、王国の行く末を永く方向づけましょう」。金庫の鍵が、王の手のひらで重く光った。",
+  speaker:"セラ「一度きりの大決断にございます。何を遺すか――どうか、王国の百年を見据えて」",
+  choices:[
+   {label:"王立金融府を興す(金庫800)",hint:"金庫の利率が倍に・運用上限も拡大。蓄えがさらに速く殖える永続の礎",fx:{call:()=>{
+     if((S.vault||0)<800){chron("大普請を支えるだけの蓄えが金庫に足りなかった。","");return;}
+     S.vault-=800;S.flags=S.flags||{};S.flags.grandWork="finance";
+     apply({st:{economy:2},mood:2,log:"王は金庫の大資を投じ、王立金融府を興した。腕利きの財務官が集い、王国の蓄えはこれまでの倍の速さで殖えてゆく(経済+2 民心↑)。以後、王室金庫の利率と上限が永続的に高まる。",logCls:"big"});
+     chron("――大いなる普請、成る。王立金融府の高き尖塔が、王都に新たな威容を加えた。","big");
+   }}},
+   {label:"常設の大工房を建てる(金庫800)",hint:"鍛冶費用が永続で2割減・迷宮での武具の出土も増える。武具を極める礎",fx:{call:()=>{
+     if((S.vault||0)<800){chron("大普請を支えるだけの蓄えが金庫に足りなかった。","");return;}
+     S.vault-=800;S.flags=S.flags||{};S.flags.grandWork="forge";S.flags.forgeWorkshop=true;
+     const eq=rollEquipmentDrop("epic");let en="";if(eq){const inst=addEquipment(eq.key);en=equipInstName(inst);}
+     apply({st:{military:1},mood:2,log:`王は金庫の大資を投じ、城下に常設の大工房を建てた。名工が居を構え、鍛冶の費えは永く軽くなり、迷宮からの武具の出土も増えるだろう(軍事+1 民心↑)。${en?`さっそく最初の一振り「${en}」が打ち上がった。`:""}`,logCls:"big"});
+     chron("――大いなる普請、成る。大工房の炉が赤々と燃え、槌の音が王都に絶えず響くようになった。","big");
+   }}},
+   {label:"英霊廟を建立する(金庫800)",hint:"殿堂の加護が永続で厚くなり、兵の忠誠がより育つ。歴史と兵の絆の礎",fx:{call:()=>{
+     if((S.vault||0)<800){chron("大普請を支えるだけの蓄えが金庫に足りなかった。","");return;}
+     S.vault-=800;S.flags=S.flags||{};S.flags.grandWork="hall";
+     for(const u of S.units)if(u.role==="active"){u.loyalty=Math.min(100,(u.loyalty||0)+5);u.moral=Math.min(100,(u.moral||0)+4);}
+     apply({st:{order:2},mood:3,log:"王は金庫の大資を投じ、丘の上に壮麗な英霊廟を建立した。殿堂の英霊たちが手厚く祀られ、王国に仕える誇りが兵の胸をより深く満たす(治安+2 民心↑ 全兵の忠誠・士気↑)。以後、殿堂の加護が永続的に厚くなる。",logCls:"big"});
+     chron("――大いなる普請、成る。英霊廟の鐘が丘の上から鳴り渡り、生者と死者の誇りを繋いだ。","big");
+   }}},
+   {label:"今はまだ、蓄えを温存する",hint:"見送る(蓄えはそのまま。またの機会に決断できる)",fx:{call:()=>{
+     chron("王は大普請を急がず、蓄えを金庫に温存することにした。大事業の機会は、また改めて訪れよう。","");
    }}},
   ]},
  // ===== 連続物語(イベント連鎖):星鉄の一振り。二部に跨り、支援すれば一点物の名剣が鍛え上がる(記憶に残るアーティファクトを得る新報酬) =====
@@ -8685,7 +8716,7 @@ function resolveDungeonRun(dungeonId){
       if(squadItemFind>0&&Math.random()<squadItemFind){const ex=rollItemDrop(dungeon.rarity.key);if(ex){addItem(ex.key);chron(`目ざとい兵が、転がっていた「${ex.name}」も拾い集めてきた。`,"");}}
       let equipGained=null, equipInst=null;
       const squadLootLuck=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).lootLuck)||0,(skillEffects(u).lootLuck)||0))):0; // 「宝運」「財宝の嗅覚」(特性)や「宝探しの勘」(スキル)持ちを伴うと掘り出しが増える=編成に意味を持たせる収集レバー
-      if(Math.random()<(crit?0.6:0.3)+squadLootLuck){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained){equipInst=addEquipment(equipGained.key);
+      if(Math.random()<(crit?0.6:0.3)+squadLootLuck+((S.flags&&S.flags.grandWork==="forge")?0.1:0)){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained){equipInst=addEquipment(equipGained.key);
         if(squadLootLuck>0&&equipInst){const edef=EQUIPMENT_DB.find(d=>d.key===equipGained.key);if(edef&&edef.rarity!=="common"){const alt=rollAffixesBest(edef.rarity,2);const cur=(equipInst.affixes||[]).reduce((t,a)=>t+(a.val||0),0);const altSum=alt.reduce((t,a)=>t+(a.val||0),0);if(altSum>cur)equipInst.affixes=alt;}} // 財を嗅ぎ分ける才は、個体差もより優れたものを引き当てる
       }}
       const equipDropName=equipInst?equipInstName(equipInst):(equipGained?equipGained.name:""); // ドロップ時に個体差(アフィックス)を含む名を見せる=掘り出しの手応え
@@ -10199,8 +10230,8 @@ function buyGrain(){
    略奪等)に手を付けられぬ"守られた蓄え"となり、堅実な運用で日々わずかずつ利息を生む(国力に応じた上限まで)。
    ただし預けている間は徴募・討伐・施設には使えない——"手元の自由(流動性)"と"守られた蓄え・複利の伸び"を
    秤にかける、これまで無かった資産管理の選択軸。危機の安全弁と、じっくり殖やす長期の楽しみを両立する。 ===== */
-function vaultCap(){return 200+(((typeof STAGES!=="undefined"&&STAGES[S.stage]&&STAGES[S.stage].rank)||1)*300);} // 利息が付く上限は国の格に応じて広がる
-function vaultRate(){return 0.01;} // 日々の利率(上限額まで)
+function vaultCap(){return 200+(((typeof STAGES!=="undefined"&&STAGES[S.stage]&&STAGES[S.stage].rank)||1)*300)+((S.flags&&S.flags.grandWork==="finance")?500:0);} // 利息が付く上限は国の格に応じて広がる。王立金融府(大いなる普請)で更に拡大
+function vaultRate(){return (S.flags&&S.flags.grandWork==="finance")?0.02:0.01;} // 日々の利率(上限額まで)。王立金融府で倍増
 function vaultDaily(){
   const v=S.vault||0; const cap=vaultCap();
   if(v<=0)return;
