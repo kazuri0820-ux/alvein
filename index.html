@@ -6298,12 +6298,28 @@ function checkDoctrineUnlock(){
   if(S.flags.doctrineChosen||S.flags.doctrine)return;
   if(STAGES[S.stage].rank>=3){S.flags.doctrineChosen=true;pushEvent("__doctrine__");}
 }
+/* ===== 税制(内政の新軸):徴税の軽重を定める標準政策。重くすれば国庫は日々潤うが民心はじわりと冷え、
+   軽くすれば収入は細るが民心が上向く。国庫と民心を秤にかけ続ける、常時効く内政のダイヤル ===== */
+const TAX_LEVELS={
+  light:{label:"軽 税",incomeMult:0.78,moodDelta:0.32,desc:"民の負担を軽くする。日々の国庫収入は減るが、民心が上向いていく。"},
+  normal:{label:"通常課税",incomeMult:1.0,moodDelta:0,desc:"穏当な徴税。国庫も民心も、特に偏りなく推移する。"},
+  heavy:{label:"重 税",incomeMult:1.3,moodDelta:-0.42,desc:"重く徴税する。日々の国庫収入は大きく増すが、民心がじわりと冷えていく。"},
+};
+const TAX_KEYS=["light","normal","heavy"];
+function taxLevel(){return TAX_LEVELS[S.taxRate]?S.taxRate:"normal";}
+function taxInfo(){return TAX_LEVELS[taxLevel()];}
+function setTaxRate(key){
+  if(!TAX_LEVELS[key]||S.taxRate===key)return;
+  S.taxRate=key;
+  chron(`徴税の方針が「${TAX_LEVELS[key].label}」に改められた。${TAX_LEVELS[key].desc}`,"big");
+  render();renderProjects();save();
+}
 function dailyEconomySettle(){
   S.prev={...S.st};
   const noise=rnd(0.75,1.35);
   const militaryDrag=Math.max(0,S.st.military-S.st.economy-20)*0.03; // 軍事が経済を大きく上回ると、軍事費のしわ寄せで経済がわずかに圧迫される
   const diplomacyTrade=S.st.diplomacy*0.08; // 外交網は交易を通じてわずかに経済を後押しする
-  const income=(3+S.st.economy*0.4+diplomacyTrade-militaryDrag+(S.flags.guild==="accept"?4:0))*(S.flags.statS_economy?1.06:1)*(doctrineIs("commerce")?1.12:1)*(S.flags.crownRelic?1.05:1)*noise; // 商の国は国庫収入が伸びる。古の王冠(永続)でも税収がわずかに上がる
+  const income=(3+S.st.economy*0.4+diplomacyTrade-militaryDrag+(S.flags.guild==="accept"?4:0))*(S.flags.statS_economy?1.06:1)*(doctrineIs("commerce")?1.12:1)*(S.flags.crownRelic?1.05:1)*taxInfo().incomeMult*noise; // 商の国は国庫収入が伸びる。古の王冠(永続)でも税収がわずかに上がる。徴税の軽重(税制)で日々の収入が増減する
   if(militaryDrag>3&&!S._militaryDragWarned&&Math.random()<0.3){
     S._militaryDragWarned=true;
     chron("軍事にかける費えが経済を圧迫している、と財務官が渋い顔で報告した。","");
@@ -6319,7 +6335,7 @@ function dailyEconomySettle(){
   if(S.food>15&&S.mood>38&&Math.random()<Math.min(0.55,growChance))S.pop+=ri(1,3);
   if(S.food<0){S.food=0;S.mood-=2;if(S.day%3===0)chron("食糧が底を突きつつある。配給に長い列ができている。","grave");}
   if(S.gold<0&&S.day%5===0){S.mood-=1.5;chron("蓄えが底を突いている。倹約令が敷かれた。","grave");}
-  S.mood+=(S.st.order-50)*0.02+(S.st.agriculture-30)*0.006+(S.st.diplomacy-30)*0.004+rnd(-0.5,0.5)+(doctrineIs("people")?0.35:0); // 農業(食の安定)・外交(国の評判)も民心に影響。民の国は民心が日々育つ
+  S.mood+=(S.st.order-50)*0.02+(S.st.agriculture-30)*0.006+(S.st.diplomacy-30)*0.004+rnd(-0.5,0.5)+(doctrineIs("people")?0.35:0)+taxInfo().moodDelta; // 農業(食の安定)・外交(国の評判)も民心に影響。民の国は民心が日々育つ。徴税の軽重(税制)も民心をじわり左右する
   if(S.policyFocus){
     const streakMult=1+Math.min(0.6,(S.policyStreak||0)*0.15); // 同じ方針を継続するほど伸びが強化(専念のご褒美)
     const cur=S.st[S.policyFocus];
@@ -9678,6 +9694,14 @@ function renderProjects(){
     <div class="ds">${S.policyFocus?`「${focusLabels[S.policyFocus]}」に注力中。月末まで毎日じわじわ上昇する。${(S.policyStreak||0)>0?`(継続${(S.policyStreak||0)+1}ヶ月・伸び+${Math.round(Math.min(0.6,(S.policyStreak||0)*0.15)*100)}%)`:""}`:"特に方針を定めていない。月次会議で重点分野を選べる。"}</div>
     ${S.policyFocus?(()=>{const st=(S.policyStreak||0);const next=st<3?3:st<6?6:Math.floor(st/6)*6+6;return `<div class="ds" style="color:var(--gold);font-size:11px">同じ方針をあと${next-st}ヶ月継続すると、国策が結実して大きく飛躍する</div>`;})():""}
   </div>`;
+  // ── 税制 ──
+  {const cur=taxLevel();const ti=TAX_LEVELS[cur];
+   h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-market"></i>税制 ― ${ti.label}</div>
+     <div class="ds" style="margin:2px 0 6px">${ti.desc}</div>
+     <div style="display:flex;gap:5px;flex-wrap:wrap">`+TAX_KEYS.map(k=>{const t=TAX_LEVELS[k];const on=k===cur;const col=k==="heavy"?"#d99a6a":k==="light"?"#8fbf6f":"#c9a86a";return `<button class="tax-btn" data-k="${k}" style="flex:1;min-width:72px;background:${on?col:"transparent"};color:${on?"var(--ink)":col};border:1px solid ${col};border-radius:6px;padding:7px 4px;font-family:'Shippori Mincho',serif;font-size:11.5px;font-weight:${on?"800":"600"};cursor:pointer">${t.label}</button>`;}).join("")+`</div>
+     <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:5px">徴税収入 ${Math.round(ti.incomeMult*100)}% ／ 民心 ${ti.moodDelta>0?"日々上向く":ti.moodDelta<0?"日々冷える":"変わらず"}</div>
+   </div>`;
+  }
   // ── 国是 ──
   if(doctrineName())h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)">国是:${doctrineName()}</div><div class="ds">${(NATIONAL_DOCTRINES.find(d=>d.key===S.flags.doctrine)||{}).desc||""}</div></div>`;
   // ── 王の勅令 ──
@@ -9773,6 +9797,7 @@ function renderProjects(){
   $("#prjList").querySelectorAll(".nb-gift-btn").forEach(b=>b.onclick=()=>{giftNeighbor(+b.dataset.i);});
   $("#prjList").querySelectorAll(".nb-ally-btn").forEach(b=>b.onclick=()=>{allyNeighbor(+b.dataset.i);});
   $("#prjList").querySelectorAll(".festival-btn").forEach(b=>b.onclick=()=>{holdFestival(b.dataset.k);});
+  $("#prjList").querySelectorAll(".tax-btn").forEach(b=>b.onclick=()=>{setTaxRate(b.dataset.k);});
   $("#prjList").querySelectorAll(".decree-btn").forEach(b=>b.onclick=()=>{
     if(decreeCooldownLeft()>0)return;
     const d=ROYAL_DECREES.find(x=>x.key===b.dataset.k);
@@ -9845,7 +9870,7 @@ function renderStatsDetail(){
     }
     h+=`<div class="srow"><div class="sh"><div class="nm">${label}</div><div class="vl">${v} / 100 (${grade(v)})</div></div><div class="ef">${STAT_DESC[k]}${extra}</div><div class="bar"><i style="width:${v}%"></i></div></div>`;
   }
-  h+=`<div class="srow"><div class="sh"><div class="nm">国庫</div><div class="vl">${Math.round(S.gold)}</div></div><div class="ef">毎日 経済に応じた税収が入り、軍事維持費などが出ていく。マイナスが続くと民心が下がる。</div></div>`;
+  h+=`<div class="srow"><div class="sh"><div class="nm">国庫</div><div class="vl">${Math.round(S.gold)}</div></div><div class="ef">毎日 経済に応じた税収が入り、軍事維持費などが出ていく。マイナスが続くと民心が下がる。<span style="color:var(--dim)">／ 現在の税制:<b style="color:${taxLevel()==="heavy"?"#d99a6a":taxLevel()==="light"?"#8fbf6f":"#c9a86a"}">${taxInfo().label}</b>(徴税収入${Math.round(taxInfo().incomeMult*100)}%・国政画面で変更)</span></div></div>`;
   h+=`<div class="srow"><div class="sh"><div class="nm">食糧</div><div class="vl">${Math.round(S.food)}</div></div><div class="ef">農業に応じて増え、人口に応じて減る。尽きると民心が下がる。</div></div>`;
   h+=`<div class="srow"><div class="sh"><div class="nm">民心</div><div class="vl">${Math.round(S.mood)} / 100</div></div><div class="ef">0になると民の支持を失い、統治が終わる。治安・食糧・国庫の影響を受ける。70以上で兵士の忠誠がじわじわ高まり、30未満では逆に蝕まれていく。</div></div>`;
   $("#statList").innerHTML=h;
