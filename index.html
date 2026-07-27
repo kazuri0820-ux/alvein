@@ -10577,6 +10577,7 @@ function renderDungeonPanel(){
     h+=`<div style="margin-top:10px">
       <button id="dgDelveToggle" style="width:100%;background:${dgDelve?"rgba(180,120,90,.25)":"transparent"};border:1px solid ${dgDelve?"#d08f5a":"var(--gold2)"};color:${dgDelve?"#e0a870":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;font-weight:${dgDelve?"800":"600"};cursor:pointer">${dgDelve?"◆ 深層まで攻める(ON)":"深層まで攻める(OFF)"}</button>
       <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:4px">踏破に成功したら、疲れた部隊のまま奥の主へ挑む。勝てば格上の秘宝・財貨を掴むが、敗れれば疲労と負傷を負う(第一の戦果は失わない)。</div>
+      ${dgDelve&&selSquad.length&&d.bossPower?(()=>{const r=(selCombined*0.85)/(d.bossPower*1.3);const lbl=r>=1?"圏内":r>=0.8?"五分":"苦しい";const col=r>=1?"#8fbf6f":r>=0.8?"#d9b56a":"#d97a7a";return `<div class="ds" style="font-size:11px;margin-top:2px">深層の主の討伐:<span style="color:${col};font-weight:700">${lbl}</span> <span style="color:var(--dim)">(疲労した状態での見込み)</span></div>`;})():""}
     </div>`;
     h+=`<div style="display:flex;gap:6px;margin-top:10px">
       <button id="dgDispatchConfirm" ${selSquad.length?"":"disabled"} style="flex:1;background:${selSquad.length?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${selSquad.length?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:10px;font-family:'Shippori Mincho',serif;font-weight:800;cursor:${selSquad.length?"pointer":"default"}">この編成で派遣する</button>
