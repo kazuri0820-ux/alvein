@@ -6574,6 +6574,7 @@ function dailyEconomySettle(){
     if(p.p>=100){p.p=100;p.done=true;p.fx&&p.fx();}
   }
   facilityDailyProduce();
+  vaultDaily(); // 王室金庫:預けた蓄えが日々わずかに利息を生む(上限まで)
   ministerDaily(); // 重臣の執政:要職に就いた兵の器量に応じ、日々その分野の国力が育つ
   immigrationDaily(); // 移民政策:入植方針に応じた治安の推移と、開放策のもとでの入植者の流入
   clamp();
@@ -10194,6 +10195,37 @@ function buyGrain(){
   chron(`国庫から${cost}を投じ、糧${GRAIN_BATCH}を買い付けて蔵に納めた。`,"");
   clamp();render();renderProjects();save();
 }
+/* ===== 王室金庫(内政の新軸):国庫の一部を金庫へ預ける。預けた金は日々の散財や危機の煽り(倹約令・
+   略奪等)に手を付けられぬ"守られた蓄え"となり、堅実な運用で日々わずかずつ利息を生む(国力に応じた上限まで)。
+   ただし預けている間は徴募・討伐・施設には使えない——"手元の自由(流動性)"と"守られた蓄え・複利の伸び"を
+   秤にかける、これまで無かった資産管理の選択軸。危機の安全弁と、じっくり殖やす長期の楽しみを両立する。 ===== */
+function vaultCap(){return 200+(((typeof STAGES!=="undefined"&&STAGES[S.stage]&&STAGES[S.stage].rank)||1)*300);} // 利息が付く上限は国の格に応じて広がる
+function vaultRate(){return 0.01;} // 日々の利率(上限額まで)
+function vaultDaily(){
+  const v=S.vault||0; const cap=vaultCap();
+  if(v<=0)return;
+  if(v<cap&&S.flags&&S.flags.vaultCapSeen)S.flags.vaultCapSeen=false; // 上限が広がって余地ができたら告知を再武装
+  if(v>=cap)return;
+  const gain=Math.max(1,Math.floor(v*vaultRate()));
+  S.vault=Math.min(cap,v+gain);
+  S.flags=S.flags||{};
+  if(!S.flags.vaultCapSeen&&S.vault>=cap){S.flags.vaultCapSeen=true;chron(`王室金庫の蓄えが、今の国力で運用できる上限(${cap})に達した。これ以上は利息がつかない——さらに殖やすには国を発展させるか、蓄えを活かす時だ。`,"");}
+}
+function depositVault(amt){
+  const a=(amt==="all")?Math.floor(S.gold):Math.min(amt,Math.floor(S.gold));
+  if(a<=0){chron("金庫へ預けられるだけの蓄えが手元にない。","");return;}
+  S.gold-=a; S.vault=(S.vault||0)+a;
+  chron(`国庫から${a}を王室金庫へ預けた(金庫残高${S.vault})。守られた蓄えは、堅実な運用で日々わずかずつ増えてゆく。`,"");
+  clamp();render();renderProjects();save();
+}
+function withdrawVault(amt){
+  const v=S.vault||0;
+  const a=(amt==="all")?v:Math.min(amt,v);
+  if(a<=0){chron("金庫から引き出せる蓄えがない。","");return;}
+  S.vault=v-a; S.gold+=a;
+  chron(`王室金庫から${a}を引き出し、国庫へ戻した(金庫残高${S.vault})。`,"");
+  clamp();render();renderProjects();save();
+}
 /* 山の隠者の賜物:庵を結んだ後、隠者がときおり若い兵に技を授けたり、国に叡智をもたらす。
    一度きりでも常時でもない"折に触れて訪れる恵み"=継続的な報酬タイプ(物語のある永続の縁) */
 function checkHermitWisdom(){
@@ -10271,6 +10303,15 @@ function renderProjects(){
        <button class="grain-sell-btn" ${canSell?"":"disabled"} style="flex:1;background:transparent;border:1px solid ${canSell?"var(--gold2)":"rgba(255,255,255,.12)"};color:${canSell?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canSell?"pointer":"default"}">糧を売る（食糧${GRAIN_BATCH}→金${grainSellGain()}）</button>
        <button class="grain-buy-btn" ${canBuy?"":"disabled"} style="flex:1;background:transparent;border:1px solid ${canBuy?"var(--gold2)":"rgba(255,255,255,.12)"};color:${canBuy?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canBuy?"pointer":"default"}">糧を買う（金${grainBuyCost()}→食糧${GRAIN_BATCH}）</button>
      </div>
+   </div>`;
+  }
+  // ── 王室金庫(国庫⇄守られた蓄え・利息) ──
+  {const vault=S.vault||0;const cap=vaultCap();const atCap=vault>=cap;const g=Math.floor(S.gold);
+   const mkBtn=(cls,amt,lbl,enabled)=>`<button class="${cls}" data-amt="${amt}" ${enabled?"":"disabled"} style="flex:1;min-width:52px;background:transparent;border:1px solid ${enabled?"var(--gold2)":"rgba(255,255,255,.12)"};color:${enabled?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px 3px;font-family:'Shippori Mincho',serif;font-size:11px;cursor:${enabled?"pointer":"default"}">${lbl}</button>`;
+   h+=`<div class="pcard" style="margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-market"></i>王室金庫 <span style="color:var(--parch,#e8d9b5);font-size:12px">残高 ${vault}</span></div>
+     <div class="ds" style="margin:2px 0 6px">国庫の一部を金庫へ預けて守る。預けた蓄えは散財や危機の煽りに手を付けられず、日々${Math.round(vaultRate()*100)}%の利息で殖える（上限${cap}／格上げで拡大）。ただし預けた金は徴募・討伐・施設には使えない。<span style="color:${atCap?"#d99a6a":"#8fbf6f"};font-size:10.5px">${vault<=0?"":atCap?"(運用上限に到達＝利息停止中)":`(あと${cap-vault}まで利息が付く)`}</span></div>
+     <div style="display:flex;gap:5px;margin-bottom:5px"><span style="color:var(--dim);font-size:10.5px;align-self:center;flex:0 0 auto">預ける▸</span>${mkBtn("vault-dep-btn",100,"100",g>=100)}${mkBtn("vault-dep-btn",500,"500",g>=500)}${mkBtn("vault-dep-btn","all","全部",g>0)}</div>
+     <div style="display:flex;gap:5px"><span style="color:var(--dim);font-size:10.5px;align-self:center;flex:0 0 auto">引き出す▸</span>${mkBtn("vault-wd-btn",100,"100",vault>=100)}${mkBtn("vault-wd-btn",500,"500",vault>=500)}${mkBtn("vault-wd-btn","all","全部",vault>0)}</div>
    </div>`;
   }
   // ── 国是 ──
@@ -10412,6 +10453,8 @@ function renderProjects(){
   {const ab=$("#prjList").querySelector(".academy-btn");if(ab)ab.onclick=()=>buildAcademy();}
   {const gs=$("#prjList").querySelector(".grain-sell-btn");if(gs)gs.onclick=()=>sellGrain();
    const gb=$("#prjList").querySelector(".grain-buy-btn");if(gb)gb.onclick=()=>buyGrain();}
+  $("#prjList").querySelectorAll(".vault-dep-btn").forEach(b=>b.onclick=()=>{const a=b.dataset.amt;depositVault(a==="all"?"all":+a);});
+  $("#prjList").querySelectorAll(".vault-wd-btn").forEach(b=>b.onclick=()=>{const a=b.dataset.amt;withdrawVault(a==="all"?"all":+a);});
   $("#prjList").querySelectorAll(".decree-btn").forEach(b=>b.onclick=()=>{
     if(decreeCooldownLeft()>0)return;
     const d=ROYAL_DECREES.find(x=>x.key===b.dataset.k);
