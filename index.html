@@ -6212,7 +6212,7 @@ function dailyEconomySettle(){
   const noise=rnd(0.75,1.35);
   const militaryDrag=Math.max(0,S.st.military-S.st.economy-20)*0.03; // 軍事が経済を大きく上回ると、軍事費のしわ寄せで経済がわずかに圧迫される
   const diplomacyTrade=S.st.diplomacy*0.08; // 外交網は交易を通じてわずかに経済を後押しする
-  const income=(3+S.st.economy*0.4+diplomacyTrade-militaryDrag+(S.flags.guild==="accept"?4:0))*(S.flags.statS_economy?1.06:1)*(doctrineIs("commerce")?1.12:1)*noise; // 商の国は国庫収入が伸びる
+  const income=(3+S.st.economy*0.4+diplomacyTrade-militaryDrag+(S.flags.guild==="accept"?4:0))*(S.flags.statS_economy?1.06:1)*(doctrineIs("commerce")?1.12:1)*(S.flags.crownRelic?1.05:1)*noise; // 商の国は国庫収入が伸びる。古の王冠(永続)でも税収がわずかに上がる
   if(militaryDrag>3&&!S._militaryDragWarned&&Math.random()<0.3){
     S._militaryDragWarned=true;
     chron("軍事にかける費えが経済を圧迫している、と財務官が渋い顔で報告した。","");
@@ -10409,6 +10409,8 @@ function renderItemsPanel(){
     if(S.flags&&S.flags.forgeWorkshop)boons.push({icon:"⚒",c:"#c9a86a",t:`常設の鍛冶場`,d:"装備の鍛冶(強化)費用が永続で2割安くなっている"});
     if(S.flags&&S.flags.shopFavor)boons.push({icon:"⚖",c:"#8fbf6f",t:`行商人の馴染み`,d:"行商人の店の品数が増え、馴染み価格で買える"});
     if(S.flags&&S.flags.heirloom){const hn={banner:["旗","#d0a0a0","王家の家宝・不滅の王旗:兵の戦死率が永続で下がっている"],horn:["杯","#d9c07a","王家の家宝・豊穣の角杯:日々の国庫と食糧が永続で潤っている"],archive:["書","#9fb0d0","王家の家宝・賢王の書架:迷宮踏破の経験値が永続で増えている"]}[S.flags.heirloom];if(hn)boons.push({icon:hn[0],c:hn[1],t:`王家の家宝`,d:hn[2]});}
+    if(S.flags&&S.flags.crownRelic)boons.push({icon:"♔",c:"#e8c874",t:`古の王冠`,d:"以後の税収が永続でわずかに上がっている"});
+    if(S.flags&&S.flags.artisanGuild)boons.push({icon:"⚒",c:"#a9c47a",t:`熟練の職人団`,d:"すべての施設の産出が永続で増えている"});
     const bh=$("#itemsBoons");
     if(bh){
       if(boons.length){
