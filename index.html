@@ -5547,6 +5547,32 @@ function checkSeasonalVignette(){
   u.moral=Math.min(100,(u.moral||0)+1);
   chron(pool[Math.floor(Math.random()*pool.length)](u),"");
 }
+/* 好敵手の火花:同じ道(職業)を歩む二人の兵が、互いを高め合う一幕を稀に拾い上げる。同職の兵を複数
+   抱えることに「切磋琢磨」という彩りと、双方が少し腕を上げる実利を与える(競い合いの演出)。
+   絆(bond)が情の結びつきなら、こちらは張り合いの結びつき——別種の人間関係で名簿に物語を足す。 */
+const RIVAL_VIGNETTES=[
+ (a,b)=>`${a.nm}と${b.nm}が「次の出撃で武功を多く挙げた方が勝ち」と、互いに睨みを利かせていた。`,
+ (a,b)=>`稽古場で${a.nm}と${b.nm}が一歩も譲らぬ打ち合いを続け、周りの兵が固唾を呑んで見守っていた。`,
+ (a,b)=>`${a.nm}が新しい技を会得したと聞くや、${b.nm}が負けじと夜更けまで独り鍛錬に励んでいた。`,
+ (a,b)=>`${a.nm}と${b.nm}は、顔を合わせれば軽口を叩き合うが、いざとなれば誰より互いを頼りにしている。`,
+ (a,b)=>`同じ道を征く${a.nm}と${b.nm}は、口では張り合いながらも、その実、相手の背中を目標に腕を磨いていた。`,
+];
+function checkRivalVignette(){
+  if(Math.random()>=0.026)return; // ごく稀に
+  const active=S.units.filter(u=>u.role==="active"&&u.injured<=0&&(u.lv||1)>=4);
+  // 同職のペアを探す
+  const byCls={};
+  for(const u of active){(byCls[u.cls]=byCls[u.cls]||[]).push(u);}
+  const pairs=Object.values(byCls).filter(arr=>arr.length>=2);
+  if(!pairs.length)return;
+  const group=pairs[Math.floor(Math.random()*pairs.length)];
+  const i=Math.floor(Math.random()*group.length);
+  let j=Math.floor(Math.random()*(group.length-1)); if(j>=i)j++;
+  const a=group[i], b=group[j];
+  if(!a||!b||a.id===b.id)return;
+  for(const u of [a,b]){u.exp+=ri(3,7);processLevelUps(u);u.moral=Math.min(100,(u.moral||0)+1);}
+  chron(RIVAL_VIGNETTES[Math.floor(Math.random()*RIVAL_VIGNETTES.length)](a,b),"");
+}
 function checkSeasonTurn(){
   const s=currentSeason();
   if(S.seasonSeen===s.key)return;
@@ -5689,6 +5715,7 @@ function dailyEconomySettle(){
   checkBondVignette(); // 戦友同士の何気ない一幕
   checkMentorVignette(); // 師弟(教官と若手)の稽古の一幕
   checkFameVignette(); // 功を立てた兵の武名が市井で語られる一幕
+  checkRivalVignette(); // 同職の兵同士が競い合い、互いを高め合う一幕
   checkSeasonalVignette(); // 巡る季節に寄せた兵の一場面
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
