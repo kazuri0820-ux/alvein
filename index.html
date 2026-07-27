@@ -2146,9 +2146,15 @@ function initSkills(u){
   return skills;
 }
 /* スキル所有上限:レベルに応じて段階的に拡張、転生者は特別に+10 */
+/* 万夫の器(育成の新軸):複数の職の道を歩み修めた兵は、異なる流派の心得が身に沁みて"技の器"が広がる。
+   転職(Lv巻き戻しの代償を伴う)に、多芸ゆえの恒久の見返り=技の枠が増えるという到達点を与え、
+   あえて幾つもの道を渡り歩く育成を"意味ある選択"に変える新レバー。数値の水増しでなく、覚えられる技の幅で効かせる。 */
+function jobsWalkedCount(u){ return u&&Array.isArray(u.jobsWalked)?u.jobsWalked.length:1; }
+function versatilityBonus(u){ const n=jobsWalkedCount(u); return n>=4?3:n>=3?2:n>=2?1:0; } // 歩んだ道が2/3/4以上で技の枠が+1/+2/+3
 function skillCap(u){
   let cap=(u.skillCapBase||3);
   if(u.trait==="reborn")cap+=10;
+  cap+=versatilityBonus(u); // 複数の職を修めた兵は、覚えられる技の枠が広がる
   return Math.min(cap,20);
 }
 /* アイテムによるスキル付与専用の重み(最上位の金クラスは対象外にする) */
@@ -2381,6 +2387,7 @@ const TITLE_DB=[
  {key:"t_duelvictor",name:"決闘の覇者",desc:"諸国の武芸者との果たし合いを、真っ向から制した",effect:"expMult",value:1.05},
  {key:"t_warchiefslayer",name:"覇者殺し",desc:"圧倒的な強者「覇者」を討ち取った",effect:"injuryMult",value:0.9},
  {key:"t_skillful",name:"多芸の兵",desc:"数多の技を身につけ、あらゆる戦場に応じてみせる",effect:"expMult",value:1.04},
+ {key:"t_pathwalker",name:"万夫の器",desc:"幾つもの職の道を歩み修め、異なる流派の心得までも我がものとした、器の大きな兵。覚えられる技の枠が広い",effect:"expMult",value:1.05},
  {key:"t_polymath",name:"百芸の達人",desc:"ありとあらゆる技を極めた、まさに歩く武芸の宝庫",effect:"expMult",value:1.08},
  {key:"t_legendsquad",name:"伝説の小隊の一員",desc:"幾多の出撃を共にし、伝説と讃えられた小隊の一員",effect:"loyaltyGrow",value:0.12},
  {key:"t_generalslayer",name:"魔将殺し",desc:"魔王軍の名だたる魔将を討ち取った",effect:"injuryMult",value:0.9},
@@ -10378,6 +10385,12 @@ function churchJobChangeCost(u){
 }
 function changeJobCore(u,newCls,note){
   const oldLabel=JOB_TREES[u.cls].label;
+  // 万夫の器:歩んだ職(流派)の履歴を、重複なく積む。転職の代償に見合う多芸の礎
+  if(!Array.isArray(u.jobsWalked))u.jobsWalked=[u.cls];
+  const beforeVers=versatilityBonus(u);
+  if(!u.jobsWalked.includes(newCls))u.jobsWalked.push(newCls);
+  const afterVers=versatilityBonus(u);
+  if(afterVers>beforeVers){grantTitle(u,"t_pathwalker");chron(`${fullName(u)}は幾つもの道を歩み修め、異なる流派の心得までもが身に沁みてきた。覚えられる技の枠が広がった(万夫の器)。`,"big");}
   u.cls=newCls;
   u.route=null; // ジョブチェンジでルートはリセット、新しい職で改めて選び直す
   u.hasJobChanged=true;
@@ -12096,6 +12109,7 @@ function renderUnitDetail(uid){
   if(u.backstory)h+=`<div class="udet-sec"><h4>生い立ち</h4><div style="font-size:12px;color:#d8dbe6;line-height:1.85;font-style:italic">${u.backstory}</div></div>`;
   if(!isInstructor&&u.dream){const dd=UNIT_DREAMS.find(x=>x.key===u.dream);if(dd)h+=`<div class="udet-sec"><h4>${u.dreamDone?"叶えた夢":"抱いている夢"}</h4><div style="font-size:12px;color:${u.dreamDone?"var(--gold)":"#d8dbe6"};font-style:italic">${u.dreamDone?"✦ ":"― "}${dd.text}${u.dreamDone?" ――その願いは、叶えられた。":""}</div></div>`;}
   if(u.sigFeat&&u.sigFeat.text)h+=`<div class="udet-sec"><h4>語り草の武勲</h4><div style="font-size:12px;color:#e0be6f;line-height:1.8;font-style:italic;border-left:2px solid var(--gold2,#c9a24b);padding-left:9px">❖ ${u.sigFeat.text}<span style="color:var(--dim);font-style:normal">（DAY ${u.sigFeat.day}）</span></div></div>`; // その兵を語る時、真っ先に挙がる生涯の一戦
+  if(Array.isArray(u.jobsWalked)&&u.jobsWalked.length>=2){const vb=versatilityBonus(u);h+=`<div class="udet-sec"><h4>歩んだ道 <span style="color:var(--gold);font-size:11px">万夫の器 技+${vb}</span></h4><div style="font-size:12px;color:#d8dbe6">${u.jobsWalked.map(k=>(JOB_TREES[k]&&JOB_TREES[k].label)||k).join(" → ")}<div style="font-size:10.5px;color:var(--dim);margin-top:2px">幾つもの流派を修め、覚えられる技の枠が広がっている。</div></div></div>`;}
   // ── 戦績(この兵が歩んできた道のりを数字で刻む=愛着と成長実感) ──
   {
     const rec=[];
