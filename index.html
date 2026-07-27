@@ -2640,6 +2640,8 @@ function fullName(u){return u.nm+(u.surname?" "+u.surname:"");}
    転じ、絆・師弟・好敵手といった関係の重みを戦闘へ波及させる新たな軸(関係×戦闘×感情)。 ===== */
 const AVENGE_DAYS=[8,14];   // 弔い合戦の誓いが続く日数
 const AVENGE_PW_MULT=1.13;  // その間、戦力が高まる倍率
+const VIGOR_REST_DAYS=6;    // これだけ十分に休むと「英気充溢」になる
+const VIGOR_PW_MULT=1.07;   // 英気充溢の間、戦力が高まる倍率(次の出撃で消費)
 function avengeActive(u){return !!(u&&u.avengeUntil!=null&&S.day<=u.avengeUntil);}
 function setAvenge(u,fallenName){ if(!u)return; u.avengeUntil=S.day+ri(AVENGE_DAYS[0],AVENGE_DAYS[1]); u.avengeName=fallenName; }
 function checkAvengeTurns(){
@@ -2668,6 +2670,7 @@ function unitPower(u){
   if(u.injured>0)p*=(INJURY_TIERS[u.injurySeverity]&&INJURY_TIERS[u.injurySeverity].pwMult)||0.5;
   else p*=conditionInfo(u).pwMult;
   if(avengeActive(u))p*=AVENGE_PW_MULT; // 弔い合戦:亡き者への想いが力を引き出す
+  if(u.vigor)p*=VIGOR_PW_MULT; // 英気充溢:十分に休んだ兵は次の一戦で力を発揮する
   return p;
 }
 /* unitPower()と同じ計算式を、内訳表示用に構成要素へ分解したもの */
@@ -2971,6 +2974,12 @@ function checkAging(){
   for(const u of [...S.units]){
     u.age+=1/AGE_YEAR_DAYS;
     u.fatigue=Math.max(0,(u.fatigue||0)-((u.race==="dwarf"?12:8)+(traitInfo(u.trait).fatigueRecover||0)+(doctrineIs("vigor")?4:0))); // ドワーフは頑健で疲れの抜けが早い(種族の個性)。特性(不屈の体躯 等)や「健勇の国」の国是もさらに回復を早める(スキル分は後段で加算)
+    // 英気を養う:出撃せず十分に休んだ兵は、みなぎる英気を蓄え、次の一戦で常より力を発揮する(休息=戦力への投資という新たな運用軸)
+    if(u.dungeonBusy){u.restDays=0;}
+    else if(u.role==="active"&&u.injured<=0&&!u.campUntil&&(u.fatigue||0)<=8){
+      u.restDays=(u.restDays||0)+1;
+      if(u.restDays>=VIGOR_REST_DAYS&&!u.vigor){u.vigor=true;unitHistory(u,`しばしの休息で英気を養い、力がみなぎっている。`);}
+    }
     if(u.injured>0){
       u.injured--;
       if(u.injured<=0){
@@ -9282,6 +9291,7 @@ function resolveDungeonRun(dungeonId){
     }
     if(eased)chron(`携えた兵站が生き、「${dungeon.name}」から戻った部隊の疲れと傷は、いくらか浅く済んだ。`,"");
   }
+  for(const u of squad){if(u&&u.vigor){u.vigor=false;u.restDays=0;}} // 英気充溢は、この一戦で発揮され消費される
   removeActiveDungeon(dungeonId);
   clamp();render();renderTroops();refreshOpenPanels();save();
   showDungeonResult(dungeon,tier,bossWin,memberLog,goldGained,itemGained,died,diedWasHallWorthy,dungeonFound);
@@ -11593,7 +11603,7 @@ function renderTroops(){
     const cc=CLASS_COLOR[u.cls];
     const j=jobFor(u.cls,u.lv,u.route);
     const cond=conditionInfo(u);
-    const statusIcons=(u.favorite?`<span class="uicon" title="お気に入り" style="color:var(--gold)">★</span>`:"")+(u.injured>0?`<span class="uicon" title="療養中">${ICON_INJURED}</span>`:"")+(()=>{const dt=unitDutyType(u);if(dt){const dn={guard:"警備駐屯中",trade:"交易護衛中",scout:"巡回偵察中"}[dt]||"駐屯中";return `<span class="uicon" title="${dn}(小隊の駐屯任務)" style="color:#8fb0d0">駐</span>`;}return u.dungeonBusy?`<span class="uicon" title="ダンジョン探索中" style="color:#c98fe8">⛏</span>`:"";})()+(u.bondWith?`<span class="uicon" title="戦友あり">${ICON_BOND}</span>`:"")+(u.rivalWith?`<span class="uicon" title="好敵手あり(同陣で連携↑・互いに成長)" style="color:#d9a05e">⚔</span>`:"")+(u.masterId?`<span class="uicon" title="師のもとで修行中(日々成長)" style="color:#8fb0d0">弟</span>`:"")+(u.pupilId?`<span class="uicon" title="弟子を育成中" style="color:#8fb0d0">師</span>`:"")+(u.admires?(()=>{const h=S.units.find(x=>x.id===u.admires);return h?`<span class="uicon" title="${h.nm}に憧れ、その背中を追って伸びている" style="color:#c9a0d0">憧</span>`:"";})():"")+((u.loyalty||100)<25&&!u.injured?`<span class="uicon" title="忠誠が低く、戦力が15%落ちている(慰労・結束の宴・忠魂の霊地で立て直せる)" style="color:#d97a7a">⚑</span>`:"")+(u.dreamDone?`<span class="uicon" title="かねての夢を叶えた兵" style="color:var(--gold)">✦</span>`:"")+((u.typeMastery&&Object.keys(u.typeMastery).length)?`<span class="uicon" title="攻略型を極めた熟達の兵(${Object.keys(u.typeMastery).map(k=>dungeonTypeLabel(k)).join("・")})" style="color:#c9a86a">極</span>`:"")+((u.hardships||0)>=HARDENED_THRESHOLD?`<span class="uicon" title="幾多の敗北を乗り越えた叩き上げの古兵(忠義・士気が篤い)" style="color:#b89a6a">叩</span>`:"");
+    const statusIcons=(u.favorite?`<span class="uicon" title="お気に入り" style="color:var(--gold)">★</span>`:"")+(u.injured>0?`<span class="uicon" title="療養中">${ICON_INJURED}</span>`:"")+(()=>{const dt=unitDutyType(u);if(dt){const dn={guard:"警備駐屯中",trade:"交易護衛中",scout:"巡回偵察中"}[dt]||"駐屯中";return `<span class="uicon" title="${dn}(小隊の駐屯任務)" style="color:#8fb0d0">駐</span>`;}return u.dungeonBusy?`<span class="uicon" title="ダンジョン探索中" style="color:#c98fe8">⛏</span>`:"";})()+(u.bondWith?`<span class="uicon" title="戦友あり">${ICON_BOND}</span>`:"")+(u.rivalWith?`<span class="uicon" title="好敵手あり(同陣で連携↑・互いに成長)" style="color:#d9a05e">⚔</span>`:"")+(u.masterId?`<span class="uicon" title="師のもとで修行中(日々成長)" style="color:#8fb0d0">弟</span>`:"")+(u.pupilId?`<span class="uicon" title="弟子を育成中" style="color:#8fb0d0">師</span>`:"")+(u.admires?(()=>{const h=S.units.find(x=>x.id===u.admires);return h?`<span class="uicon" title="${h.nm}に憧れ、その背中を追って伸びている" style="color:#c9a0d0">憧</span>`:"";})():"")+((u.loyalty||100)<25&&!u.injured?`<span class="uicon" title="忠誠が低く、戦力が15%落ちている(慰労・結束の宴・忠魂の霊地で立て直せる)" style="color:#d97a7a">⚑</span>`:"")+(u.dreamDone?`<span class="uicon" title="かねての夢を叶えた兵" style="color:var(--gold)">✦</span>`:"")+((u.typeMastery&&Object.keys(u.typeMastery).length)?`<span class="uicon" title="攻略型を極めた熟達の兵(${Object.keys(u.typeMastery).map(k=>dungeonTypeLabel(k)).join("・")})" style="color:#c9a86a">極</span>`:"")+((u.hardships||0)>=HARDENED_THRESHOLD?`<span class="uicon" title="幾多の敗北を乗り越えた叩き上げの古兵(忠義・士気が篤い)" style="color:#b89a6a">叩</span>`:"")+(u.vigor?`<span class="uicon" title="英気充溢:十分に休み、次の出撃で戦力が高まる" style="color:#8fbf6f">気</span>`:"");
     const reserveTag=(S.flags.knightOrder&&!isInRoster(u))?`<span class="reservetag">控え</span>`:"";
     const nick=nicknameSpan(u);
     const statmax=500;
@@ -11726,6 +11736,7 @@ function renderUnitDetail(uid){
         ${(()=>{if(isInstructor||!u.focusStat)return"";const c=(USTAT_DEF[u.focusStat]||{}).color||"var(--gold)";return `<span class="udet-chip" style="color:${c};border-color:${c}" title="研鑽の方針。以後の成長がこの能力へ傾く">研鑽:${(USTAT_DEF[u.focusStat]||{lbl:u.focusStat}).lbl}</span>`;})()}
         ${(u.scars||0)>0?`<span class="udet-chip" style="color:#c98f7a;border-color:#c98f7a" title="幾多の負傷を乗り越えて刻まれた歴戦の傷痕。傷を負いにくくなっている(傷痕${u.scars}=負傷率${Math.round((1-scarInjuryMult(u))*100)}%減)">歴戦の傷痕 ${"✚".repeat(Math.min(5,u.scars))}</span>`:""}
         ${avengeActive(u)?`<span class="udet-chip" style="color:#d98a6a;border-color:#d98a6a" title="喪った${u.avengeName||"戦友"}の弔いを胸に奮い立っている。この間、戦力が高まる(あと${Math.max(0,(u.avengeUntil||0)-S.day)}日)">弔い合戦 ⚔ あと${Math.max(0,(u.avengeUntil||0)-S.day)}日</span>`:""}
+        ${u.vigor?`<span class="udet-chip" style="color:#8fbf6f;border-color:#8fbf6f" title="十分に休養して英気を養った状態。次の出撃で戦力が高まる(出撃で消費)">英気充溢</span>`:""}
         ${(u.tourneyWins||0)>0?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)" title="御前試合で頂点に立った回数">御前試合 優勝${u.tourneyWins}回</span>`:""}
         ${(u.hardships||0)>=HARDENED_THRESHOLD?`<span class="udet-chip" style="color:#b89a6a;border-color:#b89a6a" title="幾多の敗北と辛酸を乗り越えた叩き上げの古兵。忠義と士気が篤い(乗り越えた敗北 ${u.hardships})">叩き上げ</span>`:(u.hardships||0)>0?`<span class="udet-chip" style="color:var(--dim);border-color:var(--dim)" title="迷宮での敗北を糧に成長している(あと${HARDENED_THRESHOLD-(u.hardships||0)}度の逆境で叩き上げに)">苦労人 ${u.hardships}/${HARDENED_THRESHOLD}</span>`:""}
         ${u.admires?(()=>{const h=S.units.find(x=>x.id===u.admires);return h?`<span class="udet-chip" style="color:#c9a0d0;border-color:#c9a0d0" title="${h.nm}に憧れ、その背中を追って人一倍伸びている">${h.nm}に憧れて</span>`:"";})():""}
