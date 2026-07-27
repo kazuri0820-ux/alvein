@@ -7128,6 +7128,15 @@ function squadSynergyMult(squad){
    兵の路と挑む迷宮の型が噛み合うと、その兵の攻略適性が一段高まる。ルート選択に「どの迷宮を得意に
    するか」という戦術的な意味を与え、派遣先ごとに誰を出すかの判断を面白くする(ジョブルートの手応え)。 */
 function dungeonTypeLabel(key){const t=DUNGEON_TYPES.find(x=>x.key===key);return t?t.label:key;}
+/* ダンジョン型が重んじる主要能力を推し量って表示=どんな兵を送るべきか、開く前に判断しやすくする(磨き込み) */
+function dungeonTypeStatHint(type){
+  if(!type||typeof type.statFn!=="function")return "";
+  const keys=["str","vit","int","agi","wis","lead"], labels={str:"腕力",vit:"体力",int:"魔力",agi:"敏捷",wis:"知力",lead:"統率"};
+  const base={str:10,vit:10,int:10,agi:10,wis:10,lead:10};
+  const b0=type.statFn(base);
+  const scored=keys.map(k=>{const u=Object.assign({},base);u[k]=20;return {k,d:type.statFn(u)-b0};}).filter(s=>s.d>0.01).sort((a,b)=>b.d-a.d);
+  return scored.slice(0,2).map(s=>labels[s.k]).join("・");
+}
 function routeDungeonBonus(u,type){
   if(!u||!u.route||!type||!type.key)return 1;
   const r=routeInfo(u.cls,u.route);
@@ -9615,7 +9624,7 @@ function renderDungeonPanel(){
     h+=`<div class="pcard" style="border-color:${d.rarity.color||"var(--gold2)"}">
       <div class="nm" style="color:${d.rarity.color||"var(--gold)"}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${d.bossTrait&&BOSS_TRAITS[d.bossTrait]?`<span style="color:${BOSS_TRAITS[d.bossTrait].color};font-weight:800">【${BOSS_TRAITS[d.bossTrait].label}】</span>`:""}${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<span style="color:${DUNGEON_CONDITIONS[d.condition].color};font-weight:800">〔${DUNGEON_CONDITIONS[d.condition].label}〕</span>`:""}${d.name}</div>
       ${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<div class="ds" style="color:${DUNGEON_CONDITIONS[d.condition].color};font-size:11px">環境:${DUNGEON_CONDITIONS[d.condition].desc}</div>`:""}
-      <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span> ／ `:""}目安戦力:${d.requiredPower} ／ 所要日数:${d.duration}日</div>
+      <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span>${(()=>{const h=dungeonTypeStatHint(d.type);return h?`<span style="color:var(--dim);font-size:10px">(${h}向き)</span>`:"";})()} ／ `:""}目安戦力:${d.requiredPower} ／ 所要日数:${d.duration}日</div>
       <div class="ds">選択中:${selSquad.length}/5人 ${selSquad.length?`／ この編成での<span style="color:${estPct>=50?"#8fbf6f":"#d9b56a"}">推定成功率 約${estPct}%</span>`:""}${synergy>1.001?` <span style="color:var(--gold)">(連携+${Math.round((synergy-1)*100)}%)</span>`:synergy<0.999?` <span style="color:#d97a7a">(連携乱れ${Math.round((synergy-1)*100)}%)</span>`:""}</div>
     </div>`;
     h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 8px">派遣する兵を最大5人まで選べます(タップで選択/解除)</div>`;
@@ -9683,7 +9692,7 @@ function renderDungeonPanel(){
       const rateColor=est.pct>=60?"#8fbf6f":est.pct>=35?"#d9b56a":"#d97a7a";
       h+=`<div class="pcard" style="${c?`border-color:${c};box-shadow:0 0 10px ${c}55`:""}">
         <div class="nm" style="${c?`color:${c}`:""}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<span style="color:${DUNGEON_CONDITIONS[d.condition].color};font-weight:800">〔${DUNGEON_CONDITIONS[d.condition].label}〕</span>`:""}${d.name}</div>
-        <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span> ／ `:""}推奨レベル目安:${d.level} ／ 目安戦力:${d.requiredPower} ／ 所要日数:${d.duration}日</div>
+        <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span>${(()=>{const h=dungeonTypeStatHint(d.type);return h?`<span style="color:var(--dim);font-size:10px">(${h}向き)</span>`:"";})()} ／ `:""}推奨レベル目安:${d.level} ／ 目安戦力:${d.requiredPower} ／ 所要日数:${d.duration}日</div>
         ${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<div class="ds" style="color:${DUNGEON_CONDITIONS[d.condition].color};font-size:11px">環境:${DUNGEON_CONDITIONS[d.condition].desc}</div>`:""}
         <div class="ds"><i class="icon-boss"></i>ボス:${d.bossName}(戦力${d.bossPower})</div>
         ${est.squad.length?`<div class="ds" style="margin-top:4px;padding-top:6px;border-top:1px dotted rgba(154,122,47,.25)">派遣候補(自動選抜時):${est.squad.map(fullName).join("・")}<br><span style="color:${rateColor};font-weight:700">推定成功率 約${est.pct}%</span>${est.pctGreat>5?` <span style="color:var(--gold)">(大成功 約${est.pctGreat}%)</span>`:""}${est.pctCriticalFail>10?` <span style="color:#d97a7a">(大失敗 約${est.pctCriticalFail}%)</span>`:""}</div>`:`<div class="ds" style="color:#d97a7a;margin-top:4px">派遣できる兵がいない</div>`}
