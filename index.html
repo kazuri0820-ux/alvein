@@ -3435,6 +3435,36 @@ const EARLY_GROWTH=[
 ];
 /* ---------- レアイベント:通常より低頻度・高インパクト ---------- */
 const RANDOM_RARE=[
+ {tag:"来 訪",title:"諸国武術大会",
+  body:"隣国の城下で、大陸中の武芸者が腕を競う武術大会が催されるという。名だたる強豪が集う晴れ舞台だが、勝ち上がれば賞金と、なにより「決闘の覇者」の誉れが手に入る。国を代表する一人を、名乗りを上げさせるか。",
+  speaker:"ガレオン「腕自慢が国中から集まるとか。生半可な者では、恥をかかせるだけになりましょう」",
+  choices:[
+   {label:"最強の兵を送り出す",hint:"武勲の望み / 敗れれば手傷も",fx:{call:()=>{
+     const cands=S.units.filter(u=>u.role==="active"&&u.injured<=0);
+     if(!cands.length){chron("だが、送り出せる兵が一人もいなかった。大会の話は、ただの噂話に終わった。","");return;}
+     const champ=cands.reduce((a,b)=>unitPower(b)>unitPower(a)?b:a);
+     const foe=unitPower(champ)*rnd(0.75,1.35);
+     if(unitPower(champ)>=foe){
+       const g=ri(60,120); champ.exp+=ri(30,55); processLevelUps(champ);
+       grantTitle(champ,"t_duelvictor");
+       champ.moral=Math.min(100,(champ.moral||0)+6);
+       unitHistory(champ,"諸国武術大会を制し、決闘の覇者と讃えられた。");
+       apply({gold:g,mood:4,log:`――${fullName(champ)}が諸国武術大会を制した！集った強豪をことごとく退け、賞金${g}と「決闘の覇者」の誉れを持ち帰った。`,logCls:"big"});
+     }else{
+       champ.exp+=ri(12,22); processLevelUps(champ);
+       if(Math.random()<0.4){inflictInjury(champ,[0.75,0.22,0.03]);unitHistory(champ,"諸国武術大会で強敵と渡り合い、手傷を負って戻った。");}
+       else unitHistory(champ,"諸国武術大会に挑むも、決勝の壁にあと一歩及ばなかった。");
+       apply({mood:1,log:`${champ.nm}は諸国武術大会で健闘したが、頂点には届かなかった。だが得たものは、決して小さくなかったようだ。`});
+     }
+   }}},
+   {label:"賞金首の賭けに乗る(50G)",hint:"当たれば大きい / 賭け",fx:{call:()=>{
+     if(S.gold<50){chron("賭けに乗るだけの蓄えがなかった。","");return;}
+     S.gold-=50;
+     if(Math.random()<0.42){const g=ri(120,200);apply({gold:g,mood:2,log:`賭けが見事に的中した。贔屓の武芸者が勝ち上がり、賞金${g}を手にした。城下は大いに沸いた。`,logCls:"big"});}
+     else apply({mood:-1,log:"賭けは外れた。贔屓の武芸者は、あえなく初戦で姿を消した。"});
+   }}},
+   {label:"出場を見送る",hint:"治安+1",fx:{st:{order:1},log:"王国は大会に加わらず、静かに己の鍛錬に励んだ。派手を好まぬ王の姿勢を、家臣たちは好ましく思った。"}},
+  ]},
  {tag:"災 い",title:"疫病の兆し",
   body:"谷のあちこちで、原因の知れぬ熱病に倒れる者が出始めた。今はまだ数人だが、放置すれば兵にも広がりかねない。早めに手を打つべきだろうか。",
   speaker:"老師ユグ「病は気から、とも申しますが……これは、そうも言っておれませんな」",
