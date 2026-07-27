@@ -1501,6 +1501,7 @@ const TRAIT_RARE=[
  {key:"trr_28",name:"悠久の血脈",desc:"人並外れて長く盛りを保ち、衰えの訪れが遅い。長く隊を支える稀有な血筋",gm:1.1,lifespanMult:1.6},
  {key:"trr_29",name:"竜に見初められし者",desc:"体のうちに竜の気をわずかに宿す。竜との盟約が結ばれた地では、その眠れる力が呼び覚まされる",gm:1.15,condFlag:"dragonPact",condPw:6},
  {key:"trr_31",name:"隊の要",desc:"周りをまとめ、皆を励ますことに長けた人柄。自らの忠義も士気もよく保たれ、日ごとに深まってゆく",gm:1.06,loyaltyGrow:0.28,moralGrow:0.22},
+ {key:"trr_32",name:"宝運",desc:"なぜか値打ちものを引き当てる、常人離れした強運の持ち主。この者を迷宮に伴うと、掘り出しの実りが目に見えて増える",gm:1.08,lootLuck:0.18},
 ];
 const TRAIT_EPIC=[
  {key:"swordsaint",name:"剣聖の末裔",desc:"名も知れぬ剣豪の血を引くという",gm:1.4,injuryMult:0.5,deathMult:0.55},
@@ -1519,6 +1520,7 @@ const TRAIT_EPIC=[
  {key:"tre_03",name:"時代を超えた技",desc:"時代を超えて受け継がれた技を宿す",injuryMult:0.63,deathMult:0.44,gm:1.35},
  {key:"tre_04",name:"運命の申し子",desc:"何か大きな運命に導かれているという",injuryMult:0.62,deathMult:0.59,gm:1.38},
  {key:"tre_05",name:"不老の血脈",desc:"歳月に置き去りにされぬ稀有な血。老いてなお力衰えず、長く戦場に立ち続ける",gm:1.32,injuryMult:0.6,ageResist:0.6,lifespanMult:1.5},
+ {key:"tre_06",name:"財宝の嗅覚",desc:"埋もれた財を嗅ぎ分ける天賦の勘。伴う迷宮踏破では、より高い確率で――しかもより優れた個体差を宿した逸品を掘り当てる",gm:1.28,injuryMult:0.7,lootLuck:0.32},
 ];
 const TRAIT_LEGEND=[
  {key:"reborn",name:"転生者",desc:"この世界の者とは異なる知識の気配を纏っている",gm:2.0,injuryMult:0.3,deathMult:0.25,ageResist:0.8},
@@ -6967,7 +6969,10 @@ function resolveDungeonRun(dungeonId){
       itemGained=rollItemDrop(dungeon.rarity.key);
       if(itemGained)addItem(itemGained.key);
       let equipGained=null, equipInst=null;
-      if(Math.random()<(crit?0.6:0.3)){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained)equipInst=addEquipment(equipGained.key);}
+      const squadLootLuck=squad.length?Math.max(0,...squad.map(u=>(traitInfo(u.trait).lootLuck)||0)):0; // 「宝運」「財宝の嗅覚」持ちを伴うと掘り出しが増える=編成に意味を持たせる収集レバー
+      if(Math.random()<(crit?0.6:0.3)+squadLootLuck){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained){equipInst=addEquipment(equipGained.key);
+        if(squadLootLuck>0&&equipInst){const edef=EQUIPMENT_DB.find(d=>d.key===equipGained.key);if(edef&&edef.rarity!=="common"){const alt=rollAffixesBest(edef.rarity,2);const cur=(equipInst.affixes||[]).reduce((t,a)=>t+(a.val||0),0);const altSum=alt.reduce((t,a)=>t+(a.val||0),0);if(altSum>cur)equipInst.affixes=alt;}} // 財を嗅ぎ分ける才は、個体差もより優れたものを引き当てる
+      }}
       const equipDropName=equipInst?equipInstName(equipInst):(equipGained?equipGained.name:""); // ドロップ時に個体差(アフィックス)を含む名を見せる=掘り出しの手応え
       let bonusItem=null;
       if(crit&&Math.random()<0.5){bonusItem=rollItemDrop(dungeon.rarity.key);if(bonusItem)addItem(bonusItem.key);} // 大成功: 追加の秘宝チャンス
