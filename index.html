@@ -10258,7 +10258,7 @@ function renderDungeonPanel(){
       const remain=DUNGEON_TYPES.filter(x=>!(S.clearedTypes||{})[x.key]);
       h+=`<div class="ds" style="color:var(--dim);font-size:11px;margin-bottom:8px">攻略型 制覇 <span style="color:${done>=total?"var(--gold)":"#c9a86a"};font-weight:700">${done}/${total}</span>${done>=total?" ／ 全型制覇済み":(done<total&&remain.length<=4?" ／ 未踏:"+remain.map(x=>x.label).join("・"):"")}</div>`;
       const bkDone=Object.keys((S.flags&&S.flags.bossKings)||{}).length, bkTotal=BOSS_TRAIT_KEYS.length;
-      if(bkDone>0)h+=`<div class="ds" style="color:var(--dim);font-size:11px;margin-bottom:8px">討伐した王 <span style="color:${bkDone>=bkTotal?"var(--gold)":"#c9a86a"};font-weight:700">${bkDone}/${bkTotal}</span>${bkDone>=bkTotal?" ／ 全ての王を討伐済み":""}</div>`;
+      if(bkDone>0){const bkRemain=BOSS_TRAIT_KEYS.filter(k=>!((S.flags&&S.flags.bossKings)||{})[k]);h+=`<div class="ds" style="color:var(--dim);font-size:11px;margin-bottom:8px">討伐した王 <span style="color:${bkDone>=bkTotal?"var(--gold)":"#c9a86a"};font-weight:700">${bkDone}/${bkTotal}</span>${bkDone>=bkTotal?" ／ 全ての王を討伐済み":(bkRemain.length<=4?" ／ 未討伐:"+bkRemain.map(k=>(BOSS_TRAITS[k]||{}).label||k).join("・"):"")}</div>`;}
     }
     if(!list.length)h+=`<div class="udet-empty">今のところ、噂に聞くダンジョンはない。ミッションに出れば見つかるかもしれない。</div>`;
     for(const d of list){
