@@ -2719,6 +2719,10 @@ function checkRecords(){
     if(titleCount>0&&(!S.records.mostTitles||titleCount>S.records.mostTitles.count)){
       S.records.mostTitles={name:`${u.nm} ${u.surname||""}`.trim(),count:titleCount,day:S.day};
     }
+    const clears=u.dungeonClearCount||0;
+    if(clears>0&&(!S.records.mostClears||clears>S.records.mostClears.count)){
+      S.records.mostClears={name:`${u.nm} ${u.surname||""}`.trim(),count:clears,day:S.day};
+    }
   }
   // 歴代最強の座が別の兵に移った時だけ、静かに讃える(既存の記録を上回る"首位交代"の一幕。序盤の頻繁な更新は除外)
   const nowStrong=S.records.strongestUnit;
@@ -10316,6 +10320,7 @@ function renderHall(){
   recHtml+=`<div class="ds">歴代最長寿:${rec.longestLived?`${rec.longestLived.name}(${rec.longestLived.age}歳・DAY${rec.longestLived.day})`:"まだ記録なし"}</div>`;
   recHtml+=`<div class="ds">最速英雄格到達:${rec.fastestHero?`${rec.fastestHero.name}(${rec.fastestHero.days}日・DAY${rec.fastestHero.day})`:"まだ記録なし"}</div>`;
   recHtml+=`<div class="ds">歴代最多称号:${rec.mostTitles?`${rec.mostTitles.name}(${rec.mostTitles.count}個・DAY${rec.mostTitles.day})`:"まだ記録なし"}</div>`;
+  recHtml+=`<div class="ds">歴代最多踏破:${rec.mostClears?`${rec.mostClears.name}(${rec.mostClears.count}回・DAY${rec.mostClears.day})`:"まだ記録なし"}</div>`;
   recHtml+=`<div class="ds">歴代最高国庫:${rec.richestDay?`${rec.richestDay.gold}G(DAY${rec.richestDay.day})`:"まだ記録なし"}</div>`;
   recHtml+=`</div>`;
   const legacyPct=Math.round(hallLegacyGrow()*1000)/10;
