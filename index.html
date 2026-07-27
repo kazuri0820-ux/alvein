@@ -7044,6 +7044,7 @@ const DUNGEON_CONDITIONS={
   trainground:{label:"研武の霊場",color:"#c98f8f",desc:"武を練る気が満ちる霊場。踏破した部隊は皆わずかに永続で鍛え上げられる(全能力+1)"},
   valor:{label:"忠魂の霊地",color:"#d0a86a",desc:"忠義に殉じた古の兵たちの魂が眠る霊地。共に潜り抜けた部隊には、揺るがぬ忠誠が芽生える"},
   elixir:{label:"秘薬の霊気",color:"#a0d0a0",desc:"薬効ある霊気が満ちる地。踏破すれば、貴重な秘薬や品々を持ち帰ることがある"},
+  heroordeal:{label:"英傑の試練",color:"#d08f5a",desc:"少数の精鋭でこそ真価が問われる試練の地。三人以下の少数で挑み討ち果たせば、その武勲に応じた破格の恩賞が下る"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 /* 個体差(アフィックス)を複数回ロールして最良の一組を返す=マジックファインド(良個体を引き当てる) */
@@ -7067,6 +7068,7 @@ function generateDungeon(){
   if(condition==="eliteden")bossPower=Math.round(bossPower*1.16); // 精鋭の巣は強敵揃いで、ボスが手強い
   if(condition==="kinship")bossPower=Math.round(bossPower*1.08); // 絆の霊地は協力を要する難所で、ボスがやや手強い
   if(condition==="richloot")bossPower=Math.round(bossPower*1.12); // 秘宝の鉱脈は守りが堅く、ボスがやや手強い
+  if(condition==="heroordeal")bossPower=Math.round(bossPower*1.08); // 英傑の試練は少数精鋭を試す難所で、ボスがやや手強い
   return{
     id:Math.random().toString(36).slice(2,9),
     name:dungeonName(),level,rarity,type,requiredPower,duration,
@@ -8008,6 +8010,19 @@ function resolveDungeonRun(dungeonId){
         const got=[];const n=ri(1,2);
         for(let i=0;i<n;i++){const it=rollItemDrop(Math.random()<0.3?"rare":"uncommon");if(it){addItem(it.key);got.push(it.name);}}
         chron(got.length?`「${dungeon.name}」に満ちる秘薬の霊気の中から、${got.map(x=>`「${x}」`).join("、")}を持ち帰った。`:`「${dungeon.name}」の霊気を浴びて帰ったが、持ち帰れる品は見当たらなかった。`,got.length?"big":"");
+      }
+      if(cond==="heroordeal"){ // 英傑の試練: 少数精鋭で討ち果たすほど破格の恩賞(編成を絞る挑戦に報いる)
+        const n=squad.filter(u=>u).length;
+        if(n<=3){
+          const mult=n<=1?3:(n===2?2.2:1.6); // 少人数ほど旨みが増す
+          const g=Math.round(ri(40,70)*dungeon.rarity.mult*levelMult*mult);
+          apply({gold:g,mood:3});
+          for(const u of squad){if(!u)continue;const e=Math.round(ri(14,24)*levelMult*mult);u.exp+=e;processLevelUps(u);}
+          const it=rollItemDrop(n<=1?"epic":(n===2?"rare":"uncommon")); if(it)addItem(it.key);
+          chron(`「${dungeon.name}」の試練は、${n}名の少数精鋭で見事に打ち破られた。その卓越した武勲に、破格の恩賞――財貨${g}${it?`と「${it.name}」`:""}が下された。`,"big");
+        }else{
+          chron(`「${dungeon.name}」を大人数で踏破した。堅実な攻略だったが、少数精鋭でこそ得られるという試練の真髄には、あと一歩届かなかった。`,"");
+        }
       }
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
         // 討伐したボスの王のコレクション記録=全種の王を討ち取る収集目標(初討伐は名を刻む)
