@@ -7069,6 +7069,7 @@ const DUNGEON_CONDITIONS={
   valor:{label:"忠魂の霊地",color:"#d0a86a",desc:"忠義に殉じた古の兵たちの魂が眠る霊地。共に潜り抜けた部隊には、揺るがぬ忠誠が芽生える"},
   elixir:{label:"秘薬の霊気",color:"#a0d0a0",desc:"薬効ある霊気が満ちる地。踏破すれば、貴重な秘薬や品々を持ち帰ることがある"},
   heroordeal:{label:"英傑の試練",color:"#d08f5a",desc:"少数の精鋭でこそ真価が問われる試練の地。三人以下の少数で挑み討ち果たせば、その武勲に応じた破格の恩賞が下る"},
+  relic:{label:"王朝の遺構",color:"#c7a45e",desc:"滅びた古王朝の栄華が眠る遺構。踏破して持ち帰る典籍や財物が、王国の国力(治安・経済)そのものを高める"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 /* 個体差(アフィックス)を複数回ロールして最良の一組を返す=マジックファインド(良個体を引き当てる) */
@@ -7945,6 +7946,11 @@ function resolveDungeonRun(dungeonId){
       const g=Math.round(ri(30,60)*dungeon.rarity.mult*levelMult);
       apply({gold:g});
       chron(`「${dungeon.name}」の呪詛の澱みは兵たちを深く疲れさせたが、奥に眠っていた呪物の財貨${g}を持ち帰った。`,"");
+    }
+    if(cond==="relic"){ // 王朝の遺構: 踏破で持ち帰る典籍・財物が国力(治安・経済)を高める=攻略が国造りに直結する新しい報酬軸
+      const o=ri(2,4),e=ri(2,4);
+      apply({st:{order:o,economy:e}});
+      chron(`「${dungeon.name}」は滅びた古王朝の遺構だった。持ち帰った典籍や財物が国の礎となり、王国の治安と経済が高まった(治安+${o} 経済+${e})。`,"big");
     }
     if(bossWin){
       const crit=tier==="critical_success"; // 大成功はジャックポット扱い(強い部隊を組んだ手応えに報酬で応える)
