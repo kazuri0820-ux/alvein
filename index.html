@@ -6266,6 +6266,7 @@ function dailyEconomySettle(){
   checkSeasonalVignette(); // 巡る季節に寄せた兵の一場面
   if(S.shop&&S.shop.stock&&S.day>=(S.shop.refreshDay||0))ensureShopStock(); // 行商人の品替えを日々見計らい、入荷を年代記に告げる(店を一度でも覗いた後のみ)
   checkBounty(); // 討伐依頼の発生・期限切れを見計らう
+  neighborDaily(); // 近隣諸国との関係の推移と、良好な隣国からの交易収入
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
     const loyaltyDrift=S.mood>=70?(S.mood-70)*0.006:-(30-S.mood)*0.01;
@@ -9391,6 +9392,36 @@ const ROYAL_DECREES=[
  {key:"investiture",name:"叙任の儀",desc:"武功ある兵を讃える儀式を催す。全兵の忠誠が上がる。",fx:()=>{for(const u of S.units)u.loyalty=Math.min(100,u.loyalty+8);apply({mood:3,log:"叙任の儀が執り行われ、兵たちは王への忠誠を新たにした。",logCls:"big"});}},
 ];
 function decreeCooldownLeft(){return Math.max(0,DECREE_COOLDOWN-(S.day-(S.lastDecreeDay??-DECREE_COOLDOWN)));}
+/* ===== 近隣諸国との外交(内政の新軸):名を持つ隣国との関係を築き、交易の恵みを得る/脅威を避ける ===== */
+const NEIGHBOR_STATES=[
+ {key:"veltis",name:"ヴェルティス公国",flavor:"実利を重んじる交易の公国。誼を結べば交易の益が大きい。"},
+ {key:"draconis",name:"竜嶺のドラコニア",flavor:"武を尊ぶ峻険な山岳国。侮れば脅威となる。"},
+ {key:"suria",name:"翠緑のスーリア",flavor:"豊かな水郷を持つ穏やかな農国。"},
+];
+function ensureNeighbors(){ if(!S.neighbors||!S.neighbors.length){S.neighbors=NEIGHBOR_STATES.map(n=>({key:n.key,relation:ri(40,60)}));} }
+function neighborName(key){const n=NEIGHBOR_STATES.find(x=>x.key===key);return n?n.name:key;}
+function neighborFlavor(key){const n=NEIGHBOR_STATES.find(x=>x.key===key);return n?n.flavor:"";}
+function giftCost(nb){ return 40+Math.round((nb.relation||0)*0.6); } // 関係が高いほど、さらに上げるには費えがかさむ
+function giftNeighbor(idx){
+  ensureNeighbors();
+  const nb=S.neighbors[idx]; if(!nb)return;
+  if(nb.relation>=100){chron(`${neighborName(nb.key)}との関係は既に盤石だ。`,"");return;}
+  const cost=giftCost(nb);
+  if(S.gold<cost){chron("贈り物を用意する蓄えが足りない。","");return;}
+  S.gold-=cost; nb.relation=Math.min(100,nb.relation+ri(8,14));
+  apply({st:{diplomacy:1}});
+  chron(`${neighborName(nb.key)}へ贈り物を送り、誼を深めた(関係↑)。`,"");
+  clamp();render();renderProjects();save();
+}
+function neighborDaily(){
+  ensureNeighbors();
+  let income=0;
+  for(const nb of S.neighbors){
+    nb.relation=Math.max(0,Math.min(100,nb.relation+(nb.relation<48?rnd(0,0.35):rnd(-0.35,0.15)))); // 放っておくと関係はゆるやかに冷める(中庸へ寄る)
+    if(nb.relation>=70)income+=1+(nb.relation-70)*0.06; // 良好な隣国との交易で日々わずかな国庫収入
+  }
+  if(income>0)S.gold+=income;
+}
 function renderProjects(){
   let h="";
   const focusLabels={military:"軍事",economy:"経済",agriculture:"農業",magic:"魔導",order:"治安",diplomacy:"外交"};
@@ -9443,7 +9474,19 @@ function renderProjects(){
       </div>`;
     }
   }
+  // ── 近隣諸国(外交) ──
+  h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 6px;letter-spacing:.15em">── 近隣諸国 ──</div>`;
+  ensureNeighbors();
+  for(let ni=0;ni<S.neighbors.length;ni++){
+    const nb=S.neighbors[ni];const rel=Math.round(nb.relation);const col=rel>=70?"#8fbf6f":rel<=25?"#d97a7a":"#c9a86a";const cost=giftCost(nb);const canGift=S.gold>=cost&&rel<100;
+    h+=`<div class="pcard"><div class="nm">${neighborName(nb.key)}</div><div class="ds" style="margin:2px 0 4px">${neighborFlavor(nb.key)}</div>
+      <div class="ds">関係:<span style="color:${col};font-weight:700">${rel}/100</span> <span style="color:var(--dim);font-size:11px">${rel>=70?"良好(交易で日々国庫が潤う)":rel<=25?"険悪(脅威に警戒)":"中立"}</span></div>
+      <div class="uexp" style="margin-top:5px"><i style="width:${rel}%;background:linear-gradient(90deg,${col}99,${col})"></i></div>
+      <button class="nb-gift-btn" data-i="${ni}" ${rel>=100?"disabled":""} style="margin-top:6px;width:100%;background:transparent;border:1px solid ${canGift?"var(--gold2)":"rgba(255,255,255,.15)"};color:${canGift?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canGift?"pointer":"default"}">${rel>=100?"関係は盤石":`贈り物を送り誼を深める(${cost}G)`}</button>
+    </div>`;
+  }
   $("#prjList").innerHTML=h;
+  $("#prjList").querySelectorAll(".nb-gift-btn").forEach(b=>b.onclick=()=>{giftNeighbor(+b.dataset.i);});
   $("#prjList").querySelectorAll(".decree-btn").forEach(b=>b.onclick=()=>{
     if(decreeCooldownLeft()>0)return;
     const d=ROYAL_DECREES.find(x=>x.key===b.dataset.k);
