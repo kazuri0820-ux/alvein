@@ -2548,6 +2548,13 @@ function talkToUnit(u){
   u.talks=u.talks||[];
   u.talks.push({day:S.day,text:line});
   if(u.talks.length>20)u.talks.shift();
+  // 長が直に声をかけた兵は心を強くする。とりわけ忠義の揺らぐ兵には、王の気遣いが響く(1日1回まで=連打の抜け道を防ぐ)。
+  // 危機や内通者の裁きで忠誠が傷ついた兵を、王が一人ひとり慰撫して立て直せる、細やかな回復の一手を会話に持たせる磨き込み。
+  if(u.lastCareDay!==S.day){
+    u.lastCareDay=S.day;
+    u.moral=Math.min(100,(u.moral||0)+2);
+    if((u.loyalty||100)<60)u.loyalty=Math.min(100,(u.loyalty||0)+ri(2,4)); // 忠義が揺らぐ兵ほど、王直々の声かけがよく効く
+  }
   return line;
 }
 /* 生い立ち文書(出身×性格×特性の組み合わせ) */
