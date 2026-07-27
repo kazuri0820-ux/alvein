@@ -7532,7 +7532,7 @@ function buildJobChangeSurpriseEvent(){
 function checkDungeonDiscovery(rewardMult,discoverer){
   // 「地の利を読む才」を持つ発見者を伴うと、ダンジョンを見出す確率が高まる=探索特化の編成に意味を持たせる新レバー
   const finder=discoverer?Math.max(0,(skillEffects(discoverer).dungeonFind||0),(traitInfo(discoverer.trait).dungeonFind)||0):0;
-  const chance=0.6*(rewardMult||1)*(1+finder);
+  const chance=0.6*(rewardMult||1)*(1+finder)*(relicHas("compass")?1.2:1); // 遺物「探索者の羅針盤」:迷宮を見出す機会が永続で増える
   if(Math.random()<chance){
     const d=generateDungeon();
     // 討伐依頼(型指定)が出ている時は、時おり発見が依頼の型に噛み合う=依頼を達成できるダンジョンに巡り会える公平性(磨き込み)
@@ -8188,7 +8188,7 @@ function squadEffectivePower(squad,type){
   if(!squad.length)return 0;
   const rawAvg=squad.reduce((a,u)=>a+unitPower(u),0)/squad.length;
   const affinityAvg=type?squad.reduce((a,u)=>a+type.statFn(u)*1.6*routeDungeonBonus(u,type),0)/squad.length:rawAvg;
-  return (rawAvg*0.5+affinityAvg*0.5)*squadSynergyMult(squad)*5;
+  return (rawAvg*0.5+affinityAvg*0.5)*squadSynergyMult(squad)*5*(relicHas("valor")?1.04:1); // 遺物「英雄の紋章」:軍全体の戦力を永続で底上げ
 }
 /* ===== 偵察(斥候):挑む前に財貨を投じて迷宮を偵察すれば、罠と地形を知り、その一戦だけ攻略判定が有利になる。
    陣形(無償の戦術)・兵站(食糧で消耗軽減)とは別に、"財貨で成否そのものを底上げする"出撃前の準備の一手 ===== */
@@ -8200,6 +8200,33 @@ function scoutDungeon(dungeonId){
   if(S.gold<cost){chron("偵察の斥候を放つ蓄えが足りない。","");return;}
   S.gold-=cost; d.scouted=true;
   chron(`「${d.name}」へ斥候を放ち、罠と地形の見当をつけた。次に挑む部隊は、この一戦を有利に運べるだろう(攻略判定に下駄)。`,"");
+  clamp();render();renderDungeonPanel();save();
+}
+/* ===== 秘宝の断片(ダンジョンの新報酬軸):踏破のたび稀に"秘宝の断片"を持ち帰る。断片を集めれば、
+   強力な恒久遺物を一つずつ鍛造できる。金とは別の"迷宮を潜り続けることでしか貯まらない"メタ通貨=
+   長く攻略を重ねる到達目標と、どの遺物から得るかという選択を与える新機軸 ===== */
+const RELIC_DEFS=[
+  {key:"valor",  name:"英雄の紋章", cost:12, desc:"軍全体の戦力が永続で高まる(部隊戦力+4%)。"},
+  {key:"ward",   name:"不滅の護符", cost:12, desc:"迷宮での兵の戦没が永続で減る。"},
+  {key:"compass",name:"探索者の羅針盤", cost:10, desc:"新たな迷宮を見出す機会が永続で増える。"},
+];
+function relicHas(key){return !!(S.flags&&S.flags.relics&&S.flags.relics[key]);}
+function relicDef(key){return RELIC_DEFS.find(r=>r.key===key);}
+function grantRelicShards(n){S.relicShards=(S.relicShards||0)+n;}
+function maybeRelicShard(dungeon,crit){ // 踏破時、稀に秘宝の断片を持ち帰る(大成功・高レア度ほど出やすい)
+  const base=crit?0.4:0.16;
+  const rarityBonus=Math.max(0,((dungeon.rarity&&dungeon.rarity.mult)||1)-1)*0.12;
+  if(Math.random()<Math.min(0.75,base+rarityBonus)){
+    grantRelicShards(1);
+    chron(`「${dungeon.name}」の奥で、古の秘宝の断片を一つ見つけた(断片 計${S.relicShards})。集めれば、恒久の遺物を鍛造できる。`,"");
+  }
+}
+function claimRelic(key){
+  const def=relicDef(key); if(!def)return;
+  if(relicHas(key)){chron(`「${def.name}」は既に鍛造済みだ。`,"");return;}
+  if((S.relicShards||0)<def.cost){chron(`「${def.name}」を鍛造するには秘宝の断片が足りない(${S.relicShards||0}/${def.cost})。`,"");return;}
+  S.relicShards-=def.cost; S.flags=S.flags||{}; S.flags.relics=S.flags.relics||{}; S.flags.relics[key]=true;
+  chron(`集めた秘宝の断片から、恒久の遺物「${def.name}」が鍛造された。${def.desc}`,"big");
   clamp();render();renderDungeonPanel();save();
 }
 function estimateDungeonSuccess(dungeon){
@@ -8447,6 +8474,7 @@ function resolveDungeonRun(dungeonId){
       let bonusItem=null;
       if(crit&&Math.random()<0.5){bonusItem=rollItemDrop(dungeon.rarity.key);if(bonusItem)addItem(bonusItem.key);} // 大成功: 追加の秘宝チャンス
       S.dungeonsCleared=(S.dungeonsCleared||0)+1;
+      maybeRelicShard(dungeon,crit); // 踏破の報酬軸:稀に秘宝の断片を持ち帰る
       checkDungeonTypeFirstClear(dungeon,squad); // 攻略型の初踏破を記念する
       checkDungeonClearMilestone(); // 通算踏破数の節目を年代記に刻む
       tryUnlockDemonLordDungeon();
@@ -8632,7 +8660,7 @@ function resolveDungeonRun(dungeonId){
     apply({mood:-2});
     chron(`「${dungeon.name}」への挑戦は失敗に終わった。部隊は撤退した。`,"grave");
   }else{ // critical_fail
-    const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1)*(S.flags.heirloom==="banner"?0.82:1)*(alliedWith("draconis")?0.85:1)*(festivalIs("remembrance")?0.85:1); // 治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗/家宝「不滅の王旗」でさらに戦没が減る。竜嶺のドラコニアとの軍事同盟(援軍の約定)でも戦没が減る。慰霊祭の開催中も戦没が減る
+    const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1)*(S.flags.heirloom==="banner"?0.82:1)*(alliedWith("draconis")?0.85:1)*(festivalIs("remembrance")?0.85:1)*(relicHas("ward")?0.88:1); // 治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗/家宝「不滅の王旗」でさらに戦没が減る。竜嶺のドラコニアとの軍事同盟(援軍の約定)でも戦没が減る。慰霊祭の開催中も戦没が減る。遺物「不滅の護符」でも戦没が減る
     const hurtOnes=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*0.6)));
     const critW=medicAdjustWeights(formationAdjustWeights(cond==="blessed"?[0.4,0.4,0.2]:[0.1,0.3,0.6],fmKey),squad); // 陣形→古の祝福(大失敗でも深手を和らげる)→従軍医の順に負傷の重さを補正
     for(const u of hurtOnes){inflictInjury(u,critW);unitHistory(u,`「${dungeon.name}」で${INJURY_TIERS[u.injurySeverity].label}を負った。`);memberLog.push({u,gain:0,note:INJURY_TIERS[u.injurySeverity].label});}
@@ -11455,6 +11483,20 @@ function renderDungeonPanel(){
       const bkDone=Object.keys((S.flags&&S.flags.bossKings)||{}).length, bkTotal=BOSS_TRAIT_KEYS.length;
       if(bkDone>0){const bkRemain=BOSS_TRAIT_KEYS.filter(k=>!((S.flags&&S.flags.bossKings)||{})[k]);h+=`<div class="ds" style="color:var(--dim);font-size:11px;margin-bottom:8px">討伐した王 <span style="color:${bkDone>=bkTotal?"var(--gold)":"#c9a86a"};font-weight:700">${bkDone}/${bkTotal}</span>${bkDone>=bkTotal?" ／ 全ての王を討伐済み":(bkRemain.length<=4?" ／ 未討伐:"+bkRemain.map(k=>(BOSS_TRAITS[k]||{}).label||k).join("・"):"")}</div>`;}
     }
+    // ── 秘宝の断片と遺物の鍛造 ──
+    {const shards=S.relicShards||0;const unclaimed=RELIC_DEFS.filter(r=>!relicHas(r.key));
+     if(shards>0||unclaimed.length<RELIC_DEFS.length){
+       h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:8px"><div class="nm" style="color:var(--gold)"><i class="icon-laurel"></i>秘宝の断片:${shards}</div>`;
+       if(unclaimed.length)h+=`<div class="ds" style="margin:2px 0 6px;font-size:11px">断片を集めて恒久の遺物を鍛造できる。踏破を重ねるほど断片は貯まる。</div>`;
+       else h+=`<div class="ds" style="margin:2px 0 4px;font-size:11px;color:var(--gold)">全ての遺物を鍛造済み。</div>`;
+       for(const r of RELIC_DEFS){
+         if(relicHas(r.key)){h+=`<div class="ds" style="font-size:11px;color:var(--gold)">◆ ${r.name}(鍛造済) ― ${r.desc}</div>`;continue;}
+         const ok=shards>=r.cost;
+         h+=`<button class="relic-claim-btn" data-k="${r.key}" ${ok?"":"disabled"} style="display:block;width:100%;text-align:left;background:${ok?"rgba(201,162,75,.14)":"transparent"};border:1px solid ${ok?"var(--gold)":"rgba(255,255,255,.14)"};color:${ok?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px 10px;margin-top:5px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${ok?"pointer":"default"}"><b>${r.name}</b>（断片${r.cost}）<br><span style="font-size:10.5px;color:var(--dim)">${r.desc}${ok?"":`　― あと${r.cost-shards}`}</span></button>`;
+       }
+       h+=`</div>`;
+     }
+    }
     if(!list.length)h+=`<div class="udet-empty">今のところ、噂に聞くダンジョンはない。ミッションに出れば見つかるかもしれない。</div>`;
     for(const d of list){
       const c=d.rarity.color;
@@ -11489,6 +11531,7 @@ function renderDungeonPanel(){
   }
   $("#dgBody").innerHTML=h;
   $("#dgBody").querySelectorAll(".dg-scout-btn").forEach(b=>b.onclick=()=>{scoutDungeon(b.dataset.id);});
+  $("#dgBody").querySelectorAll(".relic-claim-btn").forEach(b=>b.onclick=()=>{claimRelic(b.dataset.k);});
   $("#dgBody").querySelectorAll(".dg-go-btn").forEach(b=>b.onclick=()=>{
     dgSelectingDungeonId=b.dataset.id;
     const d=(S.availableDungeons||[]).find(x=>x.id===b.dataset.id);
