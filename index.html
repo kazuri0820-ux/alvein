@@ -2388,6 +2388,7 @@ const TITLE_DB=[
  {key:"t_warchiefslayer",name:"覇者殺し",desc:"圧倒的な強者「覇者」を討ち取った",effect:"injuryMult",value:0.9},
  {key:"t_skillful",name:"多芸の兵",desc:"数多の技を身につけ、あらゆる戦場に応じてみせる",effect:"expMult",value:1.04},
  {key:"t_pathwalker",name:"万夫の器",desc:"幾つもの職の道を歩み修め、異なる流派の心得までも我がものとした、器の大きな兵。覚えられる技の枠が広い",effect:"expMult",value:1.05},
+ {key:"t_landed",name:"知行持ち",desc:"王より領地を賜り、王国に深く根を張った臣。揺るがぬ忠義をもって仕える",effect:"loyaltyGrow",value:0.15},
  {key:"t_polymath",name:"百芸の達人",desc:"ありとあらゆる技を極めた、まさに歩く武芸の宝庫",effect:"expMult",value:1.08},
  {key:"t_legendsquad",name:"伝説の小隊の一員",desc:"幾多の出撃を共にし、伝説と讃えられた小隊の一員",effect:"loyaltyGrow",value:0.12},
  {key:"t_generalslayer",name:"魔将殺し",desc:"魔王軍の名だたる魔将を討ち取った",effect:"injuryMult",value:0.9},
@@ -2663,6 +2664,24 @@ function militaryRankScore(u){
 function militaryRankIndex(u){const s=militaryRankScore(u);let i=0;for(let k=0;k<MILITARY_RANKS.length;k++)if(s>=MILITARY_RANKS[k].min)i=k;return i;}
 function militaryRank(u){return MILITARY_RANKS[militaryRankIndex(u)];}
 function militaryRankGrow(u){return militaryRankIndex(u)*0.015;} // 位が高いほど、日々の忠誠・士気がわずかに保たれやすい(帰属と誇り)
+/* 知行の下賜(内政×育成の新レバー):国庫を投じて、功ある古参に領地を与える。領地持ちとなった兵は王国に深く
+   根を張り、忠義が揺るがなくなる(気難しい才・低忠誠のリスクを、財を投じて能動的に断つ手)。お気に入り(無償の贔屓)や
+   叙任の儀(全兵一律)とは別に、"この一人を確かに繋ぎ止める"投資。領地からはわずかな禄も国庫に還る。 */
+function canGrantFief(u){ return !!u && u.role==="active" && !u.fief && (militaryRankIndex(u)>=2 || ((S.day||0)-(u.joinDay||S.day||0))>=150); }
+function fiefGrantCost(u){ return 150 + militaryRankIndex(u)*40 + Math.floor((u.dungeonClearCount||0)*4); }
+function grantFief(uid){
+  const u=findAnyUnit(uid); if(!u||!canGrantFief(u))return;
+  const cost=fiefGrantCost(u);
+  if(S.gold<cost){chron(`${u.nm}に知行を与えるだけの蓄えが足りない(${cost}G必要)。`,"");return;}
+  S.gold-=cost; u.fief=true; u.loyalty=Math.min(100,(u.loyalty||0)+15);
+  if(typeof grantTitle==="function")grantTitle(u,"t_landed");
+  unitHistory(u,"王より知行を賜り、領地を治める身となった。以後、その忠義は揺るがぬものとなった。");
+  chron(`${fullName(u)}に知行が下賜された。領地を得たその兵は王国に深く根を張り、揺るがぬ忠義をもって仕えるだろう(忠誠↑↑ 以後わずかな禄が国庫に入る)。`,"big");
+  if(typeof recordAnnal==="function")recordAnnal(`${fullName(u)}に知行を下賜し、王国に領地持ちの臣を得た。`,"fief",true);
+  clamp();render();renderTroops();save();
+}
+function fiefLoyaltyGrow(u){ return (u&&u.fief)?0.06:0; }
+function fiefDailyIncome(){ let g=0; for(const u of (S.units||[]))if(u.fief&&u.role==="active")g+=1; if(g>0)S.gold+=g; } // 領地からのわずかな禄
 /* ===== 弔い合戦:背中を預けた戦友・好敵手・師・弟子を喪った兵は、その悲しみを不屈の闘志へと変える。
    しばしの日々、亡き者の名を胸に人一倍奮い立ち、戦場で常より強く戦う。喪失を"次の戦いへの覚悟"へ
    転じ、絆・師弟・好敵手といった関係の重みを戦闘へ波及させる新たな軸(関係×戦闘×感情)。 ===== */
@@ -3044,7 +3063,8 @@ function checkAging(){
     const tgr=traitInfo(u.trait); // 特性由来の忠誠・士気成長(カリスマ・義に篤い等、これまで未適用だった特性の効能を活かす=フレーバー通りに機能させる)
     if(eff.fatigueRecover)u.fatigue=Math.max(0,(u.fatigue||0)-eff.fatigueRecover); // スキル(不撓の体力 等)による追加の疲労回復
     const rankGrow=militaryRankGrow(u); // 軍位:奉公を重ねた高位の兵は、王国への帰属と誇りで忠誠・士気が保たれやすい
-    u.loyalty=Math.max(0,Math.min(100,u.loyalty+eff.loyaltyGrow*0.3+teff.loyaltyGrow*0.3+(tgr.loyaltyGrow||0)*0.3+bless.loyalty+hallGrow+rankGrow));
+    const fiefGrow=fiefLoyaltyGrow(u); // 知行:領地持ちの臣は忠義が揺るがない
+    u.loyalty=Math.max(0,Math.min(100,u.loyalty+eff.loyaltyGrow*0.3+teff.loyaltyGrow*0.3+(tgr.loyaltyGrow||0)*0.3+bless.loyalty+hallGrow+rankGrow+fiefGrow));
     u.moral=Math.max(0,Math.min(100,u.moral+eff.moralGrow*0.3+teff.moralGrow*0.3+(tgr.moralGrow||0)*0.3+bless.moral+rankGrow*0.6));
     {const rIdx=militaryRankIndex(u); // 軍位の叙任:奉公が実り位が上がった折を、一幕として祝う
      if(u.rankShown===undefined){u.rankShown=rIdx;}
@@ -7018,6 +7038,7 @@ function dailyEconomySettle(){
   }
   facilityDailyProduce();
   outpostDaily(); // 前哨拠点:確保した迷宮の跡地が日々わずかな実りを生む
+  fiefDailyIncome(); // 知行:領地持ちの臣の所領から、日々わずかな禄が国庫に還る
   checkOutpostReport(); // 前哨からの報せ:折に触れて届く思わぬ吉事
   vaultDaily(); // 王室金庫:預けた蓄えが日々わずかに利息を生む(上限まで)
   ministerDaily(); // 重臣の執政:要職に就いた兵の器量に応じ、日々その分野の国力が育つ
@@ -12408,6 +12429,10 @@ function renderUnitDetail(uid){
   // ── 操作(お気に入り・現役復帰・解雇・転職) ──
   h+=`<div class="udet-sec" style="display:flex;gap:8px;flex-wrap:wrap">`;
   h+=`<button id="btnFav" style="flex:1;min-width:120px;background:${u.favorite?"linear-gradient(180deg,#e6c579,var(--gold))":"transparent"};color:${u.favorite?"#2a2000":"var(--gold)"};border:1px solid var(--gold2);border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:700;font-size:12.5px;cursor:pointer">${u.favorite?"★ お気に入り中":"☆ お気に入りにする"}</button>`;
+  if(!isInstructor){
+    if(u.fief)h+=`<div style="flex:1;min-width:120px;background:rgba(201,162,75,.14);color:var(--gold);border:1px solid var(--gold2);border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:700;font-size:12px;text-align:center" title="王より領地を賜った臣。忠義が揺るがず、所領からわずかな禄も入る">◆ 知行持ち</div>`;
+    else if(canGrantFief(u)){const fc=fiefGrantCost(u);h+=`<button id="btnFief" ${S.gold>=fc?"":"disabled"} style="flex:1;min-width:120px;background:transparent;color:${S.gold>=fc?"var(--gold)":"var(--dim)"};border:1px solid ${S.gold>=fc?"var(--gold2)":"rgba(255,255,255,.15)"};border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:700;font-size:12px;cursor:${S.gold>=fc?"pointer":"default"}" title="国庫を投じ、この古参に領地を与える。忠義が揺るがなくなり、所領からわずかな禄も入る">知行を与える(${fc}G)</button>`;}
+  }
   if(isInstructor){
     h+=`<button id="btnReactivate" style="flex:1;min-width:120px;background:transparent;color:var(--parch);border:1px solid rgba(201,162,75,.5);border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:700;font-size:12.5px;cursor:pointer">現役に復帰させる</button>`;
   }else{
@@ -12449,6 +12474,8 @@ function renderUnitDetail(uid){
   if(favBtn)favBtn.onclick=()=>{u.favorite=!u.favorite;renderUnitDetail(uid);refreshOpenPanels();};
   const favBtnHeader=$("#btnFavHeader");
   if(favBtnHeader)favBtnHeader.onclick=()=>{u.favorite=!u.favorite;renderUnitDetail(uid);refreshOpenPanels();};
+  const fiefBtn=$("#btnFief");
+  if(fiefBtn)fiefBtn.onclick=()=>{grantFief(uid);renderUnitDetail(uid);refreshOpenPanels();};
   const talkBtn=$("#btnTalk");
   if(talkBtn)talkBtn.onclick=()=>{talkToUnit(u);renderUnitDetail(uid);save();};
   $("#unitDetailBody").querySelectorAll(".eq-open-btn").forEach(b=>b.onclick=()=>{
