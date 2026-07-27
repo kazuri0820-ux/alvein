@@ -1940,7 +1940,9 @@ function equipInstScore(inst){
 function addEquipment(defKey){
   S.equipmentInventory=S.equipmentInventory||[];
   const def=EQUIPMENT_DB.find(d=>d.key===defKey);
-  const inst={id:Math.random().toString(36).slice(2,9),key:defKey,affixes:def?rollAffixes(def.rarity):[]};
+  // 「宝物狂の国」の国是では、個体差を2回ロールして良い方を採る=マジックファインド
+  const affixes=def?((typeof doctrineIs==="function"&&doctrineIs("loot"))?rollAffixesBest(def.rarity,2):rollAffixes(def.rarity)):[];
+  const inst={id:Math.random().toString(36).slice(2,9),key:defKey,affixes};
   S.equipmentInventory.push(inst);
   return inst;
 }
@@ -5146,6 +5148,7 @@ const NATIONAL_DOCTRINES=[
  {key:"inquiry",name:"探究の国",desc:"学びを重んじる国是。兵が昇格の折に新たな技を会得しやすくなる。"},
  {key:"fortress",name:"鉄壁の国",desc:"守りを重んじる国是。兵が傷を負いにくくなり、脱落が永続的に減る。"},
  {key:"bonds",name:"絆の国",desc:"戦友の情を重んじる国是。背中を預け合う絆の連携が、戦場で一層力になる。"},
+ {key:"loot",name:"宝物狂の国",desc:"財宝を追い求める国是。以後、ドロップする装備の個体差(アフィックス)が、より優れたものになりやすい。"},
 ];
 function doctrineIs(k){return !!(S.flags&&S.flags.doctrine===k);}
 function doctrineName(){const d=NATIONAL_DOCTRINES.find(x=>x.key===(S.flags&&S.flags.doctrine));return d?d.name:null;}
