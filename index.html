@@ -2955,7 +2955,13 @@ function render(){
   const si=stageOf(S.pop);
   if(si!==S.stage)S.stage=si;
   const stg=STAGES[S.stage];
-  $("#eraLabel").textContent="Rank "+stg.rank+"・"+stg.era+(typeof currentSeason==="function"?"　"+currentSeason().name:"");
+  {
+    let seasonTxt="";
+    if(typeof currentSeason==="function"){const cs=currentSeason();const mark=cs.foodMult>1.05?"▲":cs.foodMult<0.95?"▼":"";seasonTxt="　"+cs.name+mark;}
+    const el=$("#eraLabel");
+    el.textContent="Rank "+stg.rank+"・"+stg.era+seasonTxt;
+    if(typeof currentSeason==="function"){const cs=currentSeason();el.title=`${cs.name}:食糧生産${cs.foodMult>1?"+"+Math.round((cs.foodMult-1)*100)+"%":cs.foodMult<1?"-"+Math.round((1-cs.foodMult)*100)+"%":"±0%"}`;}
+  }
   const rankbarFill=$("#rankbarFill");
   if(rankbarFill){
     const nextStg=STAGES[S.stage+1];
