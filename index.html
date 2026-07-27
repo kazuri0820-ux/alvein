@@ -9788,8 +9788,13 @@ function holdFestival(key){
 const GRAIN_BATCH=30;                 // 一度に取引する量
 const GRAIN_SELL_UNIT=0.8;            // 食糧1→金(売値)
 const GRAIN_BUY_UNIT=1.4;            // 食糧1あたりに要する金(買値。売値より高く=手数料の差)
-function grainSellGain(){return Math.round(GRAIN_BATCH*GRAIN_SELL_UNIT);} // 食糧30→金24
-function grainBuyCost(){return Math.round(GRAIN_BATCH*GRAIN_BUY_UNIT);}   // 金42→食糧30
+function grainSeasonMult(){ // 相場の季節変動:豊作の秋は糧が安く、端境の冬は高い。買い溜めの妙が生まれる
+  if(typeof currentSeason!=="function")return 1;
+  const k=currentSeason().key;
+  return k==="autumn"?0.8 : k==="winter"?1.3 : k==="spring"?1.08 : 1.0;
+}
+function grainSellGain(){return Math.round(GRAIN_BATCH*GRAIN_SELL_UNIT*grainSeasonMult());} // 相場に応じた売値(秋は安く冬は高い)
+function grainBuyCost(){return Math.round(GRAIN_BATCH*GRAIN_BUY_UNIT*grainSeasonMult());}   // 相場に応じた買値(秋は安く冬は高い)
 function sellGrain(){
   if((S.food||0)<GRAIN_BATCH){chron("売りに出せるほどの余剰の糧がない。","");return;}
   S.food-=GRAIN_BATCH; const g=grainSellGain(); S.gold+=g;
@@ -9840,6 +9845,7 @@ function renderProjects(){
   {const canSell=(S.food||0)>=GRAIN_BATCH;const canBuy=S.gold>=grainBuyCost();
    h+=`<div class="pcard" style="margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-farm"></i>兵糧市</div>
      <div class="ds" style="margin:2px 0 6px">余剰の糧を国庫へ、あるいは国庫を糧へ。豊作を金に換え、冬や飢饉には金で糧を買う。<span style="color:var(--dim);font-size:10.5px">(現在 食糧${Math.round(S.food)}／国庫${Math.round(S.gold)})</span></div>
+     ${(()=>{const m=grainSeasonMult();if(Math.abs(m-1)<0.02)return"";const cs=typeof currentSeason==="function"?currentSeason().name:"";const cheap=m<1;return `<div class="ds" style="font-size:10.5px;color:${cheap?"#8fbf6f":"#d99a6a"};margin-bottom:6px">${cs}の相場:糧が${cheap?"安い(買い時)":"高い(売り時)"}(平時比 ${Math.round(m*100)}%)</div>`;})()}
      <div style="display:flex;gap:6px">
        <button class="grain-sell-btn" ${canSell?"":"disabled"} style="flex:1;background:transparent;border:1px solid ${canSell?"var(--gold2)":"rgba(255,255,255,.12)"};color:${canSell?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canSell?"pointer":"default"}">糧を売る（食糧${GRAIN_BATCH}→金${grainSellGain()}）</button>
        <button class="grain-buy-btn" ${canBuy?"":"disabled"} style="flex:1;background:transparent;border:1px solid ${canBuy?"var(--gold2)":"rgba(255,255,255,.12)"};color:${canBuy?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canBuy?"pointer":"default"}">糧を買う（金${grainBuyCost()}→食糧${GRAIN_BATCH}）</button>
