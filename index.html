@@ -9629,11 +9629,12 @@ const FIRST_SORTIE_LINES=[
  (u,d)=>`${u}が初めて実戦の遠征に発つ。城門を出る足取りには、隠しきれぬ緊張と高揚が滲んでいた。`,
  (u,d)=>`「必ず、生きて戻ります」。初陣の${u}は王にそう告げ、「${d}」へ向かう隊に加わった。`,
 ];
-function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision,tactic,decoy,merc,aim){
+function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision,tactic,decoy,merc,aim,vanguard){
   const idx=(S.availableDungeons||[]).findIndex(d=>d.id===dungeonId);
   if(idx<0)return;
   const dungeon=S.availableDungeons[idx];
   dungeon.aim=DUNGEON_AIMS[aim]?aim:"balanced"; // 攻略の主眼(実りの偏り)を記録
+  dungeon._vanguardWanted=!!vanguard; // 一番槍を立てるか(後段でsquad確定後に最強の一人を指名)
   dungeon.merc=false; // 一戦限りの傭兵を雇うか(財貨で戦力を買う)
   if(merc){const mc=mercCost(dungeon);if(S.gold>=mc){S.gold-=mc;dungeon.merc=true;}}
   dungeon.formation=FORMATIONS[formationKey]?formationKey:"balanced"; // 選んだ陣形を記録(未指定は均衡陣)
@@ -9663,6 +9664,10 @@ function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision,tactic
     const spare=eligible.filter(u=>!squad.some(s=>s.id===u.id)).sort((a,b)=>unitPower(b)-unitPower(a))[0];
     if(spare){spare.dungeonBusy=S.day+dungeon.duration;dungeon.decoy=true;dungeon.decoyId=spare.id;unitHistory(spare,`別動隊を率い、「${dungeon.name}」の敵の目を引きつける陽動に発った。`);chron(`${fullName(spare)}が別動隊を率い、陽動に出た。本隊の攻略はいくらか有利に、そして安全になるだろう。`,"");}
   }
+  // 一番槍:本隊の最も頼れる一人が先陣に立つ。勝てば人一倍の武功と経験を得るが、その分だけ深く疲れる(誰に武功を厚く積ませるかの采配)
+  dungeon.vanguardId=null;
+  if(dungeon._vanguardWanted&&squad.length){const vg=[...squad].sort((a,b)=>unitPower(b)-unitPower(a))[0];if(vg){dungeon.vanguardId=vg.id;unitHistory(vg,`「${dungeon.name}」の攻略で、自ら一番槍を買って出た。`);}}
+  delete dungeon._vanguardWanted;
   // 初陣:この遠征が初めての兵に、その門出の一幕を添える
   const debutants=squad.filter(u=>!u.sortied);
   for(const u of debutants){u.sortied=true;unitHistory(u,`初めて迷宮の遠征に加わった。武者震いと高揚を胸に、隊列に続いた。`);}
@@ -9932,7 +9937,7 @@ function resolveDungeonRun(dungeonId){
     bossWin=squadPower*(tier==="critical_success"?1.3:1.0)*(1+squadBane)>=dungeon.bossPower*rnd(0.8,1.2);
     const squadTeach=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).squadExpBonus||0,(traitInfo(u.trait).squadExpBonus)||0))):0; // 「歴戦の教え」(スキル)「生来の兄貴分」(特性)持ちがいると部隊全員の踏破経験値が増える=育成支援ビルド
     const seasonMods=(typeof seasonDungeonMods==="function")?seasonDungeonMods():{expBonus:0,goldMult:1,equipBonus:0,restHeal:0}; // 季節の兆し:夏は経験、秋は財貨、冬は得物、春は癒えに効く
-    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach)*(1+streakBonus)*(1+heirloomExp)*(1+festExp)*(1+ethosReward)*(1+explorerExp)*(1+(seasonMods.expBonus||0))*aimMods.exp);u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
+    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach)*(1+streakBonus)*(1+heirloomExp)*(1+festExp)*(1+ethosReward)*(1+explorerExp)*(1+(seasonMods.expBonus||0))*aimMods.exp*(u.id===dungeon.vanguardId?1.5:1));u.exp+=g;processLevelUps(u);if(u.id===dungeon.vanguardId){u.fatigue=Math.min(100,(u.fatigue||0)+ri(6,12));unitHistory(u,`「${dungeon.name}」で一番槍を務め上げ、人一倍の武功を挙げた。`);}else unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:u.id===dungeon.vanguardId?"踏破・一番槍":"踏破"});}
     if(cond==="richaura")chron(`「${dungeon.name}」に満ちた豊穣の気が兵たちの糧となり、いつも以上の経験を持ち帰った。`,"");
     if(cond==="cursed"){ // 呪詛の澱み: 兵を疲れさせるが、呪物の財貨が眠る
       for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(10,20));
@@ -10400,7 +10405,9 @@ function maybeStandout(squad,dungeon,centerRoll,tier){
   if(Math.random()>=0.16)return; // 稀に
   const alive=squad.filter(u=>u&&S.units.some(x=>x.id===u.id));
   if(alive.length<2)return; // 単騎では"殊勲"の妙が薄い
-  const best=alive.reduce((a,b)=>unitPower(b)>unitPower(a)?b:a); // その一戦で最も戦力を出した一人
+  // 一番槍を立てていれば、その先陣の兵を殊勲に推す(采配で武功を厚く積ませた者が誉れを担う)
+  const vg=dungeon&&dungeon.vanguardId&&alive.find(u=>u.id===dungeon.vanguardId);
+  const best=vg||alive.reduce((a,b)=>unitPower(b)>unitPower(a)?b:a); // その一戦で最も戦力を出した一人(一番槍がいればその兵)
   const line=STANDOUT_LINES[ri(0,STANDOUT_LINES.length-1)];
   chron(line(fullName(best),dungeon.name),"");
   best.moral=Math.min(100,(best.moral||0)+3);
@@ -13502,7 +13509,7 @@ function reactivateInstructor(u){
 }
 /* ---------- ダンジョン・アイテムパネル ---------- */
 let dgTab="available";
-let dgSelectingDungeonId=null, dgSelectedUnitIds=[], dgFormation="balanced", dgDelve=false, dgProvision=false, dgTactic="none", dgDecoy=false, dgMerc=false, dgAim="balanced";
+let dgSelectingDungeonId=null, dgSelectedUnitIds=[], dgFormation="balanced", dgDelve=false, dgProvision=false, dgTactic="none", dgDecoy=false, dgMerc=false, dgAim="balanced", dgVanguard=false;
 let expSelecting=false, expSelectedUnitIds=[], expDest="trade";
 /* 遠征の目的地(遠征の新レバー):60〜90日の長期遠征に「どこへ何をしに行くか」を選ばせ、持ち帰る実りの
    偏りを変える。汎用の"送って待つ"を、王国の今の不足(財貨/装備/成長/発見)に合わせて選ぶ戦略判断に変える。 */
@@ -13996,6 +14003,13 @@ function renderDungeonPanel(){
       <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:4px">食糧${PROVISION_COST}を割いて糧食と手当てを携える。帰還時、部隊の疲労が和らぎ、負った傷も浅く済む。連戦で兵を回す時の兵站の一手。${canProv?"":"(食糧が足りない)"}</div>
     </div>`;
     }
+    // 一番槍:本隊の最も頼れる一人が先陣に立つ。勝てば人一倍の経験と誉れ(殊勲)を得るが、その分だけ深く疲れる。誰に武功を厚く積ませるかの采配
+    {const sel=eligible.filter(u=>dgSelectedUnitIds.includes(u.id));const canVg=sel.length>=2;const on=dgVanguard&&canVg;const lead=canVg?[...sel].sort((a,b)=>unitPower(b)-unitPower(a))[0]:null;
+     h+=`<div style="margin-top:10px">
+      <button id="dgVanguardToggle" ${canVg?"":"disabled"} style="width:100%;background:${on?"rgba(200,140,90,.22)":"transparent"};border:1px solid ${on?"#d0925a":canVg?"var(--gold2)":"rgba(255,255,255,.12)"};color:${on?"#e0a870":canVg?"var(--dim)":"rgba(255,255,255,.3)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;font-weight:${on?"800":"600"};cursor:${canVg?"pointer":"default"}">${on?`◆ 一番槍を立てる(ON・${lead?fullName(lead):""})`:"一番槍を立てる(先陣)"}</button>
+      <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:4px">本隊で最も頼れる一人が先陣に立つ。勝てばその兵が人一倍の経験と誉れ(殊勲)を得るが、その分だけ深く疲れる。武功を厚く積ませたい兵がいる時の采配。${canVg?"":"(2名以上で出撃する時に指名できる)"}</div>
+    </div>`;
+    }
     // 陽動(別動隊):本隊以外に一兵を割いて敵を引きつけ、この一戦を有利かつ安全にする。手強い迷宮を"手数"を賭けて崩す一手
     {const spare=eligible.filter(u=>!dgSelectedUnitIds.includes(u.id));const canDecoy=spare.length>0;const on=dgDecoy&&canDecoy;const lead=canDecoy?spare.sort((a,b)=>unitPower(b)-unitPower(a))[0]:null;
      h+=`<div style="margin-top:10px">
@@ -14060,11 +14074,12 @@ function renderDungeonPanel(){
     if(decoyToggle)decoyToggle.onclick=()=>{dgDecoy=!dgDecoy;renderDungeonPanel();};
     const mercToggle=$("#dgMercToggle");
     if(mercToggle)mercToggle.onclick=()=>{dgMerc=!dgMerc;renderDungeonPanel();};
+    {const vgToggle=$("#dgVanguardToggle");if(vgToggle)vgToggle.onclick=()=>{dgVanguard=!dgVanguard;renderDungeonPanel();};}
     const confirmBtn=$("#dgDispatchConfirm");
     if(confirmBtn)confirmBtn.onclick=()=>{
       const id=dgSelectingDungeonId;const ids=[...dgSelectedUnitIds];const fm=dgFormation;const dv=dgDelve;const pv=dgProvision;const tc=dgTactic;const dc=dgDecoy;const mc=dgMerc;
       dgSelectingDungeonId=null;dgSelectedUnitIds=[];dgTactic="none";dgDecoy=false;dgMerc=false;
-      dispatchDungeon(id,ids,fm,dv,pv,tc,dc,mc,dgAim);
+      dispatchDungeon(id,ids,fm,dv,pv,tc,dc,mc,dgAim,dgVanguard);
       dgTab="active";renderDungeonPanel();
     };
     $("#dgDispatchCancel").onclick=()=>{dgSelectingDungeonId=null;dgSelectedUnitIds=[];renderDungeonPanel();};
