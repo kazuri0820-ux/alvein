@@ -10165,6 +10165,18 @@ function checkForbiddenOmen(){
 function renderProjects(){
   let h="";
   const focusLabels={military:"軍事",economy:"経済",agriculture:"農業",magic:"魔導",order:"治安",diplomacy:"外交"};
+  // ── 王の執務室(現在の統治を一望) ──
+  {const chips=[];
+   chips.push(["税制",taxInfo().label,taxLevel()==="heavy"?"#d99a6a":taxLevel()==="light"?"#8fbf6f":"#c9a86a"]);
+   chips.push(["移民",immigrationInfo().label,immigrationLevel()==="open"?"#8fbf6f":immigrationLevel()==="closed"?"#d99a6a":"#c9a86a"]);
+   if(academyLevel()>0)chips.push(["学院","Lv."+academyLevel(),"#c9a86a"]);
+   if(S.policyFocus)chips.push(["重点",focusLabels[S.policyFocus],"#c9a86a"]);
+   const fa=typeof festivalActive==="function"?festivalActive():null; if(fa){const ft=festivalType(fa.key);chips.push(["祝祭",`${ft.name}(残${fa.until-S.day}日)`,"#e0a870"]);}
+   if(S.caravan)chips.push(["隊商",`${neighborName(S.caravan.key)}へ(残${Math.max(0,S.caravan.resolveDay-S.day)}日)`,"#c9a86a"]);
+   if(S.nemesis)chips.push(["宿敵",S.nemesis.name,"#d97a7a"]);
+   h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-project"></i>王の執務室</div>
+     <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px">`+chips.map(c=>`<span style="font-size:10.5px;border:1px solid ${c[2]};color:${c[2]};border-radius:5px;padding:2px 7px"><span style="color:var(--dim)">${c[0]}:</span>${c[1]}</span>`).join("")+`</div></div>`;
+  }
   h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px">
     <div class="nm" style="color:var(--gold)"><i class="icon-project"></i>今月の重点方針</div>
     <div class="ds">${S.policyFocus?`「${focusLabels[S.policyFocus]}」に注力中。月末まで毎日じわじわ上昇する。${(S.policyStreak||0)>0?`(継続${(S.policyStreak||0)+1}ヶ月・伸び+${Math.round(Math.min(0.6,(S.policyStreak||0)*0.15)*100)}%)`:""}`:"特に方針を定めていない。月次会議で重点分野を選べる。"}</div>
