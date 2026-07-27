@@ -7997,6 +7997,23 @@ function recruitAtmosphere(u){
   else if(u.traitTier==="rare"&&Math.random()<0.4)phrase+="。多少、腕に覚えがあるようだ";
   return phrase+"。";
 }
+/* 志願の動機・評判編:王国の評判(王号・威信)が高まるほど、それを慕って門を叩く志願者が現れる。
+   王号や名声を"数値の指標"に留めず、人が集まる理由として世界に反映し、治世の色を志願所に映す(演出の底上げ)。 */
+function recruitDrawReason(){
+  const kt=S.kingTitle;
+  const map={
+    conqueror:"〈征服王〉の武名に憧れ、我が腕を試したいと自ら門を叩いたという。",
+    sage:"〈賢王〉の治める学び豊かな国にこそ身を置きたいと、志願を求めてきたという。",
+    people:"〈民の王〉の善政を聞き及び、この国でこそ生きたいと願い出たという。",
+    warlord:"〈武王〉の精強な軍に加わらんと、はるばる馳せ参じたという。",
+    merchant:"〈富王〉の栄える国に己の運を賭けようと、志願してきたという。",
+    hegemon:"大陸に号令する〈盟主〉の旗の下に集いたいと、門を叩いたという。",
+    pioneer:"版図を拓く〈開拓王〉の国に、新天地を求めて志願したという。",
+  };
+  if(kt&&map[kt])return map[kt];
+  if(typeof renownTierIndex==="function"&&renownTierIndex()>=2)return "近頃とみに高まる王国の名声を聞きつけ、腕自慢が自ら門を叩いたという。";
+  return "";
+}
 function recruitCost(u){return Math.round(18+unitPower(u)*1.4);}
 /* 募集候補:国力(軍事・経済)に応じてレベルが伸び、稀に高ステータスの逸材が混じる */
 function makeRecruitCandidate(){
@@ -8149,7 +8166,8 @@ function makeVolunteer(){
   fitUnitToRank(u,rank.label);
   const cost=Math.round(recruitCost(u)*rank.costMult);
   const hiddenPotential=Math.random()<hiddenPotentialChance(rank.label);
-  const comment=recruitAtmosphere(u);
+  let comment=recruitAtmosphere(u);
+  if(Math.random()<0.4){const dr=(typeof recruitDrawReason==="function")?recruitDrawReason():"";if(dr)comment=comment+" "+dr;} // 王国の評判(王号・威信)を慕って志願する者は、その理由を語る
   const v={id:u.id,unit:u,postedDay:S.day,cost,rank,hiddenPotential,comment};
   if(Math.random()<0.35)v.background=VOLUNTEER_BACKGROUNDS[Math.floor(Math.random()*VOLUNTEER_BACKGROUNDS.length)].key; // 一部の志願者は前歴を持つ
   // 紹介状:忠義ある現役兵が、知人を推挙してくることがある(採用すると縁が繋がる)
