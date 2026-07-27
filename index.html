@@ -8699,6 +8699,7 @@ function resolveDungeonRun(dungeonId){
         diedWasHallWorthy=isHallWorthy(victim);
         removeUnitById(victim.id,"loss");
         chron(`――「${dungeon.name}」は大失敗に終わった。${victim.nm}は、二度と戻らなかった。`,"grave");
+        fallenEulogy(victim,dungeon.name,diedWasHallWorthy); // 歩みを重ねた兵の散り際を偲ぶ一幕(演出)
         const rec=memberLog.find(l=>l.u.id===victim.id);if(rec)rec.note="戦没";
       }
     }else{
@@ -8781,6 +8782,26 @@ function maybeClutchVictory(squad,dungeon,centerRoll,tier){
   chron(line(fullName(u),dungeon.name),"big");
   for(const m of alive){m.moral=Math.min(100,(m.moral||0)+4);} // 逆転劇は隊の士気を大きく高める
   grantTitle(u,"t_survivor"); // 死線を越えた証
+}
+/* 散り際の弔い:歩みを重ねた名のある兵が斃れた時、その生涯を偲ぶ一幕を年代記に添える。
+   ただ「戻らなかった」で流さず、失った兵の重みと遺した功を刻む(演出＝喪失に物語の重みを与える) */
+const EULOGY_LINES=[
+ (u,p)=>`${u}の亡骸は戻らなかった。だが共に潜った戦友たちは、その最後まで退かなかった背中を語り継ぐという。`,
+ (u,p)=>`訃報を聞いた古参の兵が、黙って${u}の得物を磨き、静かに祭壇へ供えた。`,
+ (u,p)=>`${u}が斃れたと知り、訓練場は一日、鍛錬の音を止めた。誰もが、その名を口の中で転がしていた。`,
+ (u,p)=>`王は${u}の死を悼み、ひとり執務室で灯を落とした。名もなき初陣の日から、確かにそこにいた兵だった。`,
+ (u,p)=>`「${p}」の暗がりに、${u}は消えた。だがその武勲は、王国の年代記に確かな筆跡で残されている。`,
+];
+function fallenEulogy(u,placeName,hallWorthy){
+  if(!u)return;
+  const clears=u.dungeonClearCount||0, titles=(u.titles||[]).length, tenure=S.day-(u.joinDay||S.day);
+  if(!(clears>=3||titles>=1||hallWorthy||tenure>=200))return; // 名もなき新兵は静かに送る。歩みを重ねた兵のみ特筆
+  const feats=[];
+  if(clears>0)feats.push(`${clears}度の踏破`);
+  if(titles>0)feats.push(`${titles}つの称号`);
+  const featTxt=feats.length?`(${feats.join("・")}を遺して)`:"";
+  const line=EULOGY_LINES[ri(0,EULOGY_LINES.length-1)];
+  chron(line(fullName(u),placeName||"迷宮")+featTxt,"grave");
 }
 function maybeTriumphReturn(squad,crit){
   if(!squad||!squad.length)return;
@@ -9210,6 +9231,7 @@ function resolveExpedition(riskKey,rewardMult){
       const rec=log.find(l=>l.u.id===victim.id);if(rec)rec.note="戦没";
       removeUnitById(victim.id,"loss");
       chron(`――ミッション「${theme.name}」は大失敗に終わった。${victim.nm}は、ついに帰らぬ人となった。`,"grave");
+      fallenEulogy(victim,theme.name,diedWasHallWorthy);
     }else{
       for(const u of hurtOnes)if(u.injurySeverity==="severe"){u.criticalSurvivalCount=(u.criticalSurvivalCount||0)+1;grantTitle(u,"t_survivor");}
       chron(`――ミッション「${theme.name}」は大失敗に終わった。部隊はほうほうの体で逃げ帰った。`,"grave");
@@ -11245,8 +11267,9 @@ function resolveLongExpedition(id){
       const deathChance=0.12*(1-Math.min(0.55,S.st.order*0.0055));
       if(Math.random()<deathChance){
         const victim=squad[Math.floor(Math.random()*squad.length)];
-        died=victim;removeUnitById(victim.id,"loss");
+        died=victim;const dw=isHallWorthy(victim);removeUnitById(victim.id,"loss");
         chron(`――遠征部隊に悲報が届いた。${fullName(victim)}は、ついに帰らぬ人となった。`,"grave");
+        fallenEulogy(victim,"遠征",dw);
       }
     }
     chron(`遠征部隊が苦難の末に帰還した。${tier==="critical"?"多くの犠牲を払うこととなった。":"当初の見込みほどの成果は得られなかった。"}`,"grave");
