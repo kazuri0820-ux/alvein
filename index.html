@@ -10358,6 +10358,8 @@ function renderProjects(){
    if(F.forbiddenLore)boons.push(["禁書の力","魔導を高める禁断の知。時に恵みを、時に禍いをもたらす(諸刃)"]);
    if(F.relics){const rn={valor:"英雄の紋章 ― 部隊戦力+4%",ward:"不滅の護符 ― 迷宮での戦死率↓",compass:"探索者の羅針盤 ― 迷宮の発見機会↑"};for(const k in F.relics)if(F.relics[k]&&rn[k])boons.push(["遺物",rn[k]]);}
    if(F.explorerRank>=1){const el=["","名うての探検家(発見機会↑)","熟練の探検家(発見・踏破経験↑)","大陸の踏破者(発見・踏破経験↑・断片↑)"];boons.push(["探検家の格",el[Math.min(3,F.explorerRank)]]);}
+   const gw={finance:"王立金融府 ― 王室金庫の利率が倍・運用上限も広い",forge:"常設の大工房 ― 鍛冶費が2割安く、迷宮での武具の出土が増える",hall:"英霊廟 ― 殿堂の加護が厚く、兵の忠誠がより育つ"};
+   if(gw[F.grandWork])boons.push(["大いなる普請",gw[F.grandWork]]);
    if(boons.length){
      h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 6px;letter-spacing:.15em">── 王国の恒久の力 ──</div>`;
      h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px">`+boons.map(bo=>`<div class="ds" style="margin:1px 0"><span style="color:var(--gold);font-weight:700">◆ ${bo[0]}</span> <span style="color:var(--dim)">― ${bo[1]}</span></div>`).join("")+`</div>`;
