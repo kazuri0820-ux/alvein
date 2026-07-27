@@ -1521,6 +1521,7 @@ const TRAIT_RARE=[
  {key:"trr_42",name:"一匹狼",desc:"抜きん出た才を持つが、群れることを嫌う一匹狼。単身では滅法強いが、その独りよがりが部隊の連携をわずかに乱す(才の伸びは大きい)",gm:1.32,squadSynergy:-0.06,agi:4},
  {key:"trr_43",name:"博打打ちの気性",desc:"勝負どころで運を手繰り寄せる剛胆な性分。伴う迷宮踏破は大成功に転じやすいが、無茶が祟って本人は傷を負いやすい",gm:1.1,fortuneRoll:10,injuryMult:1.2},
  {key:"trr_44",name:"老いて盛ん",desc:"歳を重ねるほど円熟味を増す遅咲きの質。老いによる衰えが人並より緩やかで、長く一線で戦い続けられる",gm:1.08,ageResist:0.4,vit:4},
+ {key:"trr_45",name:"気難しい天才",desc:"目を瞠る才の持ち主だが、気位が高く扱いにくい。才の伸びは抜群だが、忠義はなかなか深まらない(お気に入りや宴で繋ぎ止めたい)",gm:1.35,loyaltyGrow:-0.15},
 ];
 const TRAIT_EPIC=[
  {key:"swordsaint",name:"剣聖の末裔",desc:"名も知れぬ剣豪の血を引くという",gm:1.4,injuryMult:0.5,deathMult:0.55},
@@ -9077,8 +9078,8 @@ function traitEffectText(tr){
   if(tr.lifespanMult&&tr.lifespanMult!==1)parts.push(`寿命×${tr.lifespanMult}`);
   if(tr.ageResist)parts.push("老いの衰えに強い");
   if(tr.ageTrainResist)parts.push("加齢による訓練低下に強い");
-  if(tr.loyaltyGrow)parts.push(`忠誠成長+${tr.loyaltyGrow}/日`);
-  if(tr.moralGrow)parts.push(`士気成長+${tr.moralGrow}/日`);
+  if(tr.loyaltyGrow)parts.push(`忠誠成長${tr.loyaltyGrow>=0?"+":""}${tr.loyaltyGrow}/日`);
+  if(tr.moralGrow)parts.push(`士気成長${tr.moralGrow>=0?"+":""}${tr.moralGrow}/日`);
   if(tr.instructorMult&&tr.instructorMult!==1)parts.push(`教官時の指導効果×${tr.instructorMult}`);
   if(tr.guardianSave)parts.push(`戦友の致命傷を${Math.round(tr.guardianSave*100)}%で肩代わり`);
   if(tr.lootLuck)parts.push(`迷宮のドロップ率+${Math.round(tr.lootLuck*100)}%`);
