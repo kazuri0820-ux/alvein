@@ -6435,6 +6435,20 @@ function setImmigration(key){
   chron(`入植の方針が「${IMMIGRATION_LEVELS[key].label}」に改められた。${IMMIGRATION_LEVELS[key].desc}`,"big");
   render();renderProjects();save();
 }
+/* ===== 王立学院(恒久投資の新軸):国庫を段階的に投じて学院を建て、育てるほど新たに加わる兵の初期の練度と資質が上がる。
+   目先の戦力でなく"未来の入り口"を底上げする長期投資=貯まった金の戦略的な使い道と、良い人材を育む土壌への先行投資 ===== */
+const ACADEMY_MAX=3;
+const ACADEMY_COSTS=[170,340,620]; // Lv1/2/3を建てる費用
+function academyLevel(){return S.academy||0;}
+function academyNextCost(){const lv=academyLevel();return lv>=ACADEMY_MAX?null:ACADEMY_COSTS[lv];}
+function buildAcademy(){
+  const lv=academyLevel(); if(lv>=ACADEMY_MAX)return;
+  const cost=ACADEMY_COSTS[lv];
+  if(S.gold<cost){chron("学院を興すだけの蓄えが足りない。","");return;}
+  S.gold-=cost; S.academy=lv+1;
+  apply({st:{magic:1},mood:1,log:lv===0?`王立学院が創設された。以後、この国に加わる兵は、幼き頃より学舎で研鑽を積んだ確かな練度を備えてくる(魔導+1)。`:`王立学院が拡充され、Lv.${lv+1}となった。学び舎はいっそう充実し、加わる兵の資質がさらに高まる。`,logCls:"big"});
+  clamp();render();renderProjects();save();
+}
 function immigrationDaily(){
   const info=immigrationInfo();
   if(info.orderDelta)S.st.order=Math.max(0,Math.min(100,S.st.order+info.orderDelta*statDiminish(S.st.order)));
@@ -7055,14 +7069,15 @@ function makeRecruitCandidate(){
   const powerIdx=(S.st.military+S.st.economy)/2;
   const avgPartyLv=S.units.length?S.units.reduce((a,x)=>a+x.lv,0)/S.units.length:1;
   // 国力基準(序盤〜中盤の伸び)と、部隊平均Lvの55%(終盤の追いつき)のうち高い方を採用
-  const maxBonusLv=Math.max(Math.floor(powerIdx/8),Math.round(avgPartyLv*0.55));
-  const bonusLv=ri(0,Math.max(0,maxBonusLv));
+  const aca=(typeof academyLevel==="function")?academyLevel():0; // 王立学院:育てるほど加わる兵の初期練度が上がる
+  const maxBonusLv=Math.max(Math.floor(powerIdx/8),Math.round(avgPartyLv*0.55))+aca*2;
+  const bonusLv=ri(aca,Math.max(aca,maxBonusLv)); // 学院があれば最低でも学院分の練度は備える
   for(let i=0;i<bonusLv;i++){
     u.exp+=u.lv*10;
     processLevelUps(u,true);
   }
-  // ごく稀に「逸材」:各ステータスに追加ボーナス
-  if(Math.random()<0.06){
+  // ごく稀に「逸材」:各ステータスに追加ボーナス(学院が育つほど逸材が現れやすい)
+  if(Math.random()<0.06+aca*0.03){
     const bonus=ri(6,14);
     u.str+=bonus;u.vit+=bonus;u.int+=bonus;u.agi+=bonus;u.wis+=bonus;u.lead+=bonus;
     u.talented=true;
@@ -10228,6 +10243,14 @@ function renderProjects(){
      </div>`;
    }
   }
+  // ── 王立学院 ──
+  {const lv=academyLevel();const cost=academyNextCost();
+   h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 6px;letter-spacing:.15em">── 王立学院 ──</div>`;
+   h+=`<div class="pcard"><div class="nm"><i class="icon-project"></i>王立学院${lv>0?`<span style="font-size:10px;color:var(--gold);margin-left:6px">Lv.${lv}</span>`:""}</div>
+     <div class="ds" style="margin:2px 0 6px">${lv>0?`加わる兵は幼き頃より学舎で研鑽を積み、初期の練度(＋約${lv*2}Lv相当)と逸材の現れやすさが高まっている。`:"学び舎を興せば、以後この国に加わる兵の初期の練度と資質が底上げされる。未来の戦力への先行投資。"}</div>
+     ${cost!==null?`<button class="academy-btn" ${S.gold>=cost?"":"disabled"} style="width:100%;background:${S.gold>=cost?"rgba(201,162,75,.14)":"transparent"};border:1px solid ${S.gold>=cost?"var(--gold)":"rgba(255,255,255,.12)"};color:${S.gold>=cost?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${S.gold>=cost?"pointer":"default"}">${lv===0?`学院を創設する(${cost}G)`:`Lv.${lv+1}に拡充する(${cost}G)`}</button>`:`<div class="ds" style="color:var(--gold);font-size:11px">最大まで拡充済み(加わる兵の練度が最も高い)</div>`}
+   </div>`;
+  }
   h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 6px;letter-spacing:.15em">── 施設 ──</div>`;
   for(const ft of FACILITY_TYPES){
     const built=S.facilities.find(f=>f.typeKey===ft.key);
@@ -10281,6 +10304,7 @@ function renderProjects(){
   $("#prjList").querySelectorAll(".festival-btn").forEach(b=>b.onclick=()=>{holdFestival(b.dataset.k);});
   $("#prjList").querySelectorAll(".tax-btn").forEach(b=>b.onclick=()=>{setTaxRate(b.dataset.k);});
   $("#prjList").querySelectorAll(".immig-btn").forEach(b=>b.onclick=()=>{setImmigration(b.dataset.k);});
+  {const ab=$("#prjList").querySelector(".academy-btn");if(ab)ab.onclick=()=>buildAcademy();}
   {const gs=$("#prjList").querySelector(".grain-sell-btn");if(gs)gs.onclick=()=>sellGrain();
    const gb=$("#prjList").querySelector(".grain-buy-btn");if(gb)gb.onclick=()=>buyGrain();}
   $("#prjList").querySelectorAll(".decree-btn").forEach(b=>b.onclick=()=>{
