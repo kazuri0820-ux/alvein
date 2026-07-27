@@ -8077,12 +8077,15 @@ function estimateDungeonSuccess(dungeon){
   const pctCriticalFail=Math.max(0,Math.min(100,100-Math.round((centerRoll-60+20)/40*100))); // 「大失敗」の確率
   return{squad,pct,pctGreat,pctCriticalFail};
 }
-function dispatchDungeon(dungeonId,manualIds,formationKey,delve){
+const PROVISION_COST=15; // 兵站に割く食糧
+function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision){
   const idx=(S.availableDungeons||[]).findIndex(d=>d.id===dungeonId);
   if(idx<0)return;
   const dungeon=S.availableDungeons[idx];
   dungeon.formation=FORMATIONS[formationKey]?formationKey:"balanced"; // 選んだ陣形を記録(未指定は均衡陣)
   dungeon.delve=!!delve; // 深層まで攻めるか(踏破時に奥の主へ挑む博打)
+  dungeon.provisioned=!!provision&&(S.food||0)>=PROVISION_COST; // 兵站を持たせるか(食糧を割いて帰還時の消耗を和らげる)
+  if(dungeon.provisioned)S.food=Math.max(0,(S.food||0)-PROVISION_COST); // 出立時に食糧を割く
   const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy&&!u.campUntil);
   let squad;
   if(manualIds&&manualIds.length){
@@ -8536,6 +8539,15 @@ function resolveDungeonRun(dungeonId){
   }else{
     if((S.winStreak||0)>=5)chron(`${S.winStreak}連続踏破の快進撃は、ここで途切れた。`,"sys");
     S.winStreak=0;
+  }
+  if(dungeon.provisioned){ // 兵站の恵み:携えた糧食と手当てが、帰還した兵の消耗を和らげる
+    let eased=false;
+    for(const u of squad){ if(!u||!S.units.some(x=>x.id===u.id))continue; // 生還した兵のみ
+      const before=u.fatigue||0; u.fatigue=Math.max(0,before-ri(10,16));
+      if((u.injured||0)>0){u.injured=Math.max(0,u.injured-1);if(u.injured<=0)u.injurySeverity=null;}
+      if(before>0||u.injured>=0)eased=true;
+    }
+    if(eased)chron(`携えた兵站が生き、「${dungeon.name}」から戻った部隊の疲れと傷は、いくらか浅く済んだ。`,"");
   }
   removeActiveDungeon(dungeonId);
   clamp();render();renderTroops();refreshOpenPanels();save();
@@ -10646,7 +10658,7 @@ function reactivateInstructor(u){
 }
 /* ---------- ダンジョン・アイテムパネル ---------- */
 let dgTab="available";
-let dgSelectingDungeonId=null, dgSelectedUnitIds=[], dgFormation="balanced", dgDelve=false;
+let dgSelectingDungeonId=null, dgSelectedUnitIds=[], dgFormation="balanced", dgDelve=false, dgProvision=false;
 let expSelecting=false, expSelectedUnitIds=[];
 let itemRarityFilter="all";
 /* ===== 行商人の店(新機軸:貯めた財貨を能動的に品へ換える経済の出口) =====
@@ -11088,6 +11100,13 @@ function renderDungeonPanel(){
       <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:4px">踏破に成功したら、疲れた部隊のまま奥の主へ挑む。勝てば格上の秘宝・財貨を掴むが、敗れれば疲労と負傷を負う(第一の戦果は失わない)。</div>
       ${dgDelve&&selSquad.length&&d.bossPower?(()=>{const r=(selCombined*0.85)/(d.bossPower*1.3);const lbl=r>=1?"圏内":r>=0.8?"五分":"苦しい";const col=r>=1?"#8fbf6f":r>=0.8?"#d9b56a":"#d97a7a";return `<div class="ds" style="font-size:11px;margin-top:2px">深層の主の討伐:<span style="color:${col};font-weight:700">${lbl}</span> <span style="color:var(--dim)">(疲労した状態での見込み)</span></div>`;})():""}
     </div>`;
+    // 兵站(新ルール):食糧を割いて携えれば、帰還した部隊の疲労と負傷が浅く済む。周回速度を保つ兵站の一手
+    {const canProv=(S.food||0)>=PROVISION_COST;const on=dgProvision&&canProv;
+     h+=`<div style="margin-top:10px">
+      <button id="dgProvisionToggle" ${canProv?"":"disabled"} style="width:100%;background:${on?"rgba(120,150,90,.22)":"transparent"};border:1px solid ${on?"#8fbf6f":canProv?"var(--gold2)":"rgba(255,255,255,.12)"};color:${on?"#a9d67a":canProv?"var(--dim)":"rgba(255,255,255,.3)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;font-weight:${on?"800":"600"};cursor:${canProv?"pointer":"default"}">${on?"◆ 兵站を持たせる(ON)":`兵站を持たせる(食糧${PROVISION_COST})`}</button>
+      <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:4px">食糧${PROVISION_COST}を割いて糧食と手当てを携える。帰還時、部隊の疲労が和らぎ、負った傷も浅く済む。連戦で兵を回す時の兵站の一手。${canProv?"":"(食糧が足りない)"}</div>
+    </div>`;
+    }
     h+=`<div style="display:flex;gap:6px;margin-top:10px">
       <button id="dgDispatchConfirm" ${selSquad.length?"":"disabled"} style="flex:1;background:${selSquad.length?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${selSquad.length?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:10px;font-family:'Shippori Mincho',serif;font-weight:800;cursor:${selSquad.length?"pointer":"default"}">この編成で派遣する</button>
       <button id="dgDispatchCancel" style="flex:1;background:transparent;border:1px solid var(--dim);color:var(--dim);border-radius:6px;padding:10px;font-family:'Shippori Mincho',serif;cursor:pointer">戻る</button>
@@ -11115,11 +11134,13 @@ function renderDungeonPanel(){
     $("#dgBody").querySelectorAll(".dg-formation-btn").forEach(el=>el.onclick=()=>{dgFormation=el.dataset.f;renderDungeonPanel();});
     const delveToggle=$("#dgDelveToggle");
     if(delveToggle)delveToggle.onclick=()=>{dgDelve=!dgDelve;renderDungeonPanel();};
+    const provToggle=$("#dgProvisionToggle");
+    if(provToggle)provToggle.onclick=()=>{dgProvision=!dgProvision;renderDungeonPanel();};
     const confirmBtn=$("#dgDispatchConfirm");
     if(confirmBtn)confirmBtn.onclick=()=>{
-      const id=dgSelectingDungeonId;const ids=[...dgSelectedUnitIds];const fm=dgFormation;const dv=dgDelve;
+      const id=dgSelectingDungeonId;const ids=[...dgSelectedUnitIds];const fm=dgFormation;const dv=dgDelve;const pv=dgProvision;
       dgSelectingDungeonId=null;dgSelectedUnitIds=[];
-      dispatchDungeon(id,ids,fm,dv);
+      dispatchDungeon(id,ids,fm,dv,pv);
       dgTab="active";renderDungeonPanel();
     };
     $("#dgDispatchCancel").onclick=()=>{dgSelectingDungeonId=null;dgSelectedUnitIds=[];renderDungeonPanel();};
