@@ -3193,6 +3193,25 @@ function checkAging(){
     }
   }
 }
+/* 引退の花道(演出):功ある古参が第一線を退く折、その遺した武功と縁に即した見送りを添える。斃れた兵の弔い
+   (散り際の弔い・遺言)が"喪失"を彩るのに対し、こちらは長く生き抜いた兵の"労い"を彩る——歩みを見届ける愛着を、
+   別れの場でも締めくくる。功なき兵は従来通り静かに送り、名を成した古参にだけ特別な一幕を用意する。 */
+function retirementTribute(u,asInstructor){
+  const clears=u.dungeonClearCount||0, titles=(u.titles||[]).length, tenure=Math.max(0,S.day-(u.joinDay||S.day));
+  const distinguished=titles>=2||clears>=5||u.wasCaptain||u.captain||u.sigFeat||(u.lv||1)>=18||tenure>=300;
+  if(!distinguished)return false;
+  const feats=[];
+  if(clears>0)feats.push(`${clears}度の踏破`);
+  if(titles>0)feats.push(`${titles}つの称号`);
+  {const yrs=Math.floor(tenure/((typeof AGE_YEAR_DAYS!=="undefined")?AGE_YEAR_DAYS:25));if(yrs>=1)feats.push(`${yrs}年の奉公`);}
+  const featTxt=feats.length?`(${feats.join("・")}を遺し)`:"";
+  chron(`――${fullName(u)}${featTxt}、${asInstructor?"第一線を退いて指南役の道へ進んだ":"惜しまれつつ現役を退いた"}。${u.sigFeat?`「${u.sigFeat.text}」――その武勲は、長く語り草となるだろう。`:"その歩みは、王国の記憶に確かに刻まれている。"}`,"big");
+  if(u.pupilId){const pu=S.units.find(x=>x.id===u.pupilId);if(pu){pu.masterId=null;pu.moral=Math.min(100,(pu.moral||0)+3);unitHistory(pu,`師${u.nm}の引退を見送り、その教えを胸に刻んだ。`);chron(`弟子${pu.nm}は、師${u.nm}の背をいつまでも見送っていた。その教えは、確かに受け継がれている。`,"");}}
+  const admirers=S.units.filter(x=>x.admires===u.id);
+  for(const a of admirers){a.admires=null;a.moral=Math.min(100,(a.moral||0)+2);unitHistory(a,`憧れの${u.nm}の引退を見届けた。いつか自分もあの背中に、と胸に誓って。`);}
+  if(typeof recordAnnal==="function"&&(titles>=3||clears>=15||u.wasCaptain))recordAnnal(`${fullName(u)}が、輝かしい武功を遺して現役を退いた。`,"retire",false);
+  return true;
+}
 function retireUnit(u,asInstructor){
   S.units=S.units.filter(x=>x.id!==u.id);
   handleCaptainLoss(u);
@@ -3203,13 +3222,9 @@ function retireUnit(u,asInstructor){
     if(partner){partner.bondWith=null;unitHistory(partner,`戦友${u.nm}の引退を見送った。`);}
     u.bondWith=null;
   }
-  if(asInstructor){
-    u.role="instructor";
-    S.instructors.push(u);
-    chron(`${u.nm}が現役を退き、若手の指南役となった。その豊富な経験は、これからも村の力になる。`,"big");
-  }else{
-    chron(`${u.nm}が静かに現役を退いた。「あとは若い者に任せる」と、穏やかな顔をしていた。`,"big");
-  }
+  if(asInstructor){ u.role="instructor"; S.instructors.push(u); }
+  const rich=retirementTribute(u,asInstructor); // 功ある古参には、遺した武功と縁に即した花道を
+  if(!rich)chron(asInstructor?`${u.nm}が現役を退き、若手の指南役となった。その豊富な経験は、これからも村の力になる。`:`${u.nm}が静かに現役を退いた。「あとは若い者に任せる」と、穏やかな顔をしていた。`,"big");
 }
 
 function newState(){
