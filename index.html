@@ -3850,6 +3850,57 @@ const RANDOM_RARE=[
      else{const pl=ri(2,5);apply({pop:-pl,mood:-4,st:{order:-2},log:`手をこまねくうちに病は城下に広がり、幾人かの民が儚くなった。後手に回った対応に、民の落胆は深い(人口-${pl} 民心↓ 治安↓)。`,logCls:"grave"});}
    }}},
   ]},
+ // ===== 連続物語(イベント連鎖):星霜の巡礼者。三部に跨り、序盤の対応が終幕の報酬を左右する新機軸 =====
+ {tag:"巡礼者",title:"星を追う巡礼者",
+  cond:s=>!(s.flags&&s.flags.pilgrimArc)&&s.day>=25,
+  body:"ぼろを纏った一人の巡礼者が、城門を叩いた。「星が、この地の先を指し示しておるのです。古き王朝の遺した『星冠の遺産』へ至る道が――。どうか、しばしの逗留を」。眼だけが、異様に澄んでいる。",
+  speaker:"セラ「戯言にも聞こえますが……あの眼は、嘘をつく者の眼ではございませぬ」",
+  choices:[
+   {label:"手厚くもてなす(30G)",hint:"民心↑ / 巡礼者と誼を結ぶ(後の報酬が大きくなる物語の始まり)",fx:{call:()=>{
+     if(S.gold<30){chron("もてなす蓄えがなく、巡礼者は静かに去っていった。","");return;}
+     S.gold-=30;S.flags=S.flags||{};S.flags.pilgrimArc=1;S.flags.pilgrimGoodwill=true;
+     apply({mood:2,log:"王は巡礼者を客人として手厚くもてなした。深く感謝した巡礼者は、星読みの続きを見せると約した。何かが、静かに動き始めた。",logCls:"big"});
+   }}},
+   {label:"話だけ聞く",hint:"様子見(物語は進むが、誼は結ばれない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.pilgrimArc=1;S.flags.pilgrimGoodwill=false;
+     apply({log:"王は巡礼者の話に耳を傾けた。星冠の遺産――半信半疑だが、その言葉は胸の隅に残った。"});
+   }}},
+   {label:"胡乱な者と追い返す",hint:"堅実(治安↑ / この物語は始まらない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.pilgrimArc=-1;
+     apply({st:{order:2},log:"素性の知れぬ巡礼者を、王は門前で追い返した。浮ついた噂に踊らされぬ慎重さを、家臣は頼もしく思った(治安+2)。"});
+   }}},
+  ]},
+ {tag:"巡礼者",title:"巡礼者の導き",
+  cond:s=>(s.flags&&s.flags.pilgrimArc)===1,
+  body:"再び現れた巡礼者は、色褪せた星図を広げた。「星の巡りが、ついに遺産の在り処を照らし出しました。されど、その地は魔物の巣。私一人では、辿り着けませぬ」。星冠の遺産――王朝の秘宝が、手の届く所にある。",
+  speaker:"ガレオン「罠やも知れませぬ。……が、これが真なら、見過ごす手はございませぬ」",
+  choices:[
+   {label:"護衛をつけ、共に遺跡を探す",hint:"星冠の遺産の秘境が出現(物語が終幕へ)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.pilgrimArc=2;
+     const nd=generateDungeon();nd.condition="relic";nd.treasureVault=true;nd.bossPower=Math.round((nd.bossPower||nd.requiredPower||100)*1.15);nd.name="星冠の遺跡";
+     S.availableDungeons=S.availableDungeons||[];S.availableDungeons.push(nd);
+     if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected&&x.id!==nd.id);if(di>=0)S.availableDungeons.splice(di,1);}
+     chron(`巡礼者の星図が、${nd.rarity.label?`【${nd.rarity.label}】`:""}「星冠の遺跡」への道を照らし出した。ダンジョン画面から挑める。踏破の暁には、巡礼者が終幕を告げるだろう。`,"big");
+   }}},
+   {label:"深入りは危険だと見送る",hint:"堅実(物語はここで静かに閉じる)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.pilgrimArc=-2;
+     apply({st:{order:1},log:"王は危険を避け、巡礼者の誘いを丁重に断った。巡礼者は寂しげに、しかし穏やかに頷き、星を追って去っていった。"});
+   }}},
+  ]},
+ {tag:"巡礼者",title:"星冠の遺産",
+  cond:s=>(s.flags&&s.flags.pilgrimArc)===2,
+  body:"星冠の遺跡の最奥から、巡礼者が一つの宝を掲げて戻った。「これこそ、古き王朝が星に託した遺産。あなたさまの誠意への、ささやかな返礼です」。巡礼者の姿は、まるで星明かりに溶けるようだった。",
+  speaker:"セラ「あの巡礼者……ただの人では、なかったのやもしれませぬ」",
+  choices:[
+   {label:"遺産を受け取る",hint:"序盤に誼を結んでいれば、返礼はさらに大きい",fx:{call:()=>{
+     S.flags=S.flags||{};const goodwill=!!S.flags.pilgrimGoodwill;S.flags.pilgrimArc=3;
+     const eq=rollEquipmentDrop(goodwill?"legendary":"epic");let eqName="";if(eq){const inst=addEquipment(eq.key);eqName=equipInstName(inst);}
+     const g=goodwill?ri(180,280):ri(90,150);
+     if(goodwill){S.flags.phoenixCharm=(S.flags.phoenixCharm||0)+1;}
+     apply({gold:g,mood:goodwill?6:3,st:{magic:goodwill?4:2},log:`星冠の遺産がアルヴェインにもたらされた。${eqName?`至宝「${eqName}」`:"古の秘宝"}と財貨${g}、そして星の加護が王国に宿った。${goodwill?"かつての誠意に、巡礼者は最大の返礼をもって応えた(不死鳥の加護も宿った)。":"巡礼者は静かに礼を述べ、去っていった。"}`,logCls:"big"});
+     chron("星を追う巡礼者の物語は、こうして幕を下ろした。その名は、王国史の片隅にそっと書き留められた。","big");
+   }}},
+  ]},
  {tag:"果たし合い",title:"道場破りの挑戦者",
   body:"腕に覚えのある武者が一人、城下の練兵場に乗り込んできた。「この国で一番強い者と、一手お手合わせ願いたい」。堂々たる面構え――ただ者ではなさそうだ。",
   speaker:"ガレオン「無下に追い返すのも角が立ちましょう。いかがなさいますか」",
