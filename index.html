@@ -10738,6 +10738,7 @@ function renderProjects(){
    if((S.vault||0)>0)chips.push(["金庫",`${S.vault}${(S.vault||0)>=vaultCap()?"(満)":""}`,(S.vault||0)>=vaultCap()?"#d99a6a":"#8fbf6f"]);
    if((S.outposts||[]).length)chips.push(["前哨",`${S.outposts.length}/${outpostCap()}`,"#c9a86a"]);
    if(S.nemesis)chips.push(["宿敵",S.nemesis.name,"#d97a7a"]);
+   {const food=Math.round(S.food||0),need=(S.pop||0)*0.085;if(food<Math.max(20,need*40))chips.push(["兵糧",food<Math.max(12,need*20)?"僅少・要備え":"やや心許ない","#d97a7a"]);} // 兵糧が細ると警告(飢饉に備える一手を促す)
    h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-project"></i>王の執務室</div>
      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px">`+chips.map(c=>`<span style="font-size:10.5px;border:1px solid ${c[2]};color:${c[2]};border-radius:5px;padding:2px 7px"><span style="color:var(--dim)">${c[0]}:</span>${c[1]}</span>`).join("")+`</div></div>`;
   }
