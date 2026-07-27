@@ -3463,6 +3463,21 @@ const EARLY_GROWTH=[
 ];
 /* ---------- レアイベント:通常より低頻度・高インパクト ---------- */
 const RANDOM_RARE=[
+ {tag:"祝 祭",title:"王国大祭",
+  body:"実りと平穏に感謝する、王国大祭の季節が巡ってきた。民も兵も、この日を心待ちにしている。王として、どう祝おうか。",
+  speaker:"セラ「祭りは民の心を一つにし、兵の労苦をも癒しましょう」",
+  choices:[
+   {label:"国を挙げて盛大に祝う(60G)",hint:"民心↑↑ 全兵の士気↑ 絆が芽生えることも(出費)",fx:{call:()=>{
+     if(S.gold<60){chron("蓄えが乏しく、大祭は惜しくも見送られた。","");return;}
+     S.gold-=60;
+     for(const u of S.units)u.moral=Math.min(100,(u.moral||0)+5);
+     let bonded=false;
+     if(typeof forgeSquadBond==="function"){const active=S.units.filter(u=>u.role==="active"&&!u.bondWith);if(active.length>=2&&Math.random()<0.5)bonded=forgeSquadBond(active,"王国大祭");}
+     apply({mood:8,log:"王国大祭が盛大に催された。国中が笑いと歌に満ち、兵も民も心を一つにした。"+(bonded?"":"広場には、夜通し灯りが絶えなかった。"),logCls:"big"});
+   }}},
+   {label:"実りに感謝し、慎ましく祝う",hint:"民心↑ 全兵の士気少し↑",fx:{call:()=>{for(const u of S.units)u.moral=Math.min(100,(u.moral||0)+2);apply({mood:3});chron("慎ましくも心のこもった大祭が営まれた。民は実りに感謝し、穏やかな一日を過ごした。","");}}},
+   {label:"今年は見送る",hint:"出費なし 民心少し↓",fx:{mood:-2,log:"大祭は今年、静かに見送られた。民は少し寂しげだったが、王の質素を咎める者はいなかった。"}},
+  ]},
  {tag:"慶 事",title:"兵の縁談",
   body:"隊の一人に、心を通わせた相手ができたという。所帯を持ちたいと願い出てきた――皆が我がことのように浮き立っている。王として、どう祝おうか。",
   speaker:"セラ「めでたい話でございます。良き祝いは、兵の心を長く繋ぎ止めましょう」",
