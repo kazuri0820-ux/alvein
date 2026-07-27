@@ -3468,6 +3468,17 @@ const EARLY_GROWTH=[
 ];
 /* ---------- レアイベント:通常より低頻度・高インパクト ---------- */
 const RANDOM_RARE=[
+ {tag:"天 災",title:"大嵐の襲来",
+  body:"黒雲が空を覆い、かつてない規模の大嵐が王国を襲おうとしている。備えを固めねば、田畑も家々も無事では済むまい。",
+  speaker:"ガレオン「陛下、何を守り、何を捨てるか――ご決断を」",
+  choices:[
+   {label:"民の避難を最優先する",hint:"民心↑ 治安↑ / 食糧に損害",fx:{call:()=>{const f=ri(15,30);apply({food:-Math.min(S.food,f),mood:4,st:{order:1},log:`民の避難が最優先された。田畑や蔵は嵐に痛めつけられ食糧${f}を失ったが、民は一人も欠けず、王の情けを深く胸に刻んだ。`,logCls:"big"});}}},
+   {label:"兵を動員し、堤と蔵を守り抜く",hint:"被害を抑える / 兵が疲弊",fx:{call:()=>{const active=S.units.filter(u=>u.role==="active");for(const u of active)u.fatigue=Math.min(100,(u.fatigue||0)+ri(12,22));apply({mood:2,st:{order:1},log:"兵たちが泥にまみれて堤を築き、蔵を守り抜いた。被害は最小限に抑えられたが、皆へとへとに疲れ果てている。"});}}},
+   {label:"天に任せ、嵐が過ぎるのを待つ",hint:"賭け(出費なし/大損害の恐れ)",fx:{call:()=>{
+     if(Math.random()<0.45){apply({mood:1,log:"幸い、大嵐は逸れていった。王国はほとんど無傷で、民は胸を撫で下ろした。"});}
+     else{const f=ri(25,45);apply({food:-Math.min(S.food,f),mood:-5,st:{economy:-1},log:`大嵐は容赦なく王国を襲った。田畑は流され、食糧${f}を失い、民心も沈んでいる。`,logCls:"grave"});}
+   }}},
+  ]},
  {tag:"商 い",title:"流れの武具商",
   body:"一風変わった武具商が、荷を広げて城下に立ち寄った。「掘り出し物がございますよ。お目が高ければ、掘り出し物とお分かりでしょう」。品は確かに、なかなかのものらしい。",
   speaker:"セラ「掘り出し物か、はたまた口だけか……見極めが肝要でございますね」",
