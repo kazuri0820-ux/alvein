@@ -1637,6 +1637,7 @@ const SKILL_DB=[
  {key:"nsk_swiftmarch",name:"迅速な行軍",tier:"silver",desc:"隊の足並みを整え、道なき道を最短で駆け抜ける。この者を伴う迷宮探索は所要日数が一日縮み、手数を稼げる",marchDays:1,agi:6},
  {key:"nsk_pathfinder",name:"地の利を読む才",tier:"silver",desc:"地形と気配を読み、隠れた迷宮の入口を目ざとく見つけ出す。この者を先頭に立てて動くと、新たなダンジョンを見出す確率が高まる",dungeonFind:0.6,wis:5,agi:4},
  {key:"nsk_kingbane",name:"討王の心得",tier:"gold",desc:"格上の「王」を狩る間合いと呼吸を知り尽くす。この者を伴う部隊は、迷宮のボスを討ち取りやすくなる(特別報酬を掴みやすい)",bossBane:0.2,str:6,lead:4},
+ {key:"nsk_expedition",name:"遠征の達人",tier:"gold",desc:"遠国の道と人と物流を知り尽くした旅の達人。この者を加えた遠征は、持ち帰る財貨も部隊の成長も一段と大きくなる",expeditionBoon:0.25,lead:6,wis:4},
  {key:"nsk_earnest",name:"忠勤の士",tier:"silver",desc:"実直な働きぶりで、長の信を静かに集める",lead:5,loyaltyGrow:0.2},
  {key:"nsk_highspirit",name:"旺盛なる士気",tier:"silver",desc:"陣中でも戦場でも、常に高い士気を絶やさず自ら奮い立たせる",moralGrow:0.3,vit:4},
  {key:"nsk_seasoned",name:"老練の身のこなし",tier:"silver",desc:"歳を重ねても衰えを寄せ付けぬ立ち回り",ageResist:0.5,vit:5},
@@ -2102,7 +2103,7 @@ function trySkillUpOnPromotion(u,tierIndex){
   const sk=SKILL_DB.find(s=>s.key===k);celebrateSkillGain(u,sk);return sk;
 }
 function skillEffects(u){
-  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,goldFind:0,campSupport:0,fieldMedic:0,fortuneRoll:0,squadExpBonus:0,itemFind:0,marchDays:0,bossBane:0,dungeonFind:0,
+  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,goldFind:0,campSupport:0,fieldMedic:0,fortuneRoll:0,squadExpBonus:0,itemFind:0,marchDays:0,bossBane:0,dungeonFind:0,expeditionBoon:0,
     str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   const stage=ageStageOf(u);
   for(const key of u.skills){
@@ -2136,6 +2137,7 @@ function skillEffects(u){
     if(s.marchDays)e.marchDays=Math.max(e.marchDays,s.marchDays);
     if(s.bossBane)e.bossBane=Math.max(e.bossBane,s.bossBane);
     if(s.dungeonFind)e.dungeonFind=Math.max(e.dungeonFind,s.dungeonFind);
+    if(s.expeditionBoon)e.expeditionBoon=Math.max(e.expeditionBoon,s.expeditionBoon);
   }
   const eq=equipmentEffects(u);
   for(const k of["str","vit","int","agi","wis","lead"])e[k]+=eq[k];
@@ -7744,6 +7746,7 @@ function unitSupportTags(u){
   {const sy=(u.skills||[]).reduce((a,k)=>{const s=SKILL_DB.find(x=>x.key===k);return a+((s&&s.squadSynergy)||0);},0)+((tr.squadSynergy)||0);if(sy>0)tags.push("連携");}
   if((se.bossBane||0)>0||(tr.bossBane||0)>0)tags.push("討王");
   if((se.dungeonFind||0)>0||(tr.dungeonFind||0)>0)tags.push("探索");
+  if((se.expeditionBoon||0)>0||(tr.expeditionBoon||0)>0)tags.push("遠征");
   return tags;
 }
 /* ダンジョン型が重んじる主要能力を推し量って表示=どんな兵を送るべきか、開く前に判断しやすくする(磨き込み) */
@@ -9224,6 +9227,7 @@ function skillEffectText(s){
   if(s.marchDays)parts.push(`迷宮の所要日数-${s.marchDays}日`);
   if(s.bossBane)parts.push(`部隊のボス撃破力+${Math.round(s.bossBane*100)}%`);
   if(s.dungeonFind)parts.push(`ダンジョン発見率+${Math.round(s.dungeonFind*100)}%(先頭時)`);
+  if(s.expeditionBoon)parts.push(`遠征の財貨・成長+${Math.round(s.expeditionBoon*100)}%`);
   if(s.onlyCaptain)parts.push("(団長のみ有効)");
   if(s.condFlag==="dragonPact")parts.push(`竜盟約締結中はさらに体力+${s.condVit}・腕力+${s.condStr}`);
   return parts.length?parts.join(" / "):"目立った効果はない";
@@ -10198,12 +10202,13 @@ function resolveLongExpedition(id){
   for(let i=0;i<jn&&jpool.length;i++)journal.push(jpool.splice(Math.floor(Math.random()*jpool.length),1)[0]);
   let goldGain=0,itemGained=null,equipGained=null,dungeonFound=null,died=null,recruit=null;
   const gainedItems=[],gainedEquips=[];
+  const expBoon=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).expeditionBoon||0)):0; // 「遠征の達人」を伴うと、遠征の実入り(財貨・成長)が増す=遠征に特化した編成の新レバー
   if(tier==="great"||tier==="success"){
     // 60〜90日ぶんの成果。5人の精鋭を長く拘束する重さに見合うよう、報酬を日数と練度で大きく伸ばす
-    goldGain=Math.round((tier==="great"?ri(7,11):ri(4,7))*exp.duration*(1+avgLv/70));
+    goldGain=Math.round((tier==="great"?ri(7,11):ri(4,7))*exp.duration*(1+avgLv/70)*(1+expBoon));
     apply({gold:goldGain,st:{economy:2,diplomacy:2},mood:tier==="great"?4:2}); // 遠方との交易・見聞で経済と外交も伸び、名声が民心を高める
     for(const u of squad){
-      const g=Math.round((tier==="great"?ri(9,13):ri(6,9))*(exp.duration/10)*(1+avgLv/55)); // 長い野戦の日々で部隊は大きく成長して帰る
+      const g=Math.round((tier==="great"?ri(9,13):ri(6,9))*(exp.duration/10)*(1+avgLv/55)*(1+expBoon)); // 長い野戦の日々で部隊は大きく成長して帰る
       u.exp+=g;processLevelUps(u);
       unitHistory(u,`${exp.duration}日に及ぶ遠征を戦い抜き、ひと回り大きくなって帰還した。`);
     }
