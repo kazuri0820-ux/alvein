@@ -12384,7 +12384,16 @@ function reactivateInstructor(u){
 /* ---------- ダンジョン・アイテムパネル ---------- */
 let dgTab="available";
 let dgSelectingDungeonId=null, dgSelectedUnitIds=[], dgFormation="balanced", dgDelve=false, dgProvision=false, dgTactic="none";
-let expSelecting=false, expSelectedUnitIds=[];
+let expSelecting=false, expSelectedUnitIds=[], expDest="trade";
+/* 遠征の目的地(遠征の新レバー):60〜90日の長期遠征に「どこへ何をしに行くか」を選ばせ、持ち帰る実りの
+   偏りを変える。汎用の"送って待つ"を、王国の今の不足(財貨/装備/成長/発見)に合わせて選ぶ戦略判断に変える。 */
+const EXPEDITION_DESTINATIONS=[
+ {key:"trade",   name:"東方の交易路", short:"交易", desc:"財貨と外交を厚く持ち帰る。装備・成長は控えめ。", g:1.5, e:0.85,d:0.75,disc:0,ren:0,shard:0,econ:3,dip:3,risk:0},
+ {key:"peak",    name:"未踏の霊峰",   short:"霊峰", desc:"上質な装備や秘宝の断片を狙う。財貨は控えめ。",   g:0.85,e:0.9, d:1.6, disc:0,ren:0,shard:2,econ:0,dip:0,risk:0},
+ {key:"frontier",name:"戦乱の辺境",   short:"辺境", desc:"実戦続きで部隊が大きく育つ。危険もやや増す。",   g:0.9, e:1.5, d:0.9, disc:0,ren:1,shard:0,econ:0,dip:0,risk:1},
+ {key:"ruins",   name:"古の遺跡群",   short:"遺跡", desc:"新たな迷宮の発見と名声を得やすい。",           g:0.95,e:0.95,d:1.15,disc:1,ren:3,shard:1,econ:0,dip:1,risk:0},
+];
+function expeditionDest(key){return EXPEDITION_DESTINATIONS.find(d=>d.key===key)||EXPEDITION_DESTINATIONS[0];}
 let itemRarityFilter="all";
 /* ===== 行商人の店(新機軸:貯めた財貨を能動的に品へ換える経済の出口) =====
    これまで財貨は貯まる一方で使い道が受動的(イベント/閣議)に限られていた。定期的に品揃えが替わる
@@ -12580,19 +12589,20 @@ const EXPEDITION_JOURNAL_LINES=[
  "崖沿いの細道を、命綱を結び合って一歩ずつ進んだ。","遠雷の鳴る夜、部隊は身を寄せ合い、交代で見張りに立った。",
 ];
 let longExpResultQueue=[];
-function dispatchLongExpedition(unitIds){
+function dispatchLongExpedition(unitIds,destKey){
   const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<60&&!u.dungeonBusy&&!u.campUntil);
   const squad=unitIds.map(id=>eligible.find(u=>u.id===id)).filter(Boolean).slice(0,5);
   if(squad.length<5){chron("遠征には5人の部隊が必要。","sys");return;}
+  const dest=expeditionDest(destKey);
   const dur=ri(EXPEDITION_LONG_MIN_DAYS,EXPEDITION_LONG_MAX_DAYS);
   const id=Math.random().toString(36).slice(2,9);
   const resolveDay=S.day+dur;
   for(const u of squad)u.dungeonBusy=resolveDay;
   recordSquadSortie(squad);
   S.longExpeditions=S.longExpeditions||[];
-  S.longExpeditions.push({id,squadIds:squad.map(u=>u.id),resolveDay,duration:dur});
+  S.longExpeditions.push({id,squadIds:squad.map(u=>u.id),resolveDay,duration:dur,dest:dest.key});
   (S.scheduled[resolveDay]=S.scheduled[resolveDay]||[]).push("__expedition_long_resolve__"+id);
-  chron(`${squad.map(fullName).join("・")}が遠征に出発した。${dur}日後に戻る予定。`,"big");
+  chron(`${squad.map(fullName).join("・")}が「${dest.name}」を目指して遠征に出発した。${dur}日後に戻る予定。`,"big");
   clamp();render();renderTroops();refreshOpenPanels();save();
 }
 function resolveLongExpedition(id){
@@ -12615,26 +12625,31 @@ function resolveLongExpedition(id){
   let goldGain=0,itemGained=null,equipGained=null,dungeonFound=null,died=null,recruit=null;
   const gainedItems=[],gainedEquips=[];
   const expBoon=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).expeditionBoon||0)):0; // 「遠征の達人」を伴うと、遠征の実入り(財貨・成長)が増す=遠征に特化した編成の新レバー
+  const dest=expeditionDest(exp.dest); // 遠征の目的地:持ち帰る実りの偏りを決める
   if(tier==="great"||tier==="success"){
     // 60〜90日ぶんの成果。5人の精鋭を長く拘束する重さに見合うよう、報酬を日数と練度で大きく伸ばす
-    goldGain=Math.round((tier==="great"?ri(7,11):ri(4,7))*exp.duration*(1+avgLv/70)*(1+expBoon));
-    apply({gold:goldGain,st:{economy:2,diplomacy:2},mood:tier==="great"?4:2}); // 遠方との交易・見聞で経済と外交も伸び、名声が民心を高める
+    goldGain=Math.round((tier==="great"?ri(7,11):ri(4,7))*exp.duration*(1+avgLv/70)*(1+expBoon)*dest.g);
+    apply({gold:goldGain,st:{economy:2+(dest.econ||0),diplomacy:2+(dest.dip||0)},mood:tier==="great"?4:2}); // 遠方との交易・見聞で経済と外交も伸び、名声が民心を高める。目的地で偏る
+    if(dest.ren)grantRenown(dest.ren,`「${dest.name}」への遠征`); // 遺跡・辺境の遠征は王国の名声も高める
+    if(dest.shard){S.relicShards=(S.relicShards||0)+dest.shard;} // 霊峰・遺跡は秘宝の断片を持ち帰る
     for(const u of squad){
-      const g=Math.round((tier==="great"?ri(9,13):ri(6,9))*(exp.duration/10)*(1+avgLv/55)*(1+expBoon)); // 長い野戦の日々で部隊は大きく成長して帰る
+      const g=Math.round((tier==="great"?ri(9,13):ri(6,9))*(exp.duration/10)*(1+avgLv/55)*(1+expBoon)*dest.e); // 長い野戦の日々で部隊は大きく成長して帰る。目的地で偏る
       u.exp+=g;processLevelUps(u);
-      unitHistory(u,`${exp.duration}日に及ぶ遠征を戦い抜き、ひと回り大きくなって帰還した。`);
+      unitHistory(u,`「${dest.name}」への${exp.duration}日に及ぶ遠征を戦い抜き、ひと回り大きくなって帰還した。`);
     }
-    const dropCount=tier==="great"?ri(2,4):ri(1,2); // 戦利品は数も質も厚く(遠征ならではの実入り)
+    const baseDrop=tier==="great"?ri(2,4):ri(1,2);
+    const dropCount=Math.max(0,Math.round(baseDrop*dest.d)); // 戦利品は数も質も厚く(遠征ならではの実入り)。目的地で偏る
     for(let i=0;i<dropCount;i++){const it=rollItemDrop(tier==="great"?"epic":"rare");if(it){addItem(it.key);itemGained=it;gainedItems.push(it.name);}}
     {const eq=rollEquipmentDrop(tier==="great"?"epic":"rare");if(eq){addEquipment(eq.key);equipGained=eq;gainedEquips.push(eq.name);}} // 装備は確定で持ち帰る
-    if(tier==="great"&&Math.random()<0.5){const eq2=rollEquipmentDrop("epic");if(eq2){addEquipment(eq2.key);gainedEquips.push(eq2.name);}}
-    if(Math.random()<(tier==="great"?0.7:0.4))dungeonFound=checkDungeonDiscovery(1.6,squad[0]);
+    if((tier==="great"&&Math.random()<0.5)||(dest.key==="peak"&&Math.random()<0.45)){const eq2=rollEquipmentDrop("epic");if(eq2){addEquipment(eq2.key);gainedEquips.push(eq2.name);}} // 霊峰は上質な装備を多く持ち帰る
+    if(Math.random()<(tier==="great"?0.7:0.4)+(dest.disc?0.35:0))dungeonFound=checkDungeonDiscovery(1.6,squad[0]);
     // 遠征でしか結べぬ縁:道中で腕利きの流れ者と出会い、共に王国へ帰ることがある(遠征だけの特典)
     if(S.units.length<unitCap()&&Math.random()<(tier==="great"?0.45:0.2)){
       recruit=makeRecruitCandidate();recruit.joinDay=S.day;S.units.push(recruit);
       unitHistory(recruit,"遠征部隊が道中で見出し、共に王国へ帰った流れ者。");
     }
-    chron(`――遠征部隊が凱旋した。${squad.map(fullName).join("・")}が${goldGain}Gと戦利品を携え、見違えるほど逞しくなって戻った。${recruit?`道中で見出した${fullName(recruit)}も隊に加わった。`:""}`,"big");
+    if(dest.risk&&Math.random()<0.5){const v=squad[Math.floor(Math.random()*squad.length)];if(v&&(v.injured||0)<=0){inflictInjury(v,[0.85,0.15,0]);unitHistory(v,"辺境の絶え間ない実戦の中で、軽い手傷を負って帰った。");}} // 戦乱の辺境:成長は厚いが、手傷を負いやすい
+    chron(`――遠征部隊が「${dest.name}」から凱旋した。${squad.map(fullName).join("・")}が${goldGain}Gと戦利品を携え、見違えるほど逞しくなって戻った。${recruit?`道中で見出した${fullName(recruit)}も隊に加わった。`:""}`,"big");
   }else{
     goldGain=Math.round(ri(10,30));
     apply({gold:goldGain,mood:-2});
@@ -12703,6 +12718,11 @@ function renderDungeonPanel(){
         <div class="ds">選択中:${selSquad.length}/5人</div>
         ${selSquad.length?(()=>{const tset=[];for(const u of selSquad){for(const t of unitSupportTags(u))if(!tset.includes(t))tset.push(t);}return tset.length?`<div class="ds" style="font-size:11px;color:#a9c47a">編成の支援:${tset.join("・")}${tset.includes("遠征")?"":' <span style="color:var(--dim)">(「遠征」持ちを加えると実入りが増す)</span>'}</div>`:"";})():""}
       </div>`;
+      {const cur=expeditionDest(expDest);
+       h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:8px"><div class="ds" style="font-size:11px;color:var(--gold);margin-bottom:5px">遠征の目的地(持ち帰る実りが偏る)</div>
+         <div style="display:flex;gap:5px;flex-wrap:wrap">`+EXPEDITION_DESTINATIONS.map(d=>{const on=d.key===expDest;return `<button class="exp-dest-btn" data-k="${d.key}" style="flex:1;min-width:64px;background:${on?"rgba(201,162,75,.2)":"transparent"};border:1px solid ${on?"var(--gold)":"var(--gold2)"};color:${on?"var(--gold)":"var(--dim)"};border-radius:6px;padding:6px 4px;font-family:'Shippori Mincho',serif;font-size:11px;font-weight:${on?"800":"600"};cursor:pointer">${d.short}</button>`;}).join("")+`</div>
+         <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:5px">◆ ${cur.name}：${cur.desc}</div></div>`;
+      }
       if((S.squads||[]).some(s=>s.unitIds&&s.unitIds.length===5)){
         h+=`<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">`+
           S.squads.filter(s=>s.unitIds&&s.unitIds.length===5).map(s=>`<button class="exp-squad-quick" data-i="${s.id}" style="flex:1;min-width:90px;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${s.name}を選択</button>`).join("")+
@@ -12740,11 +12760,13 @@ function renderDungeonPanel(){
         expSelectedUnitIds=sq.unitIds.filter(id=>eligible.some(u=>u.id===id));
         renderDungeonPanel();
       });
+      $("#dgBody").querySelectorAll(".exp-dest-btn").forEach(el=>el.onclick=()=>{expDest=el.dataset.k;renderDungeonPanel();});
       const confirmBtn=$("#expDispatchConfirm");
       if(confirmBtn)confirmBtn.onclick=()=>{
         const ids=[...expSelectedUnitIds];
+        const dk=expDest;
         expSelecting=false;expSelectedUnitIds=[];
-        dispatchLongExpedition(ids);
+        dispatchLongExpedition(ids,dk);
         renderDungeonPanel();
       };
       $("#expDispatchCancel").onclick=()=>{expSelecting=false;expSelectedUnitIds=[];renderDungeonPanel();};
@@ -12763,8 +12785,9 @@ function renderDungeonPanel(){
       const total=ex.duration||1;
       const left=Math.max(0,ex.resolveDay-S.day);
       const pct=Math.min(100,Math.round((total-left)/total*100));
+      const exd=expeditionDest(ex.dest);
       h+=`<div class="pcard">
-        <div class="nm"><i class="icon-expedition"></i>遠征部隊</div>
+        <div class="nm"><i class="icon-expedition"></i>遠征部隊 <span style="color:var(--gold);font-size:11px">${exd.name}</span></div>
         <div class="ds">帰還まであと${left}日 ／ 派遣部隊:${squad.map(fullName).join("・")||"(不明)"}</div>
         <div class="uexp" style="margin-top:8px"><i style="width:${pct}%;background:linear-gradient(90deg,#8fbf6f99,#8fbf6f)"></i></div>
       </div>`;
