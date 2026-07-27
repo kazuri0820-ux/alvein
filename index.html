@@ -1513,6 +1513,7 @@ const TRAIT_RARE=[
  {key:"trr_36",name:"世話焼きの気質",desc:"何くれとなく皆の面倒をみる、気立てのよい性分。伴う遠征では、部隊の疲労の溜まりが軽くなる",gm:1.06,campSupport:0.25,loyaltyGrow:0.15},
  {key:"trr_37",name:"石橋を叩く質",desc:"何事にも慎重で、危険を巧みに避ける。めったに傷を負わないが、その分だけ成長はゆっくりしている",gm:1.05,injuryMult:0.5,expMult:1.15},
  {key:"trr_38",name:"竜鱗の肌",desc:"肌のうちに、竜の鱗の名残をわずかに宿す。竜との盟約が結ばれた地では、その守りが呼び覚まされ、比類なき力を発揮する",gm:1.1,injuryMult:0.8,condFlag:"dragonPact",condPw:5},
+ {key:"trr_39",name:"生来の兄貴分",desc:"面倒見がよく、背中で戦い方を教える気質。この者を迷宮に伴うと、部隊の皆が踏破からより多くを学び取る",gm:1.06,squadExpBonus:0.2,lead:4},
 ];
 const TRAIT_EPIC=[
  {key:"swordsaint",name:"剣聖の末裔",desc:"名も知れぬ剣豪の血を引くという",gm:1.4,injuryMult:0.5,deathMult:0.55},
@@ -7529,7 +7530,7 @@ function resolveDungeonRun(dungeonId){
   const memberLog=[];
   if(tier==="critical_success"||tier==="success"){
     bossWin=squadPower*(tier==="critical_success"?1.3:1.0)>=dungeon.bossPower*rnd(0.8,1.2);
-    const squadTeach=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).squadExpBonus||0)):0; // 「歴戦の教え」持ちがいると部隊全員の踏破経験値が増える=育成支援ビルド
+    const squadTeach=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).squadExpBonus||0,(traitInfo(u.trait).squadExpBonus)||0))):0; // 「歴戦の教え」(スキル)「生来の兄貴分」(特性)持ちがいると部隊全員の踏破経験値が増える=育成支援ビルド
     for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach));u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
     if(cond==="richaura")chron(`「${dungeon.name}」に満ちた豊穣の気が兵たちの糧となり、いつも以上の経験を持ち帰った。`,"");
     if(cond==="cursed"){ // 呪詛の澱み: 兵を疲れさせるが、呪物の財貨が眠る
@@ -8775,6 +8776,7 @@ function traitEffectText(tr){
   if(tr.goldFind)parts.push(`迷宮の獲得財貨+${Math.round(tr.goldFind*100)}%`);
   if(tr.campSupport)parts.push(`遠征時の部隊の疲労蓄積-${Math.round(tr.campSupport*100)}%`);
   if(tr.fortuneRoll)parts.push("部隊の迷宮踏破が大成功に転じやすい");
+  if(tr.squadExpBonus)parts.push(`部隊の踏破経験値+${Math.round(tr.squadExpBonus*100)}%`);
   if(tr.condFlag==="dragonPact")parts.push(`竜盟約締結中は戦力+${tr.condPw||0}`);
   return parts.join(" / ");
 }
