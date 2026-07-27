@@ -6823,6 +6823,7 @@ const BOSS_TRAITS={
   rallyking:{label:"闘魂の王",color:"#d98f5e",desc:"その威容は国全体を奮い立たせる。討ち果たせば、その報せが全軍の士気と忠誠を高める"},
   fountwarden:{label:"泉の主",color:"#7fc9d0",desc:"若返りの霊泉を守る神秘の主。討ち果たせば、その泉の力が部隊の年輪を巻き戻し、老いた兵にも再びの盛りをもたらす"},
   cartographer:{label:"地誌の王",color:"#8fb0c0",desc:"あらゆる地の理を記した秘図を守る王。討ち果たせば、その秘図が財宝の間を秘めた未知のダンジョンへの道を照らし出す"},
+  mutator:{label:"変貌の王",color:"#b09fd0",desc:"生命の理を歪める異形の王。討ち果たせば、その力の残滓が兵一人の眠れる血脈を一段上の位階へと呼び覚ます(特性が昇華する)"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
 /* ダンジョンの環境(異変):一部のダンジョンに宿る特性。挑む前に見え、危険と実入りの綾を変える(ダンジョンの個性) */
@@ -6856,7 +6857,7 @@ function generateDungeon(){
   const duration=Math.max(3,Math.round(level/6)+Math.round((rarity.mult-1)*2.2));
   let bossPower=Math.round(requiredPower*1.3);
   let bossTrait=null;
-  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief"||bossTrait==="dragonlord")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift"||bossTrait==="revenant"||bossTrait==="treasurelord")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning"||bossTrait==="trialking"||bossTrait==="calamity")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier"||bossTrait==="renowned"||bossTrait==="forgelord"||bossTrait==="phantom"||bossTrait==="trickster"||bossTrait==="bountiful"||bossTrait==="sage"||bossTrait==="rallyking"||bossTrait==="fountwarden"||bossTrait==="cartographer")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
+  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief"||bossTrait==="dragonlord")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift"||bossTrait==="revenant"||bossTrait==="treasurelord"||bossTrait==="mutator")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning"||bossTrait==="trialking"||bossTrait==="calamity")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier"||bossTrait==="renowned"||bossTrait==="forgelord"||bossTrait==="phantom"||bossTrait==="trickster"||bossTrait==="bountiful"||bossTrait==="sage"||bossTrait==="rallyking"||bossTrait==="fountwarden"||bossTrait==="cartographer")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
   const condition=Math.random()<0.3?DUNGEON_CONDITION_KEYS[Math.floor(Math.random()*DUNGEON_CONDITION_KEYS.length)]:null; // 稀に環境の異変を宿す
   if(condition==="treasure")bossPower=Math.round(bossPower*1.18); // 財宝の霊気は守りが堅く、ボスが手強い
   if(condition==="eliteden")bossPower=Math.round(bossPower*1.16); // 精鋭の巣は強敵揃いで、ボスが手強い
@@ -7786,6 +7787,7 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="rallyking"){for(const u of S.units){u.moral=Math.min(100,(u.moral||0)+4);u.loyalty=Math.min(100,(u.loyalty||0)+3);}apply({mood:3});chron(`「闘魂の王」を討ち果たした報せは、瞬く間に全軍を奮い立たせた。国中の兵の士気と忠誠が、そろって高まっている。`,"big");}
         else if(dungeon.bossTrait==="fountwarden"){const yrs=ri(2,4);const rejuv=[];for(const u of squad){if(!u)continue;const before=Math.floor(u.age||0);u.age=Math.max(16,(u.age||16)-yrs);const after=Math.floor(u.age);if(after<before){rejuv.push(u.nm);u.rejuvenated=true;grantTitle(u,"t_agedefier");}}if(rejuv.length)chron(`「泉の主」を討ち果たすと、湧き出た若返りの霊水が部隊を包んだ。${rejuv.join("・")}の年輪が${yrs}年ほど巻き戻り、老いを退けて再びの盛りを取り戻した。`,"big");else chron(`「泉の主」を討ち果たすと、若返りの霊水が湧き出た。皆すでに若く、その恵みは静かに国土へと還っていった。`,"");}
         else if(dungeon.bossTrait==="cartographer"){S.availableDungeons=S.availableDungeons||[];const nd=generateDungeon();nd.treasureVault=true;S.availableDungeons.push(nd);if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected&&x.id!==nd.id);if(di>=0)S.availableDungeons.splice(di,1);}chron(`「地誌の王」を討ち果たすと、守られていた秘図が手に入った。図に記された道を辿れば――財宝の間を秘めたダンジョン${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」への道が拓けている(討伐の一覧に加わった)。`,"big");}
+        else if(dungeon.bossTrait==="mutator"){const order={normal:0,rare:1,epic:2,legend:3};const cands=squad.filter(u=>u&&(order[u.traitTier]||0)<3);if(cands.length){cands.sort((a,b)=>(order[a.traitTier]||0)-(order[b.traitTier]||0));const u=cands[0];const pools=[TRAIT_NORMAL,TRAIT_RARE,TRAIT_EPIC,TRAIT_LEGEND];const tiers=["normal","rare","epic","legend"];const nt=(order[u.traitTier]||0)+1;const t=pools[nt][Math.floor(Math.random()*pools[nt].length)];u.trait=t.key;u.traitTier=tiers[nt];u.gm=t.gm||1;u.pw=t.pw||0;unitHistory(u,`「変貌の王」を討った際、その力の残滓を浴びて血脈が「${t.name}」へと昇華した。`);chron(`「変貌の王」を討ち果たすと、その歪んだ力の残滓が${u.nm}に宿った。眠れる血脈が呼び覚まされ、「${traitInfo(u.trait).name}」の位階へと昇華している。`,"big");}else chron(`「変貌の王」を討ち果たしたが、部隊は皆すでに伝説の血脈を宿しており、その力は静かに霧散した。`,"");}
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
