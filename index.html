@@ -3454,6 +3454,20 @@ const EARLY_GROWTH=[
 ];
 /* ---------- レアイベント:通常より低頻度・高インパクト ---------- */
 const RANDOM_RARE=[
+ {tag:"発 見",title:"隠された財宝の地図",
+  body:"古道具屋から買い付けた品の中に、色褪せた宝の地図が紛れ込んでいた。「財宝の霊気」渦巻く秘境の在り処を示しているらしい――本物なら、大変な掘り出し物だ。",
+  speaker:"セラ「真偽は定かではありませぬが……夢のある話ではございますね」",
+  choices:[
+   {label:"地図を頼りに探索先を開く",hint:"財宝の霊気の秘境が出現",fx:{call:()=>{
+     const nd=generateDungeon(); nd.condition="treasure"; nd.bossPower=Math.round((nd.bossPower||nd.requiredPower||100)*1.18);
+     S.availableDungeons=S.availableDungeons||[];
+     S.availableDungeons.push(nd);
+     if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}
+     chron(`宝の地図が、${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」――財宝の霊気渦巻く秘境への道を示した。ダンジョン画面から挑める。`,"big");
+   }}},
+   {label:"地図を好事家に売る",hint:"国庫↑",fx:{call:()=>{const g=ri(60,110);apply({gold:g,log:`宝の地図を好事家に売り払い、財貨${g}を得た。真偽はどうあれ、確かな実入りだ。`});}}},
+   {label:"眉唾と切り捨てる",hint:"様子見",fx:{st:{order:1},log:"王は地図を眉唾と見て、書庫の隅に仕舞わせた。浮ついた話に振り回されぬ姿勢を、家臣は好ましく思った。"}},
+  ]},
  {tag:"果たし合い",title:"道場破りの挑戦者",
   body:"腕に覚えのある武者が一人、城下の練兵場に乗り込んできた。「この国で一番強い者と、一手お手合わせ願いたい」。堂々たる面構え――ただ者ではなさそうだ。",
   speaker:"ガレオン「無下に追い返すのも角が立ちましょう。いかがなさいますか」",
