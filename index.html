@@ -6419,6 +6419,29 @@ function setTaxRate(key){
   chron(`徴税の方針が「${TAX_LEVELS[key].label}」に改められた。${TAX_LEVELS[key].desc}`,"big");
   render();renderProjects();save();
 }
+/* ===== 移民政策(内政の新軸):入植をどう扱うかの標準政策。開放すれば人口が速く増える(段階昇格・兵の定員に効く)が
+   人が増える歪みで治安がじわり下がる。閉鎖すれば人口増は鈍るが治安が保たれる。人口の伸びと治安を秤にかける常設ダイヤル ===== */
+const IMMIGRATION_LEVELS={
+  open:{label:"開放的",popMult:1.5,orderDelta:-0.03,desc:"広く入植を受け入れる。人口が速く増えるが、雑多な流入で治安がじわり下がる。時に入植者の一団が加わる。"},
+  balanced:{label:"中 立",popMult:1.0,orderDelta:0,desc:"穏当な受け入れ。人口も治安も、特に偏りなく推移する。"},
+  closed:{label:"閉鎖的",popMult:0.55,orderDelta:0.03,desc:"入植を厳しく制限する。人口の増えは鈍るが、治安は保たれやすい。"},
+};
+const IMMIGRATION_KEYS=["open","balanced","closed"];
+function immigrationLevel(){return IMMIGRATION_LEVELS[S.immigration]?S.immigration:"balanced";}
+function immigrationInfo(){return IMMIGRATION_LEVELS[immigrationLevel()];}
+function setImmigration(key){
+  if(!IMMIGRATION_LEVELS[key]||S.immigration===key)return;
+  S.immigration=key;
+  chron(`入植の方針が「${IMMIGRATION_LEVELS[key].label}」に改められた。${IMMIGRATION_LEVELS[key].desc}`,"big");
+  render();renderProjects();save();
+}
+function immigrationDaily(){
+  const info=immigrationInfo();
+  if(info.orderDelta)S.st.order=Math.max(0,Math.min(100,S.st.order+info.orderDelta*statDiminish(S.st.order)));
+  if(immigrationLevel()==="open"&&S.mood>45&&S.food>25&&Math.random()<0.01){ // 栄えている時、開放策のもとに入植者の一団が加わる
+    const n=ri(4,9);S.pop+=n;apply({mood:1,log:`開放の方針を頼りに、${n}人ほどの入植者の一団が新たに移り住んできた(人口+${n})。街に活気が増している。`});
+  }
+}
 function dailyEconomySettle(){
   S.prev={...S.st};
   const noise=rnd(0.75,1.35);
@@ -6436,8 +6459,8 @@ function dailyEconomySettle(){
   S.gold+=income-upkeep+(heirloomHorn?(3+S.st.economy*0.12):0);
   const seasonMult=currentSeason().foodMult; // 収穫期の巡り:秋は実り豊か、冬は端境で生産が細る
   S.food+=S.st.agriculture*0.7*noise*seasonMult-S.pop*0.085*(1-Math.min(0.3,S.st.agriculture*0.003))*(S.flags.statS_agriculture?0.95:1)+(heirloomHorn?4:0); // 農業が高いほど備蓄・分配も効率化し消費が抑えられる。農業Sで恒久的にさらに抑制。家宝「豊穣の角杯」で日々の実りが増す
-  const growChance=0.16+Math.max(0,(S.food-20)/700)+Math.max(0,(S.mood-45)/400)+Math.max(0,(S.st.agriculture-40)/900); // 農業が豊かなほど人口増加率も上がる
-  if(S.food>15&&S.mood>38&&Math.random()<Math.min(0.55,growChance))S.pop+=ri(1,3);
+  const growChance=(0.16+Math.max(0,(S.food-20)/700)+Math.max(0,(S.mood-45)/400)+Math.max(0,(S.st.agriculture-40)/900))*immigrationInfo().popMult; // 農業が豊かなほど人口増加率も上がる。移民政策(入植方針)でも人口の伸びが変わる
+  if(S.food>15&&S.mood>38&&Math.random()<Math.min(0.6,growChance))S.pop+=ri(1,3);
   if(S.food<0){S.food=0;S.mood-=2;if(S.day%3===0)chron("食糧が底を突きつつある。配給に長い列ができている。","grave");}
   if(S.gold<0&&S.day%5===0){S.mood-=1.5;chron("蓄えが底を突いている。倹約令が敷かれた。","grave");}
   S.mood+=(S.st.order-50)*0.02+(S.st.agriculture-30)*0.006+(S.st.diplomacy-30)*0.004+rnd(-0.5,0.5)+(doctrineIs("people")?0.35:0)+taxInfo().moodDelta; // 農業(食の安定)・外交(国の評判)も民心に影響。民の国は民心が日々育つ。徴税の軽重(税制)も民心をじわり左右する
@@ -6453,6 +6476,7 @@ function dailyEconomySettle(){
   }
   facilityDailyProduce();
   ministerDaily(); // 重臣の執政:要職に就いた兵の器量に応じ、日々その分野の国力が育つ
+  immigrationDaily(); // 移民政策:入植方針に応じた治安の推移と、開放策のもとでの入植者の流入
   clamp();
   checkMilestone();
   checkStatSMilestone();
@@ -10085,6 +10109,14 @@ function renderProjects(){
      <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:5px">徴税収入 ${Math.round(ti.incomeMult*100)}% ／ 民心 ${ti.moodDelta>0?"日々上向く":ti.moodDelta<0?"日々冷える":"変わらず"}</div>
    </div>`;
   }
+  // ── 移民政策 ──
+  {const cur=immigrationLevel();const ii=IMMIGRATION_LEVELS[cur];
+   h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-npc"></i>移民政策 ― ${ii.label}</div>
+     <div class="ds" style="margin:2px 0 6px">${ii.desc}</div>
+     <div style="display:flex;gap:5px;flex-wrap:wrap">`+IMMIGRATION_KEYS.map(k=>{const t=IMMIGRATION_LEVELS[k];const on=k===cur;const col=k==="open"?"#8fbf6f":k==="closed"?"#d99a6a":"#c9a86a";return `<button class="immig-btn" data-k="${k}" style="flex:1;min-width:72px;background:${on?col:"transparent"};color:${on?"var(--ink)":col};border:1px solid ${col};border-radius:6px;padding:7px 4px;font-family:'Shippori Mincho',serif;font-size:11.5px;font-weight:${on?"800":"600"};cursor:pointer">${t.label}</button>`;}).join("")+`</div>
+     <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:5px">人口の伸び ${Math.round(ii.popMult*100)}% ／ 治安 ${ii.orderDelta>0?"保たれやすい":ii.orderDelta<0?"じわり下がる":"変わらず"}</div>
+   </div>`;
+  }
   // ── 兵糧市(食糧⇄国庫) ──
   {const canSell=(S.food||0)>=GRAIN_BATCH;const canBuy=S.gold>=grainBuyCost();
    h+=`<div class="pcard" style="margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-farm"></i>兵糧市</div>
@@ -10223,6 +10255,7 @@ function renderProjects(){
   $("#prjList").querySelectorAll(".nb-ally-btn").forEach(b=>b.onclick=()=>{allyNeighbor(+b.dataset.i);});
   $("#prjList").querySelectorAll(".festival-btn").forEach(b=>b.onclick=()=>{holdFestival(b.dataset.k);});
   $("#prjList").querySelectorAll(".tax-btn").forEach(b=>b.onclick=()=>{setTaxRate(b.dataset.k);});
+  $("#prjList").querySelectorAll(".immig-btn").forEach(b=>b.onclick=()=>{setImmigration(b.dataset.k);});
   {const gs=$("#prjList").querySelector(".grain-sell-btn");if(gs)gs.onclick=()=>sellGrain();
    const gb=$("#prjList").querySelector(".grain-buy-btn");if(gb)gb.onclick=()=>buyGrain();}
   $("#prjList").querySelectorAll(".decree-btn").forEach(b=>b.onclick=()=>{
