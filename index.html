@@ -5406,6 +5406,23 @@ function currentSeason(){
   const idx=Math.min(3,Math.floor(d/(AGE_YEAR_DAYS/4)));
   return SEASONS[idx];
 }
+/* 季節の風物詩:巡る季節に寄せた、兵の何気ない一場面を稀に拾い上げる。四季の移ろいを人の営みとして
+   感じさせ、王国に流れる時間に彩りと情感を添える(季節の演出)。 */
+const SEASONAL_VIGNETTES={
+ spring:[u=>`芽吹きの季、${u.nm}が城壁際に咲いた花を一輪、耳に挿して笑っていた。`, u=>`春の陽気に誘われ、${u.nm}が非番の午後をのんびりと昼寝で過ごしていた。`, u=>`若葉の下、${u.nm}が新入りの兵に稽古をつけてやっていた。`],
+ summer:[u=>`夏の盛り、${u.nm}が井戸の水を頭から浴びて涼をとっていた。`, u=>`蝉時雨の中、${u.nm}が木陰で黙々と得物の手入れに励んでいた。`, u=>`夕涼みの縁台で、${u.nm}が戦友と冷えた瓜を分け合っていた。`],
+ autumn:[u=>`実りの秋、${u.nm}が収穫を手伝い、農夫たちと笑い合っていた。`, u=>`紅葉の下、${u.nm}が遠い故郷を思うように、しばし空を眺めていた。`, u=>`夜長の候、${u.nm}が焚き火のそばで古い武勇伝に聞き入っていた。`],
+ winter:[u=>`雪の夜、${u.nm}が炉端で戦友たちと暖を分け合っていた。`, u=>`凍てつく朝、${u.nm}が白い息を吐きながら黙々と鍛錬を続けていた。`, u=>`しんしんと降る雪の中、${u.nm}が見張り台で一人、静かに国を見守っていた。`],
+};
+function checkSeasonalVignette(){
+  if(Math.random()>=0.02)return; // ごく稀に
+  const cands=S.units.filter(u=>u.role==="active"&&u.injured<=0);
+  if(!cands.length)return;
+  const s=currentSeason(); const pool=s&&SEASONAL_VIGNETTES[s.key]; if(!pool)return;
+  const u=cands[Math.floor(Math.random()*cands.length)];
+  u.moral=Math.min(100,(u.moral||0)+1);
+  chron(pool[Math.floor(Math.random()*pool.length)](u),"");
+}
 function checkSeasonTurn(){
   const s=currentSeason();
   if(S.seasonSeen===s.key)return;
@@ -5535,6 +5552,7 @@ function dailyEconomySettle(){
   checkBondVignette(); // 戦友同士の何気ない一幕
   checkMentorVignette(); // 師弟(教官と若手)の稽古の一幕
   checkFameVignette(); // 功を立てた兵の武名が市井で語られる一幕
+  checkSeasonalVignette(); // 巡る季節に寄せた兵の一場面
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
     const loyaltyDrift=S.mood>=70?(S.mood-70)*0.006:-(30-S.mood)*0.01;
