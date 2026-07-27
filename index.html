@@ -2256,6 +2256,7 @@ const TITLE_DB=[
  {key:"t_gloryincarnate",name:"栄光の化身",desc:"十指に余る称号を身に帯び、その生き様そのものが王国の栄光となった",effect:"loyaltyGrow",value:0.18},
  {key:"t_shieldbearer",name:"戦友の守り手",desc:"我が身を挺して戦友を死線から救い出した、真の守り手",effect:"loyaltyGrow",value:0.15},
  {key:"t_agedefier",name:"時を欺きし者",desc:"若返りの霊泉の力に浴し、老いの理を欺いて再びの盛りを取り戻した稀有な兵",effect:"moralGrow",value:0.1},
+ {key:"t_bloodascend",name:"血脈を昇華せし者",desc:"眠れる血脈を呼び覚まし、生まれ持った才を一段上の位階へと昇華させた者",effect:"expMult",value:1.06},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -2738,6 +2739,7 @@ function checkDailyTitles(u){
   if(u.traitTier==="legend")grantTitle(u,"t_legendborn");
   if(u.dreamDone)grantTitle(u,"t_dreamer"); // 夢を叶えた者の証
   if(u.rejuvenated)grantTitle(u,"t_agedefier"); // 若返りの霊泉に浴した稀有な兵の証
+  if(u.ascended)grantTitle(u,"t_bloodascend"); // 血脈を昇華させた兵の証
   if((u.dungeonClearCount||0)>=6)grantTitle(u,"t_dungeonveteran");
   if((u.dungeonClearCount||0)>=15)grantTitle(u,"t_dungeonmaster"); // 迷宮の覇者:同じ兵で踏破を重ねる投資に、より高い到達点を用意
   if(u.lv>=30)grantTitle(u,"t_grandveteran"); // 練達:レベルの積み重ね=長期育成の到達点を讃える
@@ -7215,7 +7217,7 @@ const ITEMS=[
    const nt=cur+1; const pool=pools[nt];
    const t=pool[Math.floor(Math.random()*pool.length)];
    u.trait=t.key; u.traitTier=tiers[nt];
-   u.gm=t.gm||1; u.pw=t.pw||0;
+   u.gm=t.gm||1; u.pw=t.pw||0; u.ascended=true; grantTitle(u,"t_bloodascend");
    unitHistory(u,`血脈昇華の秘薬により、眠れる才が「${t.name}」へと開花した。`);
    chron(`――${u.nm}の血脈が呼び覚まされた。新たに「${traitInfo(u.trait).name}」の位階へと昇華している。`,"big");
  }},
@@ -7787,7 +7789,7 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="rallyking"){for(const u of S.units){u.moral=Math.min(100,(u.moral||0)+4);u.loyalty=Math.min(100,(u.loyalty||0)+3);}apply({mood:3});chron(`「闘魂の王」を討ち果たした報せは、瞬く間に全軍を奮い立たせた。国中の兵の士気と忠誠が、そろって高まっている。`,"big");}
         else if(dungeon.bossTrait==="fountwarden"){const yrs=ri(2,4);const rejuv=[];for(const u of squad){if(!u)continue;const before=Math.floor(u.age||0);u.age=Math.max(16,(u.age||16)-yrs);const after=Math.floor(u.age);if(after<before){rejuv.push(u.nm);u.rejuvenated=true;grantTitle(u,"t_agedefier");}}if(rejuv.length)chron(`「泉の主」を討ち果たすと、湧き出た若返りの霊水が部隊を包んだ。${rejuv.join("・")}の年輪が${yrs}年ほど巻き戻り、老いを退けて再びの盛りを取り戻した。`,"big");else chron(`「泉の主」を討ち果たすと、若返りの霊水が湧き出た。皆すでに若く、その恵みは静かに国土へと還っていった。`,"");}
         else if(dungeon.bossTrait==="cartographer"){S.availableDungeons=S.availableDungeons||[];const nd=generateDungeon();nd.treasureVault=true;S.availableDungeons.push(nd);if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected&&x.id!==nd.id);if(di>=0)S.availableDungeons.splice(di,1);}chron(`「地誌の王」を討ち果たすと、守られていた秘図が手に入った。図に記された道を辿れば――財宝の間を秘めたダンジョン${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」への道が拓けている(討伐の一覧に加わった)。`,"big");}
-        else if(dungeon.bossTrait==="mutator"){const order={normal:0,rare:1,epic:2,legend:3};const cands=squad.filter(u=>u&&(order[u.traitTier]||0)<3);if(cands.length){cands.sort((a,b)=>(order[a.traitTier]||0)-(order[b.traitTier]||0));const u=cands[0];const pools=[TRAIT_NORMAL,TRAIT_RARE,TRAIT_EPIC,TRAIT_LEGEND];const tiers=["normal","rare","epic","legend"];const nt=(order[u.traitTier]||0)+1;const t=pools[nt][Math.floor(Math.random()*pools[nt].length)];u.trait=t.key;u.traitTier=tiers[nt];u.gm=t.gm||1;u.pw=t.pw||0;unitHistory(u,`「変貌の王」を討った際、その力の残滓を浴びて血脈が「${t.name}」へと昇華した。`);chron(`「変貌の王」を討ち果たすと、その歪んだ力の残滓が${u.nm}に宿った。眠れる血脈が呼び覚まされ、「${traitInfo(u.trait).name}」の位階へと昇華している。`,"big");}else chron(`「変貌の王」を討ち果たしたが、部隊は皆すでに伝説の血脈を宿しており、その力は静かに霧散した。`,"");}
+        else if(dungeon.bossTrait==="mutator"){const order={normal:0,rare:1,epic:2,legend:3};const cands=squad.filter(u=>u&&(order[u.traitTier]||0)<3);if(cands.length){cands.sort((a,b)=>(order[a.traitTier]||0)-(order[b.traitTier]||0));const u=cands[0];const pools=[TRAIT_NORMAL,TRAIT_RARE,TRAIT_EPIC,TRAIT_LEGEND];const tiers=["normal","rare","epic","legend"];const nt=(order[u.traitTier]||0)+1;const t=pools[nt][Math.floor(Math.random()*pools[nt].length)];u.trait=t.key;u.traitTier=tiers[nt];u.gm=t.gm||1;u.pw=t.pw||0;u.ascended=true;grantTitle(u,"t_bloodascend");unitHistory(u,`「変貌の王」を討った際、その力の残滓を浴びて血脈が「${t.name}」へと昇華した。`);chron(`「変貌の王」を討ち果たすと、その歪んだ力の残滓が${u.nm}に宿った。眠れる血脈が呼び覚まされ、「${traitInfo(u.trait).name}」の位階へと昇華している。`,"big");}else chron(`「変貌の王」を討ち果たしたが、部隊は皆すでに伝説の血脈を宿しており、その力は静かに霧散した。`,"");}
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
