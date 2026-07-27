@@ -4052,6 +4052,33 @@ const RANDOM_RARE=[
      chron("流浪の剣客の物語は、頼もしい新たな仲間とともに幕を開けた。","big");
    }}},
   ]},
+ // ===== 連続物語(イベント連鎖):英霊の帰還。殿堂に眠る英傑を祀る社を建てれば、軍全体の士気と忠義が永く支えられる(殿堂と結びつく恒久パッシブの新機軸) =====
+ {tag:"英 霊",title:"英霊、夢枕に立つ",
+  cond:s=>!(s.flags&&s.flags.spiritArc)&&(s.hallOfFame||[]).length>=1&&STAGES[s.stage].rank>=3,
+  body:"ある夜、王は夢を見た。殿堂に名を刻んだかつての英傑が、静かに枕元に立っている。「案ずるな。我らは今も、この国の空の下にある。……ただ、帰る場所があれば、若い兵たちの背を、もう少し押してやれよう」。目覚めた王の胸に、その言葉が深く残った。",
+  speaker:"セラ「殿堂の英霊が……。夢とは申せ、捨て置けぬお告げにございます」",
+  choices:[
+   {label:"慰霊の社を建てる(80G)",hint:"英霊を祀る社を建立(以後、軍全体の士気と忠義が日々支えられる物語の始まり)",fx:{call:()=>{
+     if(S.gold<80){chron("社を建てる蓄えがなく、王はただ静かに英霊の冥福を祈った。","");return;}
+     S.gold-=80;S.flags=S.flags||{};S.flags.spiritArc=1;S.flags.spiritDay=S.day+ri(5,8);
+     apply({st:{order:2},mood:3,log:"王は殿堂の英霊を祀る社の建立を命じた。石工たちが丘の上に鑿を入れ、国の記憶を形にし始める(治安+2 民心↑)。",logCls:"big"});
+   }}},
+   {label:"心の中で静かに弔う",hint:"堅実(民心↑ / この物語は始まらない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.spiritArc=-1;
+     apply({mood:2,log:"王は社を建てる代わりに、心の中で英霊たちに深く頭を垂れた。その静かな祈りは、王自身の背筋を正した(民心↑)。"});
+   }}},
+  ]},
+ {tag:"英 霊",title:"慰霊の社",
+  cond:s=>(s.flags&&s.flags.spiritArc)===1&&s.day>=(s.flags.spiritDay||0),
+  body:"丘の上に、慰霊の社が静かに完成した。落成の日、老兵も若い新兵も列をなして参拝に訪れる。刻まれた英傑たちの名を指でなぞり、若い兵たちは「自分もいつか、ここに」と胸を熱くする。社は、生きる者と逝きし者を、確かに繋いでいた。",
+  speaker:"ガレオン「良き社にございます。英霊の見守りのもと、兵たちの背は、以前より真っ直ぐに伸びましょう」",
+  choices:[
+   {label:"英霊に、末永い加護を願う",hint:"以後、社の見守りにより、軍全体の士気と忠義が日々静かに支えられる",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.spiritArc=2;S.flags.heroShrine=true;
+     apply({st:{order:2},mood:3,log:"慰霊の社が正式に開かれた。逝きし英傑たちの見守りのもと、以後、兵たちの士気と長への忠義は、日々静かに支えられていく(治安+2 民心↑)。",logCls:"big"});
+     chron("英霊の帰還の物語は、生者と死者を繋ぐ社とともに幕を下ろした。その丘は、末永く王国の心の拠り所となろう。","big");
+   }}},
+  ]},
  {tag:"継 承",title:"王家の家宝を定める",
   cond:s=>!(s.flags&&s.flags.heirloom)&&STAGES[s.stage].rank>=4,
   body:"王国が確かな地歩を築いた今、家臣たちが進言した。「陛下、そろそろ我が王家の『家宝』を定められては。末代まで受け継がれ、王国を永く支える一つの象徴を」。三つの候補が、王の前に並べられた。一度選べば、二度とは選び直せない。",
@@ -6389,6 +6416,9 @@ function dailyEconomySettle(){
       if(u.devoted&&drift<0)drift=0;
       u.loyalty=Math.max(0,Math.min(100,u.loyalty+drift));
     }
+  }
+  if(S.flags&&S.flags.heroShrine){ // 慰霊の社:英霊を敬う社が、兵の士気と忠義を日々静かに支える(軍全体の恒久パッシブ)
+    for(const u of S.units){u.moral=Math.min(100,(u.moral||0)+0.05);u.loyalty=Math.min(100,(u.loyalty||0)+0.05);}
   }
   if(S.mood>0&&S.mood<18&&!S._unrestWarned&&Math.random()<0.4){
     S._unrestWarned=true;
@@ -9704,6 +9734,8 @@ function renderProjects(){
   }
   // ── 国是 ──
   if(doctrineName())h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)">国是:${doctrineName()}</div><div class="ds">${(NATIONAL_DOCTRINES.find(d=>d.key===S.flags.doctrine)||{}).desc||""}</div></div>`;
+  // ── 慰霊の社(英霊の見守り) ──
+  if(S.flags&&S.flags.heroShrine)h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-laurel"></i>慰霊の社</div><div class="ds">丘の上の社に、殿堂の英霊が祀られている。その見守りのもと、兵たちの士気と忠義は日々静かに支えられている。</div></div>`;
   // ── 王の勅令 ──
   h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 6px;letter-spacing:.15em">── 王の勅令 ──</div>`;
   const dcl=decreeCooldownLeft();
