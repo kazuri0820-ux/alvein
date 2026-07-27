@@ -8439,7 +8439,7 @@ function resolveDungeonRun(dungeonId){
     apply({mood:-2});
     chron(`「${dungeon.name}」への挑戦は失敗に終わった。部隊は撤退した。`,"grave");
   }else{ // critical_fail
-    const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1)*(S.flags.heirloom==="banner"?0.82:1); // 治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗/家宝「不滅の王旗」でさらに戦没が減る
+    const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1)*(S.flags.heirloom==="banner"?0.82:1)*(alliedWith("draconis")?0.85:1); // 治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗/家宝「不滅の王旗」でさらに戦没が減る。竜嶺のドラコニアとの軍事同盟(援軍の約定)でも戦没が減る
     const hurtOnes=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*0.6)));
     const critW=medicAdjustWeights(formationAdjustWeights(cond==="blessed"?[0.4,0.4,0.2]:[0.1,0.3,0.6],fmKey),squad); // 陣形→古の祝福(大失敗でも深手を和らげる)→従軍医の順に負傷の重さを補正
     for(const u of hurtOnes){inflictInjury(u,critW);unitHistory(u,`「${dungeon.name}」で${INJURY_TIERS[u.injurySeverity].label}を負った。`);memberLog.push({u,gain:0,note:INJURY_TIERS[u.injurySeverity].label});}
@@ -9395,10 +9395,21 @@ const ROYAL_DECREES=[
 function decreeCooldownLeft(){return Math.max(0,DECREE_COOLDOWN-(S.day-(S.lastDecreeDay??-DECREE_COOLDOWN)));}
 /* ===== 近隣諸国との外交(内政の新軸):名を持つ隣国との関係を築き、交易の恵みを得る/脅威を避ける ===== */
 const NEIGHBOR_STATES=[
- {key:"veltis",name:"ヴェルティス公国",flavor:"実利を重んじる交易の公国。誼を結べば交易の益が大きい。"},
- {key:"draconis",name:"竜嶺のドラコニア",flavor:"武を尊ぶ峻険な山岳国。侮れば脅威となる。"},
- {key:"suria",name:"翠緑のスーリア",flavor:"豊かな水郷を持つ穏やかな農国。"},
+ {key:"veltis",name:"ヴェルティス公国",flavor:"実利を重んじる交易の公国。誼を結べば交易の益が大きい。",allyDesc:"交易同盟:日々の国庫収入が大きく増す"},
+ {key:"draconis",name:"竜嶺のドラコニア",flavor:"武を尊ぶ峻険な山岳国。侮れば脅威となる。",allyDesc:"軍事同盟:援軍の約定で迷宮での戦死率が下がる"},
+ {key:"suria",name:"翠緑のスーリア",flavor:"豊かな水郷を持つ穏やかな農国。",allyDesc:"食糧同盟:日々の蔵(食糧)が潤う"},
 ];
+function neighborAllyDesc(key){const n=NEIGHBOR_STATES.find(x=>x.key===key);return n?n.allyDesc:"";}
+function alliedWith(key){return !!(S.neighbors&&S.neighbors.some(n=>n.key===key&&n.allied));}
+const NEIGHBOR_ALLY_NEED=90; // この関係値に達すると同盟を結べる
+function allyNeighbor(idx){
+  ensureNeighbors();
+  const nb=S.neighbors[idx]; if(!nb||nb.allied)return;
+  if(nb.relation<NEIGHBOR_ALLY_NEED){chron(`${neighborName(nb.key)}と同盟を結ぶには、まだ関係が足りない(${NEIGHBOR_ALLY_NEED}以上必要)。`,"");return;}
+  nb.allied=true;
+  apply({st:{diplomacy:3},mood:3,log:`――${neighborName(nb.key)}と正式な同盟が結ばれた。${neighborAllyDesc(nb.key)}。両国の間に、末永い誼が約された。`,logCls:"big"});
+  clamp();render();renderProjects();save();
+}
 function ensureNeighbors(){ if(!S.neighbors||!S.neighbors.length){S.neighbors=NEIGHBOR_STATES.map(n=>({key:n.key,relation:ri(40,60)}));} }
 function neighborName(key){const n=NEIGHBOR_STATES.find(x=>x.key===key);return n?n.name:key;}
 function neighborFlavor(key){const n=NEIGHBOR_STATES.find(x=>x.key===key);return n?n.flavor:"";}
@@ -9416,12 +9427,23 @@ function giftNeighbor(idx){
 }
 function neighborDaily(){
   ensureNeighbors();
-  let income=0;
+  let income=0,food=0;
   for(const nb of S.neighbors){
-    nb.relation=Math.max(0,Math.min(100,nb.relation+(nb.relation<48?rnd(0,0.35):rnd(-0.35,0.15)))); // 放っておくと関係はゆるやかに冷める(中庸へ寄る)
+    // 同盟国とは関係が冷めにくい(盟約が絆を保つ)。ただし著しく冷えれば同盟は破棄される
+    const drift=nb.allied?(nb.relation<70?rnd(0,0.25):rnd(-0.1,0.1)):(nb.relation<48?rnd(0,0.35):rnd(-0.35,0.15));
+    nb.relation=Math.max(0,Math.min(100,nb.relation+drift));
+    if(nb.allied&&nb.relation<50){ // 関係が崩れれば盟約も破れる
+      nb.allied=false;
+      apply({st:{diplomacy:-2},mood:-2,log:`――${neighborName(nb.key)}との同盟が破棄された。関係の冷えが、末永いはずの誼を断ち切った(外交↓ 民心↓)。`,logCls:"grave"});
+    }
     if(nb.relation>=70)income+=1+(nb.relation-70)*0.06; // 良好な隣国との交易で日々わずかな国庫収入
+    if(nb.allied){ // 同盟の恵み:交易同盟は国庫、食糧同盟は蔵を潤す
+      if(nb.key==="veltis")income+=3+(nb.relation-50)*0.08;
+      if(nb.key==="suria")food+=2+(nb.relation-50)*0.04;
+    }
   }
   if(income>0)S.gold+=income;
+  if(food>0)S.food=Math.min(999,(S.food||0)+food);
 }
 /* 隣国との関係が生む出来事:険悪なら国境の脅威(軍備で抑止)、良好なら思わぬ交易の恵み。
    贈り物で関係を保つことに"災いを避け、恵みを呼ぶ"という実利を与える(外交の手応え) */
@@ -9493,15 +9515,17 @@ function renderProjects(){
   h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 6px;letter-spacing:.15em">── 近隣諸国 ──</div>`;
   ensureNeighbors();
   for(let ni=0;ni<S.neighbors.length;ni++){
-    const nb=S.neighbors[ni];const rel=Math.round(nb.relation);const col=rel>=70?"#8fbf6f":rel<=25?"#d97a7a":"#c9a86a";const cost=giftCost(nb);const canGift=S.gold>=cost&&rel<100;
-    h+=`<div class="pcard"><div class="nm">${neighborName(nb.key)}</div><div class="ds" style="margin:2px 0 4px">${neighborFlavor(nb.key)}</div>
-      <div class="ds">関係:<span style="color:${col};font-weight:700">${rel}/100</span> <span style="color:var(--dim);font-size:11px">${rel>=70?"良好(交易で日々国庫が潤う)":rel<=25?"険悪(脅威に警戒)":"中立"}</span></div>
+    const nb=S.neighbors[ni];const rel=Math.round(nb.relation);const col=rel>=70?"#8fbf6f":rel<=25?"#d97a7a":"#c9a86a";const cost=giftCost(nb);const canGift=S.gold>=cost&&rel<100;const canAlly=rel>=NEIGHBOR_ALLY_NEED&&!nb.allied;
+    h+=`<div class="pcard" ${nb.allied?'style="border-color:var(--gold)"':""}><div class="nm">${neighborName(nb.key)}${nb.allied?` <span style="color:var(--gold);font-size:11px">◆同盟</span>`:""}</div><div class="ds" style="margin:2px 0 4px">${neighborFlavor(nb.key)}</div>
+      <div class="ds">関係:<span style="color:${col};font-weight:700">${rel}/100</span> <span style="color:var(--dim);font-size:11px">${nb.allied?`同盟(${neighborAllyDesc(nb.key)})`:rel>=70?"良好(交易で日々国庫が潤う)":rel<=25?"険悪(脅威に警戒)":"中立"}</span></div>
       <div class="uexp" style="margin-top:5px"><i style="width:${rel}%;background:linear-gradient(90deg,${col}99,${col})"></i></div>
       <button class="nb-gift-btn" data-i="${ni}" ${rel>=100?"disabled":""} style="margin-top:6px;width:100%;background:transparent;border:1px solid ${canGift?"var(--gold2)":"rgba(255,255,255,.15)"};color:${canGift?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canGift?"pointer":"default"}">${rel>=100?"関係は盤石":`贈り物を送り誼を深める(${cost}G)`}</button>
+      ${nb.allied?"":`<button class="nb-ally-btn" data-i="${ni}" ${canAlly?"":"disabled"} style="margin-top:6px;width:100%;background:${canAlly?"rgba(201,162,75,.14)":"transparent"};border:1px solid ${canAlly?"var(--gold)":"rgba(255,255,255,.12)"};color:${canAlly?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canAlly?"pointer":"default"}">${canAlly?`同盟を結ぶ（${neighborAllyDesc(nb.key)}）`:`同盟には関係${NEIGHBOR_ALLY_NEED}以上が要る`}</button>`}
     </div>`;
   }
   $("#prjList").innerHTML=h;
   $("#prjList").querySelectorAll(".nb-gift-btn").forEach(b=>b.onclick=()=>{giftNeighbor(+b.dataset.i);});
+  $("#prjList").querySelectorAll(".nb-ally-btn").forEach(b=>b.onclick=()=>{allyNeighbor(+b.dataset.i);});
   $("#prjList").querySelectorAll(".decree-btn").forEach(b=>b.onclick=()=>{
     if(decreeCooldownLeft()>0)return;
     const d=ROYAL_DECREES.find(x=>x.key===b.dataset.k);
