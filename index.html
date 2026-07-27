@@ -6267,6 +6267,7 @@ function dailyEconomySettle(){
   if(S.shop&&S.shop.stock&&S.day>=(S.shop.refreshDay||0))ensureShopStock(); // 行商人の品替えを日々見計らい、入荷を年代記に告げる(店を一度でも覗いた後のみ)
   checkBounty(); // 討伐依頼の発生・期限切れを見計らう
   neighborDaily(); // 近隣諸国との関係の推移と、良好な隣国からの交易収入
+  checkNeighborIncident(); // 関係に応じた出来事(険悪=脅威/良好=交易の恵み)
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
     const loyaltyDrift=S.mood>=70?(S.mood-70)*0.006:-(30-S.mood)*0.01;
@@ -9421,6 +9422,20 @@ function neighborDaily(){
     if(nb.relation>=70)income+=1+(nb.relation-70)*0.06; // 良好な隣国との交易で日々わずかな国庫収入
   }
   if(income>0)S.gold+=income;
+}
+/* 隣国との関係が生む出来事:険悪なら国境の脅威(軍備で抑止)、良好なら思わぬ交易の恵み。
+   贈り物で関係を保つことに"災いを避け、恵みを呼ぶ"という実利を与える(外交の手応え) */
+function checkNeighborIncident(){
+  ensureNeighbors();
+  if(Math.random()>=0.012)return; // ごく稀に
+  const sorted=[...S.neighbors].sort((a,b)=>a.relation-b.relation);
+  const worst=sorted[0], best=sorted[sorted.length-1];
+  if(worst&&worst.relation<=25&&Math.random()<0.6){
+    if((S.st.military||0)>=45){apply({st:{order:1},log:`${neighborName(worst.key)}が国境を脅かしたが、備えある我が軍を前に、兵を退いた(治安+1)。`});}
+    else{const g=ri(20,50);S.gold-=g;apply({mood:-3,st:{order:-1},log:`${neighborName(worst.key)}の一隊が国境を侵し、辺境が略奪された(国庫-${g} 民心↓ 治安↓)。関係の冷えが、災いを招いている。`,logCls:"grave"});worst.relation=Math.max(0,worst.relation-3);clamp();}
+  }else if(best&&best.relation>=75){
+    const g=ri(40,90);apply({gold:g,st:{economy:1},log:`${neighborName(best.key)}との交易が実を結び、思わぬ利益がもたらされた(国庫+${g})。良好な関係の賜物だ。`});
+  }
 }
 function renderProjects(){
   let h="";
