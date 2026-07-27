@@ -7585,7 +7585,7 @@ function buildJobChangeSurpriseEvent(){
 function checkDungeonDiscovery(rewardMult,discoverer){
   // 「地の利を読む才」を持つ発見者を伴うと、ダンジョンを見出す確率が高まる=探索特化の編成に意味を持たせる新レバー
   const finder=discoverer?Math.max(0,(skillEffects(discoverer).dungeonFind||0),(traitInfo(discoverer.trait).dungeonFind)||0):0;
-  const chance=0.6*(rewardMult||1)*(1+finder)*(relicHas("compass")?1.2:1); // 遺物「探索者の羅針盤」:迷宮を見出す機会が永続で増える
+  const chance=0.6*(rewardMult||1)*(1+finder)*(relicHas("compass")?1.2:1)*((S.flags&&S.flags.explorerRank>=1)?1.15:1); // 遺物「探索者の羅針盤」:迷宮を見出す機会が永続で増える。攻略型の制覇(探検家)でも発見機会が増える
   if(Math.random()<chance){
     const d=generateDungeon();
     // 討伐依頼(型指定)が出ている時は、時おり発見が依頼の型に噛み合う=依頼を達成できるダンジョンに巡り会える公平性(磨き込み)
@@ -8286,7 +8286,8 @@ function grantRelicShards(n){S.relicShards=(S.relicShards||0)+n;}
 function maybeRelicShard(dungeon,crit,fortuneBoost){ // 踏破時、稀に秘宝の断片を持ち帰る(大成功・高レア度ほど出やすい)
   const base=crit?0.4:0.16;
   const rarityBonus=Math.max(0,((dungeon.rarity&&dungeon.rarity.mult)||1)-1)*0.12;
-  if(Math.random()<Math.min(0.8,base+rarityBonus+(fortuneBoost||0))){
+  const explorerBonus=(S.flags&&S.flags.explorerRank>=3)?0.1:0; // 攻略型の制覇(大陸の踏破者)で断片を得やすい
+  if(Math.random()<Math.min(0.8,base+rarityBonus+(fortuneBoost||0)+explorerBonus)){
     grantRelicShards(1);
     chron(`「${dungeon.name}」の奥で、古の秘宝の断片を一つ見つけた(断片 計${S.relicShards})。集めれば、恒久の遺物を鍛造できる。`,"");
   }
@@ -8453,6 +8454,18 @@ function checkDungeonTypeFirstClear(dungeon,squad){
   apply({gold:g,mood:3,st:{[stKey]:2}});
   chron(`――「${t.label}」の迷宮を、初めて制した。未知の攻略型を一つ、王国はまた我がものとした。この経験は国の${statLabel(stKey)}を確かに高め、記念の財貨${g}をもたらした。`,"big");
   const total=DUNGEON_TYPES.length, done=Object.keys(S.clearedTypes).length;
+  // 攻略型の制覇報酬:多様な型を制するほど"探検家"としての格が上がり、恒久の恵みが積み上がる(広く挑むことへの報い=熟達=深掘りと対をなす軸)
+  {S.flags=S.flags||{};
+   const conquestTiers=[[5,1,"見知らぬ地への嗅覚が磨かれ、新たな迷宮を見出しやすくなった(以後、迷宮の発見機会↑)"],[10,2,"多彩な攻略を知り尽くし、いかなる迷宮からも多くを学び取れるようになった(以後、踏破経験↑)"],[15,3,"大陸の迷宮の理をあまねく解し、掘り出しの勘が冴えわたる(以後、秘宝の断片を得やすい)"]];
+   for(const [need,rank,desc] of conquestTiers){
+     if(done>=need&&(S.flags.explorerRank||0)<rank){
+       S.flags.explorerRank=rank;
+       const rw=Math.round(80*rank*rnd(0.9,1.2));
+       apply({gold:rw,mood:4,st:{diplomacy:2}});
+       chron(`――${need}種の攻略型を制覇した。王国の兵は"${rank>=3?"大陸の踏破者":rank>=2?"熟練の探検家":"名うての探検家"}"と讃えられるようになった。${desc}(記念の財貨${rw})。`,"big");
+     }
+   }
+  }
   if(done>=total&&!S.flags.allTypesCleared){
     S.flags.allTypesCleared=true;
     apply({gold:600,mood:12,st:{military:6,magic:6}});
@@ -8496,6 +8509,7 @@ function resolveDungeonRun(dungeonId){
   const streakBonus=Math.min(0.3,(S.winStreak||0)*0.03); // 連勝の勢い:連続踏破が続くほど、この攻略で得る財貨・経験値が増す(最大+30%)=快進撃を続ける動機/途切れさせたくない緊張感
   const heirloomExp=(S.flags&&S.flags.heirloom==="archive")?0.12:0; // 家宝「賢王の書架」:踏破経験値を永続で底上げ
   const festExp=festivalIs("feast")?0.15:0; // 戦勝祭の開催中は踏破経験が増す
+  const explorerExp=(S.flags&&S.flags.explorerRank>=2)?0.08:0; // 攻略型の制覇(熟練の探検家)で踏破経験が底上げ
   const squadEthos=squadEthosOf(squad); // 小隊の隊是(この顔ぶれで出撃した時だけ効く気風)
   const ethosReward=squadEthos==="vanguard"?0.12:0; // 先陣の誉れ:踏破報酬が増す
   let itemGained=null, goldGained=0, died=null, diedWasHallWorthy=false, bossWin=false, dungeonFound=null;
@@ -8504,7 +8518,7 @@ function resolveDungeonRun(dungeonId){
     const squadBane=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).bossBane||0)):0; // 「討王の心得」持ちがいると、ボス撃破の判定で部隊の力が底上げされる=特別報酬を掴みやすくする討王ビルド
     bossWin=squadPower*(tier==="critical_success"?1.3:1.0)*(1+squadBane)>=dungeon.bossPower*rnd(0.8,1.2);
     const squadTeach=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).squadExpBonus||0,(traitInfo(u.trait).squadExpBonus)||0))):0; // 「歴戦の教え」(スキル)「生来の兄貴分」(特性)持ちがいると部隊全員の踏破経験値が増える=育成支援ビルド
-    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach)*(1+streakBonus)*(1+heirloomExp)*(1+festExp)*(1+ethosReward));u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
+    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach)*(1+streakBonus)*(1+heirloomExp)*(1+festExp)*(1+ethosReward)*(1+explorerExp));u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
     if(cond==="richaura")chron(`「${dungeon.name}」に満ちた豊穣の気が兵たちの糧となり、いつも以上の経験を持ち帰った。`,"");
     if(cond==="cursed"){ // 呪詛の澱み: 兵を疲れさせるが、呪物の財貨が眠る
       for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(10,20));
@@ -11724,7 +11738,7 @@ function renderDungeonPanel(){
     {
       const done=Object.keys(S.clearedTypes||{}).length, total=DUNGEON_TYPES.length;
       const remain=DUNGEON_TYPES.filter(x=>!(S.clearedTypes||{})[x.key]);
-      h+=`<div class="ds" style="color:var(--dim);font-size:11px;margin-bottom:8px">攻略型 制覇 <span style="color:${done>=total?"var(--gold)":"#c9a86a"};font-weight:700">${done}/${total}</span>${done>=total?" ／ 全型制覇済み":(done<total&&remain.length<=4?" ／ 未踏:"+remain.map(x=>x.label).join("・"):"")}</div>`;
+      h+=`<div class="ds" style="color:var(--dim);font-size:11px;margin-bottom:8px">攻略型 制覇 <span style="color:${done>=total?"var(--gold)":"#c9a86a"};font-weight:700">${done}/${total}</span>${done>=total?" ／ 全型制覇済み":(done<total&&remain.length<=4?" ／ 未踏:"+remain.map(x=>x.label).join("・"):"")}${(()=>{const rank=(S.flags&&S.flags.explorerRank)||0;const nexts=[[5,"発見機会↑"],[10,"踏破経験↑"],[15,"断片↑"]];const nx=nexts.find(n=>done<n[0]);const rankLabel=rank>=3?"大陸の踏破者":rank>=2?"熟練の探検家":rank>=1?"名うての探検家":"";return `${rankLabel?` ／ <span style="color:var(--gold)">${rankLabel}</span>`:""}${nx?` <span style="color:var(--dim)">(あと${nx[0]-done}型で${nx[1]})</span>`:""}`;})()}</div>`;
       const bkDone=Object.keys((S.flags&&S.flags.bossKings)||{}).length, bkTotal=BOSS_TRAIT_KEYS.length;
       if(bkDone>0){const bkRemain=BOSS_TRAIT_KEYS.filter(k=>!((S.flags&&S.flags.bossKings)||{})[k]);h+=`<div class="ds" style="color:var(--dim);font-size:11px;margin-bottom:8px">討伐した王 <span style="color:${bkDone>=bkTotal?"var(--gold)":"#c9a86a"};font-weight:700">${bkDone}/${bkTotal}</span>${bkDone>=bkTotal?" ／ 全ての王を討伐済み":(bkRemain.length<=4?" ／ 未討伐:"+bkRemain.map(k=>(BOSS_TRAITS[k]||{}).label||k).join("・"):"")}</div>`;}
     }
