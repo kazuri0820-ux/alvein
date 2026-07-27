@@ -2774,6 +2774,7 @@ function addToHallOfFame(u,reason){
   S.hallOfFame.unshift(rec);
   if(S.hallOfFame.length>80)S.hallOfFame.pop();
   grantRenown(3,`英傑${rec.nm}の殿堂入り`); // 威信:英傑を殿堂に送るたび王国の名声が高まる
+  if(typeof recordAnnal==="function")recordAnnal(`英傑 ${rec.nm}${rec.surname?" "+rec.surname:""} が、王国で初めて殿堂にその名を刻んだ。`,"firsthall",true); // 最初の殿堂入りは治世の画期
   chronHallInduction(rec,reason); // 真の英傑には、その生涯を総括する荘厳な一節を年代記に刻む
   // 慰霊祭:殿堂が節目の人数に達すると英霊を祀る式が営まれ、語り継がれる武勲が現役の兵を奮い立たせる(殿堂の見返り)
   if({5:1,10:1,20:1,40:1}[S.hallOfFame.length]){
@@ -4247,6 +4248,7 @@ const RANDOM_RARE=[
      S.vault-=800;S.flags=S.flags||{};S.flags.grandWork="finance";
      apply({st:{economy:2},mood:2,log:"王は金庫の大資を投じ、王立金融府を興した。腕利きの財務官が集い、王国の蓄えはこれまでの倍の速さで殖えてゆく(経済+2 民心↑)。以後、王室金庫の利率と上限が永続的に高まる。",logCls:"big"});
      chron("――大いなる普請、成る。王立金融府の高き尖塔が、王都に新たな威容を加えた。","big");
+     recordAnnal("大いなる普請を成し、王立金融府を興した。","grandwork",true);
    }}},
    {label:"常設の大工房を建てる(金庫800)",hint:"鍛冶費用が永続で2割減・迷宮での武具の出土も増える。武具を極める礎",fx:{call:()=>{
      if((S.vault||0)<800){chron("大普請を支えるだけの蓄えが金庫に足りなかった。","");return;}
@@ -4254,6 +4256,7 @@ const RANDOM_RARE=[
      const eq=rollEquipmentDrop("epic");let en="";if(eq){const inst=addEquipment(eq.key);en=equipInstName(inst);}
      apply({st:{military:1},mood:2,log:`王は金庫の大資を投じ、城下に常設の大工房を建てた。名工が居を構え、鍛冶の費えは永く軽くなり、迷宮からの武具の出土も増えるだろう(軍事+1 民心↑)。${en?`さっそく最初の一振り「${en}」が打ち上がった。`:""}`,logCls:"big"});
      chron("――大いなる普請、成る。大工房の炉が赤々と燃え、槌の音が王都に絶えず響くようになった。","big");
+     recordAnnal("大いなる普請を成し、常設の大工房を建てた。","grandwork",true);
    }}},
    {label:"英霊廟を建立する(金庫800)",hint:"殿堂の加護が永続で厚くなり、兵の忠誠がより育つ。歴史と兵の絆の礎",fx:{call:()=>{
      if((S.vault||0)<800){chron("大普請を支えるだけの蓄えが金庫に足りなかった。","");return;}
@@ -4261,6 +4264,7 @@ const RANDOM_RARE=[
      for(const u of S.units)if(u.role==="active"){u.loyalty=Math.min(100,(u.loyalty||0)+5);u.moral=Math.min(100,(u.moral||0)+4);}
      apply({st:{order:2},mood:3,log:"王は金庫の大資を投じ、丘の上に壮麗な英霊廟を建立した。殿堂の英霊たちが手厚く祀られ、王国に仕える誇りが兵の胸をより深く満たす(治安+2 民心↑ 全兵の忠誠・士気↑)。以後、殿堂の加護が永続的に厚くなる。",logCls:"big"});
      chron("――大いなる普請、成る。英霊廟の鐘が丘の上から鳴り渡り、生者と死者の誇りを繋いだ。","big");
+     recordAnnal("大いなる普請を成し、英霊廟を建立した。","grandwork",true);
    }}},
    {label:"今はまだ、蓄えを温存する",hint:"見送る(蓄えはそのまま。またの機会に決断できる)",fx:{call:()=>{
      chron("王は大普請を急がず、蓄えを金庫に温存することにした。大事業の機会は、また改めて訪れよう。","");
@@ -4294,6 +4298,7 @@ const RANDOM_RARE=[
    {label:"王国の守り竜として育て上げる",hint:"以後、竜が空から戦場を見守り、迷宮での戦没が永続で減る(育てた命が王国の盾となる)",fx:{call:()=>{
      S.flags=S.flags||{};S.flags.dragonEggArc=2;S.flags.dragonRaised=true;
      apply({st:{military:2},mood:4,log:"王は仔竜を王国の守り竜として育てると定めた。兵たちに可愛がられ、糧を分け与えられて、竜はすくすくと育っていく。やがて翼を得たその竜は、遠征のたび空高くから戦場を見守り、危地の兵を守るだろう(軍事+2 民心↑)。以後、迷宮での戦没が永続的に減る。",logCls:"big"});
+     recordAnnal("竜の卵を守り育て、王国の守り竜を得た。","dragon",true);
      chron("――竜の卵の物語は、一頭の守り竜の誕生をもって幕を開けた。アルヴェインの空には今、確かな翼影がある。","big");
    }}},
    {label:"大空へ、自由に放ってやる",hint:"民心↑・竜は礼に宝を遺す(慈悲の選択・恒久の守りは得られない)",fx:{call:()=>{
@@ -9874,6 +9879,7 @@ function resolveDemonDefense(){
       if(leader){unitHistory(leader,`魔将「${genName}」を討ち取り、その名を魔王軍に知らしめた。`);recordSigFeat(leader,`魔王軍の魔将「${genName}」を、先陣に立って討ち取った`,5);} // 魔将討伐は、その兵の生涯の語り草となる大殊勲
       for(const u of squad)grantTitle(u,"t_generalslayer"); // 魔将を討った部隊に「魔将殺し」の称号
       chron(`――魔将「${genName}」を討ち取った！${leader?leader.nm:"部隊"}の武勇が魔王軍に一泡吹かせ、防衛の練度が大きく上がった(魔王軍対応Lv.${S.demonArmyLevel})。${itemMsg}`,"big");
+      recordAnnal(`魔王軍の魔将「${genName}」を討ち取った。`,"firstgeneral",true); // 初の魔将撃破を画期として刻む
       igniteFervor(6,`魔将「${genName}」を討ち取った大殊勲`); // 魔将討伐は国中の熱狂に火をつける
       grantRenown(6,`魔将「${genName}」の撃破`); // 威信:魔将撃破は王国の名声を大きく高める
       battleSkillSpotlight(squad,`魔将「${genName}」`); // 集めた一流・固有の技が魔将戦でも光る
