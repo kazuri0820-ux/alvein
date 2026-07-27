@@ -1612,6 +1612,7 @@ const SKILL_DB=[
  {key:"nsk_tireless",name:"不撓の体力",tier:"silver",desc:"疲れを知らぬ体力の持ち主で、連戦の疲れの抜けが早い",fatigueRecover:5,vit:6},
  {key:"nsk_treasurehunter",name:"宝探しの勘",tier:"silver",desc:"埋もれた財を嗅ぎ分ける勘に長ける。この者を迷宮に伴うと、掘り出しの実りが増える",lootLuck:0.15,wis:6},
  {key:"nsk_prospector",name:"山師の目",tier:"silver",desc:"金目のものを決して見逃さぬ抜け目なさ。この者を迷宮に伴うと、持ち帰る財貨が増える",goldFind:0.2,agi:5},
+ {key:"nsk_quartermaster",name:"兵站の才",tier:"silver",desc:"陣払いと野営の采配に長ける。同じ部隊で臨む遠征では、皆の疲労の溜まりが軽く済む",campSupport:0.35,lead:5},
  {key:"nsk_earnest",name:"忠勤の士",tier:"silver",desc:"実直な働きぶりで、長の信を静かに集める",lead:5,loyaltyGrow:0.2},
  {key:"nsk_highspirit",name:"旺盛なる士気",tier:"silver",desc:"陣中でも戦場でも、常に高い士気を絶やさず自ら奮い立たせる",moralGrow:0.3,vit:4},
  {key:"nsk_seasoned",name:"老練の身のこなし",tier:"silver",desc:"歳を重ねても衰えを寄せ付けぬ立ち回り",ageResist:0.5,vit:5},
@@ -2067,7 +2068,7 @@ function trySkillUpOnPromotion(u,tierIndex){
   const sk=SKILL_DB.find(s=>s.key===k);celebrateSkillGain(u,sk);return sk;
 }
 function skillEffects(u){
-  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,goldFind:0,
+  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,goldFind:0,campSupport:0,
     str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   const stage=ageStageOf(u);
   for(const key of u.skills){
@@ -2093,6 +2094,7 @@ function skillEffects(u){
     if(s.guardianSave)e.guardianSave=Math.max(e.guardianSave,s.guardianSave);
     if(s.lootLuck)e.lootLuck=Math.max(e.lootLuck,s.lootLuck);
     if(s.goldFind)e.goldFind=Math.max(e.goldFind,s.goldFind);
+    if(s.campSupport)e.campSupport=Math.max(e.campSupport,s.campSupport);
   }
   const eq=equipmentEffects(u);
   for(const k of["str","vit","int","agi","wis","lead"])e[k]+=eq[k];
@@ -7723,7 +7725,8 @@ function resolveExpedition(riskKey,rewardMult){
   const scaleFactor=0.55+(lv/4.2)*(1+lv/250); // 兵の戦力は装備・スキル・称号で複合的に伸びるため、後半になるほど閾値も緩やかに加速して伸ばし「後半は全く失敗しない」状態を防ぐ
   const roll=rawPower*1.0+rnd(variance[0],variance[1]);
   const tier=roll>=20*2.5*scaleFactor?"great":roll>=20*1.4*scaleFactor?"success":roll>=20*scaleFactor?"fail":"critical";
-  for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(28,42));
+  const camp=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).campSupport||0)):0; // 「兵站の才」持ちがいると遠征の疲労蓄積が軽くなる=連戦運用を支える支援ビルド
+  for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+Math.round(ri(28,42)*(1-camp)));
   if(Math.random()<0.35){const rs=EXPEDITION_ROADSIDE[Math.floor(Math.random()*EXPEDITION_ROADSIDE.length)];rs.fx(squad);chron(rs.t,"");} // 道中の小さな出来事
   // 稀に、長い道中で特別な出来事が起きる:戦友の絆が芽生えるか、掘り出し物を拾う(遠征の旅路に彩りと愛着)
   if(Math.random()<0.08){
@@ -8365,6 +8368,7 @@ function skillEffectText(s){
   if(s.guardianSave)parts.push(`戦友の致命傷を${Math.round(s.guardianSave*100)}%で肩代わり`);
   if(s.lootLuck)parts.push(`迷宮のドロップ率+${Math.round(s.lootLuck*100)}%`);
   if(s.goldFind)parts.push(`迷宮の獲得財貨+${Math.round(s.goldFind*100)}%`);
+  if(s.campSupport)parts.push(`遠征時の部隊の疲労蓄積-${Math.round(s.campSupport*100)}%`);
   if(s.onlyCaptain)parts.push("(団長のみ有効)");
   if(s.condFlag==="dragonPact")parts.push(`竜盟約締結中はさらに体力+${s.condVit}・腕力+${s.condStr}`);
   return parts.length?parts.join(" / "):"目立った効果はない";
