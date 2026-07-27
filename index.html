@@ -2774,10 +2774,12 @@ const INJURY_TIERS={
  moderate:{label:"重傷",days:[2,4],pwMult:0.55},
  severe:{label:"重体",days:[4,7],pwMult:0.25},
 };
+const SCAR_MAX=5; // 歴戦の傷痕の上限
+function scarInjuryMult(u){return 1-Math.min(SCAR_MAX*0.05,(u.scars||0)*0.05);} // 傷痕1つにつき傷の負いにくさが上がる(最大-25%)
 function inflictInjury(u,weights){
   let w=weights||[0.6,0.3,0.1]; // 軽傷/重傷/重体
   const teff=titleEffectsFor(u);
-  const effInjuryMult=teff.injuryMult*(skillEffects(u).injuryMult||1)*(RACE_INJURY_MULT[u.race]||1)*(u.seasonedShown?0.92:1)*((typeof doctrineIs==="function"&&doctrineIs("fortress"))?0.9:1); // 称号＋スキル(見切り等)＋種族＋円熟の余裕＋「鉄壁の国」の国是を合成
+  const effInjuryMult=teff.injuryMult*(skillEffects(u).injuryMult||1)*(RACE_INJURY_MULT[u.race]||1)*(u.seasonedShown?0.92:1)*((typeof doctrineIs==="function"&&doctrineIs("fortress"))?0.9:1)*scarInjuryMult(u); // 称号＋スキル(見切り等)＋種族＋円熟の余裕＋「鉄壁の国」の国是＋歴戦の傷痕を合成
   if(effInjuryMult<1){
     // 怪我率軽減効果:重傷・重体の比率を減らし、軽傷側に寄せる
     const shift=Math.min(0.5,(1-effInjuryMult))*(w[1]+w[2]);
@@ -2898,12 +2900,15 @@ function checkAging(){
       if(u.injured<=0){
         const wasSevere=u.injurySeverity==="severe"; // 重体からの生還は、看病して連れ戻した甲斐のある"不屈の帰還"にする
         u.injured=0;u.injurySeverity=null;
+        // 歴戦の傷痕:負傷から立ち直るたび、稀に(重傷ほど高く)兵は傷痕を刻み、以後わずかに傷を負いにくくなる(逆境が古参を打たれ強くする育成軸)
+        let gainedScar=false;
+        if((u.scars||0)<SCAR_MAX&&Math.random()<(wasSevere?0.5:0.18)){u.scars=(u.scars||0)+1;gainedScar=true;unitHistory(u,`負い傷が癒えるとともに、また一つ歴戦の傷痕が刻まれた(以後、傷を負いにくくなる)。`);}
         if(wasSevere){
           u.loyalty=Math.min(100,u.loyalty+6);u.moral=Math.min(100,u.moral+8);
           unitHistory(u,"重体から生還し、以前にも増して腹の据わった面構えになった。");
-          chron(`${u.nm}が重体から立ち直り、戦列に復帰した。死線をくぐった者の面構えになっている。`,"big");
+          chron(`${u.nm}が重体から立ち直り、戦列に復帰した。死線をくぐった者の面構えになっている。${gainedScar?`その体には、また一つ歴戦の傷痕が刻まれた。`:""}`,"big");
         }else{
-          chron(`${u.nm}の傷が癒え、療養が明けた。`,"");
+          chron(`${u.nm}の傷が癒え、療養が明けた。${gainedScar?`一つ傷痕が増えたが、その分だけ打たれ強くなっている。`:""}`,"");
         }
       }
     }
@@ -11096,6 +11101,7 @@ function renderUnitDetail(uid){
         ${!isInstructor&&u.route&&routeInfo(u.cls,u.route)&&routeInfo(u.cls,u.route).aff?`<span class="udet-chip" style="border-color:var(--gold2)" title="この路が得意とする攻略型。噛み合う迷宮で攻略適性が上がる">得意迷宮:${dungeonTypeLabel(routeInfo(u.cls,u.route).aff)}</span>`:""}
         ${(()=>{if(!u.typeMastery)return"";const ks=Object.keys(u.typeMastery);if(!ks.length)return"";return `<span class="udet-chip" style="color:#c9a86a;border-color:#c9a86a" title="踏破を重ねて経験で極めた得意型。攻略適性+10%(路の得意と重ねられる)">熟達:${ks.map(k=>dungeonTypeLabel(k)).join("・")}</span>`;})()}
         ${(()=>{if(isInstructor||!u.focusStat)return"";const c=(USTAT_DEF[u.focusStat]||{}).color||"var(--gold)";return `<span class="udet-chip" style="color:${c};border-color:${c}" title="研鑽の方針。以後の成長がこの能力へ傾く">研鑽:${(USTAT_DEF[u.focusStat]||{lbl:u.focusStat}).lbl}</span>`;})()}
+        ${(u.scars||0)>0?`<span class="udet-chip" style="color:#c98f7a;border-color:#c98f7a" title="幾多の負傷を乗り越えて刻まれた歴戦の傷痕。傷を負いにくくなっている(傷痕${u.scars}=負傷率${Math.round((1-scarInjuryMult(u))*100)}%減)">歴戦の傷痕 ${"✚".repeat(Math.min(5,u.scars))}</span>`:""}
         ${(()=>{const off=typeof MINISTER_OFFICES!=="undefined"?MINISTER_OFFICES.find(o=>ministerOf(o.key)&&ministerOf(o.key).id===u.id):null;return off?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)" title="国政の要職に就いている">${off.name}</span>`:"";})()}
         ${u.devoted?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)">献身の誓い</span>`:""}
         ${u.rejuvenated?`<span class="udet-chip" style="color:#7fc9d0;border-color:#7fc9d0" title="若返りの霊泉に浴し、年輪を巻き戻した">若返り</span>`:""}
