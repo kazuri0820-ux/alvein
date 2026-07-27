@@ -4079,6 +4079,33 @@ const RANDOM_RARE=[
      chron("英霊の帰還の物語は、生者と死者を繋ぐ社とともに幕を下ろした。その丘は、末永く王国の心の拠り所となろう。","big");
    }}},
   ]},
+ // ===== 連続物語(イベント連鎖):山の隠者。庵を結べば、以後ときおり隠者が知恵を授ける(継続的に恵みをもたらす報酬タイプの新機軸) =====
+ {tag:"隠 者",title:"山の隠者",
+  cond:s=>!(s.flags&&s.flags.hermitArc)&&STAGES[s.stage].rank>=3&&s.day>=45,
+  body:"国境の霊峰に、齢いくつとも知れぬ隠者が独り棲んでいるという。訪ねてみれば、その老人は星と草木の理を知り尽くし、兵法から医薬まで底知れぬ叡智を湛えていた。「この歳だ、里に降りる気はない。だが……庵の一つも結んでくれるなら、時折、知恵くらいは分けてやろう」。",
+  speaker:"セラ「あの御方の叡智……お味方につけられれば、計り知れぬ財産にございます」",
+  choices:[
+   {label:"霊峰に庵を結ぶ(90G)",hint:"隠者のための庵を建てる(以後、隠者がときおり知恵を授けてくれる物語の始まり)",fx:{call:()=>{
+     if(S.gold<90){chron("庵を結ぶ蓄えがなく、隠者は静かに霞の奥へ戻っていった。","");return;}
+     S.gold-=90;S.flags=S.flags||{};S.flags.hermitArc=1;S.flags.hermitDay=S.day+ri(6,9);
+     apply({st:{magic:2},mood:1,log:"王は霊峰の中腹に、隠者のための質素な庵を結ばせた。老人は満足げに頷き、竈の煙が細く空へと立ちのぼった(魔導+2)。",logCls:"big"});
+   }}},
+   {label:"深山の変わり者と関わらない",hint:"堅実(この物語は始まらない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.hermitArc=-1;
+     apply({st:{order:1},log:"王は深山の隠者との関わりを避け、足元の政に専念した。地に足のついた王の姿勢を、家臣は頼もしく思った(治安+1)。"});
+   }}},
+  ]},
+ {tag:"隠 者",title:"隠者の庵",
+  cond:s=>(s.flags&&s.flags.hermitArc)===1&&s.day>=(s.flags.hermitDay||0),
+  body:"庵が完成した報せを受け、隠者が初めて里の使者を迎えた。囲炉裏端で茶を啜りながら、老人は穏やかに言った。「約束は違えぬ。これからは折に触れ、里の若い者に知恵を授けよう。武の理、医の術、星の巡り――役に立つものは、何であれな」。その眼は、深い泉のように澄んでいた。",
+  speaker:"ガレオン「心強きことにございます。あの御方の一言が、幾人もの兵を伸ばしましょう」",
+  choices:[
+   {label:"末永い縁を願う",hint:"以後、隠者がときおり兵に技を授けたり、国に叡智をもたらす",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.hermitArc=2;S.flags.hermitSage=true;
+     apply({st:{magic:3},mood:2,log:"霊峰の隠者との縁が、正式に結ばれた。以後、老人の叡智は折に触れて王国に流れ込み、若い兵たちを思わぬ形で伸ばしていくだろう(魔導+3)。",logCls:"big"});
+     chron("山の隠者の物語は、絶えぬ叡智の泉とともに幕を下ろした。","big");
+   }}},
+  ]},
  {tag:"継 承",title:"王家の家宝を定める",
   cond:s=>!(s.flags&&s.flags.heirloom)&&STAGES[s.stage].rank>=4,
   body:"王国が確かな地歩を築いた今、家臣たちが進言した。「陛下、そろそろ我が王家の『家宝』を定められては。末代まで受け継がれ、王国を永く支える一つの象徴を」。三つの候補が、王の前に並べられた。一度選べば、二度とは選び直せない。",
@@ -6394,6 +6421,7 @@ function dailyEconomySettle(){
   checkFameVignette(); // 功を立てた兵の武名が市井で語られる一幕
   checkRivalVignette(); // 同職の兵同士が競い合い、互いを高め合う一幕
   checkDreamVignette(); // 兵が己の夢(個人的な目標)を語る一幕
+  checkHermitWisdom(); // 山の隠者が、ときおり兵に技を授けたり国に叡智をもたらす(庵を結んだ後のみ)
   checkGearVignette(); // 一級の武具を帯びた兵が、その得物を大切に手入れする一幕
   checkRealmVignette(); // 民の暮らしの何気ない一場面(平穏な国の息づかい)
   checkRemembranceVignette(); // 殿堂に名を刻んだ、かつての英傑を偲ぶ一幕
@@ -9774,6 +9802,23 @@ function buyGrain(){
   S.gold-=cost; S.food=Math.min(999,(S.food||0)+GRAIN_BATCH);
   chron(`国庫から${cost}を投じ、糧${GRAIN_BATCH}を買い付けて蔵に納めた。`,"");
   clamp();render();renderProjects();save();
+}
+/* 山の隠者の賜物:庵を結んだ後、隠者がときおり若い兵に技を授けたり、国に叡智をもたらす。
+   一度きりでも常時でもない"折に触れて訪れる恵み"=継続的な報酬タイプ(物語のある永続の縁) */
+function checkHermitWisdom(){
+  if(!(S.flags&&S.flags.hermitSage))return;
+  if(Math.random()>=0.022)return; // 折に触れて
+  const r=Math.random();
+  if(r<0.55){ // 兵に技を授ける
+    const cands=S.units.filter(u=>u.role==="active"&&u.injured<=0&&u.skills&&u.skills.length<skillCap(u));
+    if(cands.length){const u=cands[ri(0,cands.length-1)];const l=trySkillUp(u);if(l){unitHistory(u,`霊峰の隠者に見出され、「${l.name}」の理を授かった。`);chron(`霊峰の隠者が${fullName(u)}を庵に招き、「${l.name}」の奥義を授けた。思わぬ縁が、一人の兵を伸ばした。`,"big");return;}}
+  }
+  if(r<0.8){ // 若い兵に修養を施す
+    const young=S.units.filter(u=>u.role==="active"&&u.injured<=0&&u.age<26);
+    if(young.length){const u=young[ri(0,young.length-1)];const g=ri(10,20);u.exp+=g;processLevelUps(u);unitHistory(u,"霊峰の隠者のもとで数日を過ごし、心身を大きく養った。");chron(`${fullName(u)}が霊峰の隠者のもとでしばし修養を積み、見違えて帰ってきた。`,"big");return;}
+  }
+  // 国に叡智をもたらす
+  apply({st:{magic:1},mood:1,log:"霊峰の隠者から、農事や医薬の知恵を記した書簡が届いた。役人たちがさっそく学び始めている(魔導+1)。"});
 }
 function renderProjects(){
   let h="";
