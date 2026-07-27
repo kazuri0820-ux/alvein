@@ -2037,6 +2037,26 @@ function unequipItem(unitId,slot){
   S.equipmentInventory.push(u.equipment[slot]);
   u.equipment[slot]=null;
 }
+/* 装備の売却:武具庫に眠る不要な一品を財貨に換える(装備→財貨=経済の循環を閉じる新レバー) */
+const SELL_BASE={common:8,uncommon:20,rare:50,epic:120,legendary:260};
+function sellValue(inst){
+  const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return 0;
+  const base=SELL_BASE[def.rarity]||10;
+  const affixSum=(inst.affixes||[]).reduce((t,a)=>t+((a&&a.val)||0),0);
+  return Math.round(base*(1+0.3*enhLevel(inst))+affixSum*3);
+}
+function sellEquip(instId){
+  S.equipmentInventory=S.equipmentInventory||[];
+  const idx=S.equipmentInventory.findIndex(x=>x.id===instId);
+  if(idx<0)return;
+  const inst=S.equipmentInventory[idx];
+  const val=sellValue(inst);
+  const nm=equipInstName(inst);
+  S.equipmentInventory.splice(idx,1);
+  S.gold+=val; // 表示した売却額をそのまま得る(揺らぎなし=約束通りの取引)
+  chron(`武具庫の「${nm}」を売り払い、財貨${val}を得た。`,"");
+  clamp();render();
+}
 /* 鍛冶:装備中の一点を財貨で鍛え上げ、基礎値を永続で底上げする(+5が上限) */
 function enhanceEquip(unitId,slot){
   const u=findAnyUnit(unitId); if(!u||!u.equipment||!u.equipment[slot])return;
@@ -9190,19 +9210,26 @@ function renderEquipSelect(){
     let cmp="";
     if(curScore!==null&&inst.id!==(curInst&&curInst.id)){const s=equipInstScore(inst);if(s>curScore)cmp=`<span style="color:#8fbf6f;font-size:10px;font-weight:700">▲強化</span>`;else if(s<curScore)cmp=`<span style="color:#c98f8f;font-size:10px">▼見劣り</span>`;else cmp=`<span style="color:var(--dim);font-size:10px">≒同等</span>`;}
     else if(curInst&&inst.id===curInst.id)cmp=`<span style="color:var(--gold);font-size:10px">装備中</span>`;
-    h+=`<button class="eq-target-pick" data-id="${inst.id}" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--parch);border-radius:6px;padding:10px;margin-bottom:6px;font-family:'Zen Old Mincho',serif;cursor:pointer">
+    h+=`<div style="display:flex;align-items:center;gap:8px;border:1px solid rgba(201,162,75,.3);border-radius:6px;padding:10px;margin-bottom:6px">
       <i class="ricon eqp-icon-${def.key}" style="width:32px;height:32px;flex:0 0 auto"></i>
-      <span>
+      <span style="flex:1;min-width:0">
         <span class="trchip t-${def.rarity==="legendary"?"legend":def.rarity==="epic"?"epic":def.rarity==="rare"?"rare":"normal"}" style="font-size:10px">${def.rarity}</span> ${equipInstName(inst)} ${cmp}<br>
         <span style="font-size:11px;color:var(--dim)">${equipInstBonusText(inst)}</span>
       </span>
-    </button>`;
+      <span style="display:flex;flex-direction:column;gap:4px;flex:0 0 auto">
+        <button class="eq-target-pick" data-id="${inst.id}" style="background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:6px 9px;font-family:'Shippori Mincho',serif;font-size:11px;cursor:pointer">装備</button>
+        <button class="eq-sell-btn" data-id="${inst.id}" style="background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--dim);border-radius:6px;padding:6px 9px;font-family:'Shippori Mincho',serif;font-size:10.5px;cursor:pointer">売却${sellValue(inst)}G</button>
+      </span>
+    </div>`;
   }
   $("#itemTargetBody").innerHTML=h;
   $("#itemTargetBody").querySelectorAll(".eq-target-pick").forEach(b=>b.onclick=()=>{
     equipItem(unitId,b.dataset.id);
     $("#panelItemTarget").classList.remove("show");
     renderUnitDetail(unitId);refreshOpenPanels();save();
+  });
+  $("#itemTargetBody").querySelectorAll(".eq-sell-btn").forEach(b=>b.onclick=()=>{
+    sellEquip(b.dataset.id);renderEquipSelect();save();
   });
   $("#panelItemTarget").classList.add("show");
 }
