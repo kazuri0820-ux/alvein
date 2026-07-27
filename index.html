@@ -1873,6 +1873,7 @@ function equipmentEffects(u){
     const def=EQUIPMENT_DB.find(x=>x.key===inst.key);
     if(!def)continue;
     for(const k in def.statBonus)e[k]+=def.statBonus[k];
+    if(inst.affixes)for(const a of inst.affixes)if(a&&a.stat&&e[a.stat]!==undefined)e[a.stat]+=a.val; // 個体差(アフィックス)の追加ロール
   }
   const setTier=equipSetTier(u); // 三種を同じ格で揃えたセット効果
   if(setTier){const b=EQUIP_SET_BONUS[setTier];for(const k in e)e[k]+=b;}
@@ -1892,9 +1893,47 @@ function rollEquipmentDrop(maxRarityKey){
   for(const d of cands){r-=(weights[d.rarity]||1);if(r<=0)return d;}
   return cands[cands.length-1];
 }
+/* ハクスラの核:ドロップ装備の個体差(アフィックス)。同じ基礎装備でも、格に応じて接頭辞(冠)＋接尾辞と
+   追加のステータスロールが付き、一つ一つ違う逸品になる。掘り出し物を見比べ・厳選し・愛着を持つ収集の楽しさ。 */
+const EQUIP_AFFIX_PREFIX={str:"獅子の",vit:"巌の",int:"賢者の",agi:"疾風の",wis:"梟の",lead:"覇王の"};
+const EQUIP_AFFIX_SUFFIX={str:"(剛)",vit:"(堅)",int:"(智)",agi:"(疾)",wis:"(察)",lead:"(統)"};
+const EQUIP_AFFIX_STATS=["str","vit","int","agi","wis","lead"];
+function rollAffixes(rarityKey){
+  let n={common:0,uncommon:1,rare:1,epic:2,legendary:2}[rarityKey]||0;
+  if(rarityKey==="rare"&&Math.random()<0.4)n=2;
+  if(rarityKey==="legendary"&&Math.random()<0.5)n=3;
+  if(n<=0)return [];
+  const mag={uncommon:[2,3],rare:[3,5],epic:[5,8],legendary:[8,12]}[rarityKey]||[2,3];
+  const affixes=[];
+  for(let i=0;i<n;i++){
+    const stat=EQUIP_AFFIX_STATS[Math.floor(Math.random()*EQUIP_AFFIX_STATS.length)];
+    const val=ri(mag[0],mag[1]);
+    const pos=(i===0)?"prefix":"suffix";
+    affixes.push({pos,stat,val,name:(pos==="prefix"?EQUIP_AFFIX_PREFIX[stat]:EQUIP_AFFIX_SUFFIX[stat])});
+  }
+  return affixes;
+}
+/* 装備インスタンスの表示名(接頭辞＋基礎名＋接尾辞)。アフィックスが無ければ従来通り基礎名。 */
+function equipInstName(inst){
+  const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return "?";
+  if(!inst.affixes||!inst.affixes.length)return def.name;
+  const pre=inst.affixes.filter(a=>a&&a.pos==="prefix").map(a=>a.name).join("");
+  const suf=inst.affixes.filter(a=>a&&a.pos==="suffix").map(a=>a.name).join("");
+  return pre+def.name+suf;
+}
+/* 装備インスタンスの効果表示(基礎＋アフィックスを合算)。 */
+function equipInstBonusText(inst){
+  const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return "";
+  const merged={}; for(const k in def.statBonus)merged[k]=(merged[k]||0)+def.statBonus[k];
+  if(inst.affixes)for(const a of inst.affixes)if(a&&a.stat)merged[a.stat]=(merged[a.stat]||0)+a.val;
+  return Object.entries(merged).map(([k,v])=>`${(USTAT_DEF[k]||{lbl:k}).lbl}+${v}`).join("・");
+}
 function addEquipment(defKey){
   S.equipmentInventory=S.equipmentInventory||[];
-  S.equipmentInventory.push({id:Math.random().toString(36).slice(2,9),key:defKey});
+  const def=EQUIPMENT_DB.find(d=>d.key===defKey);
+  const inst={id:Math.random().toString(36).slice(2,9),key:defKey,affixes:def?rollAffixes(def.rarity):[]};
+  S.equipmentInventory.push(inst);
+  return inst;
 }
 function equipItem(unitId,instanceId){
   const u=findAnyUnit(unitId);
@@ -1910,7 +1949,7 @@ function equipItem(unitId,instanceId){
   if(prev)S.equipmentInventory.push(prev);
   S.equipmentInventory.splice(idx,1);
   u.equipment[def.slot]=inst;
-  chron(`${fullName(u)}が「${def.name}」を装備した。`,"");
+  chron(`${fullName(u)}が「${equipInstName(inst)}」を装備した。`,"");
   const newSetTier=equipSetTier(u);
   if(newSetTier&&newSetTier!==prevSetTier){ // 揃いの装備を新たに完成/格上げ=収集の到達を演出
     const lbl={uncommon:"上等",rare:"希少",epic:"魔級",legendary:"伝説"}[newSetTier]||newSetTier;
@@ -7802,8 +7841,8 @@ function renderEquipSelect(){
     h+=`<button class="eq-target-pick" data-id="${inst.id}" style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--parch);border-radius:6px;padding:10px;margin-bottom:6px;font-family:'Zen Old Mincho',serif;cursor:pointer">
       <i class="ricon eqp-icon-${def.key}" style="width:32px;height:32px;flex:0 0 auto"></i>
       <span>
-        <span class="trchip t-${def.rarity==="legendary"?"legend":def.rarity==="epic"?"epic":def.rarity==="rare"?"rare":"normal"}" style="font-size:10px">${def.rarity}</span> ${def.name}<br>
-        <span style="font-size:11px;color:var(--dim)">${equipBonusText(def)}</span>
+        <span class="trchip t-${def.rarity==="legendary"?"legend":def.rarity==="epic"?"epic":def.rarity==="rare"?"rare":"normal"}" style="font-size:10px">${def.rarity}</span> ${equipInstName(inst)}<br>
+        <span style="font-size:11px;color:var(--dim)">${equipInstBonusText(inst)}</span>
       </span>
     </button>`;
   }
@@ -8637,7 +8676,7 @@ function renderUnitDetail(uid){
       const def=inst?EQUIPMENT_DB.find(d=>d.key===inst.key):null;
       h+=`<div class="pcard" style="margin-bottom:6px">
         <div class="nm" style="font-size:12.5px"><i class="ricon ${def?`eqp-icon-${def.key}`:`eqicon-${slot}`}" style="width:16px;height:16px;margin-right:3px"></i>${EQUIP_SLOT_LABEL[slot]}</div>
-        <div class="ds">${def?`${def.name}(${equipBonusText(def)})`:"未装備"}</div>
+        <div class="ds">${def?`${equipInstName(inst)}(${equipInstBonusText(inst)})`:"未装備"}</div>
         <div style="display:flex;gap:6px;margin-top:6px">
           <button class="eq-open-btn" data-slot="${slot}" style="flex:1;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:6px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${def?"付け替える":"装備する"}</button>
           ${def?`<button class="eq-remove-btn" data-slot="${slot}" style="flex:1;background:transparent;border:1px solid rgba(217,122,122,.5);color:#d97a7a;border-radius:6px;padding:6px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">外す</button>`:""}
