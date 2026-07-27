@@ -8416,6 +8416,7 @@ const DUNGEON_CONDITIONS={
   heroordeal:{label:"英傑の試練",color:"#d08f5a",desc:"少数の精鋭でこそ真価が問われる試練の地。三人以下の少数で挑み討ち果たせば、その武勲に応じた破格の恩賞が下る"},
   relic:{label:"王朝の遺構",color:"#c7a45e",desc:"滅びた古王朝の栄華が眠る遺構。踏破して持ち帰る典籍や財物が、王国の国力(治安・経済)そのものを高める"},
   fatebound:{label:"宿縁の霊地",color:"#d99ab0",desc:"縁ある者たちの絆が試される地。戦友・好敵手・師弟のいずれかの組を伴って踏破すれば、その絆に応じた特別な成長がもたらされる"},
+  veiled:{label:"霧幻の帳",color:"#9fa8b8",desc:"深い霧が内部を閉ざし、斥候も見通せない。弱点も掴めぬまま挑む博打だが、霧の奥には手つかずの財と獲物が眠る"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 /* 陣形:ダンジョン派遣時に選ぶ布陣。攻略成否・負傷リスク・所要日数のトレードオフを一手加え、
@@ -9234,6 +9235,7 @@ function mercCost(d){return Math.max(60,Math.round((d&&d.requiredPower||100)*0.5
 function scoutCost(d){return Math.max(20,Math.round((d.requiredPower||100)*0.14));} // 手強い迷宮ほど偵察も高くつく
 function scoutDungeon(dungeonId){
   const d=(S.availableDungeons||[]).find(x=>x.id===dungeonId); if(!d||d.scouted)return;
+  if(d.condition==="veiled"){chron(`「${d.name}」は深い霧に閉ざされ、斥候を放っても内部を見通せなかった。備えなきまま、賭けに出るほかない。`,"");return;} // 霧幻の帳:偵察を受け付けない
   const cost=scoutCost(d);
   if(S.gold<cost){chron("偵察の斥候を放つ蓄えが足りない。","");return;}
   S.gold-=cost; d.scouted=true;
@@ -9807,6 +9809,14 @@ function resolveDungeonRun(dungeonId){
         const tItem=rollItemDrop(upKey); if(tItem)addItem(tItem.key);
         apply({gold:tGold,mood:3});
         chron(`「${dungeon.name}」に満ちた財宝の霊気は伊達ではなかった。堅い守りを破った先には、${tItem?`秘宝「${tItem.name}」と`:""}莫大な財貨${tGold}が眠っていた。`,"big");
+      }
+      if(cond==="veiled"){ // 霧幻の帳: 偵察も弱点も封じられた博打の見返り。討ち果たせば、霧の奥の手つかずの財と獲物が手に入る
+        const vGold=Math.round(ri(60,110)*dungeon.rarity.mult*levelMult);
+        apply({gold:vGold,mood:2});
+        let vExtra="";
+        const veq=rollEquipmentDrop(dungeon.rarity.key); if(veq){const inst=addEquipment(veq.key);vExtra=`、手つかずの得物「${equipInstName(inst)}」`;}
+        else{const vit=rollItemDrop(dungeon.rarity.key);if(vit){addItem(vit.key);vExtra=`、秘薬「${vit.name}」`;}}
+        chron(`「${dungeon.name}」の霧の帳を、備えなきまま突き破った。誰も手をつけていなかった奥に、財貨${vGold}${vExtra}が眠っていた。見えぬ敵に賭けた度胸が、大きな実りに変わった。`,"big");
       }
       if(cond==="eliteden"){ // 精鋭の巣: 手強い分、死闘が部隊を大きく成長させる(経験値の大盤振る舞い)
         for(const u of squad){const g=Math.round(ri(22,42)*levelMult);u.exp+=g;processLevelUps(u);}
@@ -13740,7 +13750,7 @@ function renderDungeonPanel(){
         ${d.bossTrait&&BOSS_TRAITS[d.bossTrait]?`<div class="ds" style="color:${BOSS_TRAITS[d.bossTrait].color};font-size:11px">主:${BOSS_TRAITS[d.bossTrait].desc}</div>`:""}
         <div class="ds"><i class="icon-boss"></i>ボス:${d.bossName}(戦力${d.bossPower})</div>
         ${est.squad.length?`<div class="ds" style="margin-top:4px;padding-top:6px;border-top:1px dotted rgba(154,122,47,.25)">派遣候補(自動選抜時):${est.squad.map(fullName).join("・")}<br><span style="color:${rateColor};font-weight:700">推定成功率 約${est.pct}%</span>${est.pctGreat>5?` <span style="color:var(--gold)">(大成功 約${est.pctGreat}%)</span>`:""}${est.pctCriticalFail>10?` <span style="color:#d97a7a">(大失敗 約${est.pctCriticalFail}%)</span>`:""}</div>`:`<div class="ds" style="color:#d97a7a;margin-top:4px">派遣できる兵がいない</div>`}
-        ${d.scouted?`<div class="ds" style="color:#8fbf6f;font-size:11px;margin-top:4px">〔偵察済〕罠と地形を把握。攻略判定+${SCOUT_ROLL_BONUS}${weaknessInfo(d)?` ／ 勘所:ボスは【${weaknessInfo(d).tag}】`:""}</div>`:(()=>{const sc=scoutCost(d);const ok=S.gold>=sc;return `<button class="dg-scout-btn" data-id="${d.id}" ${ok?"":"disabled"} style="margin-top:8px;width:100%;background:transparent;border:1px solid ${ok?"var(--gold2)":"rgba(255,255,255,.12)"};color:${ok?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${ok?"pointer":"default"}">斥候を放って偵察する(${sc}G・攻略判定が有利に＋ボスの勘所が露わに)</button>`;})()}
+        ${d.scouted?`<div class="ds" style="color:#8fbf6f;font-size:11px;margin-top:4px">〔偵察済〕罠と地形を把握。攻略判定+${SCOUT_ROLL_BONUS}${weaknessInfo(d)?` ／ 勘所:ボスは【${weaknessInfo(d).tag}】`:""}</div>`:d.condition==="veiled"?`<div class="ds" style="color:#9fa8b8;font-size:11px;margin-top:4px">〔霧幻の帳〕深い霧が内部を閉ざし、斥候も見通せない。弱点も掴めぬまま挑む博打だが、討ち果たせば霧の奥の手つかずの財と獲物が手に入る。</div>`:(()=>{const sc=scoutCost(d);const ok=S.gold>=sc;return `<button class="dg-scout-btn" data-id="${d.id}" ${ok?"":"disabled"} style="margin-top:8px;width:100%;background:transparent;border:1px solid ${ok?"var(--gold2)":"rgba(255,255,255,.12)"};color:${ok?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${ok?"pointer":"default"}">斥候を放って偵察する(${sc}G・攻略判定が有利に＋ボスの勘所が露わに)</button>`;})()}
         <button class="dg-go-btn" data-id="${d.id}" ${est.squad.length?"":"disabled"} style="margin-top:8px;width:100%;background:${est.squad.length?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${est.squad.length?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:800;cursor:${est.squad.length?"pointer":"default"}">派遣する兵を選ぶ</button>
       </div>`;
     }
