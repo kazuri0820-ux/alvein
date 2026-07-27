@@ -9906,6 +9906,9 @@ function fallenEulogy(u,placeName,hallWorthy){
   S.flags=S.flags||{}; S.flags.griefUntil=S.day+ri(4,8); // 名のある兵の喪失は、しばし王の述懐に影を落とす
   if(Math.random()<0.66)fallenLastWords(u); // 名のある兵の最期に、その者自身の遺した言葉を添える(演出)
   if(u.sigFeat&&u.sigFeat.text)chron(`いくさ場では、いまも語り草になっている――${u.sigFeat.text}、あの${u.nm}の武勇が。`,"grave"); // 生涯の語り草を、弔いの最後に今一度
+  // 血脈:真に名を成した兵の死に際し、その血を継ぐ者が稀に名乗りを上げる
+  const notable=titles>=2||hallWorthy||u.fief||(typeof militaryRankIndex==="function"&&militaryRankIndex(u)>=3);
+  if(notable&&Math.random()<0.4&&(S.volunteers||[]).length<8)spawnHeir(u);
 }
 /* 兵の遺言(演出):語り部(EULOGY)の三人称の弔いに対し、これは斃れた兵"自身"の最期の一言。戦友・師弟・憧れ・
    夢・お気に入りといった、その兵が最も深く抱いていた想いに即して言葉が選ばれる。喪失に、当人の声という
@@ -9927,6 +9930,24 @@ function fallenLastWords(u){
    "「王国に……栄えあれ。それが……最後の、願いだ……」",
    "「ここまで……よく、生きた。……悪くない、生涯だった……」");
   chron(`${lines[Math.floor(Math.random()*lines.length)]}――${fullName(u)}、最期の言葉。`,"grave");
+}
+/* 血脈(育成の新軸):真に名を成した兵が世を去った時、その血を継ぐ者が志願所に名乗りを上げることがある。姓と、
+   親の器量のわずかな受け継ぎ、そして高い忠義を携えて。長く育て上げた英傑への投資が"次代"へ受け継がれ、死や
+   老いに一縷の希望と物語の連なりを与える=愛着とlegacyを世代を跨いで繋ぐ新レバー。 */
+function spawnHeir(parent){
+  if(!parent)return;
+  S.volunteers=S.volunteers||[];
+  if(S.volunteers.length>=8)return; // 志願所が満杯なら、この機は流れる
+  const v=makeVolunteer();
+  const pname=fullName(parent);
+  if(parent.surname)v.unit.surname=parent.surname; // 姓を継ぐ
+  for(const k of ["str","vit","int","agi","wis","lead"]){const inh=Math.min(6,Math.round((parent[k]||0)*0.12));if(inh>0)v.unit[k]=(v.unit[k]||0)+inh;} // 親の器量をわずかに受け継ぐ
+  v.unit.lineage=pname;
+  v.unit.loyalty=Math.min(100,(v.unit.loyalty||50)+8); // 血筋の誇りゆえ、はじめから忠義が篤い
+  v.hiddenPotential=true;
+  v.comment=`亡き${pname}の血を継ぐ者。遺志を胸に、王国に仕えたいと願い出た。`;
+  S.volunteers.push(v);
+  chron(`――${pname}の死の報に、その血を継ぐ者が名乗りを上げた。「あの人の遺志は、私が継ぎます」。志願所に${fullName(v.unit)}が加わった(血脈)。`,"big");
 }
 /* ===== 宿敵(Nemesis):討ち逃した強敵が"宿敵"として心に刻まれ、再戦の迷宮が現れる。討てば因縁の決着と特別報酬。
    失敗を「いつか討つ」未来の目標に変え、格上への挑戦に個人的な因縁の物語を宿す新機軸 ===== */
@@ -12388,6 +12409,7 @@ function renderUnitDetail(uid){
   }
   // ── 生い立ち ──
   if(u.backstory)h+=`<div class="udet-sec"><h4>生い立ち</h4><div style="font-size:12px;color:#d8dbe6;line-height:1.85;font-style:italic">${u.backstory}</div></div>`;
+  if(u.lineage)h+=`<div class="udet-sec"><h4>血脈</h4><div style="font-size:12px;color:#d8b45e;line-height:1.8">かつて王国に仕えた<b>${u.lineage}</b>の血を継ぐ者。その遺志と器量の一端を受け継いでいる。</div></div>`;
   if(!isInstructor&&u.dream){const dd=UNIT_DREAMS.find(x=>x.key===u.dream);if(dd)h+=`<div class="udet-sec"><h4>${u.dreamDone?"叶えた夢":"抱いている夢"}</h4><div style="font-size:12px;color:${u.dreamDone?"var(--gold)":"#d8dbe6"};font-style:italic">${u.dreamDone?"✦ ":"― "}${dd.text}${u.dreamDone?" ――その願いは、叶えられた。":""}</div></div>`;}
   if(u.sigFeat&&u.sigFeat.text)h+=`<div class="udet-sec"><h4>語り草の武勲</h4><div style="font-size:12px;color:#e0be6f;line-height:1.8;font-style:italic;border-left:2px solid var(--gold2,#c9a24b);padding-left:9px">❖ ${u.sigFeat.text}<span style="color:var(--dim);font-style:normal">（DAY ${u.sigFeat.day}）</span></div></div>`; // その兵を語る時、真っ先に挙がる生涯の一戦
   if(Array.isArray(u.jobsWalked)&&u.jobsWalked.length>=2){const vb=versatilityBonus(u);h+=`<div class="udet-sec"><h4>歩んだ道 <span style="color:var(--gold);font-size:11px">万夫の器 技+${vb}</span></h4><div style="font-size:12px;color:#d8dbe6">${u.jobsWalked.map(k=>(JOB_TREES[k]&&JOB_TREES[k].label)||k).join(" → ")}<div style="font-size:10.5px;color:var(--dim);margin-top:2px">幾つもの流派を修め、覚えられる技の枠が広がっている。</div></div></div>`;}
