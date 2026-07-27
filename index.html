@@ -8515,6 +8515,18 @@ const DUNGEON_TACTICS={
 };
 const DUNGEON_TACTIC_KEYS=["none","fireplan","retreat"];
 const TACTIC_FIRE_BONUS=13; // 火計:踏破判定への上乗せ
+/* ===== 攻略の主眼(ダンジョンの新レバー=報酬に"何を狙うか"の意図を持たせる):同じ迷宮でも、財貨を第一とするか、
+   掘り出し物を狙うか、兵の鍛錬に充てるかで、持ち帰る実りの偏りが変わる。踏破の成否(陣形・秘策)とは別軸で、
+   "この一戦で何を得たいか"を毎回選ぶ。今ほしいのは金か、装備か、兵の成長か――周回のたびに意図をもって
+   迷宮へ向かわせる、報酬設計の新しい選択。攻略の難度そのものは変えず、実りの中身だけを傾ける。 ===== */
+const DUNGEON_AIMS={
+  balanced:{label:"均衡",color:"#c9a86a",gold:1,exp:1,loot:1,desc:"癖なく攻略する。実りに偏りはない。"},
+  spoils:{label:"財貨重視",color:"#e0c060",gold:1.35,exp:0.82,loot:0.85,desc:"財貨を第一に。持ち帰る金は増えるが、経験と掘り出しは控えめ。"},
+  plunder:{label:"探索重視",color:"#8fd0e8",gold:0.82,exp:0.9,loot:1.45,desc:"掘り出し物を第一に。装備・秘薬を得やすいが、財貨は控えめ。"},
+  drill:{label:"鍛錬重視",color:"#8fbf6f",gold:0.82,exp:1.4,loot:0.9,desc:"兵の成長を第一に。踏破経験が大きく増えるが、財貨は控えめ。"},
+};
+const DUNGEON_AIM_KEYS=["balanced","spoils","plunder","drill"];
+function dungeonAimMods(d){const a=(d&&DUNGEON_AIMS[d.aim])||DUNGEON_AIMS.balanced;return {gold:a.gold||1,exp:a.exp||1,loot:a.loot||1};}
 /* 陣形に応じて負傷の重さの重み(軽/中/重)を寄せる。攻勢陣は重傷寄り、堅守陣は軽傷寄り。 */
 function formationAdjustWeights(w,fmKey){
  const fm=FORMATIONS[fmKey]||FORMATIONS.balanced;
@@ -9505,10 +9517,11 @@ const FIRST_SORTIE_LINES=[
  (u,d)=>`${u}が初めて実戦の遠征に発つ。城門を出る足取りには、隠しきれぬ緊張と高揚が滲んでいた。`,
  (u,d)=>`「必ず、生きて戻ります」。初陣の${u}は王にそう告げ、「${d}」へ向かう隊に加わった。`,
 ];
-function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision,tactic,decoy,merc){
+function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision,tactic,decoy,merc,aim){
   const idx=(S.availableDungeons||[]).findIndex(d=>d.id===dungeonId);
   if(idx<0)return;
   const dungeon=S.availableDungeons[idx];
+  dungeon.aim=DUNGEON_AIMS[aim]?aim:"balanced"; // 攻略の主眼(実りの偏り)を記録
   dungeon.merc=false; // 一戦限りの傭兵を雇うか(財貨で戦力を買う)
   if(merc){const mc=mercCost(dungeon);if(S.gold>=mc){S.gold-=mc;dungeon.merc=true;}}
   dungeon.formation=FORMATIONS[formationKey]?formationKey:"balanced"; // 選んだ陣形を記録(未指定は均衡陣)
@@ -9789,6 +9802,7 @@ function resolveDungeonRun(dungeonId){
   const tier=roll>=165?"critical_success":roll>=105?"success":roll>=60?"fail":"critical_fail";
   const level=dungeon.level;
   const levelMult=1+level/28; // レベルが上がるほど報酬が伸びる(後半でも報酬が目減りしないよう伸び幅を強化)
+  const aimMods=dungeonAimMods(dungeon); // 攻略の主眼:財貨/経験/掘り出しの実りの偏り
   const magicExpBonus=(1+Math.min(0.45,S.st.magic*0.0045))*(S.flags.statS_magic?1.05:1)*(doctrineIs("wisdom")?1.1:1); // 魔導が高いほど経験値効率が上がる。魔導Sで恒久的にさらに上乗せ
   const rarityRewardMult=Math.sqrt(dungeon.rarity.mult); // レア度は緩やかに反映
   const cond=dungeon.condition; // 環境の異変
@@ -9806,7 +9820,7 @@ function resolveDungeonRun(dungeonId){
     bossWin=squadPower*(tier==="critical_success"?1.3:1.0)*(1+squadBane)>=dungeon.bossPower*rnd(0.8,1.2);
     const squadTeach=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).squadExpBonus||0,(traitInfo(u.trait).squadExpBonus)||0))):0; // 「歴戦の教え」(スキル)「生来の兄貴分」(特性)持ちがいると部隊全員の踏破経験値が増える=育成支援ビルド
     const seasonMods=(typeof seasonDungeonMods==="function")?seasonDungeonMods():{expBonus:0,goldMult:1,equipBonus:0,restHeal:0}; // 季節の兆し:夏は経験、秋は財貨、冬は得物、春は癒えに効く
-    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach)*(1+streakBonus)*(1+heirloomExp)*(1+festExp)*(1+ethosReward)*(1+explorerExp)*(1+(seasonMods.expBonus||0)));u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
+    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach)*(1+streakBonus)*(1+heirloomExp)*(1+festExp)*(1+ethosReward)*(1+explorerExp)*(1+(seasonMods.expBonus||0))*aimMods.exp);u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
     if(cond==="richaura")chron(`「${dungeon.name}」に満ちた豊穣の気が兵たちの糧となり、いつも以上の経験を持ち帰った。`,"");
     if(cond==="cursed"){ // 呪詛の澱み: 兵を疲れさせるが、呪物の財貨が眠る
       for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(10,20));
@@ -9841,9 +9855,10 @@ function resolveDungeonRun(dungeonId){
       if(itemGained)addItem(itemGained.key);
       const squadItemFind=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).itemFind||0,(traitInfo(u.trait).itemFind)||0))):0; // 「漁りの目」(スキル)「物拾いの目」(特性)持ちを伴うと追加の品を拾う=収集支援ビルド(特性/スキル両対応)
       if(squadItemFind>0&&Math.random()<squadItemFind){const ex=rollItemDrop(dungeon.rarity.key);if(ex){addItem(ex.key);chron(`目ざとい兵が、転がっていた「${ex.name}」も拾い集めてきた。`,"");}}
+      if(aimMods.loot>1.1&&Math.random()<(aimMods.loot-1)){const ex=rollItemDrop(dungeon.rarity.key);if(ex){addItem(ex.key);chron(`探索を主眼に据えた部隊は、隅々まで漁って「${ex.name}」も見つけ出した。`,"");}} // 探索重視:掘り出しの品を余分に持ち帰る
       let equipGained=null, equipInst=null;
       const squadLootLuck=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).lootLuck)||0,(skillEffects(u).lootLuck)||0))):0; // 「宝運」「財宝の嗅覚」(特性)や「宝探しの勘」(スキル)持ちを伴うと掘り出しが増える=編成に意味を持たせる収集レバー
-      if(Math.random()<(crit?0.6:0.3)+squadLootLuck+((S.flags&&S.flags.grandWork==="forge")?0.1:0)+(seasonMods.equipBonus||0)){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained){equipInst=addEquipment(equipGained.key);
+      if(Math.random()<(crit?0.6:0.3)*aimMods.loot+squadLootLuck+((S.flags&&S.flags.grandWork==="forge")?0.1:0)+(seasonMods.equipBonus||0)){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained){equipInst=addEquipment(equipGained.key);
         if(squadLootLuck>0&&equipInst){const edef=EQUIPMENT_DB.find(d=>d.key===equipGained.key);if(edef&&edef.rarity!=="common"){const alt=rollAffixesBest(edef.rarity,2);const cur=(equipInst.affixes||[]).reduce((t,a)=>t+(a.val||0),0);const altSum=alt.reduce((t,a)=>t+(a.val||0),0);if(altSum>cur)equipInst.affixes=alt;}} // 財を嗅ぎ分ける才は、個体差もより優れたものを引き当てる
       }}
       const equipDropName=equipInst?equipInstName(equipInst):(equipGained?equipGained.name:""); // ドロップ時に個体差(アフィックス)を含む名を見せる=掘り出しの手応え
@@ -9869,7 +9884,7 @@ function resolveDungeonRun(dungeonId){
         }
       }
       const squadGoldFind=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).goldFind)||0,skillEffects(u).goldFind||0))):0; // 「山師の目」(スキル)「生来の商才」(特性)持ちを伴うと持ち帰る財貨が増える=金策ビルドの編成レバー
-      goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1)*(1+squadGoldFind)*(1+streakBonus)*(1+ethosReward)*(seasonMods.goldMult||1));
+      goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1)*(1+squadGoldFind)*(1+streakBonus)*(1+ethosReward)*(seasonMods.goldMult||1)*aimMods.gold);
       apply({gold:goldGained,mood:crit?4:2});
       if(seasonMods.restHeal>0){for(const u of squad){if(u){u.fatigue=Math.max(0,(u.fatigue||0)-8);if(u.injured>0){u.injured=Math.max(0,u.injured-1);if(u.injured<=0)u.injurySeverity=null;}}}} // 芽吹きの春:遠征帰りの兵の疲れと傷の癒えが早い
       chron(crit
@@ -13342,7 +13357,7 @@ function reactivateInstructor(u){
 }
 /* ---------- ダンジョン・アイテムパネル ---------- */
 let dgTab="available";
-let dgSelectingDungeonId=null, dgSelectedUnitIds=[], dgFormation="balanced", dgDelve=false, dgProvision=false, dgTactic="none", dgDecoy=false, dgMerc=false;
+let dgSelectingDungeonId=null, dgSelectedUnitIds=[], dgFormation="balanced", dgDelve=false, dgProvision=false, dgTactic="none", dgDecoy=false, dgMerc=false, dgAim="balanced";
 let expSelecting=false, expSelectedUnitIds=[], expDest="trade";
 /* 遠征の目的地(遠征の新レバー):60〜90日の長期遠征に「どこへ何をしに行くか」を選ばせ、持ち帰る実りの
    偏りを変える。汎用の"送って待つ"を、王国の今の不足(財貨/装備/成長/発見)に合わせて選ぶ戦略判断に変える。 */
@@ -13817,6 +13832,12 @@ function renderDungeonPanel(){
        <div style="display:flex;gap:5px;flex-wrap:wrap">`+FORMATION_KEYS.map(k=>{const f=FORMATIONS[k];const on=k===cur;return `<button class="dg-formation-btn" data-f="${k}" style="flex:1;min-width:70px;background:${on?f.color:"transparent"};color:${on?"var(--ink)":f.color};border:1px solid ${f.color};border-radius:6px;padding:7px 4px;font-family:'Shippori Mincho',serif;font-size:11.5px;font-weight:${on?"800":"600"};cursor:pointer">${f.label}</button>`;}).join("")+`</div>
        <div class="ds" style="font-size:11px;color:${FORMATIONS[cur].color};margin-top:5px">${FORMATIONS[cur].desc}</div></div>`;
     }
+    // 攻略の主眼:報酬に"何を狙うか"の意図を持たせる(難度は変えず実りの中身だけを傾ける新レバー)
+    {const cur=DUNGEON_AIMS[dgAim]?dgAim:"balanced";
+     h+=`<div style="margin-top:10px"><div style="font-size:11px;color:var(--dim);margin-bottom:5px">攻略の主眼(実りの狙い)</div>
+       <div style="display:flex;gap:5px;flex-wrap:wrap">`+DUNGEON_AIM_KEYS.map(k=>{const a=DUNGEON_AIMS[k];const on=k===cur;return `<button class="dg-aim-btn" data-a="${k}" style="flex:1;min-width:66px;background:${on?a.color:"transparent"};color:${on?"var(--ink)":a.color};border:1px solid ${a.color};border-radius:6px;padding:7px 4px;font-family:'Shippori Mincho',serif;font-size:11.5px;font-weight:${on?"800":"600"};cursor:pointer">${a.label}</button>`;}).join("")+`</div>
+       <div class="ds" style="font-size:11px;color:${DUNGEON_AIMS[cur].color};margin-top:5px">${DUNGEON_AIMS[cur].desc}</div></div>`;
+    }
     // 深層への強行(新ルール):踏破後、疲れた部隊のまま奥の主へ挑む博打。勝てば格上の秘宝、敗れれば疲労と負傷(第一の戦果は保持)
     h+=`<div style="margin-top:10px">
       <button id="dgDelveToggle" style="width:100%;background:${dgDelve?"rgba(180,120,90,.25)":"transparent"};border:1px solid ${dgDelve?"#d08f5a":"var(--gold2)"};color:${dgDelve?"#e0a870":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;font-weight:${dgDelve?"800":"600"};cursor:pointer">${dgDelve?"◆ 深層まで攻める(ON)":"深層まで攻める(OFF)"}</button>
@@ -13884,6 +13905,7 @@ function renderDungeonPanel(){
       $("#panelUnitDetail").classList.add("show");
     });
     $("#dgBody").querySelectorAll(".dg-formation-btn").forEach(el=>el.onclick=()=>{dgFormation=el.dataset.f;renderDungeonPanel();});
+    $("#dgBody").querySelectorAll(".dg-aim-btn").forEach(el=>el.onclick=()=>{dgAim=el.dataset.a;renderDungeonPanel();});
     $("#dgBody").querySelectorAll(".dg-tactic-btn").forEach(el=>el.onclick=()=>{dgTactic=el.dataset.t;renderDungeonPanel();});
     const delveToggle=$("#dgDelveToggle");
     if(delveToggle)delveToggle.onclick=()=>{dgDelve=!dgDelve;renderDungeonPanel();};
@@ -13897,7 +13919,7 @@ function renderDungeonPanel(){
     if(confirmBtn)confirmBtn.onclick=()=>{
       const id=dgSelectingDungeonId;const ids=[...dgSelectedUnitIds];const fm=dgFormation;const dv=dgDelve;const pv=dgProvision;const tc=dgTactic;const dc=dgDecoy;const mc=dgMerc;
       dgSelectingDungeonId=null;dgSelectedUnitIds=[];dgTactic="none";dgDecoy=false;dgMerc=false;
-      dispatchDungeon(id,ids,fm,dv,pv,tc,dc,mc);
+      dispatchDungeon(id,ids,fm,dv,pv,tc,dc,mc,dgAim);
       dgTab="active";renderDungeonPanel();
     };
     $("#dgDispatchCancel").onclick=()=>{dgSelectingDungeonId=null;dgSelectedUnitIds=[];renderDungeonPanel();};
