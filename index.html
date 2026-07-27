@@ -2737,7 +2737,7 @@ function checkAging(){
   const hallGrow=hallLegacyGrow()+(doctrineIs("people")?0.03:0); // 殿堂の英霊の数＋「民の国」の国是に応じた、現役兵の忠誠へのわずかな後押し
   for(const u of [...S.units]){
     u.age+=1/AGE_YEAR_DAYS;
-    u.fatigue=Math.max(0,(u.fatigue||0)-((u.race==="dwarf"?12:8)+(traitInfo(u.trait).fatigueRecover||0))); // ドワーフは頑健で疲れの抜けが早い(種族の個性)。一部の特性(不屈の体躯 等)もさらに回復を早める
+    u.fatigue=Math.max(0,(u.fatigue||0)-((u.race==="dwarf"?12:8)+(traitInfo(u.trait).fatigueRecover||0)+(doctrineIs("vigor")?4:0))); // ドワーフは頑健で疲れの抜けが早い(種族の個性)。特性(不屈の体躯 等)や「健勇の国」の国是もさらに回復を早める(スキル分は後段で加算)
     if(u.injured>0){
       u.injured--;
       if(u.injured<=0){
@@ -5257,6 +5257,7 @@ const NATIONAL_DOCTRINES=[
  {key:"fortress",name:"鉄壁の国",desc:"守りを重んじる国是。兵が傷を負いにくくなり、脱落が永続的に減る。"},
  {key:"bonds",name:"絆の国",desc:"戦友の情を重んじる国是。背中を預け合う絆の連携が、戦場で一層力になる。"},
  {key:"loot",name:"宝物狂の国",desc:"財宝を追い求める国是。以後、ドロップする装備の個体差(アフィックス)が、より優れたものになりやすい。"},
+ {key:"vigor",name:"健勇の国",desc:"不屈の気風を重んじる国是。兵たちの疲れの抜けが永続的に早まり、休みなく戦い続けられる。"},
 ];
 function doctrineIs(k){return !!(S.flags&&S.flags.doctrine===k);}
 function doctrineName(){const d=NATIONAL_DOCTRINES.find(x=>x.key===(S.flags&&S.flags.doctrine));return d?d.name:null;}
