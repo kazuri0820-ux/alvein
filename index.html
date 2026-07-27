@@ -1506,6 +1506,7 @@ const TRAIT_RARE=[
  {key:"trr_29",name:"竜に見初められし者",desc:"体のうちに竜の気をわずかに宿す。竜との盟約が結ばれた地では、その眠れる力が呼び覚まされる",gm:1.15,condFlag:"dragonPact",condPw:6},
  {key:"trr_31",name:"隊の要",desc:"周りをまとめ、皆を励ますことに長けた人柄。自らの忠義も士気もよく保たれ、日ごとに深まってゆく",gm:1.06,loyaltyGrow:0.28,moralGrow:0.22},
  {key:"trr_32",name:"宝運",desc:"なぜか値打ちものを引き当てる、常人離れした強運の持ち主。この者を迷宮に伴うと、掘り出しの実りが目に見えて増える",gm:1.08,lootLuck:0.18},
+ {key:"trr_33",name:"陽気な野戦漢",desc:"どんな長陣でもへこたれぬ豪放な気性。疲れの抜けが早く、陣中でも自ら皆を笑わせ、士気を高く保ち続ける",gm:1.07,fatigueRecover:5,moralGrow:0.22},
 ];
 const TRAIT_EPIC=[
  {key:"swordsaint",name:"剣聖の末裔",desc:"名も知れぬ剣豪の血を引くという",gm:1.4,injuryMult:0.5,deathMult:0.55},
@@ -1525,6 +1526,7 @@ const TRAIT_EPIC=[
  {key:"tre_04",name:"運命の申し子",desc:"何か大きな運命に導かれているという",injuryMult:0.62,deathMult:0.59,gm:1.38},
  {key:"tre_05",name:"不老の血脈",desc:"歳月に置き去りにされぬ稀有な血。老いてなお力衰えず、長く戦場に立ち続ける",gm:1.32,injuryMult:0.6,ageResist:0.6,lifespanMult:1.5},
  {key:"tre_06",name:"財宝の嗅覚",desc:"埋もれた財を嗅ぎ分ける天賦の勘。伴う迷宮踏破では、より高い確率で――しかもより優れた個体差を宿した逸品を掘り当てる",gm:1.28,injuryMult:0.7,lootLuck:0.32},
+ {key:"tre_07",name:"守護の化身",desc:"仲間を守ることに命を懸ける、生まれついての盾。同じ部隊の戦友が死線に立たされたとき、迷わず我が身を投げ出して庇う",gm:1.26,vit:14,injuryMult:0.72,guardianSave:0.45},
 ];
 const TRAIT_LEGEND=[
  {key:"reborn",name:"転生者",desc:"この世界の者とは異なる知識の気配を纏っている",gm:2.0,injuryMult:0.3,deathMult:0.25,ageResist:0.8},
@@ -7176,8 +7178,8 @@ function resolveDungeonRun(dungeonId){
       const victim=squad[Math.floor(Math.random()*squad.length)];
       const selfSurvive=(()=>{const dm=(traitInfo(victim.trait).deathMult||1)*(skillEffects(victim).deathMult||1);return dm<1&&Math.random()>=dm;})();
       let guardian=null;
-      if(!selfSurvive){ // 戦友の盾: 同部隊に庇護者がいれば、我が身を挺して戦友の命を守る=守護型ビルドが死線で報われる
-        for(const g of squad){ if(g&&g.id!==victim.id&&g.injured<=0&&(skillEffects(g).guardianSave||0)>0&&Math.random()<(skillEffects(g).guardianSave||0)){guardian=g;break;} }
+      if(!selfSurvive){ // 戦友の盾/守護の化身: 同部隊に庇護者(スキルまたは特性)がいれば、我が身を挺して戦友の命を守る=守護型ビルドが死線で報われる
+        for(const g of squad){ if(!g||g.id===victim.id||g.injured>0)continue; const gsave=Math.max(skillEffects(g).guardianSave||0,(traitInfo(g.trait).guardianSave)||0); if(gsave>0&&Math.random()<gsave){guardian=g;break;} }
       }
       if((S.flags.phoenixCharm||0)>0){
         S.flags.phoenixCharm--;
