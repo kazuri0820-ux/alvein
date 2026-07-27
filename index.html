@@ -8861,9 +8861,34 @@ const DUNGEON_JOURNAL=[
  "苔むした階段を下りると、ひやりとした地の底の冷気が頬を撫でた。",
  "水滴の落ちる音だけが、静寂の中に規則正しく響いていた。",
 ];
-function dungeonJournal(){
-  const pool=[...DUNGEON_JOURNAL],out=[];
-  for(let i=0;i<2&&pool.length;i++)out.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+/* 型ごとの道中記:迷宮の攻略型に合わせた一節を添え、探索の情景をその迷宮ならではのものにする(演出=固有の冒険譚) */
+const DUNGEON_TYPE_JOURNAL={
+ combat:["武具の触れ合う音が絶えず響き、部隊は幾度も刃を交えて先へ進んだ。","広間には歴戦の傷跡が刻まれ、かつての激闘を物語っていた。"],
+ puzzle:["古の仕掛けが行く手を阻み、知恵を絞ってようやく道を開いた。","壁の紋様に隠された謎を解くと、重い石扉が静かに開いた。"],
+ stealth:["息を殺し、影から影へと部隊は音もなく忍び進んだ。","見張りの目を掻い潜り、誰にも気取られず奥へと滑り込んだ。"],
+ endurance:["果ての見えぬ道のりに、部隊は歯を食いしばって歩みを続けた。","疲労が重くのしかかる中、隊は互いを励まし合って前へ進んだ。"],
+ arcane:["空気が魔力に満ち、松明の炎が青白く揺らめいていた。","古の術式が壁に脈打ち、触れれば指先が痺れるようだった。"],
+ trap:["床に、壁に、罠が仕掛けられ、斥候の勘だけが命綱だった。","かちりと鳴った仕掛けを、間一髪で飛び退いてやり過ごした。"],
+ cursed:["呪わしい気配が肌に絡みつき、誰もが早く抜け出したいと願った。","朽ちた祭壇に、まだ生々しい呪詛の跡が残されていた。"],
+ labyrinth:["入り組んだ通路は幾度も部隊を惑わせ、糸を頼りに引き返した。","同じ景色が何度も現れ、方角の感覚すら奪われていった。"],
+ fortress:["堅牢な城砦の回廊を、部隊は一室ずつ慎重に制圧していった。","分厚い城門を破ると、その奥にはさらなる守りが待っていた。"],
+ abyss:["底知れぬ深淵へと、部隊は一歩ずつ暗がりを下りていった。","足元の闇からは、何かが見上げているような気配が絶えなかった。"],
+ beast:["獣の唸りが四方から響き、部隊は背を合わせて警戒した。","巨大な足跡と食い荒らされた跡が、主の大きさを告げていた。"],
+ sanctum:["荘厳な聖域に、部隊は思わず声を潜めて足を踏み入れた。","古き神々の像が居並ぶ回廊に、清かな静寂が満ちていた。"],
+ tempest:["吹き荒ぶ風と雷鳴の中、部隊は身を寄せ合って進んだ。","嵐の轟きが洞を揺らし、松明の火は今にも消えそうだった。"],
+ inferno:["灼熱の熱気が部隊を焼き、一歩ごとに汗が滴った。","溶岩の川が赤々と流れ、渡る足場を慎重に選んで進んだ。"],
+ tidal:["水位の上がる水路を、部隊は胸まで浸かって進んでいった。","滴る鍾乳洞に、遠く潮の満ちる音が反響していた。"],
+ warcamp:["敵陣の篝火が点々と灯り、部隊は闇に紛れて陣を突いた。","打ち捨てられた武具の山が、かつての戦の激しさを伝えていた。"],
+ chaos:["理の歪んだその地では、上下すら定かでなく、部隊は感覚を頼りに進んだ。","景色が絶えず移ろい、確かなものは互いの背だけだった。"],
+};
+function dungeonJournal(dungeon){
+  const out=[];
+  const gpool=[...DUNGEON_JOURNAL];
+  out.push(gpool.splice(Math.floor(Math.random()*gpool.length),1)[0]);
+  const tk=dungeon&&dungeon.type&&dungeon.type.key;
+  const tpool=tk&&DUNGEON_TYPE_JOURNAL[tk];
+  if(tpool&&tpool.length)out.push(tpool[Math.floor(Math.random()*tpool.length)]); // 型に合った一節を添える
+  else out.push(gpool.splice(Math.floor(Math.random()*gpool.length),1)[0]);
   return out;
 }
 /* 凱旋の一幕:大きな勝利から戻った部隊を迎える、暖かな帰還の情景。勝利に"帰る場所がある"手応えと余韻を添える(演出) */
@@ -8954,7 +8979,7 @@ function showDungeonResult(dungeon,tier,bossWin,memberLog,goldGained,itemGained,
   const tierLabel={critical_success:"大成功",success:"成功",fail:"失敗",critical_fail:"大失敗"}[tier];
   const tierColor={critical_success:"#e8c874",success:"#8fbf6f",fail:"#d99a6a",critical_fail:"#d97a7a"}[tier];
   let h=`<div style="font-size:12px;color:var(--dim);margin-bottom:4px">${dungeon.rarity.label?`【${dungeon.rarity.label}】`:""}${dungeon.name}</div>`;
-  const journal=dungeonJournal();
+  const journal=dungeonJournal(dungeon);
   if(journal.length)h+=`<div class="ds" style="font-style:italic;color:var(--dim);font-size:11.5px;line-height:1.75;margin:0 0 8px">${journal.map(j=>"― "+j).join("<br>")}</div>`;
   h+=`<div style="font-size:20px;font-weight:800;color:${tierColor};margin-bottom:6px;font-family:'Shippori Mincho',serif">${tierLabel}</div>`;
   if((tier==="critical_success"||tier==="success"))h+=`<div style="font-size:13px;color:${bossWin?"var(--gold)":"var(--dim)"};margin-bottom:6px">ボス「${dungeon.bossName}」:${bossWin?"撃破":"取り逃がした"}</div>`;
