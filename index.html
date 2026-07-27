@@ -10098,8 +10098,21 @@ function renderProjects(){
   }
   // ── 国是 ──
   if(doctrineName())h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)">国是:${doctrineName()}</div><div class="ds">${(NATIONAL_DOCTRINES.find(d=>d.key===S.flags.doctrine)||{}).desc||""}</div></div>`;
-  // ── 慰霊の社(英霊の見守り) ──
-  if(S.flags&&S.flags.heroShrine)h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-laurel"></i>慰霊の社</div><div class="ds">丘の上の社に、殿堂の英霊が祀られている。その見守りのもと、兵たちの士気と忠義は日々静かに支えられている。</div></div>`;
+  // ── 王国の恒久の力(積み上げた永続の恩恵を一望) ──
+  {const F=S.flags||{};const boons=[];
+   const heir={banner:"不滅の王旗 ― 迷宮での戦死率が下がる",horn:"豊穣の角杯 ― 日々の国庫と食糧が潤う",archive:"賢王の書架 ― 迷宮踏破で得る経験が増える"};
+   if(heir[F.heirloom])boons.push(["王家の家宝",heir[F.heirloom]]);
+   const alc={midas:"黄金の変成 ― 売却・交易の実入りが増す",catalyst:"祝祭の触媒 ― 祝祭の恵みが長持ちする",elixir:"賢者の霊薬 ― 負傷兵が時折ひとりでに癒える"};
+   if(alc[F.alchemy])boons.push(["錬金術の秘術",alc[F.alchemy]]);
+   if(F.heroShrine)boons.push(["慰霊の社","英霊の見守りが、全兵の士気と忠義を日々支える"]);
+   if(F.forbiddenLore)boons.push(["禁書の力","魔導を高める禁断の知。時に恵みを、時に禍いをもたらす(諸刃)"]);
+   if(F.relics){const rn={valor:"英雄の紋章 ― 部隊戦力+4%",ward:"不滅の護符 ― 迷宮での戦死率↓",compass:"探索者の羅針盤 ― 迷宮の発見機会↑"};for(const k in F.relics)if(F.relics[k]&&rn[k])boons.push(["遺物",rn[k]]);}
+   if(F.explorerRank>=1){const el=["","名うての探検家(発見機会↑)","熟練の探検家(発見・踏破経験↑)","大陸の踏破者(発見・踏破経験↑・断片↑)"];boons.push(["探検家の格",el[Math.min(3,F.explorerRank)]]);}
+   if(boons.length){
+     h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 6px;letter-spacing:.15em">── 王国の恒久の力 ──</div>`;
+     h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px">`+boons.map(bo=>`<div class="ds" style="margin:1px 0"><span style="color:var(--gold);font-weight:700">◆ ${bo[0]}</span> <span style="color:var(--dim)">― ${bo[1]}</span></div>`).join("")+`</div>`;
+   }
+  }
   // ── 王の勅令 ──
   h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 6px;letter-spacing:.15em">── 王の勅令 ──</div>`;
   const dcl=decreeCooldownLeft();
