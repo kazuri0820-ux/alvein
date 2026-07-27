@@ -4898,8 +4898,32 @@ function councilFrontier(){
    speaker:"ガレオン「地平の向こうには、まだ我らの知らぬものが眠っておりましょう」",
    choices:opts};
 }
+/* 学術会議:兵学と魔導の学びをめぐる方針を問う。招聘・兵法講義・蔵書のいずれに力を割くかで、魔導・
+   経済が伸び、時に兵が新たな技を会得する。国政の決断を"兵の学び(技の習得)"へ結びつけ、週次の方針に
+   知を育てる色を添える(国政の彩り)。 */
+function councilAcademy(){
+  const opts=[
+   {label:"大魔導の学者を招聘する(60G)",hint:"魔導↑↑(出費)",fx:{gold:-60,st:{magic:5},log:"高名な魔導学者が招かれ、王国の魔導研究が大きく前進した。"}},
+   {label:"兵法講義を開く(40G)",hint:"兵が新たな技を会得することがある(出費)",fx:{call:()=>{
+     if(S.gold<40){chron("講義を催すだけの蓄えがなく、兵法講義は見送られた。","");return;}
+     S.gold-=40;
+     const cands=S.units.filter(u=>(u.role==="active"||!u.role)&&u.skills&&u.skills.length<skillCap(u));
+     if(!cands.length){apply({st:{military:1}});chron("兵法講義が開かれた。皆すでに手練れで、新たに学ぶ者はいなかったが、士気は引き締まった(軍事+1)。","");return;}
+     const u=cands[Math.floor(Math.random()*cands.length)];
+     const learned=trySkillUp(u);
+     if(learned)chron(`兵法講義で、${u.nm}が新たな技「${learned.name}」を会得した。`,"big");
+     else{apply({st:{military:1}});chron("兵法講義が開かれ、兵たちは知見を深めた(軍事+1)。","");}
+   }}},
+   {label:"蔵書を充実させる(30G)",hint:"魔導+2 経済+1",fx:{gold:-30,st:{magic:2,economy:1},log:"王立書庫の蔵書が充実し、学者や商人が知を求めて集うようになった。"}},
+   {label:"今週は特に催さず様子を見る",hint:"様子見",fx:{log:"学術については、今週は特段の手を打たなかった。"}},
+  ];
+  return{tag:"学術会議",title:"第"+Math.floor(S.day/7)+"回 定例閣議(学術)",
+   body:"今週の議題は学術。兵学と魔導の学びをめぐる方針を協議する。知を蓄えるか、兵に授けるか。",
+   speaker:"老師ユグ「学びは、剣と同じほど国を強くいたします」",
+   choices:opts};
+}
 function councilAction(){
-  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill,councilFrontier];
+  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill,councilFrontier,councilAcademy];
   return types[Math.floor(Math.random()*types.length)]();
 }
 function councilEvent(){return councilPolicy();}
