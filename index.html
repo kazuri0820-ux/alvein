@@ -9425,7 +9425,8 @@ function resolveDungeonRun(dungeonId){
   const weakBonus=weaknessMatched(dungeon,squad)?WEAKNESS_BONUS:0; // 斥候の勘所に噛み合う編成で挑めば、急所を突いて判定が有利になる
   const tacticBonus=dungeon.tactic==="fireplan"?TACTIC_FIRE_BONUS:0; // 秘策「火計」:この一戦の踏破判定が有利になる
   const decoyBonus=dungeon.decoy?DECOY_ROLL_BONUS:0; // 陽動:別動隊が敵を攪乱し、本隊の攻略が有利になる
-  const centerRoll=squadPower/dungeon.requiredPower*100+fortune+scoutRoll+weakBonus+tacticBonus+decoyBonus; // 揺らぎ抜きの実力中央値(逆転勝ちの判定に使う)
+  const strategistBonus=(typeof strategistRollBonus==="function")?strategistRollBonus():0; // 軍師:据えられている間、全軍の攻略判定が有利
+  const centerRoll=squadPower/dungeon.requiredPower*100+fortune+scoutRoll+weakBonus+tacticBonus+decoyBonus+strategistBonus; // 揺らぎ抜きの実力中央値(逆転勝ちの判定に使う)
   if(weakBonus>0){const w=weaknessInfo(dungeon);if(w)chron(`斥候の見立て通り、${dungeon.name}のボスの急所(${w.tag})を突く布陣が功を奏した。`,"");}
   const roll=centerRoll+rnd(-20,20);
   const tier=roll>=165?"critical_success":roll>=105?"success":roll>=60?"fail":"critical_fail";
@@ -10763,7 +10764,14 @@ const MINISTER_OFFICES=[
   {key:"steward",name:"財務卿",boost:"economy",icon:"icon-market",statFn:u=>((u.lead||0)*0.6+(u.wis||0)*0.4),desc:"統率と知力に長けた者が向く。日々、国の経済が育つ。"},
   {key:"marshal",name:"軍務卿",boost:"military",icon:"icon-project",statFn:u=>((u.lead||0)*0.6+(u.str||0)*0.4),desc:"統率と武勇に富む者が向く。日々、国の軍事が育つ。"},
   {key:"sage",   name:"賢者",  boost:"magic",   icon:"icon-project",statFn:u=>((u.int||0)*0.6+(u.wis||0)*0.4),desc:"魔力と知力に秀でた者が向く。日々、国の魔導が育つ。"},
+  {key:"strategist",name:"軍師",dungeon:true,icon:"icon-project",statFn:u=>((u.int||0)*0.5+(u.lead||0)*0.3+(u.wis||0)*0.2),desc:"知略と采配に富む者が向く。その者を軍師に据える間、全軍の迷宮攻略が陰から支えられ、踏破判定が有利になる。"},
 ];
+function strategistRollBonus(){ // 軍師の采配:据えられている間、全ての迷宮攻略判定に下駄をのせる(器量に応じ最大+10)
+  const u=(typeof ministerOf==="function")?ministerOf("strategist"):null;
+  if(!u||u.role!=="active"||(u.injured||0)>0)return 0; // 負傷・不在の軍師は采配できない
+  const off=MINISTER_OFFICES.find(o=>o.key==="strategist");
+  return Math.min(10,Math.round(off.statFn(u)/9));
+}
 function ensureMinisters(){S.ministers=S.ministers||{};}
 function ministerOf(key){ensureMinisters();const id=S.ministers[key];return id?findAnyUnit(id):null;}
 function ministerOffice(key){return MINISTER_OFFICES.find(o=>o.key===key);}
@@ -10774,6 +10782,7 @@ function ministerDaily(){
     const id=S.ministers[off.key]; if(!id)continue;
     const u=findAnyUnit(id);
     if(!u||u.role==="retired"){S.ministers[off.key]=null;continue;} // 欠けた要職は空席に戻す
+    if(!off.boost)continue; // 軍師など、国力を育てるのではなく別の効果を持つ席は日々の伸びをスキップ
     const cur=S.st[off.boost]||0;
     S.st[off.boost]=Math.min(100,cur+ministerContribution(off,u)*statDiminish(cur));
   }
@@ -10785,7 +10794,7 @@ function appointMinister(officeKey,unitId){
   for(const o of MINISTER_OFFICES)if(o.key!==officeKey&&S.ministers[o.key]===unitId)S.ministers[o.key]=null;
   S.ministers[officeKey]=unitId;
   const u=findAnyUnit(unitId);
-  if(u){u.loyalty=Math.min(100,(u.loyalty||0)+4);unitHistory(u,`${off.name}に任じられ、国政の一翼を担うことになった。`);chron(`${fullName(u)}が${off.name}に任じられた。その器量が、これより国の${STATDEF.find(s=>s[0]===off.boost)?STATDEF.find(s=>s[0]===off.boost)[1]:off.boost}を日々育てていく。`,"big");}
+  if(u){u.loyalty=Math.min(100,(u.loyalty||0)+4);unitHistory(u,`${off.name}に任じられ、国政の一翼を担うことになった。`);chron(off.boost?`${fullName(u)}が${off.name}に任じられた。その器量が、これより国の${STATDEF.find(s=>s[0]===off.boost)?STATDEF.find(s=>s[0]===off.boost)[1]:off.boost}を日々育てていく。`:`${fullName(u)}が${off.name}に任じられた。その知略が、これより全軍の迷宮攻略を陰から支えていく(踏破判定+${strategistRollBonus()})。`,"big");}
   clamp();render();renderProjects();save();
 }
 function dismissMinister(officeKey){ensureMinisters();S.ministers[officeKey]=null;renderProjects();save();}
@@ -10800,7 +10809,7 @@ function renderMinisterAssignSelect(){
   for(const u of sorted){
     h+=`<button class="minister-target-pick" data-id="${u.id}" style="display:block;width:100%;text-align:left;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--parch);border-radius:6px;padding:10px;margin-bottom:6px;font-family:'Zen Old Mincho',serif;cursor:pointer">
       ${fullName(u)} <span style="font-size:11px;color:var(--dim)">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span><br>
-      <span style="font-size:11px;color:var(--dim)">執政の器量:${Math.round(off.statFn(u))}(1日あたり ${STATDEF.find(s=>s[0]===off.boost)?STATDEF.find(s=>s[0]===off.boost)[1]:off.boost} +${(ministerContribution(off,u)).toFixed(2)}前後)</span>
+      <span style="font-size:11px;color:var(--dim)">執政の器量:${Math.round(off.statFn(u))}${off.boost?`(1日あたり ${STATDEF.find(s=>s[0]===off.boost)?STATDEF.find(s=>s[0]===off.boost)[1]:off.boost} +${(ministerContribution(off,u)).toFixed(2)}前後)`:`(この者を軍師に据えると 迷宮の踏破判定+${Math.min(10,Math.round(off.statFn(u)/9))})`}</span>
     </button>`;
   }
   $("#itemTargetBody").innerHTML=h;
@@ -11457,9 +11466,9 @@ function renderProjects(){
   {const boostLabel={economy:"経済",military:"軍事",magic:"魔導"};
    for(const off of MINISTER_OFFICES){
      const m=ministerOf(off.key);
-     h+=`<div class="pcard"><div class="nm"><i class="${off.icon}"></i>${off.name}${m?`<span style="font-size:10px;color:var(--gold);margin-left:6px">${boostLabel[off.boost]||off.boost}を育成中</span>`:""}</div>
+     h+=`<div class="pcard"><div class="nm"><i class="${off.icon}"></i>${off.name}${m?`<span style="font-size:10px;color:var(--gold);margin-left:6px">${off.boost?`${boostLabel[off.boost]||off.boost}を育成中`:`全軍の攻略を采配中(踏破判定+${strategistRollBonus()})`}</span>`:""}</div>
        <div class="ds" style="margin:2px 0 6px">${off.desc}</div>
-       <div class="ds">${m?`就任中:${fullName(m)}(器量${Math.round(off.statFn(m))} ／ 1日あたり ${boostLabel[off.boost]||off.boost}+${ministerContribution(off,m).toFixed(2)}前後)`:"空席"}</div>
+       <div class="ds">${m?`就任中:${fullName(m)}(器量${Math.round(off.statFn(m))}${off.boost?` ／ 1日あたり ${boostLabel[off.boost]||off.boost}+${ministerContribution(off,m).toFixed(2)}前後`:` ／ 迷宮の踏破判定+${strategistRollBonus()}`})`:"空席"}</div>
        <div style="display:flex;gap:6px;margin-top:6px">
          <button class="minister-assign-btn" data-k="${off.key}" style="flex:1;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${m?"任を解く/替える":"任じる"}</button>
          ${m?`<button class="minister-dismiss-btn" data-k="${off.key}" style="flex:0 0 auto;background:transparent;border:1px solid rgba(217,122,122,.5);color:#d97a7a;border-radius:6px;padding:7px 12px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">解任</button>`:""}
