@@ -1509,6 +1509,7 @@ const TRAIT_RARE=[
  {key:"trr_33",name:"陽気な野戦漢",desc:"どんな長陣でもへこたれぬ豪放な気性。疲れの抜けが早く、陣中でも自ら皆を笑わせ、士気を高く保ち続ける",gm:1.07,fatigueRecover:5,moralGrow:0.22},
  {key:"trr_34",name:"生まれながらの師",desc:"人に教え、才を引き出すことに天賦の才を持つ。指南役に据えれば、兵たちの伸びが一段と早まる",gm:1.08,instructorMult:1.35,wis:6},
  {key:"trr_35",name:"生来の商才",desc:"金勘定に抜け目がなく、どんな戦場でも金目のものを見逃さない。伴う迷宮踏破で持ち帰る財貨が増える",gm:1.07,goldFind:0.18},
+ {key:"trr_36",name:"世話焼きの気質",desc:"何くれとなく皆の面倒をみる、気立てのよい性分。伴う遠征では、部隊の疲労の溜まりが軽くなる",gm:1.06,campSupport:0.25,loyaltyGrow:0.15},
 ];
 const TRAIT_EPIC=[
  {key:"swordsaint",name:"剣聖の末裔",desc:"名も知れぬ剣豪の血を引くという",gm:1.4,injuryMult:0.5,deathMult:0.55},
@@ -7727,7 +7728,7 @@ function resolveExpedition(riskKey,rewardMult){
   const scaleFactor=0.55+(lv/4.2)*(1+lv/250); // 兵の戦力は装備・スキル・称号で複合的に伸びるため、後半になるほど閾値も緩やかに加速して伸ばし「後半は全く失敗しない」状態を防ぐ
   const roll=rawPower*1.0+rnd(variance[0],variance[1]);
   const tier=roll>=20*2.5*scaleFactor?"great":roll>=20*1.4*scaleFactor?"success":roll>=20*scaleFactor?"fail":"critical";
-  const camp=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).campSupport||0)):0; // 「兵站の才」持ちがいると遠征の疲労蓄積が軽くなる=連戦運用を支える支援ビルド
+  const camp=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).campSupport)||0,skillEffects(u).campSupport||0))):0; // 「兵站の才」(スキル)「世話焼きの気質」(特性)持ちがいると遠征の疲労蓄積が軽くなる=連戦運用を支える支援ビルド
   for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+Math.round(ri(28,42)*(1-camp)));
   if(Math.random()<0.35){const rs=EXPEDITION_ROADSIDE[Math.floor(Math.random()*EXPEDITION_ROADSIDE.length)];rs.fx(squad);chron(rs.t,"");} // 道中の小さな出来事
   // 稀に、長い道中で特別な出来事が起きる:戦友の絆が芽生えるか、掘り出し物を拾う(遠征の旅路に彩りと愛着)
@@ -8397,6 +8398,7 @@ function traitEffectText(tr){
   if(tr.guardianSave)parts.push(`戦友の致命傷を${Math.round(tr.guardianSave*100)}%で肩代わり`);
   if(tr.lootLuck)parts.push(`迷宮のドロップ率+${Math.round(tr.lootLuck*100)}%`);
   if(tr.goldFind)parts.push(`迷宮の獲得財貨+${Math.round(tr.goldFind*100)}%`);
+  if(tr.campSupport)parts.push(`遠征時の部隊の疲労蓄積-${Math.round(tr.campSupport*100)}%`);
   if(tr.condFlag==="dragonPact")parts.push(`竜盟約締結中は戦力+${tr.condPw||0}`);
   return parts.join(" / ");
 }
