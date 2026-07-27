@@ -6102,6 +6102,7 @@ function dailyEconomySettle(){
   checkRealmVignette(); // 民の暮らしの何気ない一場面(平穏な国の息づかい)
   checkRemembranceVignette(); // 殿堂に名を刻んだ、かつての英傑を偲ぶ一幕
   checkSeasonalVignette(); // 巡る季節に寄せた兵の一場面
+  if(S.shop&&S.shop.stock&&S.day>=(S.shop.refreshDay||0))ensureShopStock(); // 行商人の品替えを日々見計らい、入荷を年代記に告げる(店を一度でも覗いた後のみ)
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
     const loyaltyDrift=S.mood>=70?(S.mood-70)*0.006:-(30-S.mood)*0.01;
@@ -10115,7 +10116,13 @@ function refreshShopStock(){
   }
   S.shop={stock,refreshDay:S.day+SHOP_REFRESH_DAYS};
 }
-function ensureShopStock(){ if(!S.shop||!S.shop.stock||S.day>=(S.shop.refreshDay||0))refreshShopStock(); }
+function ensureShopStock(){
+  const expired=S.shop&&S.shop.stock&&S.day>=(S.shop.refreshDay||0); // 品替えの時期を過ぎている(自然な入れ替え)
+  if(!S.shop||!S.shop.stock||S.day>=(S.shop.refreshDay||0)){
+    refreshShopStock();
+    if(expired)chron("行商人が新たな品を携えて城下を訪れた。アイテム画面の店で商いができる。",""); // 品替えを年代記に告げ、店を覗く動機を作る(磨き込み)
+  }
+}
 function buyShopItem(idx){
   ensureShopStock();
   const entry=S.shop.stock[idx];
