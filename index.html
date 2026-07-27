@@ -3540,6 +3540,35 @@ const RANDOM_RARE=[
    }}},
    {label:"職務の合間に静かに見守る",hint:"治安+1",fx:{st:{order:1},log:"長は私事に深く立ち入らず、静かに二人の門出を見守った。折り目正しい対応に、家中の風紀も引き締まった。"}},
   ]},
+ {tag:"顕 彰",title:"老将の誉れ",
+  body:"隊の最古参が、また一つ年輪を重ねた。長きにわたり王国を支えてきたその背に、若い兵たちは深い敬意を寄せている。王として、この老練の功にどう報いようか。",
+  speaker:"ガレオン「功ある者を敬う姿を、若い兵はよく見ております。これもまた、国の礎かと」",
+  choices:[
+   {label:"顕彰の式を執り行う(50G)",hint:"本人の忠誠・士気↑↑ 全兵の士気・民心↑(出費)",fx:{call:()=>{
+     if(S.gold<50){chron("蓄えが乏しく、顕彰の式は惜しくも見送られた。","");return;}
+     S.gold-=50;
+     const cands=S.units.filter(u=>u.role==="active");
+     const u=cands.length?cands.reduce((a,b)=>(a&&a.age>=b.age)?a:b,null):null;
+     if(u){u.loyalty=Math.min(100,(u.loyalty||0)+12);u.moral=Math.min(100,(u.moral||0)+10);unitHistory(u,"長年の功を讃えられ、王国を挙げて顕彰された。");}
+     for(const o of S.units)o.moral=Math.min(100,(o.moral||0)+2);
+     apply({mood:4,log:u?`${u.nm}の長年の功が、王国を挙げて讃えられた。若い兵たちは憧れの眼差しを向け、誰もが「己もいつかは」と胸を熱くしている。`:"長年の功ある者たちが讃えられ、城下は温かな熱気に包まれた。",logCls:"big"});
+   }}},
+   {label:"若手への指南を託す",hint:"若い兵たちが経験を積む 本人の士気↑",fx:{call:()=>{
+     const cands=S.units.filter(u=>u.role==="active");
+     const u=cands.length?cands.reduce((a,b)=>(a&&a.age>=b.age)?a:b,null):null;
+     const young=S.units.filter(o=>o.role==="active"&&(o.lv||1)<10);
+     const learners=young.length?young:S.units.filter(o=>o.role==="active");
+     for(const o of learners){o.exp+=ri(6,12);processLevelUps(o);}
+     if(u){u.moral=Math.min(100,(u.moral||0)+6);unitHistory(u,"若手への指南を託され、その経験を惜しみなく伝えた。");}
+     chron(u?`${u.nm}が若い兵たちに、長年の戦場で培った勘所を余さず伝えた。稽古場に、確かな熱が満ちている。`:"古参の兵たちが若手に経験を伝え、稽古場に熱が満ちた。","big");
+   }}},
+   {label:"変わらぬ務めを、静かに労う",hint:"本人の忠誠↑ 治安+1",fx:{call:()=>{
+     const cands=S.units.filter(u=>u.role==="active");
+     const u=cands.length?cands.reduce((a,b)=>(a&&a.age>=b.age)?a:b,null):null;
+     if(u){u.loyalty=Math.min(100,(u.loyalty||0)+6);unitHistory(u,"変わらぬ務めを、長に静かに労われた。");}
+     apply({st:{order:1},log:u?`長は${u.nm}の変わらぬ務めぶりを、ねぎらいの言葉とともに静かに認めた。派手さはないが、その一言が古参の胸に深く沁みた。`:"長は古参の変わらぬ務めを静かに労った。"});
+   }}},
+  ]},
  {tag:"外 交",title:"同盟の使節",
   body:"隣国から使節が訪れた。「両国の益のため、正式な同盟を結びませんか」。誼を結べば心強い後ろ盾となるが、相応の貢ぎ物も求められよう。",
   speaker:"セラ「後ろ盾は心強うございます。が、対価は見極めねばなりませぬ」",
