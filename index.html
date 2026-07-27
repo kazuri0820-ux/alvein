@@ -3440,6 +3440,24 @@ const EARLY_GROWTH=[
 ];
 /* ---------- レアイベント:通常より低頻度・高インパクト ---------- */
 const RANDOM_RARE=[
+ {tag:"来 訪",title:"遍歴の吟遊詩人",
+  body:"諸国を巡る吟遊詩人が城を訪れた。「この国の英雄譚を、一曲お聞かせ願えませんか。良き物語は、風に乗って遠くまで運ばれましょう」。",
+  speaker:"セラ「良い詩は、千の兵にも勝る宣伝になりましょう」",
+  choices:[
+   {label:"武勇伝を語らせる(30G)",hint:"民心↑ / 名のある兵の誉れに",fx:{call:()=>{
+     if(S.gold<30){chron("詩人をもてなすだけの蓄えがなく、丁重に見送った。","");return;}
+     S.gold-=30;
+     const active=S.units.filter(u=>u.role==="active");
+     const famed=active.filter(u=>((u.titles||[]).length>0||(u.dungeonClearCount||0)>0));
+     const pool=famed.length?famed:active;
+     const hero=pool.length?pool.slice().sort((a,b)=>unitPower(b)-unitPower(a))[0]:null;
+     apply({mood:5});
+     if(hero){hero.moral=Math.min(100,(hero.moral||0)+8);hero.loyalty=Math.min(100,(hero.loyalty||0)+5);unitHistory(hero,"吟遊詩人にその武勇を歌に詠まれ、名が諸国に広まった。");chron(`吟遊詩人が${hero.nm}の武勇を朗々と歌い上げた。その名は風に乗り、遠くの国々へと運ばれてゆく。`,"big");}
+     else chron("吟遊詩人が王国の歩みを一曲に詠み、城下は温かな拍手に包まれた。","big");
+   }}},
+   {label:"旅の唄を兵たちに聞かせてもらう",hint:"全兵の士気↑",fx:{call:()=>{for(const u of S.units)u.moral=Math.min(100,(u.moral||0)+3);apply({mood:2});chron("詩人の唄が兵舎に響き、兵たちは束の間、戦を忘れて聞き入った。皆の顔に穏やかな活気が戻っている。","");}}},
+   {label:"丁重に見送る",hint:"様子見",fx:{log:"王国は詩人を丁重にもてなし、静かに見送った。"}},
+  ]},
  {tag:"来 訪",title:"諸国武術大会",
   body:"隣国の城下で、大陸中の武芸者が腕を競う武術大会が催されるという。名だたる強豪が集う晴れ舞台だが、勝ち上がれば賞金と、なにより「決闘の覇者」の誉れが手に入る。国を代表する一人を、名乗りを上げさせるか。",
   speaker:"ガレオン「腕自慢が国中から集まるとか。生半可な者では、恥をかかせるだけになりましょう」",
