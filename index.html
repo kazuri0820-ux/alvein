@@ -10805,7 +10805,7 @@ function changeJobCore(u,newCls,note){
     unitHistory(u,note||`${oldLabel}から${JOB_TREES[newCls].label}へ転職した。`);
   }
 }
-let jobChangeUIOpen=false, jobChangeConfirmCls=null, dismissConfirmId=null, bondPickForId=null;
+let jobChangeUIOpen=false, jobChangeConfirmCls=null, dismissConfirmId=null, bondPickForId=null, mentorPickForId=null;
 /* ===== 縁結び(育成の新軸):組織的に戦友の絆を結ぶ。自然発生に任せず、財を投じて二人の兵を結び、
    部隊連携や宿縁の霊地に活きる絆を能動的に育てる。関係性システムを"作れる"レバーに変える新機軸 ===== */
 const BOND_ARRANGE_COST=70;
@@ -10833,6 +10833,30 @@ function arrangeBond(aId,bId){
   unitHistory(a,`${b.nm}と、王の計らいで戦友の契りを交わした。`);unitHistory(b,`${a.nm}と、王の計らいで戦友の契りを交わした。`);
   chron(`${fullName(a)}と${fullName(b)}が、結束の宴で酒を酌み交わし、戦友の契りを結んだ。同じ部隊で背中を預け合えば、連携が冴えるだろう。`,"big");
   bondPickForId=null;
+  clamp();render();renderTroops();save();
+}
+/* ===== 師弟の任命(育成の新軸):師弟の縁も、自然発生の低確率任せにせず、王が能動的に結べるようにする。熟練の兵を
+   見込みある若手の師に据えれば、弟子は日々薫陶で成長し、独り立ちの折に師の技を継ぐこともある。縁結び(戦友)と
+   対をなす、"狙った若手を狙った師で育てる"育成レバー(既存の師弟システムへ player agency を加える組み替え)。 ===== */
+const MENTOR_ARRANGE_COST=90;
+function mentorEligibleMaster(u){return !!u&&u.role==="active"&&!u.pupilId&&!u.masterId&&(u.lv||1)>=15;}
+function mentorEligiblePupil(u){return !!u&&u.role==="active"&&!u.masterId&&!u.pupilId&&(u.lv||1)<=8;}
+function mentorArrangeCandidates(u){ // uが師候補なら弟子候補群、u が弟子候補なら師候補群を返す
+  if(mentorEligibleMaster(u))return S.units.filter(o=>o.id!==u.id&&mentorEligiblePupil(o));
+  if(mentorEligiblePupil(u))return S.units.filter(o=>o.id!==u.id&&mentorEligibleMaster(o));
+  return [];
+}
+function arrangeMentorship(masterId,pupilId){
+  const m=S.units.find(x=>x.id===masterId), pu=S.units.find(x=>x.id===pupilId);
+  if(!m||!pu||m.id===pu.id)return;
+  if(!mentorEligibleMaster(m)||!mentorEligiblePupil(pu))return;
+  if(S.gold<MENTOR_ARRANGE_COST){chron("薫陶の労に報いる蓄えが足りない。","");return;}
+  S.gold-=MENTOR_ARRANGE_COST;
+  m.pupilId=pu.id; pu.masterId=m.id;
+  m.moral=Math.min(100,(m.moral||0)+3); pu.moral=Math.min(100,(pu.moral||0)+4); pu.loyalty=Math.min(100,(pu.loyalty||0)+2);
+  unitHistory(m,`王の計らいで、見込みある若手${pu.nm}を弟子に取った。`);unitHistory(pu,`王の計らいで、${m.nm}を師と仰ぐことになった。`);
+  chron(`${fullName(m)}が、王の計らいで若武者${fullName(pu)}を弟子に取った。師の背を追い、${pu.nm}はめきめきと腕を上げていくだろう。独り立ちの日には、師の技を継ぐやもしれぬ。`,"big");
+  mentorPickForId=null;
   clamp();render();renderTroops();save();
 }
 function performChurchJobChange(uid,newCls){
@@ -12492,7 +12516,7 @@ function bindTroopListDelegation(){
   $("#troopList").addEventListener("click",e=>{
     const card=e.target.closest(".ucard[data-uid]");
     if(!card)return;
-    openUnitDetailId=card.dataset.uid;jobChangeUIOpen=false;jobChangeConfirmCls=null;bondPickForId=null;renderUnitDetail(card.dataset.uid);$("#panelUnitDetail").classList.add("show");
+    openUnitDetailId=card.dataset.uid;jobChangeUIOpen=false;jobChangeConfirmCls=null;bondPickForId=null;mentorPickForId=null;renderUnitDetail(card.dataset.uid);$("#panelUnitDetail").classList.add("show");
   });
 }
 const AGE_FLAVOR={
@@ -12578,6 +12602,26 @@ function renderUnitDetail(uid){
     }else{
       h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>戦友の縁</h4><div class="ds" style="margin-bottom:6px">この兵はまだ生涯の戦友を持たない。結束の宴を催し、縁を結んでやれる(費用${BOND_ARRANGE_COST}G)。戦友は同陣で連携を高め、宿縁の霊地で共に大きく成長する。</div>
         <button id="bondArrangeBtn" ${bondArrangeCandidates(u).length&&S.gold>=BOND_ARRANGE_COST?"":"disabled"} style="width:100%;background:${bondArrangeCandidates(u).length&&S.gold>=BOND_ARRANGE_COST?"rgba(201,162,75,.14)":"transparent"};border:1px solid ${bondArrangeCandidates(u).length&&S.gold>=BOND_ARRANGE_COST?"var(--gold)":"rgba(255,255,255,.12)"};color:${bondArrangeCandidates(u).length&&S.gold>=BOND_ARRANGE_COST?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${bondArrangeCandidates(u).length?(S.gold>=BOND_ARRANGE_COST?`結束の宴を催し、戦友の縁を結ぶ(${BOND_ARRANGE_COST}G)`:`蓄えが足りない(${BOND_ARRANGE_COST}G必要)`):"縁を結べる相手がいない"}</button></div>`;
+    }
+  }
+
+  // ── 師弟の任命(師弟の縁を能動的に結ぶ) ──
+  if(!isInstructor&&(mentorEligibleMaster(u)||mentorEligiblePupil(u))){
+    const asMaster=mentorEligibleMaster(u);
+    const cands=mentorArrangeCandidates(u);
+    if(mentorPickForId===u.id){
+      h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>師弟の縁 ― ${asMaster?"弟子を選ぶ":"師を選ぶ"}</h4>`;
+      if(!cands.length)h+=`<div class="ds" style="color:var(--dim)">今は縁を結べる相手がいない。</div>`;
+      else{
+        h+=`<div class="ds" style="margin-bottom:6px">${asMaster?`${fullName(u)}の弟子とする見込みある若手を選ぶ`:`${fullName(u)}が師と仰ぐ熟練の兵を選ぶ`}(費用${MENTOR_ARRANGE_COST}G)。弟子は日々師の薫陶で成長し、独り立ちの折に師の技を継ぐこともある。</div>`;
+        for(const o of cands.slice(0,12)){
+          h+=`<button class="mentor-pick-btn" data-b="${o.id}" ${S.gold>=MENTOR_ARRANGE_COST?"":"disabled"} style="display:block;width:100%;text-align:left;background:transparent;border:1px solid ${S.gold>=MENTOR_ARRANGE_COST?"var(--gold2)":"rgba(255,255,255,.12)"};color:${S.gold>=MENTOR_ARRANGE_COST?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px 10px;margin-bottom:5px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${o.nm} ${o.surname||""} <span style="color:var(--dim);font-size:10.5px">${JOB_TREES[o.cls]?JOB_TREES[o.cls].label:""}・Lv.${o.lv}${o.cls===u.cls?" ・同職":""}</span></button>`;
+        }
+      }
+      h+=`<button class="mentor-cancel-btn" style="width:100%;background:transparent;border:1px solid var(--dim);color:var(--dim);border-radius:6px;padding:7px;margin-top:2px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">やめる</button></div>`;
+    }else{
+      h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>師弟の縁</h4><div class="ds" style="margin-bottom:6px">${asMaster?"この熟練の兵に、見込みある若手を弟子として付けられる":"この若手に、熟練の師を付けて薫陶を受けさせられる"}(費用${MENTOR_ARRANGE_COST}G)。弟子は日々成長し、独り立ちの折に師の技を継ぐことも。</div>
+        <button id="mentorArrangeBtn" ${cands.length&&S.gold>=MENTOR_ARRANGE_COST?"":"disabled"} style="width:100%;background:${cands.length&&S.gold>=MENTOR_ARRANGE_COST?"rgba(201,162,75,.14)":"transparent"};border:1px solid ${cands.length&&S.gold>=MENTOR_ARRANGE_COST?"var(--gold)":"rgba(255,255,255,.12)"};color:${cands.length&&S.gold>=MENTOR_ARRANGE_COST?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${cands.length?(S.gold>=MENTOR_ARRANGE_COST?`${asMaster?"弟子を取らせる":"師を付ける"}(${MENTOR_ARRANGE_COST}G)`:`蓄えが足りない(${MENTOR_ARRANGE_COST}G必要)`):(asMaster?"弟子にできる若手がいない":"師にできる熟練兵がいない")}</button></div>`;
     }
   }
 
@@ -12857,6 +12901,9 @@ function renderUnitDetail(uid){
   $("#unitDetailBody").querySelectorAll(".bond-pick-btn").forEach(b=>b.onclick=()=>{arrangeBond(uid,b.dataset.b);renderUnitDetail(uid);refreshOpenPanels();});
   const bondCancel=$("#unitDetailBody") .querySelector(".bond-cancel-btn");
   if(bondCancel)bondCancel.onclick=()=>{bondPickForId=null;renderUnitDetail(uid);};
+  {const mentorBtn=$("#mentorArrangeBtn");if(mentorBtn)mentorBtn.onclick=()=>{mentorPickForId=uid;renderUnitDetail(uid);};}
+  $("#unitDetailBody").querySelectorAll(".mentor-pick-btn").forEach(b=>b.onclick=()=>{const su=findAnyUnit(uid);if(!su)return;if(mentorEligibleMaster(su))arrangeMentorship(uid,b.dataset.b);else arrangeMentorship(b.dataset.b,uid);renderUnitDetail(uid);refreshOpenPanels();});
+  {const mentorCancel=$("#unitDetailBody").querySelector(".mentor-cancel-btn");if(mentorCancel)mentorCancel.onclick=()=>{mentorPickForId=null;renderUnitDetail(uid);};}
   const jcBtn=$("#btnJobChange");
   if(jcBtn)jcBtn.onclick=()=>{jobChangeUIOpen=!jobChangeUIOpen;jobChangeConfirmCls=null;renderUnitDetail(uid);};
   $("#unitDetailBody").querySelectorAll(".jc-pick-btn").forEach(b=>b.onclick=()=>{jobChangeConfirmCls=b.dataset.cls;renderUnitDetail(uid);});
