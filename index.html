@@ -10823,6 +10823,7 @@ function renderProjects(){
    if(S.nemesis)chips.push(["宿敵",S.nemesis.name,"#d97a7a"]);
    if(fervorActive())chips.push(["熱狂",`残${Math.max(0,(S.fervorUntil||0)-S.day)}日`,"#e0a870"]); // 国中の熱狂:入隊殺到・鍛錬に熱の高揚窓
    {const food=Math.round(S.food||0),need=(S.pop||0)*0.085;if(food<Math.max(20,need*40))chips.push(["兵糧",food<Math.max(12,need*20)?"僅少・要備え":"やや心許ない","#d97a7a"]);} // 兵糧が細ると警告(飢饉に備える一手を促す)
+   if((S.mood||100)<40)chips.push(["民心",(S.mood||0)<28?"危険・要慰撫":"低下","#d97a7a"]); // 民心が下がると警告(祝祭・慰霊・減税等での立て直しを促す)
    h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-project"></i>王の執務室</div>
      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px">`+chips.map(c=>`<span style="font-size:10.5px;border:1px solid ${c[2]};color:${c[2]};border-radius:5px;padding:2px 7px"><span style="color:var(--dim)">${c[0]}:</span>${c[1]}</span>`).join("")+`</div></div>`;
   }
