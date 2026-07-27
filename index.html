@@ -5564,6 +5564,18 @@ function checkYearTurn(){
   const refl=YEAR_REFLECTIONS[(yr-1)%YEAR_REFLECTIONS.length];
   chron(`――${yr}年目の暮れ。${stg.name}の王国に兵${S.units.length}名が仕え、国庫${Math.round(S.gold)}・民${S.pop}を数える。${cleared?`踏破したダンジョンは${cleared}件、`:""}${hall?`${hall}名が殿堂に名を刻んだ。`:""}${eldest?`最古参は${eldest.nm}(${Math.floor(eldest.age)}歳)。`:""}${refl}`,"big");
 }
+/* 軍の規模の節目:兵の数が一定に達するたび、一個の軍団へと育った手応えを一度だけ讃える。
+   兵を集め抱える営みそのものに到達点を与え、大所帯を築く達成感を後押しする(規模の演出)。 */
+const ARMY_SIZE_MILESTONES=[
+ {n:15,text:"兵は十五を数え、一個の軍団と呼べる陣容が整った"},
+ {n:25,text:"二十五の兵を擁し、大陸でも侮れぬ武力となった"},
+ {n:35,text:"三十五もの精鋭を抱える、堂々たる大軍へと育った"},
+ {n:50,text:"五十の兵を擁するに至り、その威容は一国の軍そのものである"},
+];
+function checkArmySizeMilestone(){
+  const n=S.units.length; if(!S.flags)S.flags={};
+  for(const m of ARMY_SIZE_MILESTONES){ if(n>=m.n&&!S.flags["army"+m.n]){S.flags["army"+m.n]=true;apply({mood:3});chron(`――アルヴェインの${m.text}。`,"big");} }
+}
 /* 全職種の布陣:剣・魔・弓・拳・祈り・影――六つの道の兵がすべて揃った瞬間を、一度だけ讃える。
    多彩な適性を集める編成の到達点を演出で祝い、職種コンプリートという収集目標に手応えを与える。 */
 function checkFullClassRoster(){
@@ -5658,6 +5670,7 @@ function dailyEconomySettle(){
   checkFestival();
   checkGoldenAge(); // 栄華の只中を稀に讃える(良き統治への手応え)
   checkFullClassRoster(); // 全職種が揃った布陣を一度だけ讃える(多彩な編成への到達)
+  checkArmySizeMilestone(); // 軍の規模が節目に達したことを一度だけ讃える
   checkDoctrineUnlock(); // 中盤の節目に国是を定める
   checkFavoriteMoment(); // 推しの日常の一幕
   checkSoldierVignette(); // 名のある兵の何気ない日常
