@@ -2825,6 +2825,8 @@ function removeUnitById(id,reason){
     const rv=S.units.find(x=>x.id===u.rivalWith);
     if(rv){rv.rivalWith=null;rv.moral=Math.max(0,(rv.moral||0)-6);setAvenge(rv,u.nm);unitHistory(rv,`好敵手${u.nm}を失い、その分まで武を極めんと燃え上がった(弔い合戦)。`);chron(`${rv.nm}は、好敵手${u.nm}の死を胸に刻み、その想いを闘志に変えて戦場へ向かった。`,"grave");}
   }
+  // 憧れの英雄を失った若手は、深く悼み、その遺志を胸に歩み出す
+  for(const ad of S.units){ if(ad.id!==u.id&&ad.admires===u.id){ ad.admires=null; ad.moral=Math.max(0,(ad.moral||0)-5); unitHistory(ad,`憧れた英雄${u.nm}を失い、深い喪失に沈んだ。だがその背中を胸に刻み、あとを継ぐと誓った。`); chron(`${ad.nm}は、憧れの${u.nm}の死を誰よりも悼んだ。いつかあの人のように――その想いは、決意へと姿を変えていく。`,"grave"); } }
   if(u.masterId){const mst=S.units.find(x=>x.id===u.masterId);if(mst){mst.pupilId=null;mst.moral=Math.max(0,(mst.moral||0)-5);setAvenge(mst,u.nm);unitHistory(mst,`育てていた弟子${u.nm}を失い、その無念を晴らさんと刃を執った(弔い合戦)。`);}}
   if(u.pupilId){const pu=S.units.find(x=>x.id===u.pupilId);if(pu){pu.masterId=null;pu.moral=Math.max(0,(pu.moral||0)-6);setAvenge(pu,u.nm);unitHistory(pu,`師${u.nm}を失い、その教えを胸に、遺志を継ぐと誓って戦場へ立った(弔い合戦)。`);chron(`${pu.nm}は、師${u.nm}の遺志を継ぐと誓い、その想いを力に変えて戦い続けた。`,"grave");}}
   if(u.favorite&&reason==="death"){ // 長が目をかけていた兵の死は、隊全体に大きな喪失感を残す
@@ -6727,6 +6729,7 @@ function dailyEconomySettle(){
   checkSoldierVignette(); // 名のある兵の何気ない日常
   checkBondVignette(); // 戦友同士の何気ない一幕
   checkMentorVignette(); // 師弟(教官と若手)の稽古の一幕
+  checkAspiration(); // 憧憬:若手が英雄に憧れ、その背中を追って人一倍伸びる(一方向の関係性の育成軸)
   checkFameVignette(); // 功を立てた兵の武名が市井で語られる一幕
   checkRivalVignette(); // 同職の兵同士が競い合い、互いを高め合う一幕
   checkDreamVignette(); // 兵が己の夢(個人的な目標)を語る一幕
@@ -10607,6 +10610,33 @@ function checkSilkRoad(){
     else{const g=ri(30,55);S.gold+=g;chron(`東方の隊商との取引で国庫が潤った(+${g})。`,"");}
   }
 }
+/* ===== 憧憬(育成の新軸):若い兵は、隊の英雄に憧れ、その背中を目標に定めることがある。憧れの英雄が現役で
+   在る限り、若手は「あのようになりたい」と人一倍鍛錬に励み、少しずつ速く伸びる。やがて肩を並べれば憧れは
+   卒業し、英雄が世を去れば深く悼む。師弟(形式的な指導)・戦友(相互の絆)とは異なる、一方向の"憧れ"が次代を
+   育てる関係性の新機軸。英雄を抱えることが、隊全体の未来への投資になる。 ===== */
+function admireHeroCandidates(excludeId){
+  return S.units.filter(u=>u.role==="active"&&u.injured<=0&&u.id!==excludeId&&((u.lv||1)>=25||!!u.captain||["hero","captain"].includes(jobFor(u.cls,u.lv,u.route).key)));
+}
+function checkAspiration(){
+  // 憧憬の芽生え
+  if(Math.random()<0.014){
+    const young=S.units.filter(u=>u.role==="active"&&u.injured<=0&&(u.lv||1)<=9&&!u.admires);
+    if(young.length){
+      const u=young[Math.floor(Math.random()*young.length)];
+      const heroes=admireHeroCandidates(u.id).filter(h=>(h.lv||1)>=(u.lv||1)+8);
+      if(heroes.length){const h=heroes[Math.floor(Math.random()*heroes.length)];u.admires=h.id;unitHistory(u,`隊の英雄${h.nm}に憧れ、その背中を目標と定めた。`);chron(`若き${fullName(u)}は、隊の${fullName(h)}に強い憧れを抱いた。あの人のようになりたい――その一心が、日々の鍛錬に熱を灯している。`,"");}
+    }
+  }
+  // 憧れがもたらす成長 / 追いつき / 別れ
+  for(const u of S.units){
+    if(!u.admires)continue;
+    const h=S.units.find(x=>x.id===u.admires);
+    if(!h||h.role!=="active"){ u.admires=null; continue; } // 英雄が去った(死は removeUnitById 側で悼む)
+    if(u.role!=="active"||u.injured>0)continue;
+    if((u.lv||1)>=(h.lv||1)){ u.admires=null; unitHistory(u,`かつて憧れた${h.nm}に、いつしか肩を並べるまでに育った。`); chron(`${fullName(u)}は、かつて憧れた${h.nm}と、ついに肩を並べるまでに成長した。目標を追い続けた日々が、一人の兵を大きく伸ばしたのだ。`,""); continue; }
+    if(Math.random()<0.05){ const g=ri(3,7); u.exp+=g; processLevelUps(u); if(Math.random()<0.3)unitHistory(u,`憧れの${h.nm}のように強くなりたいと、人一倍鍛錬に励んだ。`); }
+  }
+}
 function checkHermitWisdom(){
   if(!(S.flags&&S.flags.hermitSage))return;
   if(Math.random()>=0.022)return; // 折に触れて
@@ -11627,6 +11657,7 @@ function renderUnitDetail(uid){
         ${avengeActive(u)?`<span class="udet-chip" style="color:#d98a6a;border-color:#d98a6a" title="喪った${u.avengeName||"戦友"}の弔いを胸に奮い立っている。この間、戦力が高まる(あと${Math.max(0,(u.avengeUntil||0)-S.day)}日)">弔い合戦 ⚔ あと${Math.max(0,(u.avengeUntil||0)-S.day)}日</span>`:""}
         ${(u.tourneyWins||0)>0?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)" title="御前試合で頂点に立った回数">御前試合 優勝${u.tourneyWins}回</span>`:""}
         ${(u.hardships||0)>=HARDENED_THRESHOLD?`<span class="udet-chip" style="color:#b89a6a;border-color:#b89a6a" title="幾多の敗北と辛酸を乗り越えた叩き上げの古兵。忠義と士気が篤い(乗り越えた敗北 ${u.hardships})">叩き上げ</span>`:(u.hardships||0)>0?`<span class="udet-chip" style="color:var(--dim);border-color:var(--dim)" title="迷宮での敗北を糧に成長している(あと${HARDENED_THRESHOLD-(u.hardships||0)}度の逆境で叩き上げに)">苦労人 ${u.hardships}/${HARDENED_THRESHOLD}</span>`:""}
+        ${u.admires?(()=>{const h=S.units.find(x=>x.id===u.admires);return h?`<span class="udet-chip" style="color:#c9a0d0;border-color:#c9a0d0" title="${h.nm}に憧れ、その背中を追って人一倍伸びている">${h.nm}に憧れて</span>`:"";})():""}
         ${(()=>{const off=typeof MINISTER_OFFICES!=="undefined"?MINISTER_OFFICES.find(o=>ministerOf(o.key)&&ministerOf(o.key).id===u.id):null;return off?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)" title="国政の要職に就いている">${off.name}</span>`:"";})()}
         ${u.devoted?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)">献身の誓い</span>`:""}
         ${u.rejuvenated?`<span class="udet-chip" style="color:#7fc9d0;border-color:#7fc9d0" title="若返りの霊泉に浴し、年輪を巻き戻した">若返り</span>`:""}
