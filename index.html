@@ -9934,10 +9934,11 @@ function renderItemTargetSelect(){
   if(itemTargetSort==="power")list=[...list].sort((a,b)=>unitPower(b)-unitPower(a));
   else if(itemTargetSort==="lv")list=[...list].sort((a,b)=>b.lv-a.lv);
   else if(itemTargetSort==="fatigue")list=[...list].sort((a,b)=>(b.fatigue||0)-(a.fatigue||0));
+  else if(itemTargetSort==="age")list=[...list].sort((a,b)=>(b.age||0)-(a.age||0));
   const sortBtn=(key,label)=>`<button class="itg-sort-btn" data-s="${key}" style="flex:1;background:${itemTargetSort===key?"var(--gold)":"transparent"};color:${itemTargetSort===key?"var(--ink)":"var(--dim)"};border:1px solid var(--gold2);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${label}</button>`;
   let h=`<div class="ds" style="margin-bottom:8px">${def.desc}</div>`;
   h+=`<input id="itemTargetSearchInput" type="text" placeholder="名前で検索..." value="${itemTargetSearch.replace(/"/g,"&quot;")}" style="width:100%;box-sizing:border-box;background:rgba(0,0,0,.25);border:1px solid rgba(201,162,75,.35);color:var(--parch);border-radius:6px;padding:8px 10px;font-family:'Zen Old Mincho',serif;margin-bottom:8px">`;
-  h+=`<div style="display:flex;gap:6px;margin-bottom:10px">${sortBtn("power","戦力順")}${sortBtn("lv","Lv順")}${sortBtn("fatigue","疲労順")}</div>`;
+  h+=`<div style="display:flex;gap:6px;margin-bottom:10px">${sortBtn("power","戦力順")}${sortBtn("lv","Lv順")}${sortBtn("fatigue","疲労順")}${sortBtn("age","年齢順")}</div>`;
   if(!list.length)h+=`<div class="udet-empty">対象となる兵がいない。</div>`;
   for(const u of list){
     h+=`<button class="item-target-pick" data-id="${u.id}" style="display:block;width:100%;text-align:left;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--parch);border-radius:6px;padding:10px;margin-bottom:6px;font-family:'Zen Old Mincho',serif;cursor:pointer">
