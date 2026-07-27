@@ -6718,6 +6718,7 @@ function dailyEconomySettle(){
   checkSeasonTurn();
   checkYearTurn();
   checkFestival();
+  checkPetition(); // 民の声:折に触れて城下から嘆願・陳情が届き、王の裁定を仰ぐ(応/否の内政の選択)
   checkGoldenAge(); // 栄華の只中を稀に讃える(良き統治への手応え)
   checkFullClassRoster(); // 全職種が揃った布陣を一度だけ讃える(多彩な編成への到達)
   checkArmySizeMilestone(); // 軍の規模が節目に達したことを一度だけ讃える
@@ -10495,6 +10496,43 @@ function holdTournament(){
   if(newRival)chron(`――この御前試合の名勝負が縁となり、${newRival[0].nm}と${newRival[1].nm}は互いを好敵手と認め合った。二人はこれから、相手の背を追って腕を磨き合うだろう。`,"big");
   clamp();render();renderProjects();renderTroops();save();
 }
+/* ===== 民の声(内政の新軸):折に触れ、城下から嘆願・陳情が王のもとへ届く。応えれば費えと引き換えに国力や
+   民心が育ち、退ければ何も失わぬが民は落胆する――ブロッキングのイベント幕ではなく、国政画面に居座る"生きた
+   選択"として、その時々の王国の必要と天秤にかけて裁定する。統治に民の顔と声を与え、内政を能動的な判断の場に
+   する新機軸(常時のダイヤルでも一回性のイベントでもない、状況に応じた小さな決断の連なり)。 ===== */
+const PETITIONS=[
+ {key:"relief",title:"減税の嘆願",body:"重い年貢に喘ぐ民から、しばし税を軽くしてほしいとの嘆願が届いた。",cost:40,
+  grantLabel:"蔵を開き施しを与える(40G)",grantHint:"民心が大きく上がる",
+  grant:()=>{S.mood=Math.min(100,(S.mood||0)+7);chron("王は民の嘆願に応え、蔵を開いて施しを与えた。城下に安堵と感謝の声が満ちている(民心↑↑)。","big");},
+  denyHint:"民心がやや下がる",deny:()=>{S.mood=Math.max(0,(S.mood||0)-3);chron("王は今は聞き入れられぬと嘆願を退けた。民はうなだれたが、致し方なしと受け止めた(民心↓)。","");}},
+ {key:"guard",title:"夜盗への備えの要望",body:"城下に夜盗が出るという。見回りの兵を増やしてほしいとの声が上がっている。",cost:35,
+  grantLabel:"見回りを手厚くする(35G)",grantHint:"治安が上がる",
+  grant:()=>{S.st.order=Math.min(100,(S.st.order||0)+3);chron("王は城下の見回りを手厚くした。夜盗は鳴りを潜め、民は安んじて眠れるようになった(治安+3)。","big");},
+  denyHint:"治安がやや下がる",deny:()=>{S.st.order=Math.max(0,(S.st.order||0)-2);chron("王は要望を見送った。夜盗の噂は消えず、城下にわずかな不安が残った(治安↓)。","");}},
+ {key:"harvest",title:"開墾の願い",body:"働き手の増えた村から、新たな田畑を開くための助けがほしいとの願いが届いた。",cost:45,
+  grantLabel:"開墾を支援する(45G)",grantHint:"農業が上がる",
+  grant:()=>{S.st.agriculture=Math.min(100,(S.st.agriculture||0)+3);chron("王は開墾を支援した。新たな田畑が拓かれ、村は活気づいている(農業+3)。","big");},
+  denyHint:"痛手はないが好機を逃す",deny:()=>{chron("王は開墾の願いを見送った。村人は肩を落としたが、また来季を待つという。","");}},
+ {key:"market",title:"市の拡張の陳情",body:"賑わう城下の商人たちから、市をもっと広げてほしいとの陳情が届いた。",cost:50,
+  grantLabel:"市の拡張を許す(50G)",grantHint:"経済が上がる",
+  grant:()=>{S.st.economy=Math.min(100,(S.st.economy||0)+3);chron("王は市の拡張を許した。新たな露店が軒を連ね、城下の商いは一段と活気づいた(経済+3)。","big");},
+  denyHint:"痛手はないが好機を逃す",deny:()=>{chron("王は市の拡張を見送った。商人たちは残念がったが、今の賑わいで我慢するという。","");}},
+ {key:"muster",title:"入隊志願の口利き",body:"腕自慢の若者たちが、こぞって隊への仕官を望んでいるという。取り立ててやってほしいとの声だ。",cost:30,
+  grantLabel:"入隊の門を広げる(30G)",grantHint:"志願所に人が集まりやすくなる・民心↑",
+  grant:()=>{S.mood=Math.min(100,(S.mood||0)+3);S.volunteers=S.volunteers||[];if(S.volunteers.length<8){const v=makeVolunteer();v.comment="城下の口利きで、腕試しをと志願してきた。";S.volunteers.push(v);}chron("王は入隊の門を広げた。腕自慢の若者が志願所に列をなし、隊に新たな風が吹き込みそうだ(民心↑)。","big");},
+  denyHint:"痛手はない",deny:()=>{chron("王は今は手一杯と口利きを断った。若者たちは、またの機会をと引き下がった。","");}},
+];
+function petitionDef(){return (S&&S.petition)?PETITIONS.find(x=>x.key===S.petition.key):null;}
+function checkPetition(){
+  if(S.petition){ if(S.day>(S.petition.expires||0)){ const t=(petitionDef()||{}).title||"民の声"; S.petition=null; S.mood=Math.max(0,(S.mood||0)-2); chron(`城下の${t}は、応えのないまま立ち消えた。民の間に、わずかな失望が残った(民心↓)。`,""); } return; }
+  if((((STAGES[S.stage]&&STAGES[S.stage].rank)||1))<2)return; // 自治領以降、民の声が届くようになる
+  if(Math.random()>=0.02)return; // 折に触れて
+  const p=PETITIONS[Math.floor(Math.random()*PETITIONS.length)];
+  S.petition={key:p.key,day:S.day,expires:S.day+ri(6,10)};
+  chron(`城下から、${p.title}が王のもとへ届いた。国政の間で、応えるか退けるかを裁定できる。`,"");
+}
+function grantPetition(){const p=petitionDef();if(!p)return;if(p.cost&&S.gold<p.cost){chron("嘆願に応えるだけの蓄えが足りない。","");return;}if(p.cost)S.gold-=p.cost;p.grant();S.petition=null;clamp();render();renderProjects();save();}
+function denyPetition(){const p=petitionDef();if(!p)return;p.deny();S.petition=null;clamp();render();renderProjects();save();}
 /* ===== 兵糧市(資源の新しい使い道):余剰の食糧を国庫へ、あるいは国庫を食糧へ換える。豊作の実りを金に、
    飢饉や冬の端境には金で糧を買い付ける。売買には差(手数料)があり、平時の備えと緊急の安全弁を兼ねる新レバー ===== */
 const GRAIN_BATCH=30;                 // 一度に取引する量
@@ -10616,6 +10654,15 @@ function renderProjects(){
    h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-project"></i>王の執務室</div>
      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:5px">`+chips.map(c=>`<span style="font-size:10.5px;border:1px solid ${c[2]};color:${c[2]};border-radius:5px;padding:2px 7px"><span style="color:var(--dim)">${c[0]}:</span>${c[1]}</span>`).join("")+`</div></div>`;
   }
+  // ── 民の声(嘆願・陳情の裁定) ──
+  if(S.petition){const pt=petitionDef();if(pt){const left=Math.max(0,(S.petition.expires||0)-S.day);const afford=!pt.cost||S.gold>=pt.cost;
+    h+=`<div class="pcard" style="border-color:#d0a85a;margin-bottom:10px"><div class="nm" style="color:#e0b870"><i class="icon-project"></i>民の声 ― ${pt.title} <span style="color:var(--dim);font-size:10.5px">(残${left}日)</span></div>
+      <div class="ds" style="margin:2px 0 7px">${pt.body}</div>
+      <div style="display:flex;gap:6px">
+        <button class="petition-grant" ${afford?"":"disabled"} style="flex:1;background:transparent;border:1px solid ${afford?"var(--gold2)":"rgba(255,255,255,.12)"};color:${afford?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px 6px;font-family:'Shippori Mincho',serif;font-size:11px;cursor:${afford?"pointer":"default"};line-height:1.5">${pt.grantLabel}<br><span style="font-size:9.5px;color:var(--dim)">${pt.grantHint}</span></button>
+        <button class="petition-deny" style="flex:0 0 34%;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--dim);border-radius:6px;padding:8px 6px;font-family:'Shippori Mincho',serif;font-size:11px;cursor:pointer;line-height:1.5">退ける<br><span style="font-size:9.5px;color:var(--dim)">${pt.denyHint}</span></button>
+      </div></div>`;
+  }}
   h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px">
     <div class="nm" style="color:var(--gold)"><i class="icon-project"></i>今月の重点方針</div>
     <div class="ds">${S.policyFocus?`「${focusLabels[S.policyFocus]}」に注力中。月末まで毎日じわじわ上昇する。${(S.policyStreak||0)>0?`(継続${(S.policyStreak||0)+1}ヶ月・伸び+${Math.round(Math.min(0.6,(S.policyStreak||0)*0.15)*100)}%)`:""}`:"特に方針を定めていない。月次会議で重点分野を選べる。"}</div>
@@ -10832,6 +10879,8 @@ function renderProjects(){
   $("#prjList").querySelectorAll(".vault-dep-btn").forEach(b=>b.onclick=()=>{const a=b.dataset.amt;depositVault(a==="all"?"all":+a);});
   $("#prjList").querySelectorAll(".vault-wd-btn").forEach(b=>b.onclick=()=>{const a=b.dataset.amt;withdrawVault(a==="all"?"all":+a);});
   $("#prjList").querySelectorAll(".outpost-abandon-btn").forEach(b=>b.onclick=()=>abandonOutpost(b.dataset.id));
+  {const pg=$("#prjList").querySelector(".petition-grant");if(pg)pg.onclick=()=>grantPetition();
+   const pd=$("#prjList").querySelector(".petition-deny");if(pd)pd.onclick=()=>denyPetition();}
   $("#prjList").querySelectorAll(".decree-btn").forEach(b=>b.onclick=()=>{
     if(decreeCooldownLeft()>0)return;
     const d=ROYAL_DECREES.find(x=>x.key===b.dataset.k);
