@@ -3624,6 +3624,28 @@ const RANDOM_RARE=[
      apply({st:{order:1},log:u?`長は${u.nm}の変わらぬ務めぶりを、ねぎらいの言葉とともに静かに認めた。派手さはないが、その一言が古参の胸に深く沁みた。`:"長は古参の変わらぬ務めを静かに労った。"});
    }}},
   ]},
+ {tag:"仲 裁",title:"兵らの諍い",
+  body:"隊の二人が、些細なことから意地を張り合い、口も利かぬ有様だという。放っておけば隊の和にも障る。王として、どう収めるか。",
+  speaker:"ガレオン「若い者にはよくあること。なれど、収め方次第で毒にも薬にもなりましょう」",
+  choices:[
+   {label:"手合わせで白黒つけさせる",hint:"両者が経験を積む/わだかまりが解け絆が芽生えることも",fx:{call:()=>{
+     const cands=S.units.filter(u=>u.role==="active"&&u.injured<=0);
+     if(cands.length<2){chron("諍いの当事者は既に丸く収まっていた。","");return;}
+     const a=cands[Math.floor(Math.random()*cands.length)];let b=cands[Math.floor(Math.random()*cands.length)];let tries=0;while(b.id===a.id&&tries++<10)b=cands[Math.floor(Math.random()*cands.length)];
+     for(const u of [a,b]){if(!u)continue;u.exp+=ri(8,15);processLevelUps(u);}
+     let bonded=false;if(a.id!==b.id&&!a.bondWith&&!b.bondWith&&Math.random()<0.5)bonded=forgeSquadBond([a,b],"手合わせの末の和解");
+     chron(bonded?`${a.nm}と${b.nm}は正々堂々の手合わせで汗を流し、遺恨は霧散した。`:`${a.nm}と${b.nm}は手合わせで互いの技を認め合い、諍いはどこへやら。良い稽古になったようだ。`,"big");
+   }}},
+   {label:"膝を突き合わせて和解させる",hint:"両者の忠誠↑/絆が芽生えることも",fx:{call:()=>{
+     const cands=S.units.filter(u=>u.role==="active");
+     if(cands.length<2){chron("諍いは既に収まっていた。","");return;}
+     const a=cands[Math.floor(Math.random()*cands.length)];let b=cands[Math.floor(Math.random()*cands.length)];let tries=0;while(b.id===a.id&&tries++<10)b=cands[Math.floor(Math.random()*cands.length)];
+     for(const u of [a,b]){if(!u)continue;u.loyalty=Math.min(100,(u.loyalty||0)+6);}
+     let bonded=false;if(a.id!==b.id&&!a.bondWith&&!b.bondWith&&Math.random()<0.4)bonded=forgeSquadBond([a,b],"長の仲裁");
+     apply({st:{order:1},log:bonded?`長が膝を突き合わせて諭すと、${a.nm}と${b.nm}は打ち解け、いつしか固い絆で結ばれた(治安+1)。`:`長の仲裁で${a.nm}と${b.nm}は和解した。二人の忠義も、隊の風紀も引き締まっている(治安+1)。`,logCls:bonded?"big":""});
+   }}},
+   {label:"些事と捨て置く",hint:"治安わずかに↓",fx:{st:{order:-1},log:"諍いは捨て置かれた。じきに収まったが、示しがつかず隊の風紀は少し緩んだ(治安-1)。"}},
+  ]},
  {tag:"詮 議",title:"兵の不始末",
   body:"隊の一人が、酒の席で仲間と諍いを起こし、あわや刃傷沙汰という不始末をしでかした。皆が王の裁きを見守っている。どう収めるか。",
   speaker:"ガレオン「規律は軍の背骨。なれど、情もまた兵を繋ぎ止めます。さじ加減が肝要かと」",
