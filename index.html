@@ -10659,7 +10659,10 @@ function renderProjects(){
   }
   // ── 前哨拠点(迷宮の跡地を版図に組み入れる) ──
   {const ops=S.outposts||[];const cap=outpostCap();const yld={gold:"財貨",food:"糧",order:"治安・民心",train:"兵の鍛錬"};
-   h+=`<div class="pcard" style="margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-dungeon"></i>前哨拠点 <span style="color:var(--dim);font-size:11px">${ops.length}/${cap}</span></div>
+   const totGold=ops.filter(o=>o.type==="gold").reduce((t,o)=>t+(o.yield||0),0);
+   const totFood=ops.filter(o=>o.type==="food").reduce((t,o)=>t+(o.yield||0),0);
+   const totalStr=[totGold?`財貨+${totGold}`:"",totFood?`糧+${totFood}`:""].filter(Boolean).join("・");
+   h+=`<div class="pcard" style="margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-dungeon"></i>前哨拠点 <span style="color:var(--dim);font-size:11px">${ops.length}/${cap}${totalStr?` ／ 日々 ${totalStr}`:""}</span></div>
      <div class="ds" style="margin:2px 0 6px">踏破した迷宮の跡地を王国の前哨として確保し、日々の実りを得る。維持できる数には上限があり、空きが無ければ新たな要地は取れない。${ops.length>=cap?`<span style="color:#d99a6a;font-size:10.5px">(上限に達している。畳めば新たな跡地を確保できる)</span>`:`<span style="color:#8fbf6f;font-size:10.5px">(あと${cap-ops.length}箇所、確保の余地あり)</span>`}</div>`;
    if(!ops.length){h+=`<div class="ds" style="color:var(--dim);font-size:11px">まだ前哨はない。迷宮を踏破すると、その跡地を稀に前哨として確保できる。</div>`;}
    for(const o of ops){
