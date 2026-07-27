@@ -8026,13 +8026,14 @@ function resolveDungeonRun(dungeonId){
   const rarityRewardMult=Math.sqrt(dungeon.rarity.mult); // レア度は緩やかに反映
   const cond=dungeon.condition; // 環境の異変
   const condExpMult=cond==="richaura"?1.25:1;
+  const streakBonus=Math.min(0.3,(S.winStreak||0)*0.03); // 連勝の勢い:連続踏破が続くほど、この攻略で得る財貨・経験値が増す(最大+30%)=快進撃を続ける動機/途切れさせたくない緊張感
   let itemGained=null, goldGained=0, died=null, diedWasHallWorthy=false, bossWin=false, dungeonFound=null;
   const memberLog=[];
   if(tier==="critical_success"||tier==="success"){
     const squadBane=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).bossBane||0)):0; // 「討王の心得」持ちがいると、ボス撃破の判定で部隊の力が底上げされる=特別報酬を掴みやすくする討王ビルド
     bossWin=squadPower*(tier==="critical_success"?1.3:1.0)*(1+squadBane)>=dungeon.bossPower*rnd(0.8,1.2);
     const squadTeach=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).squadExpBonus||0,(traitInfo(u.trait).squadExpBonus)||0))):0; // 「歴戦の教え」(スキル)「生来の兄貴分」(特性)持ちがいると部隊全員の踏破経験値が増える=育成支援ビルド
-    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach));u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
+    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach)*(1+streakBonus));u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
     if(cond==="richaura")chron(`「${dungeon.name}」に満ちた豊穣の気が兵たちの糧となり、いつも以上の経験を持ち帰った。`,"");
     if(cond==="cursed"){ // 呪詛の澱み: 兵を疲れさせるが、呪物の財貨が眠る
       for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(10,20));
@@ -8070,7 +8071,7 @@ function resolveDungeonRun(dungeonId){
         if(itemGained&&itemGained.rarity==="legendary")grantTitle(u,"t_treasurehunter");
       }
       const squadGoldFind=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).goldFind)||0,skillEffects(u).goldFind||0))):0; // 「山師の目」(スキル)「生来の商才」(特性)持ちを伴うと持ち帰る財貨が増える=金策ビルドの編成レバー
-      goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1)*(1+squadGoldFind));
+      goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1)*(1+squadGoldFind)*(1+streakBonus));
       apply({gold:goldGained,mood:crit?4:2});
       chron(crit
         ?`――完璧な踏破！「${dungeon.name}」を寸分の隙なく制圧し、ボス「${dungeon.bossName}」を圧倒した!${itemGained?`「${itemGained.name}」${bonusItem?`と「${bonusItem.name}」`:""}を手に入れた。`:""}${equipGained?`さらに「${equipDropName}」を入手した。`:""}`
@@ -10427,6 +10428,7 @@ function buildLongExpeditionResultEvent(idx){
 function renderDungeonPanel(){
   const cleared=S.dungeonsCleared||0;
   let summary=`累計踏破:${cleared}件`;
+  if((S.winStreak||0)>=2){const sb=Math.min(30,(S.winStreak||0)*3);summary+=` ／ <span style="color:#e0a870;font-weight:700" title="連続踏破が続くほど、次の攻略で得る財貨・経験値が増える(最大+30%)">連勝 ${S.winStreak}(勢い報酬+${sb}%)</span>`;}
   if(S.flags.demonLordDefeated)summary+=` ／ <span style="color:#e8c874">魔王討伐済み</span>`;
   else if(S.flags.demonLordDungeonUnlocked)summary+=` ／ <span style="color:#d97a7a">「魔王の玉座」出現中</span>`;
   else if(S.flags.demonNoticed){
