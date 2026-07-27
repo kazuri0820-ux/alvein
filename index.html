@@ -1608,6 +1608,7 @@ const SKILL_DB=[
  {key:"sks_13",name:"賢者の知恵",tier:"silver",desc:"賢者と呼ぶに相応しい知恵を持つ",int:8,wis:8},
  // 銀(効能系:生存・忠義・育成の型を支える)
  {key:"nsk_tireless",name:"不撓の体力",tier:"silver",desc:"疲れを知らぬ体力の持ち主で、連戦の疲れの抜けが早い",fatigueRecover:5,vit:6},
+ {key:"nsk_treasurehunter",name:"宝探しの勘",tier:"silver",desc:"埋もれた財を嗅ぎ分ける勘に長ける。この者を迷宮に伴うと、掘り出しの実りが増える",lootLuck:0.15,wis:6},
  {key:"nsk_earnest",name:"忠勤の士",tier:"silver",desc:"実直な働きぶりで、長の信を静かに集める",lead:5,loyaltyGrow:0.2},
  {key:"nsk_highspirit",name:"旺盛なる士気",tier:"silver",desc:"陣中でも戦場でも、常に高い士気を絶やさず自ら奮い立たせる",moralGrow:0.3,vit:4},
  {key:"nsk_seasoned",name:"老練の身のこなし",tier:"silver",desc:"歳を重ねても衰えを寄せ付けぬ立ち回り",ageResist:0.5,vit:5},
@@ -2063,7 +2064,7 @@ function trySkillUpOnPromotion(u,tierIndex){
   const sk=SKILL_DB.find(s=>s.key===k);celebrateSkillGain(u,sk);return sk;
 }
 function skillEffects(u){
-  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,
+  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,
     str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   const stage=ageStageOf(u);
   for(const key of u.skills){
@@ -2087,6 +2088,7 @@ function skillEffects(u){
     if(s.instructorMult)e.instructorMult*=s.instructorMult;
     if(s.fatigueRecover)e.fatigueRecover+=s.fatigueRecover;
     if(s.guardianSave)e.guardianSave=Math.max(e.guardianSave,s.guardianSave);
+    if(s.lootLuck)e.lootLuck=Math.max(e.lootLuck,s.lootLuck);
   }
   const eq=equipmentEffects(u);
   for(const k of["str","vit","int","agi","wis","lead"])e[k]+=eq[k];
@@ -7085,7 +7087,7 @@ function resolveDungeonRun(dungeonId){
       itemGained=rollItemDrop(dungeon.rarity.key);
       if(itemGained)addItem(itemGained.key);
       let equipGained=null, equipInst=null;
-      const squadLootLuck=squad.length?Math.max(0,...squad.map(u=>(traitInfo(u.trait).lootLuck)||0)):0; // 「宝運」「財宝の嗅覚」持ちを伴うと掘り出しが増える=編成に意味を持たせる収集レバー
+      const squadLootLuck=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).lootLuck)||0,(skillEffects(u).lootLuck)||0))):0; // 「宝運」「財宝の嗅覚」(特性)や「宝探しの勘」(スキル)持ちを伴うと掘り出しが増える=編成に意味を持たせる収集レバー
       if(Math.random()<(crit?0.6:0.3)+squadLootLuck){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained){equipInst=addEquipment(equipGained.key);
         if(squadLootLuck>0&&equipInst){const edef=EQUIPMENT_DB.find(d=>d.key===equipGained.key);if(edef&&edef.rarity!=="common"){const alt=rollAffixesBest(edef.rarity,2);const cur=(equipInst.affixes||[]).reduce((t,a)=>t+(a.val||0),0);const altSum=alt.reduce((t,a)=>t+(a.val||0),0);if(altSum>cur)equipInst.affixes=alt;}} // 財を嗅ぎ分ける才は、個体差もより優れたものを引き当てる
       }}
@@ -8237,6 +8239,7 @@ function skillEffectText(s){
   if(s.moralGrow)parts.push(`士気成長+${s.moralGrow}/日`);
   if(s.squadSynergy)parts.push(`部隊の連携+${Math.round(s.squadSynergy*100)}%`);
   if(s.guardianSave)parts.push(`戦友の致命傷を${Math.round(s.guardianSave*100)}%で肩代わり`);
+  if(s.lootLuck)parts.push(`迷宮のドロップ率+${Math.round(s.lootLuck*100)}%`);
   if(s.onlyCaptain)parts.push("(団長のみ有効)");
   if(s.condFlag==="dragonPact")parts.push(`竜盟約締結中はさらに体力+${s.condVit}・腕力+${s.condStr}`);
   return parts.length?parts.join(" / "):"目立った効果はない";
