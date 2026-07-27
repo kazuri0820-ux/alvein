@@ -8357,7 +8357,8 @@ function resolveDungeonRun(dungeonId){
   const squadPower=Math.round(squadEffectivePower(squad,dungeon.type)*(fm.pwMult||1)); // 陣形の戦力倍率を反映(攻勢陣は上振れ・堅守/迅速陣は控えめ)
   const fortune=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).fortuneRoll||0,(traitInfo(u.trait).fortuneRoll)||0))):0; // 「勝負師の勘」(スキル)「武運の女神に愛されし者」(特性)持ちは踏破判定に下駄を履く=大成功が出やすくなる
   const scoutRoll=dungeon.scouted?SCOUT_ROLL_BONUS:0; // 偵察済み:罠と地形を知り、この一戦の攻略判定が有利になる
-  const roll=squadPower/dungeon.requiredPower*100+fortune+scoutRoll+rnd(-20,20);
+  const centerRoll=squadPower/dungeon.requiredPower*100+fortune+scoutRoll; // 揺らぎ抜きの実力中央値(逆転勝ちの判定に使う)
+  const roll=centerRoll+rnd(-20,20);
   const tier=roll>=165?"critical_success":roll>=105?"success":roll>=60?"fail":"critical_fail";
   const level=dungeon.level;
   const levelMult=1+level/28; // レベルが上がるほど報酬が伸びる(後半でも報酬が目減りしないよう伸び幅を強化)
@@ -8439,6 +8440,7 @@ function resolveDungeonRun(dungeonId){
       chron(crit
         ?`――完璧な踏破！「${dungeon.name}」を寸分の隙なく制圧し、ボス「${dungeon.bossName}」を圧倒した!${itemGained?`「${itemGained.name}」${bonusItem?`と「${bonusItem.name}」`:""}を手に入れた。`:""}${equipGained?`さらに「${equipDropName}」を入手した。`:""}`
         :`――「${dungeon.name}」を踏破し、ボス「${dungeon.bossName}」を打ち破った!${itemGained?`「${itemGained.name}」を手に入れた。`:""}${equipGained?`さらに「${equipDropName}」を入手した。`:""}`,"big");
+      maybeClutchVictory(squad,dungeon,centerRoll,tier); // 実力で及ばぬ相手を覆した"番狂わせ"を特筆(演出＋士気の報い)
       maybeTriumphReturn(squad,crit); // 大勝から戻った部隊を迎える、暖かな凱旋の一幕(演出)
       if(dungeon.treasureVault){ // 財宝の間: 踏破時に追加の宝と財貨
         const tItem=rollItemDrop(dungeon.rarity.key); if(tItem)addItem(tItem.key);
@@ -8704,6 +8706,26 @@ const TRIUMPH_RETURN=[
  u=>`厨房が腕によりをかけた馳走で部隊をねぎらった。${u}の椀には、そっと一杯多く盛られていた。`,
  u=>`${u}が持ち帰った戦の話は、その夜のうちに市井を駆け巡り、王国の誇りとなって語り継がれた。`,
 ];
+/* 窮地からの逆転:実力では及ばぬはずの迷宮を、運と気迫で制した"番狂わせ"の一戦を特筆する。
+   不利を承知で挑む緊張に、劇的な報い(語り草＋士気の高揚)を与える(演出＋手応え) */
+const CLUTCH_LINES=[
+ (u,d)=>`実力では及ばぬはずだった。だが${u}を先頭に、部隊は死力を振り絞り、「${d}」をもぎ取るように制した。番狂わせの報せに、国中がどよめいた。`,
+ (u,d)=>`誰もが苦戦を覚悟した「${d}」。土壇場で${u}が起死回生の一手を放ち、部隊は絶体絶命を勝利へと覆した。`,
+ (u,d)=>`劣勢の中、${u}の一喝が部隊を奮い立たせた。気迫が実力の差を呑み込み、「${d}」は思いがけぬ勝利に終わった。`,
+ (u,d)=>`勝ち目は薄かった。それでも諦めなかった${u}たちは、幾度も窮地を凌ぎ、ついに「${d}」を攻略してのけた。この一戦は、長く語り草となろう。`,
+];
+function maybeClutchVictory(squad,dungeon,centerRoll,tier){
+  if(!squad||!squad.length)return;
+  if(tier!=="success"&&tier!=="critical_success")return;
+  if(centerRoll>=100)return; // 実力中央値が"成功"閾値(105)に届いていない=不利を覆した番狂わせのみ
+  const alive=squad.filter(u=>u&&S.units.some(x=>x.id===u.id));
+  if(!alive.length)return;
+  const u=alive[ri(0,alive.length-1)];
+  const line=CLUTCH_LINES[ri(0,CLUTCH_LINES.length-1)];
+  chron(line(fullName(u),dungeon.name),"big");
+  for(const m of alive){m.moral=Math.min(100,(m.moral||0)+4);} // 逆転劇は隊の士気を大きく高める
+  grantTitle(u,"t_survivor"); // 死線を越えた証
+}
 function maybeTriumphReturn(squad,crit){
   if(!squad||!squad.length)return;
   if(Math.random()>=(crit?0.5:0.25))return; // 大成功でより起きやすい
