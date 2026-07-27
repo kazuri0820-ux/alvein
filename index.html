@@ -9568,7 +9568,11 @@ function renderStatsDetail(){
   h+=`<div class="srow"><div class="sh"><div class="nm">人口</div><div class="vl">${S.pop} 人</div></div><div class="ef">食糧と民心が十分だと自然に増える。戦争や疫病で減ることも。</div></div>`;
   for(const[k,label]of STATDEF){
     const v=Math.round(S.st[k]);
-    h+=`<div class="srow"><div class="sh"><div class="nm">${label}</div><div class="vl">${v} / 100 (${grade(v)})</div></div><div class="ef">${STAT_DESC[k]}</div><div class="bar"><i style="width:${v}%"></i></div></div>`;
+    let extra="";
+    if(k==="diplomacy"&&S.neighbors&&S.neighbors.length){ // 外交の実態=近隣諸国との関係を国力画面からも一望できるように(磨き込み)
+      extra=`<div style="font-size:11px;color:var(--dim);margin-top:3px">近隣諸国:`+S.neighbors.map(nb=>{const r=Math.round(nb.relation);const c=r>=70?"#8fbf6f":r<=25?"#d97a7a":"#c9a86a";return `${neighborName(nb.key)} <span style="color:${c};font-weight:700">${r}</span>`;}).join(" ／ ")+`（国政画面で誼を深められる）</div>`;
+    }
+    h+=`<div class="srow"><div class="sh"><div class="nm">${label}</div><div class="vl">${v} / 100 (${grade(v)})</div></div><div class="ef">${STAT_DESC[k]}${extra}</div><div class="bar"><i style="width:${v}%"></i></div></div>`;
   }
   h+=`<div class="srow"><div class="sh"><div class="nm">国庫</div><div class="vl">${Math.round(S.gold)}</div></div><div class="ef">毎日 経済に応じた税収が入り、軍事維持費などが出ていく。マイナスが続くと民心が下がる。</div></div>`;
   h+=`<div class="srow"><div class="sh"><div class="nm">食糧</div><div class="vl">${Math.round(S.food)}</div></div><div class="ef">農業に応じて増え、人口に応じて減る。尽きると民心が下がる。</div></div>`;
