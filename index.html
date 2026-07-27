@@ -1922,7 +1922,7 @@ const ENH_MAX=5;
 const ENH_COST_BASE={common:25,uncommon:50,rare:110,epic:220,legendary:380};
 function enhLevel(inst){return (inst&&inst.enh)||0;}
 function enhStatBonus(def,enh){const o={};if(!def||!def.statBonus||!enh)return o;for(const k in def.statBonus)o[k]=Math.round(def.statBonus[k]*0.12*enh);return o;}
-function enhanceCost(inst){const def=EQUIPMENT_DB.find(d=>d.key===inst.key);if(!def)return 0;return (ENH_COST_BASE[def.rarity]||60)*(enhLevel(inst)+1);}
+function enhanceCost(inst){const def=EQUIPMENT_DB.find(d=>d.key===inst.key);if(!def)return 0;const disc=(S.flags&&S.flags.forgeWorkshop)?0.8:1;return Math.round((ENH_COST_BASE[def.rarity]||60)*(enhLevel(inst)+1)*disc);} // 常設の鍛冶場があると鍛冶費用が2割安い
 function equipmentEffects(u){
   const e={str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   if(!u.equipment)return e;
@@ -5413,6 +5413,13 @@ function councilArmory(){
      else{apply({st:{military:2}});chron("名工は多忙で新たな品は仕上がらなかったが、兵の武具の手入れは念入りに進んだ(軍事+2)。","");}
    }}},
    {label:"全軍の装備を整える(40G)",hint:"軍事↑↑",fx:{gold:-40,st:{military:4},log:"支給された武具で全軍の装備が一新され、兵の顔つきも引き締まった。"}},
+   (S.flags&&S.flags.forgeWorkshop)
+     ?{label:"鍛冶場の炉を焚き続ける",hint:"常設の鍛冶場は既にある(維持)",fx:{st:{military:2},log:"常設の鍛冶場では今日も炉が唸り、兵の得物が丹念に鍛え直されている(軍事+2)。"}}
+     :{label:"常設の鍛冶場を築く(120G)",hint:"以後、兵士詳細からの装備の鍛冶費用が2割安くなる(永続)",fx:{call:()=>{
+        if(S.gold<120){chron("鍛冶場を構えるだけの蓄えがなく、話は先送りとなった。","");return;}
+        S.gold-=120;S.flags=S.flags||{};S.flags.forgeWorkshop=true;
+        apply({st:{military:3},mood:1,log:"城下に常設の鍛冶場が築かれた。腕利きの鍛冶師が住み着き、以後は装備の鍛冶がより安く行える。武具を育てる王国の礎が一つ増えた(軍事+3)。",logCls:"big"});
+      }}},
    {label:"古い武具を売り払う",hint:"当座の国庫↑ 軍事少し↓",fx:{gold:45,st:{military:-1},log:"蔵に眠っていた古い武具を売り払い、当座の国庫を潤した。"}},
    {label:"今週は特に動かない",hint:"様子見",fx:{log:"武具の調達については、今週は特段の手を打たなかった。"}},
   ];
