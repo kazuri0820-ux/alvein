@@ -6160,8 +6160,15 @@ const DUNGEON_CONDITIONS={
   eliteden:{label:"精鋭の巣",color:"#c98f6f",desc:"手強い強敵の巣。討ち果たせば、その死闘が部隊を大きく成長させる"},
   spring:{label:"恵みの泉",color:"#7fc9b0",desc:"聖なる泉の湧く地。踏破した部隊は疲れが癒え、傷も和らいで戻ってくる"},
   kinship:{label:"絆の霊地",color:"#d99ab0",desc:"互いに背を預けねば抜けられぬ難所。共に潜り抜けた部隊には、戦友の絆が芽生えやすい"},
+  richloot:{label:"秘宝の鉱脈",color:"#e0c060",desc:"稀少な鉱脈が眠る地。踏破すれば、選りすぐりの個体差を宿した逸品の装備を掘り当てる"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
+/* 個体差(アフィックス)を複数回ロールして最良の一組を返す=マジックファインド(良個体を引き当てる) */
+function rollAffixesBest(rarityKey,tries){
+  let best=[],bestSum=-1;
+  for(let i=0;i<(tries||2);i++){const a=rollAffixes(rarityKey);const s=a.reduce((t,x)=>t+(x.val||0),0);if(s>bestSum){bestSum=s;best=a;}}
+  return best;
+}
 function generateDungeon(){
   const[lo,hi]=dungeonLevelRange();
   const level=ri(lo,hi);
@@ -6176,6 +6183,7 @@ function generateDungeon(){
   if(condition==="treasure")bossPower=Math.round(bossPower*1.18); // 財宝の霊気は守りが堅く、ボスが手強い
   if(condition==="eliteden")bossPower=Math.round(bossPower*1.16); // 精鋭の巣は強敵揃いで、ボスが手強い
   if(condition==="kinship")bossPower=Math.round(bossPower*1.08); // 絆の霊地は協力を要する難所で、ボスがやや手強い
+  if(condition==="richloot")bossPower=Math.round(bossPower*1.12); // 秘宝の鉱脈は守りが堅く、ボスがやや手強い
   return{
     id:Math.random().toString(36).slice(2,9),
     name:dungeonName(),level,rarity,type,requiredPower,duration,
@@ -6957,6 +6965,11 @@ function resolveDungeonRun(dungeonId){
         let bonded=false;
         if(unb.length>=2&&Math.random()<0.7)bonded=forgeSquadBond(squad,`絆の霊地「${dungeon.name}」`);
         if(!bonded)chron(`「${dungeon.name}」を互いに背を預け合って越えた部隊は、また一段、結束を深めて帰ってきた。`,"");
+      }
+      if(cond==="richloot"){ // 秘宝の鉱脈: 選りすぐりの個体差を宿した逸品を掘り当てる(マジックファインド)
+        const eq=rollEquipmentDrop(dungeon.rarity.key);
+        if(eq){const inst=addEquipment(eq.key);const edef=EQUIPMENT_DB.find(d=>d.key===eq.key);if(edef&&edef.rarity!=="common"){const alt=rollAffixesBest(edef.rarity,2);const cur=(inst.affixes||[]).reduce((t,a)=>t+(a.val||0),0);const altSum=alt.reduce((t,a)=>t+(a.val||0),0);if(altSum>cur)inst.affixes=alt;}chron(`「${dungeon.name}」の秘宝の鉱脈から、選りすぐりの逸品「${equipInstName(inst)}」を掘り当てた(${equipInstBonusText(inst)})。`,"big");}
+        else chron(`「${dungeon.name}」の鉱脈を掘り進めたが、めぼしい装備は見つからなかった。`,"");
       }
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
