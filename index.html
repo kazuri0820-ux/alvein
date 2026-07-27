@@ -8627,6 +8627,7 @@ function resolveDungeonRun(dungeonId){
       }
       if(dungeon.id==="demonlord_abyss")spawnDemonAbyssDungeon();
       checkDemonLordNotice();
+      resolveNemesisClosure(dungeon,squad); // 宿敵を討ち果たした=因縁の決着
       if(!dungeon.isFinal&&Math.random()<0.3)dungeonFound=checkDungeonDiscovery(1.2,squad[0]);
       if(dungeon.delve&&!dungeon.isFinal){ // 深層への強行:疲れた部隊のまま、さらに奥の主に挑む博打(踏破時に上乗せで発生)
         for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(12,22)); // 深入りの疲労
@@ -8715,6 +8716,7 @@ function resolveDungeonRun(dungeonId){
     if((S.winStreak||0)>=5)chron(`${S.winStreak}連続踏破の快進撃は、ここで途切れた。`,"sys");
     S.winStreak=0;
   }
+  if(!bossWin)captureNemesis(dungeon); // 討ち逃した名のある強敵が、宿敵として立ちはだかる
   if(dungeon.provisioned){ // 兵站の恵み:携えた糧食と手当てが、帰還した兵の消耗を和らげる
     let eased=false;
     for(const u of squad){ if(!u||!S.units.some(x=>x.id===u.id))continue; // 生還した兵のみ
@@ -8803,6 +8805,30 @@ function fallenEulogy(u,placeName,hallWorthy){
   const featTxt=feats.length?`(${feats.join("・")}を遺して)`:"";
   const line=EULOGY_LINES[ri(0,EULOGY_LINES.length-1)];
   chron(line(fullName(u),placeName||"迷宮")+featTxt,"grave");
+}
+/* ===== 宿敵(Nemesis):討ち逃した強敵が"宿敵"として心に刻まれ、再戦の迷宮が現れる。討てば因縁の決着と特別報酬。
+   失敗を「いつか討つ」未来の目標に変え、格上への挑戦に個人的な因縁の物語を宿す新機軸 ===== */
+function captureNemesis(dungeon){
+  if(S.nemesis||dungeon.isNemesis||dungeon.isFinal||!dungeon.bossName)return;
+  if(!dungeon.bossTrait&&((dungeon.rarity&&dungeon.rarity.mult)||1)<1.3)return; // 名のある強敵(ボス特性持ち/高レア度)のみ宿敵になる
+  if(Math.random()>=0.5)return;
+  S.nemesis={name:dungeon.bossName,trait:dungeon.bossTrait||null,power:dungeon.bossPower||dungeon.requiredPower||100,from:dungeon.name,day:S.day};
+  const nd=generateDungeon();
+  nd.isNemesis=true; nd.protected=true; nd.treasureVault=true;
+  nd.bossName=S.nemesis.name; if(S.nemesis.trait)nd.bossTrait=S.nemesis.trait;
+  nd.bossPower=Math.round(S.nemesis.power*1.12);
+  nd.requiredPower=Math.round((nd.requiredPower||100)*1.08);
+  nd.name=`宿敵の待つ迷宮 ―${S.nemesis.from}の残響―`;
+  S.availableDungeons=S.availableDungeons||[]; S.availableDungeons.push(nd);
+  if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected&&x.id!==nd.id);if(di>=0)S.availableDungeons.splice(di,1);}
+  chron(`「${dungeon.name}」で相見えた${S.nemesis.name}を、討ち果たすことは叶わなかった。その強敵は"宿敵"として心に刻まれた。いつか決着をつける時が来る(討伐の一覧に現れた)。`,"grave");
+}
+function resolveNemesisClosure(dungeon,squad){
+  if(!dungeon.isNemesis)return;
+  S.nemesis=null;
+  grantRelicShards(2);
+  apply({mood:8,st:{military:2,order:2},gold:140,log:`――かつて討ち逃した宿敵、${dungeon.bossName}に、ついに決着をつけた。長きにわたる因縁に終止符が打たれ、王国は溜飲を下げた(民心↑↑ 秘宝の断片+2 財貨+140)。`,logCls:"big"});
+  for(const u of squad){if(u&&S.units.some(x=>x.id===u.id)){u.moral=Math.min(100,(u.moral||0)+6);unitHistory(u,`宿敵${dungeon.bossName}を討ち、王国積年の因縁に決着をつけた。`);}}
 }
 function maybeTriumphReturn(squad,crit){
   if(!squad||!squad.length)return;
@@ -11509,7 +11535,7 @@ function renderDungeonPanel(){
     const selScout=d.scouted?SCOUT_ROLL_BONUS:0; // 偵察の下駄を推定成功率にも反映=表示と実判定を一致させる
     const estPct=selSquad.length?Math.max(0,Math.min(100,Math.round((selCombined/d.requiredPower*100+selFortune+selScout-105+20)/40*100))):0;
     h+=`<div class="pcard" style="border-color:${d.rarity.color||"var(--gold2)"}">
-      <div class="nm" style="color:${d.rarity.color||"var(--gold)"}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${bossTraitTag(d)}${bountyTag(d)}${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<span style="color:${DUNGEON_CONDITIONS[d.condition].color};font-weight:800">〔${DUNGEON_CONDITIONS[d.condition].label}〕</span>`:""}${d.scouted?`<span style="color:#8fbf6f;font-weight:800">〔偵察済〕</span>`:""}${d.name}</div>
+      <div class="nm" style="color:${d.rarity.color||"var(--gold)"}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${bossTraitTag(d)}${bountyTag(d)}${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<span style="color:${DUNGEON_CONDITIONS[d.condition].color};font-weight:800">〔${DUNGEON_CONDITIONS[d.condition].label}〕</span>`:""}${d.scouted?`<span style="color:#8fbf6f;font-weight:800">〔偵察済〕</span>`:""}${d.isNemesis?`<span style="color:#d97a7a;font-weight:800" title="かつて討ち逃した宿敵。討てば因縁の決着と特別報酬">〔宿敵〕</span>`:""}${d.name}</div>
       ${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<div class="ds" style="color:${DUNGEON_CONDITIONS[d.condition].color};font-size:11px">環境:${DUNGEON_CONDITIONS[d.condition].desc}</div>`:""}
       ${d.bossTrait&&BOSS_TRAITS[d.bossTrait]?`<div class="ds" style="color:${BOSS_TRAITS[d.bossTrait].color};font-size:11px">主:${BOSS_TRAITS[d.bossTrait].desc}</div>`:""}
       <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span>${(()=>{const h=dungeonTypeStatHint(d.type);return h?`<span style="color:var(--dim);font-size:10px">(${h}向き)</span>`:"";})()} ／ `:""}目安戦力:${d.requiredPower} ／ 所要日数:${d.duration}日</div>
@@ -11629,7 +11655,7 @@ function renderDungeonPanel(){
       const est=estimateDungeonSuccess(d);
       const rateColor=est.pct>=60?"#8fbf6f":est.pct>=35?"#d9b56a":"#d97a7a";
       h+=`<div class="pcard" style="${c?`border-color:${c};box-shadow:0 0 10px ${c}55`:""}">
-        <div class="nm" style="${c?`color:${c}`:""}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${bossTraitTag(d)}${bountyTag(d)}${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<span style="color:${DUNGEON_CONDITIONS[d.condition].color};font-weight:800">〔${DUNGEON_CONDITIONS[d.condition].label}〕</span>`:""}${d.name}</div>
+        <div class="nm" style="${c?`color:${c}`:""}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${bossTraitTag(d)}${bountyTag(d)}${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<span style="color:${DUNGEON_CONDITIONS[d.condition].color};font-weight:800">〔${DUNGEON_CONDITIONS[d.condition].label}〕</span>`:""}${d.isNemesis?`<span style="color:#d97a7a;font-weight:800" title="かつて討ち逃した宿敵。討てば因縁の決着と特別報酬">〔宿敵〕</span>`:""}${d.name}</div>
         <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span>${(()=>{const h=dungeonTypeStatHint(d.type);return h?`<span style="color:var(--dim);font-size:10px">(${h}向き)</span>`:"";})()} ／ `:""}推奨レベル目安:${d.level} ／ 目安戦力:${d.requiredPower} ／ 所要日数:${d.duration}日</div>
         ${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<div class="ds" style="color:${DUNGEON_CONDITIONS[d.condition].color};font-size:11px">環境:${DUNGEON_CONDITIONS[d.condition].desc}</div>`:""}
         ${d.bossTrait&&BOSS_TRAITS[d.bossTrait]?`<div class="ds" style="color:${BOSS_TRAITS[d.bossTrait].color};font-size:11px">主:${BOSS_TRAITS[d.bossTrait].desc}</div>`:""}
@@ -11649,7 +11675,7 @@ function renderDungeonPanel(){
       const pct=Math.min(100,Math.round((total-left)/total*100));
       const c=d.rarity&&d.rarity.color;
       h+=`<div class="pcard" style="${c?`border-color:${c}`:""}">
-        <div class="nm" style="${c?`color:${c}`:""}"><i class="icon-dungeon"></i>${d.rarity&&d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${bossTraitTag(d)}${bountyTag(d)}${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<span style="color:${DUNGEON_CONDITIONS[d.condition].color};font-weight:800">〔${DUNGEON_CONDITIONS[d.condition].label}〕</span>`:""}${d.name}</div>
+        <div class="nm" style="${c?`color:${c}`:""}"><i class="icon-dungeon"></i>${d.rarity&&d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${bossTraitTag(d)}${bountyTag(d)}${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<span style="color:${DUNGEON_CONDITIONS[d.condition].color};font-weight:800">〔${DUNGEON_CONDITIONS[d.condition].label}〕</span>`:""}${d.isNemesis?`<span style="color:#d97a7a;font-weight:800" title="かつて討ち逃した宿敵。討てば因縁の決着と特別報酬">〔宿敵〕</span>`:""}${d.name}</div>
         <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span> ／ `:""}${d.formation&&FORMATIONS[d.formation]&&d.formation!=="balanced"?`<span style="color:${FORMATIONS[d.formation].color};font-weight:700">${FORMATIONS[d.formation].label}</span> ／ `:""}${d.delve?`<span style="color:#d08f5a;font-weight:700">深層</span> ／ `:""}${d.provisioned?`<span style="color:#8fbf6f;font-weight:700">兵站</span> ／ `:""}帰還まであと${left}日 ／ 派遣部隊:${squad.map(fullName).join("・")||"(不明)"}</div>
         <div class="uexp" style="margin-top:8px"><i style="width:${pct}%;background:linear-gradient(90deg,${c||"#8fbf6f"}99,${c||"#8fbf6f"})"></i></div>
       </div>`;
