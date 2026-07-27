@@ -6666,6 +6666,7 @@ function dailyEconomySettle(){
   }
   facilityDailyProduce();
   outpostDaily(); // 前哨拠点:確保した迷宮の跡地が日々わずかな実りを生む
+  checkOutpostReport(); // 前哨からの報せ:折に触れて届く思わぬ吉事
   vaultDaily(); // 王室金庫:預けた蓄えが日々わずかに利息を生む(上限まで)
   ministerDaily(); // 重臣の執政:要職に就いた兵の器量に応じ、日々その分野の国力が育つ
   immigrationDaily(); // 移民政策:入植方針に応じた治安の推移と、開放策のもとでの入植者の流入
@@ -8534,6 +8535,18 @@ function outpostDaily(){ // 前哨拠点が日々もたらす実り
     else if(o.type==="order")S.mood=Math.min(100,(S.mood||0)+0.35);
     else if(o.type==="train"){const c=S.units.filter(u=>u.role==="active"&&u.injured<=0);if(c.length&&Math.random()<0.5){const u=c[Math.floor(Math.random()*c.length)];u.exp+=ri(2,4);processLevelUps(u);}}
   }
+}
+/* 前哨からの報せ:確保した前哨は、折に触れて思わぬ吉事を届けてくる。金鉱は豊かな鉱脈を掘り当て、
+   辺境の砦は野盗を退け、錬武の砦では兵が腕を上げる――前哨を"数字を生むだけの点"から、王国の版図に
+   息づく生きた土地へと変える(新機軸を felt にする演出＋折々の報い)。 */
+function checkOutpostReport(){
+  const ops=S.outposts||[]; if(!ops.length)return;
+  if(Math.random()>=0.03)return; // 折に触れて
+  const o=ops[Math.floor(Math.random()*ops.length)];
+  if(o.type==="gold"){const g=ri(20,45);S.gold+=g;chron(`「${o.name}」の金鉱の砦が、ひときわ豊かな鉱脈を掘り当てた。まとまった財貨${g}が国庫に届いた。`,"");}
+  else if(o.type==="food"){const f=ri(18,36);S.food=Math.min(999,(S.food||0)+f);chron(`「${o.name}」の豊穣の砦が大豊作に沸き、糧${f}が蔵に運び込まれた。`,"");}
+  else if(o.type==="order"){S.mood=Math.min(100,(S.mood||0)+2);const g=ri(10,25);S.gold+=g;chron(`「${o.name}」の辺境の砦が街道を荒らす野盗の一味を退けた。周辺の民は安堵し、押収した財貨${g}が国庫に納められた(民心↑)。`,"");}
+  else if(o.type==="train"){const c=S.units.filter(u=>u.role==="active"&&u.injured<=0);if(c.length){const u=c[Math.floor(Math.random()*c.length)];u.exp+=ri(8,16);processLevelUps(u);unitHistory(u,`「${o.name}」の錬武の砦で猛稽古を積み、腕を上げて戻った。`);chron(`「${o.name}」の錬武の砦での鍛錬が実を結び、${fullName(u)}が一段と腕を上げた。`,"");}}
 }
 function abandonOutpost(id){
   S.outposts=S.outposts||[];
