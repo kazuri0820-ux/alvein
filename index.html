@@ -3768,6 +3768,25 @@ const RANDOM_RARE=[
      apply({st:{order:3,diplomacy:2},mood:2,log:"荒れ地に、古の兵を悼む慰霊碑が建てられた。死者を敬う王の徳は近隣にも聞こえ、王国の品格を一段高めた。碑は末永く、この地の礎となろう(治安+3 外交+2 民心↑)。",logCls:"big"});
    }}},
   ]},
+ {tag:"催 事",title:"武術大会の開催",
+  body:"兵たちの腕も上がり、そろそろ武を競わせてはどうかと声が上がっている。盛大な武術大会は、民の娯楽にも、兵の励みにもなろう。だが相応の費えもかかる。王として、どう催すか。",
+  speaker:"ガレオン「勝者の栄誉は、金では買えぬ士気を生みまする。……もっとも、賞金は要りますが」",
+  choices:[
+   {label:"賞金を懸けて盛大に催す(70G)",hint:"民心↑↑ 軍事↑ / 最強の兵が覇者となり大きく成長",fx:{call:()=>{
+     if(S.gold<70){chron("賞金を工面できず、大会は見送られた。","");return;}
+     S.gold-=70;
+     const act=S.units.filter(u=>u&&u.role==="active"&&u.injured<=0);
+     let champLog="";
+     if(act.length){const champ=act.reduce((a,b)=>unitPower(b)>unitPower(a)?b:a);const g=ri(30,55);champ.exp+=g;processLevelUps(champ);champ.moral=Math.min(100,(champ.moral||0)+8);champ.loyalty=Math.min(100,(champ.loyalty||0)+4);unitHistory(champ,"武術大会を制し、王国一の武人と讃えられた。");champLog=`決勝を制したのは${champ.nm}。満場の喝采を浴び、王国一の誉れを手にした(経験値+${g}・士気↑)。`;}
+     apply({mood:5,st:{military:2},log:`盛大な武術大会が催された。民は熱狂し、兵たちは競い合ってその技を磨いた。${champLog}`,logCls:"big"});
+   }}},
+   {label:"手合わせ稽古で済ませる",hint:"出費なし 部隊がわずかに成長(疲労少し)",fx:{call:()=>{
+     const act=S.units.filter(u=>u&&u.role==="active");
+     for(const u of act){u.exp+=ri(4,9);processLevelUps(u);u.fatigue=Math.min(100,(u.fatigue||0)+ri(3,7));}
+     apply({mood:1,log:"賞金は懸けず、有志での手合わせ稽古として催された。地味だが実のある鍛錬となり、兵たちは少しずつ腕を上げた(部隊がわずかに成長)。"});
+   }}},
+   {label:"今は控える",hint:"堅実(治安わずかに↑)",fx:{st:{order:1},log:"華やかな催しは今ではないと、王は大会を見送った。浮つかぬその判断を、家臣は堅実と受け止めた(治安+1)。"}},
+  ]},
  {tag:"果たし合い",title:"道場破りの挑戦者",
   body:"腕に覚えのある武者が一人、城下の練兵場に乗り込んできた。「この国で一番強い者と、一手お手合わせ願いたい」。堂々たる面構え――ただ者ではなさそうだ。",
   speaker:"ガレオン「無下に追い返すのも角が立ちましょう。いかがなさいますか」",
