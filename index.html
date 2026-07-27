@@ -4321,6 +4321,41 @@ const RANDOM_RARE=[
      chron("――絹の道の物語は、東西を結ぶ交易路の開通をもって結ばれた。アルヴェインには今、遠い異国の風が絶えず吹き込んでいる。","big");
    }}},
   ]},
+ // ===== 連続物語(イベント連鎖):飢饉。恵みではなく"危機"の物語。凶作の兆しに備えれば軽く済み、高をくくれば
+ //   大きな代償を払う。備蓄・倹約という先見に報い、恵みばかりの連鎖に緊張と手応え(stakes)を加える新機軸 =====
+ {tag:"凶 作",title:"凶作の兆し",
+  cond:s=>!(s.flags&&s.flags.famineArc)&&STAGES[s.stage].rank>=2&&s.day>=45,
+  body:"畑を見回った農政官が、青い顔で報告に上がった。「陛下、今年の実りは芳しくありませぬ。虫害に長雨が重なり……このままでは蔵が底を突く飢饉となりましょう」。備えるならば、今をおいて他にない。",
+  speaker:"セラ「陛下、飢えは剣よりも民を苦しめます。いかに備えましょうか」",
+  choices:[
+   {label:"蔵に糧を積み増す(80G)",hint:"出費して食糧を蓄え、来る飢饉に万全の備えをする",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.famineArc=1;S.flags.famineDay=S.day+ri(8,14);
+     if(S.gold<80){S.flags.faminePrep="none";apply({log:"蓄えが乏しく、十分な買い付けは叶わなかった。備えは、心許ないものとなった。"});return;}
+     S.gold-=80;S.food=Math.min(999,(S.food||0)+60);S.flags.faminePrep="stock";
+     apply({log:"王は諸国から糧を買い付け、蔵に積み増した。飢饉が来ても、これで民を飢えさせずに済むだろう(食糧↑)。",logCls:"big"});
+   }}},
+   {label:"民に倹約を触れる",hint:"出費なし・治安↑・飢饉の消耗を和らげるが民心はわずかに下がる",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.famineArc=1;S.flags.faminePrep="frugal";S.flags.famineDay=S.day+ri(8,14);
+     apply({st:{order:2},mood:-2,log:"王は国中に倹約令を布いた。民は不平を漏らしつつも、来る冬に備えて食を切り詰め始めた(治安+2 民心↓)。"});
+   }}},
+   {label:"例年の泣き言と聞き流す",hint:"何もしない(飢饉が来れば、備えなき代償は大きい)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.famineArc=1;S.flags.faminePrep="none";S.flags.famineDay=S.day+ri(8,14);
+     apply({log:"王は農政官の懸念を、例年の泣き言と聞き流した。備えは、なされなかった。"});
+   }}},
+  ]},
+ {tag:"飢 饉",title:"大飢饉、到来",
+  cond:s=>(s.flags&&s.flags.famineArc)===1&&s.day>=(s.flags.famineDay||0),
+  body:"恐れていた飢饉が、ついに王国を襲った。蔵の底が見え、城下には配給を求める長い列が伸びる。この厳しい季節を、王国はいかにして越えるのか――その帰趨は、あの日の備えにかかっている。",
+  speaker:"セラ「陛下……民は皆、王の御決断を見つめております」",
+  choices:[
+   {label:"王国を挙げて飢饉に立ち向かう",hint:"あの日の備えの分だけ、被害は軽く済む",fx:{call:()=>{
+     const prep=(S.flags&&S.flags.faminePrep)||"none";S.flags.famineArc=2;
+     if(prep==="stock"){S.food=Math.max(0,(S.food||0)-20);apply({mood:2,st:{order:1},log:"積み増した蔵の糧が、民を飢えから守った。王国は大した傷も負わず飢饉を乗り切り、民は王の先見に深く感謝した(民心↑ 治安+1)。",logCls:"big"});chron("――飢饉の試練は、賢明な備えによって軽々と乗り越えられた。王の先見は、長く語り草となった。","big");}
+     else if(prep==="frugal"){S.food=Math.max(0,(S.food||0)-45);S.mood=Math.max(0,(S.mood||0)-3);apply({log:"倹約が功を奏し、辛くも飢饉を凌いだ。ひもじい冬ではあったが、民は互いに支え合い、一人の餓死者も出さなかった(食糧↓ 民心↓)。",logCls:"big"});chron("――飢饉の試練は、民の耐えと支え合いによって越えられた。王国はまた一つ、厳しい季節を生き延びた。","big");}
+     else{S.food=Math.max(0,(S.food||0)-90);S.mood=Math.max(0,(S.mood||0)-8);S.pop=Math.max(1,(S.pop||0)-ri(2,5));apply({st:{order:-2},log:"備えなき王国を、飢饉は容赦なく蹂躙した。蔵は空となり、飢えた民の一部は谷を離れていった。王は、備えを怠った己を深く悔いた(食糧↓↓ 民心↓↓ 人口↓ 治安↓)。",logCls:"grave"});chron("――飢饉の試練は、大きな爪痕を残して過ぎ去った。備えの尊さを、王国は身をもって学んだ。","grave");}
+     clamp();
+   }}},
+  ]},
  // ===== 連続物語(イベント連鎖):星鉄の一振り。二部に跨り、支援すれば一点物の名剣が鍛え上がる(記憶に残るアーティファクトを得る新報酬) =====
  {tag:"星 鉄",title:"星鉄の一振り",
   cond:s=>!(s.flags&&s.flags.starsteelArc)&&STAGES[s.stage].rank>=3&&(s.dungeonsCleared||0)>=3&&s.day>=45,
