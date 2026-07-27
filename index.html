@@ -5659,6 +5659,23 @@ function checkGearVignette(){
   c.u.moral=Math.min(100,(c.u.moral||0)+1);
   chron(GEAR_VIGNETTES[Math.floor(Math.random()*GEAR_VIGNETTES.length)](c.u,c.g),"");
 }
+/* 王国の彩り:民の暮らしの何気ない一場面を稀に拾い上げる。兵だけでなく"守るべき国そのもの"に
+   息づかいを与え、統治する日々に温もりと手応えを添える(世界観の演出)。民心が十分に高い時のみ。 */
+const REALM_VIGNETTES=[
+ "城下の市が朝から賑わい、売り手と買い手の威勢のいい声が谷にこだましていた。",
+ "畑では農夫たちが歌を口ずさみながら鍬を振るい、子らがその周りを駆け回っていた。",
+ "広場の井戸端で、女たちが洗濯をしながら他愛もない噂話に花を咲かせていた。",
+ "夕暮れ、家々の窓に一つ、また一つと温かな灯がともり、炊事の煙が立ちのぼった。",
+ "旅の行商が城下に立ち寄り、珍しい品を広げると、たちまち人だかりができた。",
+ "石畳の通りで、子どもたちが兵の真似をして木の枝を振り回し、歓声を上げていた。",
+ "祝いごとがあったのか、どこかの家から祝い唄と笑い声が漏れ聞こえてきた。",
+ "老人たちが日向のベンチに腰かけ、昔語りに耳を傾ける若者の姿があった。",
+];
+function checkRealmVignette(){
+  if(Math.random()>=0.02)return; // ごく稀に
+  if((S.mood||0)<55)return; // 民心が十分に高い、平穏な日にのみ
+  chron(REALM_VIGNETTES[Math.floor(Math.random()*REALM_VIGNETTES.length)],"");
+}
 function checkSeasonTurn(){
   const s=currentSeason();
   if(S.seasonSeen===s.key)return;
@@ -5803,6 +5820,7 @@ function dailyEconomySettle(){
   checkFameVignette(); // 功を立てた兵の武名が市井で語られる一幕
   checkRivalVignette(); // 同職の兵同士が競い合い、互いを高め合う一幕
   checkGearVignette(); // 一級の武具を帯びた兵が、その得物を大切に手入れする一幕
+  checkRealmVignette(); // 民の暮らしの何気ない一場面(平穏な国の息づかい)
   checkSeasonalVignette(); // 巡る季節に寄せた兵の一場面
   // 民心の水準は、兵の忠誠にもじわじわ影響する(高ければ支持基盤として忠誠を後押し、低ければ蝕む)
   if(S.mood>=70||S.mood<30){
