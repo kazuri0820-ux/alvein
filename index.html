@@ -7529,6 +7529,7 @@ const EXPEDITION_THEMES=[
  {name:"癒しの霊泉郷",flavor:"山あいに、万病を癒すという伝説の霊泉が湧く郷があるという。長旅のついでに、兵たちの傷を癒すのもよかろう。",statFn:u=>u.vit*0.4+u.wis*0.35+u.agi*0.25,bonus:(sq)=>{for(const u of (sq||[])){if(!u)continue;u.fatigue=0;if(u.injured>0){u.injured=Math.max(0,u.injured-3);if(u.injured<=0)u.injurySeverity=null;}}apply({mood:1});chron("霊泉郷の湯に浸かった部隊は、旅の疲れも古傷もすっかり癒えて、晴れやかな顔で帰ってきた。","");}},
  {name:"果ての地への長い道",flavor:"地図の縁の、まだ誰も踏み入れぬ果ての地。往復に幾多の日を要する遠い道のりだが、共に踏破すれば得るものも大きいという。",statFn:u=>u.vit*0.4+u.lead*0.3+u.wis*0.3,bonus:(sq)=>{const unb=(sq||[]).filter(u=>u&&u.role==="active"&&!u.bondWith);let bonded=false;if(unb.length>=2)bonded=forgeSquadBond(sq,"果ての地への長い旅");for(const u of (sq||[]))if(u)u.loyalty=Math.min(100,(u.loyalty||0)+3);if(!bonded)chron("果ての地を共に踏破した部隊は、深い信頼で結ばれて帰ってきた。","");}},
  {name:"難民の護送隊",flavor:"戦火を逃れた民の一団が、王国を頼って辺境をさまよっているという。危険な道を安全に導いてやれば、新たな民として根を下ろすだろう。",statFn:u=>u.lead*0.4+u.wis*0.35+u.vit*0.25,bonus:(sq)=>{const add=ri(12,24);apply({pop:add,mood:3,food:-ri(5,12)});for(const u of (sq||[]))if(u)u.loyalty=Math.min(100,(u.loyalty||0)+2);chron(`護送された民${add}人あまりが無事に王国へ迎え入れられ、新たな暮らしを始めた。弱き者を守り抜いた兵たちの胸にも、確かな誇りが宿っている。`,"");}},
+ {name:"隣国との合同演習",flavor:"友好国から、合同の軍事演習への誘いが届いた。轡を並べて汗を流せば、兵は実戦の勘を養い、両国の絆も深まるだろう。",statFn:u=>u.lead*0.4+u.str*0.3+u.wis*0.3,bonus:(sq)=>{apply({st:{diplomacy:2,military:1}});for(const u of (sq||[])){if(!u)continue;u.exp+=ri(8,16);processLevelUps(u);}chron("隣国との合同演習で、兵たちは他流の技に揉まれて腕を上げ、両国の友誼も一段深まった(外交+2 軍事+1)。","");}},
 ];
 /* 遠征の道中の小さな出来事(彩りと、ささやかな驚き) */
 const EXPEDITION_ROADSIDE=[
