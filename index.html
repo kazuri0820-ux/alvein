@@ -1576,6 +1576,7 @@ const SKILL_DB=[
  {key:"nsk_devotion",name:"揺るがぬ忠義",tier:"gold",desc:"何があろうと長を裏切らぬ、鋼のごとき忠義の心を持つ",loyaltyGrow:0.4,lead:6},
  {key:"nsk_evasion",name:"見切りの達人",tier:"gold",desc:"あらゆる攻撃を紙一重で見切り、めったに傷を負わない",injuryMult:0.65,agi:8},
  {key:"nsk_quicklearn",name:"飲み込みの早さ",tier:"gold",desc:"物覚えが人並外れて早く、実戦から驚くほど速く多くを学び取る(昇格が速まる)",expMult:0.82,int:6},
+ {key:"nsk_guardian",name:"戦友の盾",tier:"gold",desc:"共に潜る仲間を片時も見捨てぬ。同じ部隊の戦友が死線に立たされたとき、我が身を挺してその命を守り抜く",guardianSave:0.5,vit:10,lead:6},
  // 銀(レア・強力)
  {key:"mousho", name:"猛将",     tier:"silver",desc:"前に出れば出るほど輝く性分",str:10,vit:6},
  {key:"maryoku",name:"魔力循環", tier:"silver",cls:"mage",desc:"魔力の巡りが良く、伸びしろが大きい",trainMult:1.2},
@@ -2060,7 +2061,7 @@ function trySkillUpOnPromotion(u,tierIndex){
   const sk=SKILL_DB.find(s=>s.key===k);celebrateSkillGain(u,sk);return sk;
 }
 function skillEffects(u){
-  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,
+  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,
     str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   const stage=ageStageOf(u);
   for(const key of u.skills){
@@ -2083,6 +2084,7 @@ function skillEffects(u){
     if(s.ageResist)e.ageResist=Math.max(e.ageResist,s.ageResist);
     if(s.instructorMult)e.instructorMult*=s.instructorMult;
     if(s.fatigueRecover)e.fatigueRecover+=s.fatigueRecover;
+    if(s.guardianSave)e.guardianSave=Math.max(e.guardianSave,s.guardianSave);
   }
   const eq=equipmentEffects(u);
   for(const k of["str","vit","int","agi","wis","lead"])e[k]+=eq[k];
@@ -7163,17 +7165,31 @@ function resolveDungeonRun(dungeonId){
     apply({mood:-5,gold:-Math.round(ri(10,30))});
     if(Math.random()<deathChance){
       const victim=squad[Math.floor(Math.random()*squad.length)];
+      const selfSurvive=(()=>{const dm=(traitInfo(victim.trait).deathMult||1)*(skillEffects(victim).deathMult||1);return dm<1&&Math.random()>=dm;})();
+      let guardian=null;
+      if(!selfSurvive){ // 戦友の盾: 同部隊に庇護者がいれば、我が身を挺して戦友の命を守る=守護型ビルドが死線で報われる
+        for(const g of squad){ if(g&&g.id!==victim.id&&g.injured<=0&&(skillEffects(g).guardianSave||0)>0&&Math.random()<(skillEffects(g).guardianSave||0)){guardian=g;break;} }
+      }
       if((S.flags.phoenixCharm||0)>0){
         S.flags.phoenixCharm--;
         chron(`「${dungeon.name}」で${victim.nm}が致命傷を負いかけたが、不死鳥の羽根の加護でかろうじて一命を取り留めた。`,"big");
         victim.criticalSurvivalCount=(victim.criticalSurvivalCount||0)+1;grantTitle(victim,"t_survivor");
         const rec=memberLog.find(l=>l.u.id===victim.id);if(rec)rec.note="致命傷(お守りで一命を取り留めた)";
-      }else if((()=>{const dm=(traitInfo(victim.trait).deathMult||1)*(skillEffects(victim).deathMult||1);return dm<1&&Math.random()>=dm;})()){
+      }else if(selfSurvive){
         // 生存力(不屈の生命力・不滅の闘魂 等の特性・スキル)が、死線を越えさせる=生存系の効能が戦場で実際に報われる
         victim.criticalSurvivalCount=(victim.criticalSurvivalCount||0)+1;grantTitle(victim,"t_survivor");
         if(victim.injured<=0){inflictInjury(victim,[0.1,0.3,0.6]);unitHistory(victim,`「${dungeon.name}」で死線に立たされたが、驚異の生命力で辛くも生き延びた。`);}
         chron(`――「${dungeon.name}」は大失敗に終わった。だが${victim.nm}は、致命傷を負いながらも、その驚異の生命力で辛くも生き延びた。`,"big");
         const rec=memberLog.find(l=>l.u.id===victim.id);if(rec)rec.note="致命傷(生き延びた)";
+      }else if(guardian){
+        victim.criticalSurvivalCount=(victim.criticalSurvivalCount||0)+1;grantTitle(victim,"t_survivor");
+        if(guardian.injured<=0){inflictInjury(guardian,[0.15,0.4,0.45]);}
+        unitHistory(guardian,`「${dungeon.name}」で戦友${victim.nm}を庇い、代わりに深手を負った。`);
+        unitHistory(victim,`「${dungeon.name}」で死にかけたところを、戦友${guardian.nm}に命を救われた。`);
+        victim.moral=Math.min(100,(victim.moral||0)+3);guardian.loyalty=Math.min(100,(guardian.loyalty||0)+2);
+        chron(`――「${dungeon.name}」は大失敗に終わった。${victim.nm}が致命傷を負いかけたその刹那、戦友${guardian.nm}が身を挺して庇い、その命を守り抜いた。`,"big");
+        const rec=memberLog.find(l=>l.u.id===victim.id);if(rec)rec.note="致命傷(戦友に救われた)";
+        const grec=memberLog.find(l=>l.u.id===guardian.id);if(grec&&guardian.injured>0)grec.note=INJURY_TIERS[guardian.injurySeverity].label+"(戦友を庇った)";
       }else{
         died=victim;
         diedWasHallWorthy=isHallWorthy(victim);
@@ -8175,6 +8191,7 @@ function skillEffectText(s){
   if(s.loyaltyGrow)parts.push(`忠誠成長+${s.loyaltyGrow}/日`);
   if(s.moralGrow)parts.push(`士気成長+${s.moralGrow}/日`);
   if(s.squadSynergy)parts.push(`部隊の連携+${Math.round(s.squadSynergy*100)}%`);
+  if(s.guardianSave)parts.push(`戦友の致命傷を${Math.round(s.guardianSave*100)}%で肩代わり`);
   if(s.onlyCaptain)parts.push("(団長のみ有効)");
   if(s.condFlag==="dragonPact")parts.push(`竜盟約締結中はさらに体力+${s.condVit}・腕力+${s.condStr}`);
   return parts.length?parts.join(" / "):"目立った効果はない";
