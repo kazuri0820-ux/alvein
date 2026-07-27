@@ -1616,6 +1616,7 @@ const SKILL_DB=[
  {key:"nsk_prospector",name:"山師の目",tier:"silver",desc:"金目のものを決して見逃さぬ抜け目なさ。この者を迷宮に伴うと、持ち帰る財貨が増える",goldFind:0.2,agi:5},
  {key:"nsk_quartermaster",name:"兵站の才",tier:"silver",desc:"陣払いと野営の采配に長ける。同じ部隊で臨む遠征では、皆の疲労の溜まりが軽く済む",campSupport:0.35,lead:5},
  {key:"nsk_medic",name:"従軍医の心得",tier:"silver",desc:"戦場での応急手当に長ける。同じ部隊が迷宮で痛手を負っても、その傷は軽く済みやすい",fieldMedic:0.6,wis:6},
+ {key:"nsk_gambler",name:"勝負師の勘",tier:"gold",desc:"ここぞの場面で驚くような結果を手繰り寄せる強運。共に潜る部隊の踏破が、大成功に転じやすくなる",fortuneRoll:12,agi:5},
  {key:"nsk_earnest",name:"忠勤の士",tier:"silver",desc:"実直な働きぶりで、長の信を静かに集める",lead:5,loyaltyGrow:0.2},
  {key:"nsk_highspirit",name:"旺盛なる士気",tier:"silver",desc:"陣中でも戦場でも、常に高い士気を絶やさず自ら奮い立たせる",moralGrow:0.3,vit:4},
  {key:"nsk_seasoned",name:"老練の身のこなし",tier:"silver",desc:"歳を重ねても衰えを寄せ付けぬ立ち回り",ageResist:0.5,vit:5},
@@ -2071,7 +2072,7 @@ function trySkillUpOnPromotion(u,tierIndex){
   const sk=SKILL_DB.find(s=>s.key===k);celebrateSkillGain(u,sk);return sk;
 }
 function skillEffects(u){
-  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,goldFind:0,campSupport:0,fieldMedic:0,
+  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,goldFind:0,campSupport:0,fieldMedic:0,fortuneRoll:0,
     str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   const stage=ageStageOf(u);
   for(const key of u.skills){
@@ -2099,6 +2100,7 @@ function skillEffects(u){
     if(s.goldFind)e.goldFind=Math.max(e.goldFind,s.goldFind);
     if(s.campSupport)e.campSupport=Math.max(e.campSupport,s.campSupport);
     if(s.fieldMedic)e.fieldMedic=Math.max(e.fieldMedic,s.fieldMedic);
+    if(s.fortuneRoll)e.fortuneRoll=Math.max(e.fortuneRoll,s.fortuneRoll);
   }
   const eq=equipmentEffects(u);
   for(const k of["str","vit","int","agi","wis","lead"])e[k]+=eq[k];
@@ -7202,7 +7204,8 @@ function estimateDungeonSuccess(dungeon){
   if(size<1)return{squad:[],pct:0,pctGreat:0,pctCriticalFail:100};
   const squad=[...eligible].sort((a,b)=>(dungeon.type?dungeon.type.statFn(b):unitPower(b))-(dungeon.type?dungeon.type.statFn(a):unitPower(a))).slice(0,size);
   const squadPower=squadEffectivePower(squad,dungeon.type);
-  const centerRoll=squadPower/dungeon.requiredPower*100;
+  const fortune=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).fortuneRoll||0)):0; // 「勝負師の勘」持ちは踏破判定に下駄を履く
+  const centerRoll=squadPower/dungeon.requiredPower*100+fortune;
   // roll = centerRoll + rnd(-20,20) の分布から、各tierの概算確率を出す(判定式と同じ閾値60/105/165を使用)
   const pct=Math.max(0,Math.min(100,Math.round((centerRoll-105+20)/40*100))); // 「成功」以上(success/critical_success)の確率
   const pctGreat=Math.max(0,Math.min(100,Math.round((centerRoll-165+20)/40*100))); // 「大成功」の確率
@@ -7365,7 +7368,8 @@ function resolveDungeonRun(dungeonId){
     removeActiveDungeon(dungeonId);save();return;
   }
   const squadPower=squadEffectivePower(squad,dungeon.type);
-  const roll=squadPower/dungeon.requiredPower*100+rnd(-20,20);
+  const fortune=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).fortuneRoll||0)):0; // 「勝負師の勘」持ちは踏破判定に下駄を履く=大成功が出やすくなる
+  const roll=squadPower/dungeon.requiredPower*100+fortune+rnd(-20,20);
   const tier=roll>=165?"critical_success":roll>=105?"success":roll>=60?"fail":"critical_fail";
   const level=dungeon.level;
   const levelMult=1+level/28; // レベルが上がるほど報酬が伸びる(後半でも報酬が目減りしないよう伸び幅を強化)
@@ -8571,6 +8575,7 @@ function skillEffectText(s){
   if(s.goldFind)parts.push(`迷宮の獲得財貨+${Math.round(s.goldFind*100)}%`);
   if(s.campSupport)parts.push(`遠征時の部隊の疲労蓄積-${Math.round(s.campSupport*100)}%`);
   if(s.fieldMedic)parts.push("部隊の迷宮での負傷を軽減");
+  if(s.fortuneRoll)parts.push("部隊の迷宮踏破が大成功に転じやすい");
   if(s.onlyCaptain)parts.push("(団長のみ有効)");
   if(s.condFlag==="dragonPact")parts.push(`竜盟約締結中はさらに体力+${s.condVit}・腕力+${s.condStr}`);
   return parts.length?parts.join(" / "):"目立った効果はない";
