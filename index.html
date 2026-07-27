@@ -6837,6 +6837,20 @@ const ITEMS=[
  // ── エピック追加(第2弾) ──
  {key:"phoenix_egg",name:"不死鳥の卵",rarity:"epic",desc:"戦没を防ぐお守りが2つ手に入る。",type:"permanent",effect:()=>{S.flags.phoenixCharm=(S.flags.phoenixCharm||0)+2;chron("不死鳥の卵を懐に忍ばせた。いざという時、二度まで命を救うだろう。","big");}},
  {key:"barracks_permit",name:"兵舎増築の許可状",rarity:"epic",desc:"兵舎を増築し、抱えられる兵の上限を永続的に4名増やす。",type:"permanent",effect:()=>{S.flags.barracksBonus=(S.flags.barracksBonus||0)+4;chron(`兵舎の増築が成った。より多くの兵を抱えられるようになった(定員が${unitCap()}名に拡がった)。`,"big");}},
+ {key:"trait_ascend",name:"血脈昇華の秘薬",rarity:"epic",desc:"選んだ兵の眠れる血脈を一段階呼び覚ます。特性が一つ上の位階へと昇華する(通常→稀少→英雄級→伝説級)。伝説級には効かない。",needsTarget:true,effect:(targetId)=>{
+   const u=findAnyUnit(targetId); if(!u)return;
+   const order={normal:0,rare:1,epic:2,legend:3};
+   const cur=order[u.traitTier]!==undefined?order[u.traitTier]:0;
+   if(cur>=3){chron(`${u.nm}の血脈は既に伝説の域にあり、これ以上は昇華しなかった。秘薬は大切に仕舞い直された。`,"");return;}
+   const pools=[TRAIT_NORMAL,TRAIT_RARE,TRAIT_EPIC,TRAIT_LEGEND];
+   const tiers=["normal","rare","epic","legend"];
+   const nt=cur+1; const pool=pools[nt];
+   const t=pool[Math.floor(Math.random()*pool.length)];
+   u.trait=t.key; u.traitTier=tiers[nt];
+   u.gm=t.gm||1; u.pw=t.pw||0;
+   unitHistory(u,`血脈昇華の秘薬により、眠れる才が「${t.name}」へと開花した。`);
+   chron(`――${u.nm}の血脈が呼び覚まされた。新たに「${traitInfo(u.trait).name}」の位階へと昇華している。`,"big");
+ }},
  {key:"grand_library",name:"大図書館の蔵書",rarity:"epic",desc:"全兵士に経験値、魔導・知識面の国力も上がる。",effect:()=>{for(const u of S.units){u.exp+=ri(8,15);processLevelUps(u);}apply({st:{magic:6,diplomacy:4}});chron("大図書館の蔵書が、国全体に知の恩恵をもたらした。","big");}},
  {key:"titan_bone",name:"巨人の骨",rarity:"epic",desc:"軍事・農業が大きく上昇する。",effect:()=>apply({st:{military:9,agriculture:9},log:"巨人の骨から得た知見が、様々な分野に活かされた。"})},
  // ── レジェンド追加(第2弾) ──
