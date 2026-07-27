@@ -4849,8 +4849,31 @@ function councilDrill(){
     {label:"今週は特に課さず様子を見る",hint:"様子見",fx:{log:"今週は特段の教練方針を定めず、各自の鍛錬に任せた。"}},
    ]};
 }
+/* 辺境会議:未知の地と国境の守りをめぐる方針を問う。斥候・地図・砦のいずれに力を割くかで、
+   新たな迷宮の出現・発見率・治安が振れる。国政の決断を"探索そのもの"へ結びつけ、週次の方針に
+   踏み出すか固めるかの色を添える(国政の彩り)。 */
+function councilFrontier(){
+  const opts=[
+   {label:"斥候を放ち、未知の地を探らせる(40G)",hint:"新たな迷宮が姿を現す(出費)",fx:{call:()=>{
+     if(S.gold<40){chron("斥候を送るだけの蓄えがなく、辺境の探索は見送られた。","");return;}
+     S.gold-=40;
+     const nd=generateDungeon();
+     S.availableDungeons=S.availableDungeons||[];
+     S.availableDungeons.push(nd);
+     if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}
+     chron(`放たれた斥候が、${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」の存在を突き止めて戻った。`,"big");
+   }}},
+   {label:"辺境の古地図を買い集める(30G)",hint:"次のミッションで発見率↑ 外交+1",fx:{gold:-30,st:{diplomacy:1},call:()=>{S.flags._mapBonus=true;chron("辺境の古地図が方々から買い集められた。次の探索で役立つに違いない。","");}}},
+   {label:"辺境に砦を築き、守りを固める(50G)",hint:"治安+3 軍事+1",fx:{gold:-50,st:{order:3,military:1},log:"辺境に新たな砦が築かれた。国境の守りが一段と堅くなり、民は安んじて暮らしている。"}},
+   {label:"今週は動かず様子を見る",hint:"様子見",fx:{log:"辺境については、今週は特段の手を打たなかった。"}},
+  ];
+  return{tag:"辺境会議",title:"第"+Math.floor(S.day/7)+"回 定例閣議(辺境)",
+   body:"今週の議題は辺境。未知の地の探索と、国境の守りをめぐる方針を協議する。地平の向こうへ踏み出すか、足元を固めるか。",
+   speaker:"ガレオン「地平の向こうには、まだ我らの知らぬものが眠っておりましょう」",
+   choices:opts};
+}
 function councilAction(){
-  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill];
+  const types=[councilBudget,councilDiplomacy,councilMilitary,councilDomestic,councilPersonnel,councilHonors,councilJustice,councilTrade,councilFaith,councilDrill,councilFrontier];
   return types[Math.floor(Math.random()*types.length)]();
 }
 function councilEvent(){return councilPolicy();}
