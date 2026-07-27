@@ -5720,6 +5720,24 @@ function checkRivalVignette(){
   for(const u of [a,b]){u.exp+=ri(3,7);processLevelUps(u);u.moral=Math.min(100,(u.moral||0)+1);}
   chron(RIVAL_VIGNETTES[Math.floor(Math.random()*RIVAL_VIGNETTES.length)](a,b),"");
 }
+/* 志を語る:兵がまだ叶えぬ己の夢を口にする一幕を稀に拾い上げる。個々の目標(UNIT_DREAMS)を年代記に
+   立ち上げ、達成の日への期待と、その兵への愛着を静かに育てる(個人的な物語の演出)。 */
+const DREAM_VIGNETTES=[
+ (u,d)=>`焚き火のそば、${u.nm}が「${d}」と、いつか叶えたい夢を静かに語った。`,
+ (u,d)=>`${u.nm}が遠くを見つめ、「${d}」――それが己の願いだと、はにかみながら打ち明けた。`,
+ (u,d)=>`若い兵に問われ、${u.nm}は「${d}」と、胸に秘めた志を口にした。`,
+ (u,d)=>`稽古の合間、${u.nm}が「${d}」と、変わらぬ目標を仲間に語っていた。`,
+];
+function checkDreamVignette(){
+  if(Math.random()>=0.022)return; // ごく稀に
+  const cands=S.units.filter(u=>u.role==="active"&&u.injured<=0&&u.dream&&!u.dreamDone);
+  if(!cands.length)return;
+  const u=cands[Math.floor(Math.random()*cands.length)];
+  const d=UNIT_DREAMS.find(x=>x.key===u.dream);
+  if(!d)return;
+  u.moral=Math.min(100,(u.moral||0)+1);
+  chron(DREAM_VIGNETTES[Math.floor(Math.random()*DREAM_VIGNETTES.length)](u,d.text),"");
+}
 /* 得物への愛着:一級(エピック級以上)の武具を帯びた兵が、その得物を惚れ惚れと手入れする一幕を稀に拾い上げる。
    苦労して掘り当てた逸品(ハクスラの成果)に、兵の愛着という物語を添える=収集の喜びを情感に繋ぐ(装備の彩り)。 */
 const GEAR_VIGNETTES=[
@@ -5924,6 +5942,7 @@ function dailyEconomySettle(){
   checkMentorVignette(); // 師弟(教官と若手)の稽古の一幕
   checkFameVignette(); // 功を立てた兵の武名が市井で語られる一幕
   checkRivalVignette(); // 同職の兵同士が競い合い、互いを高め合う一幕
+  checkDreamVignette(); // 兵が己の夢(個人的な目標)を語る一幕
   checkGearVignette(); // 一級の武具を帯びた兵が、その得物を大切に手入れする一幕
   checkRealmVignette(); // 民の暮らしの何気ない一場面(平穏な国の息づかい)
   checkRemembranceVignette(); // 殿堂に名を刻んだ、かつての英傑を偲ぶ一幕
