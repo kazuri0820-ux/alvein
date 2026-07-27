@@ -9903,7 +9903,29 @@ function fallenEulogy(u,placeName,hallWorthy){
   const line=EULOGY_LINES[ri(0,EULOGY_LINES.length-1)];
   chron(line(fullName(u),placeName||"迷宮")+featTxt,"grave");
   S.flags=S.flags||{}; S.flags.griefUntil=S.day+ri(4,8); // 名のある兵の喪失は、しばし王の述懐に影を落とす
+  if(Math.random()<0.66)fallenLastWords(u); // 名のある兵の最期に、その者自身の遺した言葉を添える(演出)
   if(u.sigFeat&&u.sigFeat.text)chron(`いくさ場では、いまも語り草になっている――${u.sigFeat.text}、あの${u.nm}の武勇が。`,"grave"); // 生涯の語り草を、弔いの最後に今一度
+}
+/* 兵の遺言(演出):語り部(EULOGY)の三人称の弔いに対し、これは斃れた兵"自身"の最期の一言。戦友・師弟・憧れ・
+   夢・お気に入りといった、その兵が最も深く抱いていた想いに即して言葉が選ばれる。喪失に、当人の声という
+   もう一段の重みと固有性を与える。誰の何が欠けたのかを felt にする。 */
+function fallenLastWords(u){
+  if(!u)return;
+  const lines=[];
+  if(u.pupilId){const pu=S.units.find(x=>x.id===u.pupilId);if(pu)lines.push(`「${pu.nm}……あとは、頼んだ。お前なら、必ず……」`);}
+  if(u.bondWith){const pn=S.units.find(x=>x.id===u.bondWith)||(S.instructors||[]).find(x=>x.id===u.bondWith);if(pn)lines.push(`「${pn.nm}……先に、逝く。背中は、預けたぞ……」`);}
+  if(u.masterId){const ma=S.units.find(x=>x.id===u.masterId);if(ma)lines.push(`「師よ……頂いた教えは、この身に確かに刻まれておりました……」`);}
+  if(u.rivalWith){const rv=S.units.find(x=>x.id===u.rivalWith);if(rv)lines.push(`「${rv.nm}……次に会う時は、必ず……勝つ、と……伝えてくれ」`);}
+  if(u.admires){const h=S.units.find(x=>x.id===u.admires);if(h)lines.push(`「あの人の……背中に、少しは、近づけただろうか……」`);}
+  if(u.favorite)lines.push(`「王よ……あなたの下で戦えたこと、我が生涯の……誉れ、でした……」`);
+  if(u.dream&&!u.dreamDone)lines.push(`「まだ……やり残したことが、あったのにな……。だが、悔いは……あるまい」`);
+  if(u.dreamDone)lines.push(`「悔いは……ない。抱いた夢は、この手で……叶えたのだから……」`);
+  if(!lines.length)lines.push(
+   "「怖く……はない。この国を、守れたなら……それで……」",
+   "「もっと……皆と、笑っていたかった、な……」",
+   "「王国に……栄えあれ。それが……最後の、願いだ……」",
+   "「ここまで……よく、生きた。……悪くない、生涯だった……」");
+  chron(`${lines[Math.floor(Math.random()*lines.length)]}――${fullName(u)}、最期の言葉。`,"grave");
 }
 /* ===== 宿敵(Nemesis):討ち逃した強敵が"宿敵"として心に刻まれ、再戦の迷宮が現れる。討てば因縁の決着と特別報酬。
    失敗を「いつか討つ」未来の目標に変え、格上への挑戦に個人的な因縁の物語を宿す新機軸 ===== */
