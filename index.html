@@ -7157,6 +7157,18 @@ function squadSynergyMult(squad){
    兵の路と挑む迷宮の型が噛み合うと、その兵の攻略適性が一段高まる。ルート選択に「どの迷宮を得意に
    するか」という戦術的な意味を与え、派遣先ごとに誰を出すかの判断を面白くする(ジョブルートの手応え)。 */
 function dungeonTypeLabel(key){const t=DUNGEON_TYPES.find(x=>x.key===key);return t?t.label:key;}
+/* 兵が部隊にもたらす支援効果(庇護/医療/兵站/宝運/金策)を短い印で示す=支援役を組み合わせた編成を組みやすくする(磨き込み) */
+function unitSupportTags(u){
+  if(!u)return [];
+  const se=skillEffects(u), tr=traitInfo(u.trait)||{};
+  const tags=[];
+  if((se.guardianSave||0)>0||(tr.guardianSave||0)>0)tags.push("庇護");
+  if((se.fieldMedic||0)>0)tags.push("医療");
+  if((se.campSupport||0)>0||(tr.campSupport||0)>0)tags.push("兵站");
+  if((se.lootLuck||0)>0||(tr.lootLuck||0)>0)tags.push("宝運");
+  if((se.goldFind||0)>0||(tr.goldFind||0)>0)tags.push("金策");
+  return tags;
+}
 /* ダンジョン型が重んじる主要能力を推し量って表示=どんな兵を送るべきか、開く前に判断しやすくする(磨き込み) */
 function dungeonTypeStatHint(type){
   if(!type||typeof type.statFn!=="function")return "";
@@ -9674,7 +9686,7 @@ function renderDungeonPanel(){
           <div class="pcard-portrait" style="background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">${classpicHtml(u)}</div>
           <div style="flex:1;min-width:0">
             <div class="nm"><i class="cbicon ${picked?"on":"off"}"></i>${u.nm} ${u.surname||""} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
-            <div class="ds">戦力${Math.round(unitPower(u))}${d.type?` ／ ${d.type.label}適性${Math.round(aff)}`:""}${d.type&&u.route&&(routeInfo(u.cls,u.route)||{}).aff===d.type.key?` <span style="color:var(--gold);font-weight:700" title="この兵の路が得意とする攻略型。攻略適性が上がる">★得意</span>`:""}</div>
+            <div class="ds">戦力${Math.round(unitPower(u))}${d.type?` ／ ${d.type.label}適性${Math.round(aff)}`:""}${d.type&&u.route&&(routeInfo(u.cls,u.route)||{}).aff===d.type.key?` <span style="color:var(--gold);font-weight:700" title="この兵の路が得意とする攻略型。攻略適性が上がる">★得意</span>`:""}${(()=>{const t=unitSupportTags(u);return t.length?` <span style="color:#8fbf6f;font-size:10px" title="この兵が部隊にもたらす支援効果">【${t.join("・")}】</span>`:"";})()}</div>
           </div>
         </div>
         <button class="dg-unit-detail" data-id="${u.id}" style="margin-top:6px;width:100%;background:transparent;border:1px solid rgba(201,162,75,.35);color:var(--dim);border-radius:6px;padding:6px;font-size:11.5px;font-family:'Zen Old Mincho',serif;cursor:pointer">能力の詳細を見る</button>
