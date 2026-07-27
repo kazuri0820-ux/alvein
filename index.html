@@ -11638,6 +11638,8 @@ function renderProjects(){
    {if(typeof CIVIC_WORKS!=="undefined"){const bld=CIVIC_WORKS.filter(w=>civicWorkState(w.key)==="building").length;const av=CIVIC_WORKS.filter(w=>civicWorkAvailable(w)&&S.gold>=w.cost).length;if(bld)chips.push(["普請",`${bld}件 普請中`,"#c9a86a"]);else if(av)chips.push(["普請","興せる勅令普請あり","#8fa9c4"]);}} // 勅令普請の進行・着手余地を概況に
    if(S.flags&&S.flags.observatory)chips.push(["星見","塔が天を読む(危機を先読み)","#8f9fd0"]); // 星見の塔:危機への恒久の備え
    {const fh=(S.units||[]).filter(u=>u.fief&&u.role==="active").length;if(fh)chips.push(["知行",`領地持ちの臣 ${fh}名(日々禄+${fh})`,"#d8b45e"]);} // 知行持ちの臣の数と日々の禄
+   {if(typeof REIGN_FEATS!=="undefined"){let best=null;for(const f of REIGN_FEATS){if(featDone(f.key))continue;let pr;try{pr=f.prog(S);}catch(e){continue;}const pct=pr[1]?pr[0]/pr[1]:0;if(pct>=0.7&&pct<1&&(!best||pct>best.pct))best={f,pct,pr};}if(best)chips.push(["偉業",`「${best.f.name}」まぢか(${best.pr[0]}/${best.pr[1]})`,"#d8b45e"]);}} // 治世の偉業:達成間近の到達目標を概況に出し、あと一押しを促す
+
    {const fl=(S.availableDungeons||[]).filter(d=>d&&d.fleeting&&!d.isFinal);if(fl.length){const soon=Math.min(...fl.map(d=>Math.max(0,(d.expireDay||S.day)-S.day)));chips.push(["好機",`時限の迷宮 残${soon}日`,"#e08a5e"]);}} // 時限の迷宮:見逃さぬよう概況にも出す
    {const food=Math.round(S.food||0),need=(S.pop||0)*0.085;if(food<Math.max(20,need*40))chips.push(["兵糧",food<Math.max(12,need*20)?"僅少・要備え":"やや心許ない","#d97a7a"]);} // 兵糧が細ると警告(飢饉に備える一手を促す)
    if((S.mood||100)<40){const inArc=(S.flags&&S.flags.unrestArc)===1;const rankOk=STAGES[S.stage].rank>=2;chips.push(["民心",inArc?"憤懣くすぶる・一揆の恐れ":((S.mood||0)<28?(rankOk?"危険・一揆の芽":"危険・要慰撫"):"低下"),"#d97a7a"]);} // 民心が下がると警告。放置は一揆の連鎖を招くため、その芽を明示して施し/対話等の一手を促す
