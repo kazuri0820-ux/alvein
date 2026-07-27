@@ -6244,6 +6244,21 @@ const GEAR_VIGNETTES=[
  (u,g)=>`${u.nm}は「${g}」を手にしてから、どこか背筋が伸びたように見える。`,
  (u,g)=>`夜更け、${u.nm}が「${g}」の手入れをしながら、明日の戦に思いを馳せていた。`,
 ];
+/* 昇格の一幕:兵が新たな職位へ上がる育成の節目に、祝いの情景を添える。ただ数字が上がるだけでなく、
+   一人の兵が名を上げていく道のりを味わえるようにする(演出=成長の実感と愛着) */
+const PROMOTION_LINES=[
+ (u,j)=>`${u}が「${j}」へと昇格した。訓練場に集った戦友たちが、口々にその名を讃えている。`,
+ (u,j)=>`${u}が「${j}」に列せられた。かつての新兵が、いつしか頼れる一角へと育っていた。`,
+ (u,j)=>`王の名において、${u}が「${j}」へ叙された。その顔には、静かな誇りと新たな責の重みが浮かんでいる。`,
+ (u,j)=>`${u}が「${j}」へと歩を進めた。積み重ねた研鑽が、確かな位となって報われた。`,
+ (u,j)=>`${u}の「${j}」昇格の報せに、兵舎は小さな祝いに沸いた。次はどこまで昇るのかと、皆が噂している。`,
+];
+function promotionVignette(u,newJob){
+  if(!u||!newJob)return;
+  const jobLabel=((JOB_TREES[u.cls]&&JOB_TREES[u.cls].chain.find(c=>c.key===newJob.key))||{}).name||newJob.name||"新たな位";
+  const line=PROMOTION_LINES[ri(0,PROMOTION_LINES.length-1)];
+  chron(line(fullName(u),jobLabel),"");
+}
 function checkGearVignette(){
   if(Math.random()>=0.024)return; // ごく稀に
   const hi=new Set(["epic","legendary"]);
@@ -11844,6 +11859,7 @@ function processLevelUps(u,silent,noRival){
         const goldReward=Math.round(15*tierIndex*rnd(0.85,1.2));
         S.gold+=goldReward;
         u.moral=Math.min(100,u.moral+ri(3,6));
+        if(newJob.key!=="hero"&&newJob.key!=="captain"&&newJob.key!=="elite")promotionVignette(u,newJob); // 特別な昇格は各々の演出があるので、それ以外の節目に祝いの一幕
       }
       if(silent){
         // まだ仲間になっていない候補(募集候補・志願者)の生成中は、通知やポップアップを一切出さない。
