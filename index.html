@@ -6604,6 +6604,7 @@ const DUNGEON_CONDITIONS={
   dojo:{label:"武の霊場",color:"#c9a86a",desc:"古の武人が修行を積んだ霊場。踏破した部隊の中から、才ある者が新たな技を会得することがある"},
   prodigyhall:{label:"研鑽の回廊",color:"#9fc98f",desc:"才を伸ばす気に満ちた回廊。踏破すれば、隊で最も未熟な者が驚くほどの成長を遂げる"},
   starwatch:{label:"星読みの天文台",color:"#8f9fd0",desc:"星々を読む古の天文台。踏破すれば天啓を得て、新たな秘境への道が開ける"},
+  trainground:{label:"研武の霊場",color:"#c98f8f",desc:"武を練る気が満ちる霊場。踏破した部隊は皆わずかに永続で鍛え上げられる(全能力+1)"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 /* 個体差(アフィックス)を複数回ロールして最良の一組を返す=マジックファインド(良個体を引き当てる) */
@@ -7505,6 +7506,10 @@ function resolveDungeonRun(dungeonId){
         S.availableDungeons.push(nd);
         if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}
         chron(`「${dungeon.name}」の天文台で星々を読み解くと、天啓とともに新たな秘境${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」への道が浮かび上がった(魔導+1)。`,"big");
+      }
+      if(cond==="trainground"){ // 研武の霊場: 踏破した部隊が全能力を永続でわずかに鍛え上げる(選んで通える育成の場)
+        for(const u of squad){if(!u)continue;for(const k of ["str","vit","int","agi","wis","lead"])u[k]+=1;}
+        chron(`「${dungeon.name}」の研武の霊場で、部隊は皆一様に鍛えられた。その体に、確かな力が永く刻まれている(全能力+1)。`,"big");
       }
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
