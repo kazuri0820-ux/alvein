@@ -2341,6 +2341,7 @@ const TITLE_DB=[
  {key:"t_hero",name:"英雄",desc:"英雄格に到達した",effect:"moralGrow",value:0.15},
  {key:"t_survivor",name:"不屈の帰還者",desc:"大失敗から生還した",effect:"injuryMult",value:0.92},
  {key:"t_soloace",name:"一騎当千",desc:"単独で大きな成果を上げた",effect:"expMult",value:1.05},
+ {key:"t_tourneychamp",name:"御前試合の覇者",desc:"御前試合を制し、王国一の武を示した",effect:"expMult",value:1.06},
  {key:"t_1year",name:"一年の功労",desc:"1年以上在籍した",effect:"loyaltyGrow",value:0.1},
  {key:"t_longserve",name:"不動の忠臣",desc:"三年もの長きにわたり、変わらず王国に仕え続けている",effect:"loyaltyGrow",value:0.15},
  {key:"t_captainexp",name:"歴戦の指揮官",desc:"団長を務めた経験がある",effect:"loyaltyGrow",value:0.12},
@@ -10333,6 +10334,64 @@ function holdFestival(key){
   apply(Object.assign({},fx,{log:`${ft.icon} 国を挙げて「${ft.name}」が催された。${ft.effectLabel}(${dur}日間)。人々の顔に、久方ぶりの華やぎが差した。`,logCls:"big"}));
   clamp();render();renderProjects();save();
 }
+/* ===== 御前試合(育成×関係性の新レバー):王が催す一夜限りの武の祭典。手駒の中から精鋭が勝ち抜き戦で
+   覇を競い、覇者には誉れ(称号)と大きな成長が、参加者全員にも稽古としての経験が入る。何より、接戦を
+   演じた二人の間には新たな"好敵手"の縁が生まれることがある――既存の好敵手の育成ループへ、プレイヤーが
+   能動的に火種を投じられる。強い兵を選び競わせ、ライバル関係を育てる、これまで無かった能動的な育成の場。 ===== */
+const TOURNAMENT_COOLDOWN=28; // 次の御前試合までの間隔
+const TOURNAMENT_COST=45;     // 開催に要する費え
+function tournamentCooldownLeft(){return Math.max(0,TOURNAMENT_COOLDOWN-(S.day-(S.lastTournamentDay??-TOURNAMENT_COOLDOWN)));}
+function tournamentEligible(){return S.units.filter(u=>u.role==="active"&&u.injured<=0&&!u.dungeonBusy&&!u.campUntil&&(u.lv||1)>=3);}
+function holdTournament(){
+  if(tournamentCooldownLeft()>0){chron(`次の御前試合を催すには、あと${tournamentCooldownLeft()}日の間を要る。`,"");return;}
+  if(S.gold<TOURNAMENT_COST){chron("御前試合を催すだけの蓄えが足りない。","");return;}
+  const pool=tournamentEligible();
+  if(pool.length<4){chron("御前試合を催すには、出場できる兵が足りない(健在な兵が4名以上要る)。","");return;}
+  S.gold-=TOURNAMENT_COST; S.lastTournamentDay=S.day;
+  // 上位から最大8名を選抜(2の冪に丸める)
+  const seeded=[...pool].sort((a,b)=>unitPower(b)-unitPower(a));
+  let n=8; while(n>seeded.length)n=n/2; // 4 or 8
+  const entrants=seeded.slice(0,n);
+  for(const u of entrants){u.exp+=ri(4,8);processLevelUps(u);} // 出場そのものが良い稽古(全員に経験)
+  // 勝ち抜き戦:各試合は戦力に応じた重み付き抽選。接戦の組は好敵手の火種として記録
+  let bracket=[...entrants].sort(()=>Math.random()-0.5);
+  const closeBouts=[];
+  while(bracket.length>1){
+    const next=[];
+    for(let i=0;i<bracket.length;i+=2){
+      const a=bracket[i], b=bracket[i+1];
+      if(!b){next.push(a);continue;}
+      const pa=Math.max(1,unitPower(a)), pb=Math.max(1,unitPower(b));
+      const close=Math.min(pa,pb)/Math.max(pa,pb)>=0.82; // 実力伯仲=名勝負
+      const winner=(Math.random()<pa/(pa+pb))?a:b;
+      const loser=(winner===a)?b:a;
+      if(close)closeBouts.push([a,b]);
+      loser.exp+=ri(1,3); // 敗者にも一戦の糧
+      next.push(winner);
+    }
+    bracket=next;
+  }
+  const champ=bracket[0];
+  champ.exp+=ri(18,30);processLevelUps(champ);
+  champ.moral=Math.min(100,(champ.moral||0)+8);champ.loyalty=Math.min(100,(champ.loyalty||0)+4);
+  champ.tourneyWins=(champ.tourneyWins||0)+1;
+  grantTitle(champ,"t_tourneychamp");
+  unitHistory(champ,`御前試合を制し、満場の喝采のなか王国一の武人と讃えられた。`);
+  // 好敵手の火種:接戦を演じた組のうち、まだ好敵手のいない二人に新たな縁が生まれることがある
+  let newRival=null;
+  const freshBouts=closeBouts.filter(([a,b])=>!a.rivalWith&&!b.rivalWith);
+  if(freshBouts.length&&Math.random()<0.7){
+    const[a,b]=freshBouts[Math.floor(Math.random()*freshBouts.length)];
+    a.rivalWith=b.id;b.rivalWith=a.id;
+    for(const u of[a,b]){u.moral=Math.min(100,(u.moral||0)+2);}
+    newRival=[a,b];
+    unitHistory(a,`御前試合の名勝負を通じ、${b.nm}を好敵手と認めた。`);
+    unitHistory(b,`御前試合の名勝負を通じ、${a.nm}を好敵手と認めた。`);
+  }
+  apply({mood:5,st:{military:1},log:`⚔ 王の御前で武を競う御前試合が催された。精鋭${entrants.length}名が勝ち抜き戦で覇を競い、決勝を制したのは${fullName(champ)}。満場の喝采を浴び、「御前試合の覇者」の誉れと大きな成長を手にした(民心↑ 軍事+1)。`,logCls:"big"});
+  if(newRival)chron(`――この御前試合の名勝負が縁となり、${newRival[0].nm}と${newRival[1].nm}は互いを好敵手と認め合った。二人はこれから、相手の背を追って腕を磨き合うだろう。`,"big");
+  clamp();render();renderProjects();renderTroops();save();
+}
 /* ===== 兵糧市(資源の新しい使い道):余剰の食糧を国庫へ、あるいは国庫を食糧へ換える。豊作の実りを金に、
    飢饉や冬の端境には金で糧を買い付ける。売買には差(手数料)があり、平時の備えと緊急の安全弁を兼ねる新レバー ===== */
 const GRAIN_BATCH=30;                 // 一度に取引する量
@@ -10545,6 +10604,17 @@ function renderProjects(){
       h+=`</div>`;
     }
   }
+  // ── 御前試合 ──
+  h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 6px;letter-spacing:.15em">── 御前試合 ──</div>`;
+  {const tcl=tournamentCooldownLeft();const nEl=tournamentEligible().length;const afford=S.gold>=TOURNAMENT_COST;const ready=tcl<=0&&afford&&nEl>=4;
+   if(tcl>0){
+     h+=`<div class="pcard"><div class="ds">次の御前試合を催すには、あと${tcl}日の間を要する。手駒の武を競わせ、覇者を選び、好敵手の縁を生む一夜の祭典だ。</div></div>`;
+   }else{
+     h+=`<div class="pcard" style="border-color:${ready?"var(--gold2)":"rgba(201,162,75,.25)"}"><div class="ds" style="margin-bottom:7px;color:var(--gold)">王の御前で、精鋭たちに武を競わせる(${TOURNAMENT_COST}G)。覇者は誉れと大きな成長を得、参加者にも稽古の糧が入る。接戦を演じた二人には、新たな好敵手の縁が生まれることも。</div>
+       <div class="ds" style="font-size:10.5px;color:var(--dim);margin-bottom:7px">出場できる兵:${nEl}名${nEl<4?"(4名以上で開催できる)":""}${!afford?" ／ 蓄えが不足":""}</div>
+       <button class="tourney-btn" ${ready?"":"disabled"} style="display:block;width:100%;background:${ready?"transparent":"transparent"};border:1px solid ${ready?"var(--gold2)":"rgba(255,255,255,.12)"};color:${ready?"var(--gold)":"var(--dim)"};border-radius:6px;padding:9px;font-family:'Zen Old Mincho',serif;font-size:12px;cursor:${ready?"pointer":"default"}">⚔ 御前試合を催す</button></div>`;
+   }
+  }
   const act=S.projects.filter(p=>!p.done),fin=S.projects.filter(p=>p.done);
   if(!act.length)h+=`<div class="pcard"><div class="ds">進行中の事業はない。閣議やイベントで新たな事業が生まれる。</div></div>`;
   for(const p of act){
@@ -10630,6 +10700,7 @@ function renderProjects(){
   $("#prjList").querySelectorAll(".nb-gift-btn").forEach(b=>b.onclick=()=>{giftNeighbor(+b.dataset.i);});
   $("#prjList").querySelectorAll(".nb-ally-btn").forEach(b=>b.onclick=()=>{allyNeighbor(+b.dataset.i);});
   $("#prjList").querySelectorAll(".festival-btn").forEach(b=>b.onclick=()=>{holdFestival(b.dataset.k);});
+  {const tb=$("#prjList").querySelector(".tourney-btn");if(tb)tb.onclick=()=>holdTournament();}
   $("#prjList").querySelectorAll(".tax-btn").forEach(b=>b.onclick=()=>{setTaxRate(b.dataset.k);});
   $("#prjList").querySelectorAll(".immig-btn").forEach(b=>b.onclick=()=>{setImmigration(b.dataset.k);});
   {const ab=$("#prjList").querySelector(".academy-btn");if(ab)ab.onclick=()=>buildAcademy();}
