@@ -1633,6 +1633,7 @@ const SKILL_DB=[
  {key:"nsk_fieldteacher",name:"歴戦の教え",tier:"gold",desc:"戦場での立ち回りを背中で示し、共に潜る仲間の成長を促す。同じ部隊の迷宮踏破で得る経験値が増える",squadExpBonus:0.25,wis:6,lead:4},
  {key:"nsk_scavenger",name:"漁りの目",tier:"silver",desc:"転がる品を目ざとく拾い集める抜け目のなさ。この者を伴う迷宮踏破で、追加の品を持ち帰ることがある",itemFind:0.3,agi:5},
  {key:"nsk_swiftmarch",name:"迅速な行軍",tier:"silver",desc:"隊の足並みを整え、道なき道を最短で駆け抜ける。この者を伴う迷宮探索は所要日数が一日縮み、手数を稼げる",marchDays:1,agi:6},
+ {key:"nsk_kingbane",name:"討王の心得",tier:"gold",desc:"格上の「王」を狩る間合いと呼吸を知り尽くす。この者を伴う部隊は、迷宮のボスを討ち取りやすくなる(特別報酬を掴みやすい)",bossBane:0.2,str:6,lead:4},
  {key:"nsk_earnest",name:"忠勤の士",tier:"silver",desc:"実直な働きぶりで、長の信を静かに集める",lead:5,loyaltyGrow:0.2},
  {key:"nsk_highspirit",name:"旺盛なる士気",tier:"silver",desc:"陣中でも戦場でも、常に高い士気を絶やさず自ら奮い立たせる",moralGrow:0.3,vit:4},
  {key:"nsk_seasoned",name:"老練の身のこなし",tier:"silver",desc:"歳を重ねても衰えを寄せ付けぬ立ち回り",ageResist:0.5,vit:5},
@@ -2098,7 +2099,7 @@ function trySkillUpOnPromotion(u,tierIndex){
   const sk=SKILL_DB.find(s=>s.key===k);celebrateSkillGain(u,sk);return sk;
 }
 function skillEffects(u){
-  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,goldFind:0,campSupport:0,fieldMedic:0,fortuneRoll:0,squadExpBonus:0,itemFind:0,marchDays:0,
+  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,goldFind:0,campSupport:0,fieldMedic:0,fortuneRoll:0,squadExpBonus:0,itemFind:0,marchDays:0,bossBane:0,
     str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   const stage=ageStageOf(u);
   for(const key of u.skills){
@@ -2130,6 +2131,7 @@ function skillEffects(u){
     if(s.squadExpBonus)e.squadExpBonus=Math.max(e.squadExpBonus,s.squadExpBonus);
     if(s.itemFind)e.itemFind=Math.max(e.itemFind,s.itemFind);
     if(s.marchDays)e.marchDays=Math.max(e.marchDays,s.marchDays);
+    if(s.bossBane)e.bossBane=Math.max(e.bossBane,s.bossBane);
   }
   const eq=equipmentEffects(u);
   for(const k of["str","vit","int","agi","wis","lead"])e[k]+=eq[k];
@@ -7639,6 +7641,7 @@ function unitSupportTags(u){
   if((se.fortuneRoll||0)>0||(tr.fortuneRoll||0)>0)tags.push("武運");
   if((se.marchDays||0)>0||(tr.marchDays||0)>0)tags.push("行軍");
   {const sy=(u.skills||[]).reduce((a,k)=>{const s=SKILL_DB.find(x=>x.key===k);return a+((s&&s.squadSynergy)||0);},0)+((tr.squadSynergy)||0);if(sy>0)tags.push("連携");}
+  if((se.bossBane||0)>0||(tr.bossBane||0)>0)tags.push("討王");
   return tags;
 }
 /* ダンジョン型が重んじる主要能力を推し量って表示=どんな兵を送るべきか、開く前に判断しやすくする(磨き込み) */
@@ -7845,7 +7848,8 @@ function resolveDungeonRun(dungeonId){
   let itemGained=null, goldGained=0, died=null, diedWasHallWorthy=false, bossWin=false, dungeonFound=null;
   const memberLog=[];
   if(tier==="critical_success"||tier==="success"){
-    bossWin=squadPower*(tier==="critical_success"?1.3:1.0)>=dungeon.bossPower*rnd(0.8,1.2);
+    const squadBane=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).bossBane||0)):0; // 「討王の心得」持ちがいると、ボス撃破の判定で部隊の力が底上げされる=特別報酬を掴みやすくする討王ビルド
+    bossWin=squadPower*(tier==="critical_success"?1.3:1.0)*(1+squadBane)>=dungeon.bossPower*rnd(0.8,1.2);
     const squadTeach=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).squadExpBonus||0,(traitInfo(u.trait).squadExpBonus)||0))):0; // 「歴戦の教え」(スキル)「生来の兄貴分」(特性)持ちがいると部隊全員の踏破経験値が増える=育成支援ビルド
     for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach));u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:"踏破"});}
     if(cond==="richaura")chron(`「${dungeon.name}」に満ちた豊穣の気が兵たちの糧となり、いつも以上の経験を持ち帰った。`,"");
@@ -9090,6 +9094,7 @@ function skillEffectText(s){
   if(s.squadExpBonus)parts.push(`部隊の踏破経験値+${Math.round(s.squadExpBonus*100)}%`);
   if(s.itemFind)parts.push(`迷宮で追加の品を拾う(${Math.round(s.itemFind*100)}%)`);
   if(s.marchDays)parts.push(`迷宮の所要日数-${s.marchDays}日`);
+  if(s.bossBane)parts.push(`部隊のボス撃破力+${Math.round(s.bossBane*100)}%`);
   if(s.onlyCaptain)parts.push("(団長のみ有効)");
   if(s.condFlag==="dragonPact")parts.push(`竜盟約締結中はさらに体力+${s.condVit}・腕力+${s.condStr}`);
   return parts.length?parts.join(" / "):"目立った効果はない";
