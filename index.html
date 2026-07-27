@@ -8727,7 +8727,10 @@ const UNIQUE_JOBS=[
 function checkUniqueJobOnHero(u){
   if(u.uniqueJob)return null;
   for(const def of UNIQUE_JOBS){
-    try{if(def.check(u)){u.uniqueJob=def.key;return def;}}catch(e){/* 判定失敗時はスキップ */}
+    try{if(def.check(u)){u.uniqueJob=def.key;
+      // これまでに一度でも授かった二つ名を記録=全種類の二つ名を集める長期コレクション目標(殿堂に到達度を表示)
+      S.flags=S.flags||{};S.flags.uniqueJobsSeen=S.flags.uniqueJobsSeen||{};if(!S.flags.uniqueJobsSeen[def.key])S.flags.uniqueJobsSeen[def.key]=S.day;
+      return def;}}catch(e){/* 判定失敗時はスキップ */}
   }
   return null;
 }
@@ -10431,6 +10434,8 @@ function renderHall(){
   recHtml+=`<div class="ds">歴代最多称号:${rec.mostTitles?`${rec.mostTitles.name}(${rec.mostTitles.count}個・DAY${rec.mostTitles.day})`:"まだ記録なし"}</div>`;
   recHtml+=`<div class="ds">歴代最多踏破:${rec.mostClears?`${rec.mostClears.name}(${rec.mostClears.count}回・DAY${rec.mostClears.day})`:"まだ記録なし"}</div>`;
   recHtml+=`<div class="ds">歴代最高国庫:${rec.richestDay?`${rec.richestDay.gold}G(DAY${rec.richestDay.day})`:"まだ記録なし"}</div>`;
+  // 二つ名コレクション:これまでに授かった唯一無二の二つ名の到達度=全種を集める長期のやり込み目標(磨き込み)
+  {const seen=new Set(Object.keys((S.flags&&S.flags.uniqueJobsSeen)||{}));for(const u of S.units)if(u.uniqueJob)seen.add(u.uniqueJob);const ujDone=seen.size,ujTotal=UNIQUE_JOBS.length;recHtml+=`<div class="ds">授かった二つ名:<span style="color:${ujDone>=ujTotal?"var(--gold)":"#c9a86a"};font-weight:700">${ujDone}/${ujTotal}</span>${ujDone>=ujTotal?" ／ 全ての二つ名を制覇":""}</div>`;}
   recHtml+=`</div>`;
   const legacyPct=Math.round(hallLegacyGrow()*1000)/10;
   const legacyHtml=n?`<div class="ds" style="color:var(--gold);margin-top:4px">殿堂の加護:英霊の物語が、現役兵の忠誠を日々わずかに育てている${legacyPct>0?`(忠誠+${legacyPct}/日)`:""}。</div>`:"";
