@@ -1633,6 +1633,7 @@ const SKILL_DB=[
  {key:"nsk_fieldteacher",name:"歴戦の教え",tier:"gold",desc:"戦場での立ち回りを背中で示し、共に潜る仲間の成長を促す。同じ部隊の迷宮踏破で得る経験値が増える",squadExpBonus:0.25,wis:6,lead:4},
  {key:"nsk_scavenger",name:"漁りの目",tier:"silver",desc:"転がる品を目ざとく拾い集める抜け目のなさ。この者を伴う迷宮踏破で、追加の品を持ち帰ることがある",itemFind:0.3,agi:5},
  {key:"nsk_swiftmarch",name:"迅速な行軍",tier:"silver",desc:"隊の足並みを整え、道なき道を最短で駆け抜ける。この者を伴う迷宮探索は所要日数が一日縮み、手数を稼げる",marchDays:1,agi:6},
+ {key:"nsk_pathfinder",name:"地の利を読む才",tier:"silver",desc:"地形と気配を読み、隠れた迷宮の入口を目ざとく見つけ出す。この者を先頭に立てて動くと、新たなダンジョンを見出す確率が高まる",dungeonFind:0.6,wis:5,agi:4},
  {key:"nsk_kingbane",name:"討王の心得",tier:"gold",desc:"格上の「王」を狩る間合いと呼吸を知り尽くす。この者を伴う部隊は、迷宮のボスを討ち取りやすくなる(特別報酬を掴みやすい)",bossBane:0.2,str:6,lead:4},
  {key:"nsk_earnest",name:"忠勤の士",tier:"silver",desc:"実直な働きぶりで、長の信を静かに集める",lead:5,loyaltyGrow:0.2},
  {key:"nsk_highspirit",name:"旺盛なる士気",tier:"silver",desc:"陣中でも戦場でも、常に高い士気を絶やさず自ら奮い立たせる",moralGrow:0.3,vit:4},
@@ -2099,7 +2100,7 @@ function trySkillUpOnPromotion(u,tierIndex){
   const sk=SKILL_DB.find(s=>s.key===k);celebrateSkillGain(u,sk);return sk;
 }
 function skillEffects(u){
-  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,goldFind:0,campSupport:0,fieldMedic:0,fortuneRoll:0,squadExpBonus:0,itemFind:0,marchDays:0,bossBane:0,
+  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,goldFind:0,campSupport:0,fieldMedic:0,fortuneRoll:0,squadExpBonus:0,itemFind:0,marchDays:0,bossBane:0,dungeonFind:0,
     str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   const stage=ageStageOf(u);
   for(const key of u.skills){
@@ -2132,6 +2133,7 @@ function skillEffects(u){
     if(s.itemFind)e.itemFind=Math.max(e.itemFind,s.itemFind);
     if(s.marchDays)e.marchDays=Math.max(e.marchDays,s.marchDays);
     if(s.bossBane)e.bossBane=Math.max(e.bossBane,s.bossBane);
+    if(s.dungeonFind)e.dungeonFind=Math.max(e.dungeonFind,s.dungeonFind);
   }
   const eq=equipmentEffects(u);
   for(const k of["str","vit","int","agi","wis","lead"])e[k]+=eq[k];
@@ -7111,7 +7113,9 @@ function buildJobChangeSurpriseEvent(){
    ]};
 }
 function checkDungeonDiscovery(rewardMult,discoverer){
-  const chance=0.6*(rewardMult||1);
+  // 「地の利を読む才」を持つ発見者を伴うと、ダンジョンを見出す確率が高まる=探索特化の編成に意味を持たせる新レバー
+  const finder=discoverer?Math.max(0,(skillEffects(discoverer).dungeonFind||0),(traitInfo(discoverer.trait).dungeonFind)||0):0;
+  const chance=0.6*(rewardMult||1)*(1+finder);
   if(Math.random()<chance){
     const d=generateDungeon();
     S.availableDungeons=S.availableDungeons||[];
@@ -7699,6 +7703,7 @@ function unitSupportTags(u){
   if((se.marchDays||0)>0||(tr.marchDays||0)>0)tags.push("行軍");
   {const sy=(u.skills||[]).reduce((a,k)=>{const s=SKILL_DB.find(x=>x.key===k);return a+((s&&s.squadSynergy)||0);},0)+((tr.squadSynergy)||0);if(sy>0)tags.push("連携");}
   if((se.bossBane||0)>0||(tr.bossBane||0)>0)tags.push("討王");
+  if((se.dungeonFind||0)>0||(tr.dungeonFind||0)>0)tags.push("探索");
   return tags;
 }
 /* ダンジョン型が重んじる主要能力を推し量って表示=どんな兵を送るべきか、開く前に判断しやすくする(磨き込み) */
@@ -9166,6 +9171,7 @@ function skillEffectText(s){
   if(s.itemFind)parts.push(`迷宮で追加の品を拾う(${Math.round(s.itemFind*100)}%)`);
   if(s.marchDays)parts.push(`迷宮の所要日数-${s.marchDays}日`);
   if(s.bossBane)parts.push(`部隊のボス撃破力+${Math.round(s.bossBane*100)}%`);
+  if(s.dungeonFind)parts.push(`ダンジョン発見率+${Math.round(s.dungeonFind*100)}%(先頭時)`);
   if(s.onlyCaptain)parts.push("(団長のみ有効)");
   if(s.condFlag==="dragonPact")parts.push(`竜盟約締結中はさらに体力+${s.condVit}・腕力+${s.condStr}`);
   return parts.length?parts.join(" / "):"目立った効果はない";
@@ -9196,6 +9202,8 @@ function traitEffectText(tr){
   if(tr.fortuneRoll)parts.push("部隊の迷宮踏破が大成功に転じやすい");
   if(tr.squadExpBonus)parts.push(`部隊の踏破経験値+${Math.round(tr.squadExpBonus*100)}%`);
   if(tr.marchDays)parts.push(`迷宮の所要日数-${tr.marchDays}日`);
+  if(tr.bossBane)parts.push(`部隊のボス撃破力+${Math.round(tr.bossBane*100)}%`);
+  if(tr.dungeonFind)parts.push(`ダンジョン発見率+${Math.round(tr.dungeonFind*100)}%(先頭時)`);
   if(tr.squadSynergy)parts.push(`部隊の連携${tr.squadSynergy>=0?"+":""}${Math.round(tr.squadSynergy*100)}%`);
   if(tr.condFlag==="dragonPact")parts.push(`竜盟約締結中は戦力+${tr.condPw||0}`);
   return parts.join(" / ");
