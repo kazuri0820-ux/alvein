@@ -2274,6 +2274,7 @@ const TITLE_DB=[
  {key:"t_bloodascend",name:"血脈を昇華せし者",desc:"眠れる血脈を呼び覚まし、生まれ持った才を一段上の位階へと昇華させた者",effect:"expMult",value:1.06},
  {key:"t_kingslayer",name:"王殺し",desc:"個性を帯びた強大なる「王」を五度討ち取った、選ばれた強者",effect:"injuryMult",value:0.9},
  {key:"t_kingsbane",name:"覇王の終焉",desc:"十指に余る「王」を屠り続けた、王たちの終焉を告げる者",effect:"injuryMult",value:0.85},
+ {key:"t_versatile",name:"六芸に通ず",desc:"腕力・体力・魔力・敏捷・知力・統率――その全てを高い水準で備えた、穴のない万能の兵。混沌の坩堝でこそ真価を発揮する",effect:"expMult",value:1.05},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -2778,6 +2779,7 @@ function checkDailyTitles(u){
   if((u.skills||[]).length>=5)grantTitle(u,"t_skillful"); // 多芸:集めた技の数を讃える
   if((u.skills||[]).length>=9)grantTitle(u,"t_polymath");
   if(u.loyalty>=90&&u.moral>=90)grantTitle(u,"t_prideofrealm");
+  if(["str","vit","int","agi","wis","lead"].every(k=>(u[k]||0)>=40))grantTitle(u,"t_versatile"); // 六芸に通ず:全能力を高水準で備えた万能兵を讃える(混沌型で真価を発揮する育成の到達点)
   checkDecorationCeremony(u);
   checkDreamFulfilled(u); // 個人的な夢の達成を見届ける
   // 献身の誓い:長のお気に入りに選ばれ、長く仕えて忠義を極めた兵が、揺るがぬ献身を誓う。
