@@ -1610,6 +1610,7 @@ const SKILL_DB=[
  // 銀(効能系:生存・忠義・育成の型を支える)
  {key:"nsk_tireless",name:"不撓の体力",tier:"silver",desc:"疲れを知らぬ体力の持ち主で、連戦の疲れの抜けが早い",fatigueRecover:5,vit:6},
  {key:"nsk_treasurehunter",name:"宝探しの勘",tier:"silver",desc:"埋もれた財を嗅ぎ分ける勘に長ける。この者を迷宮に伴うと、掘り出しの実りが増える",lootLuck:0.15,wis:6},
+ {key:"nsk_prospector",name:"山師の目",tier:"silver",desc:"金目のものを決して見逃さぬ抜け目なさ。この者を迷宮に伴うと、持ち帰る財貨が増える",goldFind:0.2,agi:5},
  {key:"nsk_earnest",name:"忠勤の士",tier:"silver",desc:"実直な働きぶりで、長の信を静かに集める",lead:5,loyaltyGrow:0.2},
  {key:"nsk_highspirit",name:"旺盛なる士気",tier:"silver",desc:"陣中でも戦場でも、常に高い士気を絶やさず自ら奮い立たせる",moralGrow:0.3,vit:4},
  {key:"nsk_seasoned",name:"老練の身のこなし",tier:"silver",desc:"歳を重ねても衰えを寄せ付けぬ立ち回り",ageResist:0.5,vit:5},
@@ -2065,7 +2066,7 @@ function trySkillUpOnPromotion(u,tierIndex){
   const sk=SKILL_DB.find(s=>s.key===k);celebrateSkillGain(u,sk);return sk;
 }
 function skillEffects(u){
-  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,
+  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,goldFind:0,
     str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   const stage=ageStageOf(u);
   for(const key of u.skills){
@@ -2090,6 +2091,7 @@ function skillEffects(u){
     if(s.fatigueRecover)e.fatigueRecover+=s.fatigueRecover;
     if(s.guardianSave)e.guardianSave=Math.max(e.guardianSave,s.guardianSave);
     if(s.lootLuck)e.lootLuck=Math.max(e.lootLuck,s.lootLuck);
+    if(s.goldFind)e.goldFind=Math.max(e.goldFind,s.goldFind);
   }
   const eq=equipmentEffects(u);
   for(const k of["str","vit","int","agi","wis","lead"])e[k]+=eq[k];
@@ -7176,7 +7178,8 @@ function resolveDungeonRun(dungeonId){
         if(u.dungeonClearCount>=20)grantTitle(u,"t_conqueror20");
         if(itemGained&&itemGained.rarity==="legendary")grantTitle(u,"t_treasurehunter");
       }
-      goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1));
+      const squadGoldFind=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).goldFind||0)):0; // 「山師の目」持ちを伴うと持ち帰る財貨が増える=金策ビルドの編成レバー
+      goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1)*(1+squadGoldFind));
       apply({gold:goldGained,mood:crit?4:2});
       chron(crit
         ?`――完璧な踏破！「${dungeon.name}」を寸分の隙なく制圧し、ボス「${dungeon.bossName}」を圧倒した!${itemGained?`「${itemGained.name}」${bonusItem?`と「${bonusItem.name}」`:""}を手に入れた。`:""}${equipGained?`さらに「${equipDropName}」を入手した。`:""}`
@@ -7263,7 +7266,8 @@ function resolveDungeonRun(dungeonId){
       checkDemonLordNotice();
       if(!dungeon.isFinal&&Math.random()<0.3)dungeonFound=checkDungeonDiscovery(1.2,squad[0]);
     }else{
-      goldGained=Math.round(ri(12,28)*dungeon.rarity.mult*levelMult);
+      const squadGoldFind=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).goldFind||0)):0;
+      goldGained=Math.round(ri(12,28)*dungeon.rarity.mult*levelMult*(1+squadGoldFind));
       apply({gold:goldGained});
       chron(`「${dungeon.name}」は踏破したが、ボス「${dungeon.bossName}」には及ばなかった。`,"sys");
     }
@@ -8318,6 +8322,7 @@ function skillEffectText(s){
   if(s.squadSynergy)parts.push(`部隊の連携+${Math.round(s.squadSynergy*100)}%`);
   if(s.guardianSave)parts.push(`戦友の致命傷を${Math.round(s.guardianSave*100)}%で肩代わり`);
   if(s.lootLuck)parts.push(`迷宮のドロップ率+${Math.round(s.lootLuck*100)}%`);
+  if(s.goldFind)parts.push(`迷宮の獲得財貨+${Math.round(s.goldFind*100)}%`);
   if(s.onlyCaptain)parts.push("(団長のみ有効)");
   if(s.condFlag==="dragonPact")parts.push(`竜盟約締結中はさらに体力+${s.condVit}・腕力+${s.condStr}`);
   return parts.length?parts.join(" / "):"目立った効果はない";
