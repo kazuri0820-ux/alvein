@@ -9412,7 +9412,7 @@ function renderTroops(){
     return;
   }
   const cap=S.units.find(u=>u.captain);
-  $("#troopSummary").textContent=`兵士数 ${S.units.length}人 / 総合戦力 ${Math.round(totalTroopPower())}`+(S.instructors.length?` / 教官${S.instructors.length}名`:"")+(S.flags.knightOrder?` / 騎士団編成済み(団長:${cap?cap.nm:"―"} / 定員${Math.min(S.units.length,rosterCap())}${S.units.length>rosterCap()?"+控え"+(S.units.length-rosterCap()):""}/${rosterCap()})`:"")+(!S.flags.knightOrder&&STAGES[S.stage].rank>=4?" / 騎士団はまだ未編成":"");
+  $("#troopSummary").textContent=`兵士数 ${S.units.length}/${unitCap()}人 / 総合戦力 ${Math.round(totalTroopPower())}`+(S.instructors.length?` / 教官${S.instructors.length}名`:"")+(S.flags.knightOrder?` / 騎士団編成済み(団長:${cap?cap.nm:"―"} / 定員${Math.min(S.units.length,rosterCap())}${S.units.length>rosterCap()?"+控え"+(S.units.length-rosterCap()):""}/${rosterCap()})`:"")+(!S.flags.knightOrder&&STAGES[S.stage].rank>=4?" / 騎士団はまだ未編成":"");
   let h="";
   let list=S.units.filter(u=>troopFilter==="all"||u.cls===troopFilter);
   if(troopFavOnly)list=list.filter(u=>u.favorite);
