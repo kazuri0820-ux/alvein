@@ -6378,6 +6378,7 @@ const BOSS_TRAITS={
   calamity:{label:"災厄の王",color:"#c96b6b",desc:"国を脅かす災厄の化身。討ち果たせば国中が沸き立ち、王国の備えと結束が一段固まる"},
   dragonlord:{label:"古龍",color:"#c98f5e",desc:"伝説に謳われる古の龍。桁外れの強敵だが、討ち果たした部隊は「竜殺し」の誉れを永く語り継がれる"},
   phantom:{label:"幻影の王",color:"#9f8fd0",desc:"幾多の幻影を操り捉えどころのない強敵。討ち破れば、揺らめく幻の中から二振りの戦利品がこぼれ落ちる"},
+  trickster:{label:"悪戯の王",color:"#d0a0c0",desc:"気まぐれに宝を隠し持つ強敵。討ち果たせば、隠していた数々の品がまとめて転がり出る"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
 /* ダンジョンの環境(異変):一部のダンジョンに宿る特性。挑む前に見え、危険と実入りの綾を変える(ダンジョンの個性) */
@@ -6409,7 +6410,7 @@ function generateDungeon(){
   const duration=Math.max(3,Math.round(level/6)+Math.round((rarity.mult-1)*2.2));
   let bossPower=Math.round(requiredPower*1.3);
   let bossTrait=null;
-  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief"||bossTrait==="dragonlord")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning"||bossTrait==="trialking"||bossTrait==="calamity")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier"||bossTrait==="renowned"||bossTrait==="forgelord"||bossTrait==="phantom")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
+  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief"||bossTrait==="dragonlord")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning"||bossTrait==="trialking"||bossTrait==="calamity")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier"||bossTrait==="renowned"||bossTrait==="forgelord"||bossTrait==="phantom"||bossTrait==="trickster")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
   const condition=Math.random()<0.3?DUNGEON_CONDITION_KEYS[Math.floor(Math.random()*DUNGEON_CONDITION_KEYS.length)]:null; // 稀に環境の異変を宿す
   if(condition==="treasure")bossPower=Math.round(bossPower*1.18); // 財宝の霊気は守りが堅く、ボスが手強い
   if(condition==="eliteden")bossPower=Math.round(bossPower*1.16); // 精鋭の巣は強敵揃いで、ボスが手強い
@@ -7245,6 +7246,7 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="calamity"){for(const u of squad)grantTitle(u,"t_calamityender");apply({mood:6,st:{military:3,order:3}});chron(`国を脅かす「災厄の王」が討ち果たされた――報せは瞬く間に国中を駆け巡り、民は歓喜に沸いた。脅威を退けた王国の備えと結束は、一段と固まっている。討ち果たした部隊は「厄災を退けし者」と讃えられた。`,"big");}
         else if(dungeon.bossTrait==="dragonlord"){for(const u of squad){u.moral=Math.min(100,(u.moral||0)+6);grantTitle(u,"t_dragonslayer");}apply({mood:5,st:{magic:2}});chron(`――伝説の「古龍」が、ついに討ち取られた。竜を屠りし部隊の名は、末代まで「竜殺し」として語り継がれるだろう。`,"big");}
         else if(dungeon.bossTrait==="phantom"){const got=[];for(let i=0;i<2;i++){const eq=rollEquipmentDrop(dungeon.rarity.key);if(eq){const inst=addEquipment(eq.key);got.push(equipInstName(inst));}}if(got.length)chron(`「幻影の王」を打ち破ると、揺らめく幻の中から${got.map(n=>`「${n}」`).join("と")}がこぼれ落ちた。`,"big");else{const g=Math.round(ri(40,70)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「幻影の王」を打ち破った。幻は霧のように消えたが、後には財貨${g}が残されていた。`,"");}}
+        else if(dungeon.bossTrait==="trickster"){const got=[];const n=ri(2,3);for(let i=0;i<n;i++){const it=rollItemDrop(dungeon.rarity.key);if(it){addItem(it.key);got.push(it.name);}}if(got.length)chron(`「悪戯の王」を討ち果たすと、隠し持っていた品々――${got.map(x=>`「${x}」`).join("、")}がまとめて転がり出た。`,"big");else{const g=Math.round(ri(40,70)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「悪戯の王」を討ち果たした。隠し財の在り処は分からなかったが、財貨${g}を回収した。`,"");}}
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
