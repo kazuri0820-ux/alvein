@@ -1507,6 +1507,7 @@ const TRAIT_RARE=[
  {key:"trr_31",name:"隊の要",desc:"周りをまとめ、皆を励ますことに長けた人柄。自らの忠義も士気もよく保たれ、日ごとに深まってゆく",gm:1.06,loyaltyGrow:0.28,moralGrow:0.22},
  {key:"trr_32",name:"宝運",desc:"なぜか値打ちものを引き当てる、常人離れした強運の持ち主。この者を迷宮に伴うと、掘り出しの実りが目に見えて増える",gm:1.08,lootLuck:0.18},
  {key:"trr_33",name:"陽気な野戦漢",desc:"どんな長陣でもへこたれぬ豪放な気性。疲れの抜けが早く、陣中でも自ら皆を笑わせ、士気を高く保ち続ける",gm:1.07,fatigueRecover:5,moralGrow:0.22},
+ {key:"trr_34",name:"生まれながらの師",desc:"人に教え、才を引き出すことに天賦の才を持つ。指南役に据えれば、兵たちの伸びが一段と早まる",gm:1.08,instructorMult:1.35,wis:6},
 ];
 const TRAIT_EPIC=[
  {key:"swordsaint",name:"剣聖の末裔",desc:"名も知れぬ剣豪の血を引くという",gm:1.4,injuryMult:0.5,deathMult:0.55},
@@ -9602,7 +9603,7 @@ function resolveTraining(pickUnit,grade,costPaid){
       if(ins.mentorCount>=5)grantTitle(ins,"t_mentor5");
     }
   }
-  const instructorEff=S.instructors.reduce((a,u)=>a*(skillEffects(u).instructorMult||1)*(1+(u.lead||0)*0.006),1);
+  const instructorEff=S.instructors.reduce((a,u)=>a*(skillEffects(u).instructorMult||1)*((traitInfo(u.trait).instructorMult)||1)*(1+(u.lead||0)*0.006),1); // 指導効果はスキル(名伯楽 等)に加え、特性(生まれながらの師 等)由来も反映
   const instructorBonus=(1+Math.min(0.3,S.instructors.length*0.08))*instructorEff;
   const nationBonus=(1+Math.min(0.6,(S.st.military+S.st.economy)/2*0.006))*(doctrineIs("arms")?1.1:1); // 国力・軍事力が高いほど訓練効果が伸びる。武の国はさらに上乗せ
   const pickLv=pickUnit?pickUnit.lv:0; // 選抜された先達の練度。格下の兵は、その稽古を見て多くを学ぶ(見取り稽古)
