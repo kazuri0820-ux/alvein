@@ -6626,6 +6626,7 @@ function rollRandomTurnEvent(){
   checkObservatoryPortent(); // 星見の塔:折に触れ、星が吉兆を告げる
   checkKingsReflection(); // 王の述懐:国の実情に即した、統べる者の独白を稀に綴る
   checkReignFeats(); // 治世の偉業:治世を貫く到達目標を達成した折、王国を挙げて祝い、恩賞を下す
+  checkKingTitle(); // 王号:治世の色に応じて民が王をどう呼ぶかが定まり、色が移ろえば呼び名も変わる
   if(S.units.length&&Math.random()<0.004){pushEvent("__old_equipment__");return;}
   if(S.units.length&&Math.random()<0.0035){pushEvent("__job_change_surprise__");return;}
   // 日常フレーバー(パラメータに影響しない、ログを賑やかにするためだけの小さな一言)は1日1回程度
@@ -9360,6 +9361,39 @@ function checkReignFeats(){
     if(typeof grantRenown==="function"&&f.key!=="conqueror")grantRenown(1,`偉業「${f.name}」`);
   }
 }
+/* ===== 王号(治世の色を映す称号・アイデンティティの新軸):これまで無個性だった"王その人"に、治世の歩みから
+   自ずと立ち上がる呼び名を与える。武を極めれば〈征服王〉、民を慈しめば〈民の王〉、財を築けば〈富王〉――。
+   王号は国の実情(踏破・国力・民心・同盟・殿堂・版図…)から導かれ、治世が色を変えれば民の呼び名も移ろう。
+   どの王として名を刻むかという自己表現と、狙った王号へ治世を導く長期の指針(周回ごとのリプレイ性)を与える。 ===== */
+const KING_TITLES=[
+ {key:"conqueror",name:"征服王",desc:"数多の迷宮と魔を屠り、武威で大陸に名を轟かせる王",score:s=>(s.dungeonsCleared||0)*1.4+((s.units||[]).reduce((a,u)=>a+(u.kingsSlain||0),0))*8+(s.st.military||0)*0.5},
+ {key:"sage",name:"賢王",desc:"叡智を重んじ、学問と魔導で国を照らす王",score:s=>(s.st.magic||0)*1.1+(typeof academyLevel==="function"?academyLevel()*20:0)+(typeof RELIC_DEFS!=="undefined"?RELIC_DEFS.filter(r=>relicHas(r.key)).length*25:0)+((s.flags&&s.flags.observatory)?22:0)},
+ {key:"people",name:"民の王",desc:"民の暮らしと安寧を何より重んじ、深く慕われる王",score:s=>(s.mood||0)*1.1+(s.st.agriculture||0)*0.6+(s.st.order||0)*0.5+(s.taxRate==="light"?25:0)},
+ {key:"warlord",name:"武王",desc:"精強な軍を率い、幾多の英霊の礎の上に立つ武の王",score:s=>(s.st.military||0)*0.9+((s.hallOfFame||[]).length)*10+((s.units||[]).filter(u=>(u.titles||[]).length>=2).length)*6},
+ {key:"merchant",name:"富王",desc:"交易と蓄財に長け、黄金の治世を築く王",score:s=>(s.st.economy||0)*1.0+Math.min(90,(s.gold||0)*0.03)+Math.min(60,(s.vault||0)*0.05)},
+ {key:"hegemon",name:"盟主",desc:"外交と威信で大陸に号令する、諸国の盟主たる王",score:s=>(s.st.diplomacy||0)*1.0+((s.neighbors||[]).filter(n=>n.allied).length)*20+(s.renown||0)*0.5+((s.flags&&s.flags.contCouncil==="leader")?30:0)},
+ {key:"pioneer",name:"開拓王",desc:"版図を広げ、荒野を富める国へと拓く王",score:s=>((typeof STAGES!=="undefined"&&STAGES[s.stage])?STAGES[s.stage].rank:1)*18+((s.outposts||[]).length)*12+Math.min(60,(s.pop||0)*0.4)},
+];
+function currentKingTitle(){
+  let best=null;
+  for(const t of KING_TITLES){let sc=0;try{sc=t.score(S)||0;}catch(e){sc=0;}if(!best||sc>best.score)best={t,score:sc};}
+  return best;
+}
+function kingTitleName(){const k=S.kingTitle;const t=KING_TITLES.find(x=>x.key===k);return t?t.name:null;}
+function checkKingTitle(){
+  if(S.day<20||!(typeof STAGES!=="undefined"&&STAGES[S.stage]&&STAGES[S.stage].rank>=2))return; // 治世が形をなすまでは無称
+  const cur=currentKingTitle(); if(!cur||cur.score<30)return;
+  if(S.kingTitle===cur.t.key)return;
+  if(S.kingTitle){ // ヒステリシス:現称号を明確に上回った時だけ改める(頻繁な入れ替わりを防ぐ)
+    const oldT=KING_TITLES.find(t=>t.key===S.kingTitle);let oldSc=0;if(oldT){try{oldSc=oldT.score(S)||0;}catch(e){}}
+    if(cur.score<oldSc*1.15)return;
+  }
+  const first=(S.kingTitle===undefined);
+  S.kingTitle=cur.t.key;
+  chron(first?`――治世の色が形をなし、民は陛下を〈${cur.t.name}〉と呼び始めた。${cur.t.desc}。`:`――治世の色は移ろい、民は今、陛下を〈${cur.t.name}〉と呼ぶようになった。${cur.t.desc}。`,"king");
+  S.kingTitlesSeen=S.kingTitlesSeen||{};
+  if(!S.kingTitlesSeen[cur.t.key]){S.kingTitlesSeen[cur.t.key]=S.day;if(typeof recordAnnal==="function")recordAnnal(`民が陛下を〈${cur.t.name}〉と呼ぶようになった。`,"kingtitle_"+cur.t.key,true);}
+}
 function relicDef(key){return RELIC_DEFS.find(r=>r.key===key);}
 function grantRelicShards(n){S.relicShards=(S.relicShards||0)+n;}
 /* ===== 前哨拠点(ダンジョン×内政の新レバー):踏破した迷宮の跡地を、王国の前哨として確保できる。
@@ -11792,8 +11826,19 @@ function checkForbiddenOmen(){
 function renderProjects(){
   let h="";
   const focusLabels={military:"軍事",economy:"経済",agriculture:"農業",magic:"魔導",order:"治安",diplomacy:"外交"};
+  // ── 王号(治世の色を映す呼び名) ──
+  {const kt=(typeof kingTitleName==="function")?kingTitleName():null;const cur=(typeof currentKingTitle==="function")?currentKingTitle():null;
+   if(kt||cur){const def=KING_TITLES.find(t=>t.key===S.kingTitle)||(cur&&cur.t);
+    // 次に近い呼び名(現称号を除く最上位)を、治世を導く指針として添える
+    let rup=null;for(const t of KING_TITLES){if(def&&t.key===def.key)continue;let sc=0;try{sc=t.score(S)||0;}catch(e){}if(!rup||sc>rup.score)rup={t,score:sc};}
+    h+=`<div class="pcard" style="margin-bottom:10px;border-color:var(--gold2)"><div class="nm" style="color:var(--gold)"><i class="icon-project"></i>王号 <span style="color:var(--parch,#e8d9b5);font-size:13px">${def?`〈${def.name}〉`:"まだ定まらず"}</span></div>
+      <div class="ds" style="margin:2px 0 4px;font-size:11px">${def?def.desc+"。":"治世がもう少し形をなせば、民は陛下を何某かの名で呼び始めるだろう。"}</div>
+      ${rup?`<div class="ds" style="font-size:10px;color:var(--dim)">次に近い呼び名:〈${rup.t.name}〉 ― 治世の色を寄せれば、この名で呼ばれることもある。</div>`:""}
+    </div>`;
+   }}
   // ── 王の執務室(現在の統治を一望) ──
   {const chips=[];
+   if(typeof kingTitleName==="function"&&kingTitleName())chips.push(["王号",`〈${kingTitleName()}〉`,"#d8b45e"]); // 治世の色を映す呼び名を一望にも
    chips.push(["税制",taxInfo().label,taxLevel()==="heavy"?"#d99a6a":taxLevel()==="light"?"#8fbf6f":"#c9a86a"]);
    chips.push(["移民",immigrationInfo().label,immigrationLevel()==="open"?"#8fbf6f":immigrationLevel()==="closed"?"#d99a6a":"#c9a86a"]);
    if(academyLevel()>0)chips.push(["学院","Lv."+academyLevel(),"#c9a86a"]);
