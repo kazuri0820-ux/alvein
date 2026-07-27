@@ -7260,6 +7260,7 @@ const DUNGEON_CONDITIONS={
   elixir:{label:"秘薬の霊気",color:"#a0d0a0",desc:"薬効ある霊気が満ちる地。踏破すれば、貴重な秘薬や品々を持ち帰ることがある"},
   heroordeal:{label:"英傑の試練",color:"#d08f5a",desc:"少数の精鋭でこそ真価が問われる試練の地。三人以下の少数で挑み討ち果たせば、その武勲に応じた破格の恩賞が下る"},
   relic:{label:"王朝の遺構",color:"#c7a45e",desc:"滅びた古王朝の栄華が眠る遺構。踏破して持ち帰る典籍や財物が、王国の国力(治安・経済)そのものを高める"},
+  fatebound:{label:"宿縁の霊地",color:"#d99ab0",desc:"縁ある者たちの絆が試される地。戦友・好敵手・師弟のいずれかの組を伴って踏破すれば、その絆に応じた特別な成長がもたらされる"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 /* 陣形:ダンジョン派遣時に選ぶ布陣。攻略成否・負傷リスク・所要日数のトレードオフを一手加え、
@@ -8170,6 +8171,22 @@ function resolveDungeonRun(dungeonId){
       const o=ri(2,4),e=ri(2,4);
       apply({st:{order:o,economy:e}});
       chron(`「${dungeon.name}」は滅びた古王朝の遺構だった。持ち帰った典籍や財物が国の礎となり、王国の治安と経済が高まった(治安+${o} 経済+${e})。`,"big");
+    }
+    if(cond==="fatebound"){ // 宿縁の霊地: 部隊内の縁(戦友/好敵手/師弟)の組に、絆に報いる大きな成長をもたらす
+      const ids=new Set(squad.map(u=>u.id));
+      const paired=new Set();
+      for(const u of squad){
+        if(u.bondWith&&ids.has(u.bondWith)){paired.add(u.id);paired.add(u.bondWith);}
+        if(u.rivalWith&&ids.has(u.rivalWith)){paired.add(u.id);paired.add(u.rivalWith);}
+        if(u.masterId&&ids.has(u.masterId)){paired.add(u.id);paired.add(u.masterId);}
+        if(u.pupilId&&ids.has(u.pupilId)){paired.add(u.id);paired.add(u.pupilId);}
+      }
+      if(paired.size){
+        for(const u of squad){if(paired.has(u.id)){const g=Math.round(ri(20,36)*levelMult);u.exp+=g;processLevelUps(u);u.moral=Math.min(100,(u.moral||0)+3);}}
+        chron(`「${dungeon.name}」の宿縁の霊地で、縁を分かち合う者たちは背中を預け合って死地を越えた。その絆が力となり、${paired.size}名が一回り大きくなって帰ってきた。`,"big");
+      }else{
+        chron(`「${dungeon.name}」の宿縁の霊地を越えたが、縁を分かち合う組がおらず、その真価は引き出せなかった。`,"");
+      }
     }
     if(bossWin){
       const crit=tier==="critical_success"; // 大成功はジャックポット扱い(強い部隊を組んだ手応えに報酬で応える)
