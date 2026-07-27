@@ -9205,6 +9205,13 @@ function renderEquipSelect(){
   cands.sort((a,b)=>equipInstScore(b.inst)-equipInstScore(a.inst)); // 良い装備(格＋個体差)を上位に並べ、掘り出し物の比較を楽にする
   const curInst=u.equipment&&u.equipment[slot]; const curScore=curInst?equipInstScore(curInst):null; // いま装備中の一品と比べて強化/弱化が一目で分かるようにする(装備選びの磨き込み)
   let h=`<div class="ds" style="margin-bottom:8px">所持している${EQUIP_SLOT_LABEL[slot]}から選んで装備させる。既に何か装備している場合は自動的に外され、手持ちに戻る。${curInst?`<br>装備中:${equipInstName(curInst)}`:""}</div>`;
+  // 見劣り品の一括売却:装備中より確実に劣る手持ちをまとめて財貨に換える=武具庫の整理を楽にする(磨き込み)
+  if(curScore!==null){
+    const worse=cands.filter(x=>x.inst.id!==(curInst&&curInst.id)&&equipInstScore(x.inst)<curScore);
+    if(worse.length){const tot=worse.reduce((t,x)=>t+sellValue(x.inst),0);
+      h+=`<button id="eqSellWorse" style="width:100%;margin-bottom:8px;background:transparent;border:1px solid rgba(201,162,75,.35);color:var(--gold2);border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">見劣り品を一括売却(${worse.length}点・計${tot}G)</button>`;
+    }
+  }
   if(!cands.length)h+=`<div class="udet-empty">所持している${EQUIP_SLOT_LABEL[slot]}がない。ダンジョンや遠征の報酬で手に入ることがある。</div>`;
   for(const{inst,def}of cands){
     let cmp="";
@@ -9231,6 +9238,14 @@ function renderEquipSelect(){
   $("#itemTargetBody").querySelectorAll(".eq-sell-btn").forEach(b=>b.onclick=()=>{
     sellEquip(b.dataset.id);renderEquipSelect();save();
   });
+  const sellWorse=$("#eqSellWorse");
+  if(sellWorse)sellWorse.onclick=()=>{
+    const cur2=u.equipment&&u.equipment[slot]; const cs=cur2?equipInstScore(cur2):null;
+    if(cs===null)return;
+    const ids=(S.equipmentInventory||[]).filter(inst=>{const d=EQUIPMENT_DB.find(x=>x.key===inst.key);return d&&d.slot===slot&&inst.id!==cur2.id&&equipInstScore(inst)<cs;}).map(inst=>inst.id);
+    for(const id of ids)sellEquip(id);
+    renderEquipSelect();save();
+  };
   $("#panelItemTarget").classList.add("show");
 }
 
