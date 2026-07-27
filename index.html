@@ -6919,8 +6919,9 @@ function resolveDungeonRun(dungeonId){
       const crit=tier==="critical_success"; // 大成功はジャックポット扱い(強い部隊を組んだ手応えに報酬で応える)
       itemGained=rollItemDrop(dungeon.rarity.key);
       if(itemGained)addItem(itemGained.key);
-      let equipGained=null;
-      if(Math.random()<(crit?0.6:0.3)){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained)addEquipment(equipGained.key);}
+      let equipGained=null, equipInst=null;
+      if(Math.random()<(crit?0.6:0.3)){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained)equipInst=addEquipment(equipGained.key);}
+      const equipDropName=equipInst?equipInstName(equipInst):(equipGained?equipGained.name:""); // ドロップ時に個体差(アフィックス)を含む名を見せる=掘り出しの手応え
       let bonusItem=null;
       if(crit&&Math.random()<0.5){bonusItem=rollItemDrop(dungeon.rarity.key);if(bonusItem)addItem(bonusItem.key);} // 大成功: 追加の秘宝チャンス
       S.dungeonsCleared=(S.dungeonsCleared||0)+1;
@@ -6936,8 +6937,8 @@ function resolveDungeonRun(dungeonId){
       goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1));
       apply({gold:goldGained,mood:crit?4:2});
       chron(crit
-        ?`――完璧な踏破！「${dungeon.name}」を寸分の隙なく制圧し、ボス「${dungeon.bossName}」を圧倒した!${itemGained?`「${itemGained.name}」${bonusItem?`と「${bonusItem.name}」`:""}を手に入れた。`:""}${equipGained?`さらに「${equipGained.name}」を入手した。`:""}`
-        :`――「${dungeon.name}」を踏破し、ボス「${dungeon.bossName}」を打ち破った!${itemGained?`「${itemGained.name}」を手に入れた。`:""}${equipGained?`さらに「${equipGained.name}」を入手した。`:""}`,"big");
+        ?`――完璧な踏破！「${dungeon.name}」を寸分の隙なく制圧し、ボス「${dungeon.bossName}」を圧倒した!${itemGained?`「${itemGained.name}」${bonusItem?`と「${bonusItem.name}」`:""}を手に入れた。`:""}${equipGained?`さらに「${equipDropName}」を入手した。`:""}`
+        :`――「${dungeon.name}」を踏破し、ボス「${dungeon.bossName}」を打ち破った!${itemGained?`「${itemGained.name}」を手に入れた。`:""}${equipGained?`さらに「${equipDropName}」を入手した。`:""}`,"big");
       if(dungeon.treasureVault){ // 財宝の間: 踏破時に追加の宝と財貨
         const tItem=rollItemDrop(dungeon.rarity.key); if(tItem)addItem(tItem.key);
         const tGold=Math.round(ri(30,60)*dungeon.rarity.mult*levelMult);
