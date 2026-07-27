@@ -6543,6 +6543,7 @@ const BOSS_TRAITS={
   trickster:{label:"悪戯の王",color:"#d0a0c0",desc:"気まぐれに宝を隠し持つ強敵。討ち果たせば、隠していた数々の品がまとめて転がり出る"},
   revenant:{label:"不滅の王",color:"#a0d0b0",desc:"何度倒れても甦る不滅の強敵。討ち果たせば、その甦りの力の欠片が国に宿り、いつか一人の兵の命を死の淵から呼び戻す(不死鳥のお守り+1)"},
   bountiful:{label:"豊穣の王",color:"#a8c96f",desc:"実りの気を宿す穏やかな守り手。討ち果たせば、その恵みが国土に降り注ぎ、食糧と民心が潤う"},
+  treasurelord:{label:"秘宝の王",color:"#e8c860",desc:"至高の財宝を守る手強い王。討ち果たせば、選りすぐりの個体差を宿した一級の武具が必ず手に入る"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
 /* ダンジョンの環境(異変):一部のダンジョンに宿る特性。挑む前に見え、危険と実入りの綾を変える(ダンジョンの個性) */
@@ -6575,7 +6576,7 @@ function generateDungeon(){
   const duration=Math.max(3,Math.round(level/6)+Math.round((rarity.mult-1)*2.2));
   let bossPower=Math.round(requiredPower*1.3);
   let bossTrait=null;
-  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief"||bossTrait==="dragonlord")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift"||bossTrait==="revenant")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning"||bossTrait==="trialking"||bossTrait==="calamity")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier"||bossTrait==="renowned"||bossTrait==="forgelord"||bossTrait==="phantom"||bossTrait==="trickster"||bossTrait==="bountiful")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
+  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief"||bossTrait==="dragonlord")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift"||bossTrait==="revenant"||bossTrait==="treasurelord")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning"||bossTrait==="trialking"||bossTrait==="calamity")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier"||bossTrait==="renowned"||bossTrait==="forgelord"||bossTrait==="phantom"||bossTrait==="trickster"||bossTrait==="bountiful")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
   const condition=Math.random()<0.3?DUNGEON_CONDITION_KEYS[Math.floor(Math.random()*DUNGEON_CONDITION_KEYS.length)]:null; // 稀に環境の異変を宿す
   if(condition==="treasure")bossPower=Math.round(bossPower*1.18); // 財宝の霊気は守りが堅く、ボスが手強い
   if(condition==="eliteden")bossPower=Math.round(bossPower*1.16); // 精鋭の巣は強敵揃いで、ボスが手強い
@@ -7454,6 +7455,7 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="trickster"){const got=[];const n=ri(2,3);for(let i=0;i<n;i++){const it=rollItemDrop(dungeon.rarity.key);if(it){addItem(it.key);got.push(it.name);}}if(got.length)chron(`「悪戯の王」を討ち果たすと、隠し持っていた品々――${got.map(x=>`「${x}」`).join("、")}がまとめて転がり出た。`,"big");else{const g=Math.round(ri(40,70)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「悪戯の王」を討ち果たした。隠し財の在り処は分からなかったが、財貨${g}を回収した。`,"");}}
         else if(dungeon.bossTrait==="revenant"){S.flags.phoenixCharm=(S.flags.phoenixCharm||0)+1;for(const u of squad)u.moral=Math.min(100,(u.moral||0)+4);chron(`不滅の王を討ち果たすと、その甦りの力の欠片が国に宿った。いつか一人の兵の命を、死の淵から呼び戻すことだろう(不死鳥のお守り+1)。`,"big");}
         else if(dungeon.bossTrait==="bountiful"){const f=Math.round(ri(40,80)*dungeon.rarity.mult);apply({food:f,mood:4,st:{agriculture:2}});chron(`「豊穣の王」を討ち果たすと、その宿していた実りの気が国土に降り注いだ。蔵に食糧${f}が満ち、民は豊作の兆しに沸いた(農業+2)。`,"big");}
+        else if(dungeon.bossTrait==="treasurelord"){const eq=(Math.random()<0.4?rollEquipmentDrop("legendary"):null)||rollEquipmentDrop("epic");if(eq){const inst=addEquipment(eq.key);const edef=EQUIPMENT_DB.find(d=>d.key===eq.key);if(edef&&edef.rarity!=="common"){const alt=rollAffixesBest(edef.rarity,3);const cur=(inst.affixes||[]).reduce((t,a)=>t+(a.val||0),0);const altSum=alt.reduce((t,a)=>t+(a.val||0),0);if(altSum>cur)inst.affixes=alt;}chron(`「秘宝の王」を討ち果たすと、守られていた一級の武具「${equipInstName(inst)}」が手に入った(${equipInstBonusText(inst)})。`,"big");}else{const g=Math.round(ri(80,140)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「秘宝の王」を討ち果たした。武具は持ち去られた後だったが、莫大な財貨${g}が残されていた。`,"big");}}
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
