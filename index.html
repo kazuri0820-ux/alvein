@@ -6295,6 +6295,7 @@ const DUNGEON_CONDITIONS={
   spring:{label:"恵みの泉",color:"#7fc9b0",desc:"聖なる泉の湧く地。踏破した部隊は疲れが癒え、傷も和らいで戻ってくる"},
   kinship:{label:"絆の霊地",color:"#d99ab0",desc:"互いに背を預けねば抜けられぬ難所。共に潜り抜けた部隊には、戦友の絆が芽生えやすい"},
   richloot:{label:"秘宝の鉱脈",color:"#e0c060",desc:"稀少な鉱脈が眠る地。踏破すれば、選りすぐりの個体差を宿した逸品の装備を掘り当てる"},
+  dojo:{label:"武の霊場",color:"#c9a86a",desc:"古の武人が修行を積んだ霊場。踏破した部隊の中から、才ある者が新たな技を会得することがある"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 /* 個体差(アフィックス)を複数回ロールして最良の一組を返す=マジックファインド(良個体を引き当てる) */
@@ -7108,6 +7109,13 @@ function resolveDungeonRun(dungeonId){
         const eq=rollEquipmentDrop(dungeon.rarity.key);
         if(eq){const inst=addEquipment(eq.key);const edef=EQUIPMENT_DB.find(d=>d.key===eq.key);if(edef&&edef.rarity!=="common"){const alt=rollAffixesBest(edef.rarity,2);const cur=(inst.affixes||[]).reduce((t,a)=>t+(a.val||0),0);const altSum=alt.reduce((t,a)=>t+(a.val||0),0);if(altSum>cur)inst.affixes=alt;}chron(`「${dungeon.name}」の秘宝の鉱脈から、選りすぐりの逸品「${equipInstName(inst)}」を掘り当てた(${equipInstBonusText(inst)})。`,"big");}
         else chron(`「${dungeon.name}」の鉱脈を掘り進めたが、めぼしい装備は見つからなかった。`,"");
+      }
+      if(cond==="dojo"){ // 武の霊場: 踏破した部隊の才ある者が新たな技を会得することがある(技集めを狙える入手経路)
+        const cands=squad.filter(u=>u&&u.skills&&u.skills.length<skillCap(u));
+        const picks=cands.sort(()=>Math.random()-.5).slice(0,2);
+        let learnedAny=false;
+        for(const u of picks){ if(Math.random()<0.7){ const learned=trySkillUp(u); if(learned){learnedAny=true;chron(`「${dungeon.name}」の武の霊場で、${u.nm}が新たな技「${learned.name}」を会得した。`,"big");} } }
+        if(!learnedAny)chron(`「${dungeon.name}」の武の霊場で、部隊は黙々と技を磨いた。実りは、いずれ形になるだろう。`,"");
       }
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
