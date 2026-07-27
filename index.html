@@ -11082,6 +11082,32 @@ function setFocusStat(uid,stat){
   chron(u.focusStat?`${fullName(u)}の研鑽は「${lbl}」を伸ばす方針に定められた。以後の成長が、その方向へ傾いていく。`:`${fullName(u)}の研鑽の方針を解いた。以後は生来の資質のままに伸びる。`,"");
   save();
 }
+/* ===== 型稽古(育成の新軸=攻略型の熟達に player agency を):これまで「熟達」(型への得意)は、同じ攻略型の迷宮を
+   偶然重ねて踏破するのを待つほかなかった。ここに、財と兵の労を投じて"生来得意な型"を意図的に磨き上げる稽古の
+   道を開く。狙って型のスペシャリストを育て、面白い迷宮に確かな適性で応える——受動的だった熟達を、能動的な育成の
+   選択に変える。稽古は疲れを伴い、回を重ねるほど費えもかさむ(青天井の速成を防ぐ自制)。 ===== */
+function typeTrainTargetKey(u){ if(!u||!u.route)return null; const r=routeInfo(u.cls,u.route); return (r&&r.aff)?r.aff:null; }
+function typeTrainCost(u,key){return 50+(((u.typeClears&&u.typeClears[key])||0)*30);}
+function trainDungeonType(uid){
+  const u=findAnyUnit(uid); if(!u||u.role!=="active")return;
+  const key=typeTrainTargetKey(u); if(!key)return;
+  if(u.injured>0||u.dungeonBusy||u.campUntil){chron("その兵は今、型稽古に付けられる状態にない(療養・出撃・特訓中)。","");return;}
+  if(u.typeMastery&&u.typeMastery[key]){chron(`${fullName(u)}は既に「${dungeonTypeLabel(key)}」を極めている。`,"");return;}
+  const cost=typeTrainCost(u,key);
+  if(S.gold<cost){chron(`型稽古の費え(${cost}G)が足りない。`,"");return;}
+  S.gold-=cost;
+  u.typeClears=u.typeClears||{}; u.typeClears[key]=(u.typeClears[key]||0)+1;
+  u.fatigue=Math.min(100,(u.fatigue||0)+ri(12,22));
+  if(u.typeClears[key]>=TYPE_MASTERY_NEED){
+    u.typeMastery=u.typeMastery||{}; u.typeMastery[key]=S.day;
+    unitHistory(u,`型稽古を積み重ね、ついに「${dungeonTypeLabel(key)}」の攻略を極めた。`);
+    chron(`――${fullName(u)}は、繰り返した型稽古の末に「${dungeonTypeLabel(key)}」を得意とするに至った。以後、その型での攻略適性が高まる(型稽古による熟達)。`,"big");
+  }else{
+    unitHistory(u,`「${dungeonTypeLabel(key)}」の型稽古に励んだ(熟達まであと${TYPE_MASTERY_NEED-u.typeClears[key]})。`);
+    chron(`${fullName(u)}が「${dungeonTypeLabel(key)}」の型稽古に励んだ。熟達まで、あと${TYPE_MASTERY_NEED-u.typeClears[key]}回(疲れが溜まった)。`,"");
+  }
+  clamp();render();renderTroops();renderUnitDetail(uid);save();
+}
 function arrangeBond(aId,bId){
   const a=S.units.find(x=>x.id===aId), b=S.units.find(x=>x.id===bId);
   if(!a||!b||a.id===b.id||a.bondWith||b.bondWith||a.role!=="active"||b.role!=="active")return;
@@ -12991,6 +13017,23 @@ function renderUnitDetail(uid){
       <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:5px">${u.focusStat?`現在の方針:「${(USTAT_DEF[u.focusStat]||{lbl:u.focusStat}).lbl}」を重点的に(もう一度押すと解除)`:"方針なし(生来の資質のままに伸びる)"}</div>
     </div>`;
   }
+  // ── 型稽古(攻略型を極める) ──
+  if(!isInstructor&&u.role==="active"){
+    const ttk=(typeof typeTrainTargetKey==="function")?typeTrainTargetKey(u):null;
+    if(ttk){
+      const mastered=!!(u.typeMastery&&u.typeMastery[ttk]);
+      const clears=(u.typeClears&&u.typeClears[ttk])||0;
+      const cost=typeTrainCost(u,ttk);
+      const busy=u.injured>0||u.dungeonBusy||u.campUntil;
+      const canDo=!mastered&&!busy&&S.gold>=cost;
+      h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>型稽古</h4>
+        <div class="ds" style="margin-bottom:6px;font-size:11.5px">この兵が生来得意とする攻略型「${dungeonTypeLabel(ttk)}」を、稽古で繰り返し磨き上げる。${TYPE_MASTERY_NEED}回の研鑽でその型を「熟達」とし、以後その型での攻略適性が高まる(路の得意と重なる)。稽古は疲れを伴い、回を重ねるほど費えもかさむ。</div>`;
+      if(mastered)h+=`<div class="ds" style="color:var(--gold)">既に「${dungeonTypeLabel(ttk)}」を極めている(熟達)。</div>`;
+      else h+=`<div class="udet-timeline" style="margin:0 0 6px"><div class="titem"><span class="td">熟達まで</span>あと${Math.max(0,TYPE_MASTERY_NEED-clears)}回(現在 ${clears}/${TYPE_MASTERY_NEED})</div></div>
+        <button id="btnTypeTrain" ${canDo?"":"disabled"} style="width:100%;background:${canDo?"rgba(201,162,75,.14)":"transparent"};border:1px solid ${canDo?"var(--gold)":"rgba(255,255,255,.12)"};color:${canDo?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canDo?"pointer":"default"}">${busy?"稽古に付けられない(療養・出撃・特訓中)":S.gold>=cost?`「${dungeonTypeLabel(ttk)}」の型稽古をつける(${cost}G)`:`蓄えが足りない(${cost}G必要)`}</button>`;
+      h+=`</div>`;
+    }
+  }
   // ── 異国留学(同盟国で学ぶ) ──
   if(!isInstructor&&u.role==="active"){
     const allies=(S.neighbors||[]).filter(n=>n.allied&&STUDY_DEST[n.key]);
@@ -13252,6 +13295,7 @@ function renderUnitDetail(uid){
   const dismissNo=$("#dismissConfirmNo");
   if(dismissNo)dismissNo.onclick=()=>{dismissConfirmId=null;renderUnitDetail(uid);};
   $("#unitDetailBody").querySelectorAll(".focus-btn").forEach(b=>b.onclick=()=>{setFocusStat(uid,b.dataset.k);renderUnitDetail(uid);});
+  {const tt=$("#btnTypeTrain");if(tt)tt.onclick=()=>{trainDungeonType(uid);};}
   $("#unitDetailBody").querySelectorAll(".study-btn").forEach(b=>b.onclick=()=>{sendToStudy(uid,b.dataset.d);$("#panelUnitDetail").classList.remove("show");});
   const bondBtn=$("#bondArrangeBtn");
   if(bondBtn)bondBtn.onclick=()=>{bondPickForId=uid;renderUnitDetail(uid);};
