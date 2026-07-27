@@ -327,6 +327,7 @@ header{
 .entry.sys{color:var(--dim);font-size:var(--fs-base);border-left-color:rgba(255,255,255,.08)}
 .entry.big{color:var(--parch);border-left-color:var(--gold)}
 .entry.grave{color:#d9a3a3;border-left-color:var(--wax)}
+.entry.king{color:var(--parch);border-left-color:var(--gold);font-style:italic}
 @keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes flashUp{0%{color:var(--good);text-shadow:0 0 8px rgba(78,125,78,.8)}100%{color:inherit;text-shadow:none}}
 @keyframes flashDown{0%{color:var(--bad);text-shadow:0 0 8px rgba(160,60,60,.8)}100%{color:inherit;text-shadow:none}}
@@ -908,6 +909,7 @@ body,body.turn-0,body.turn-1,body.turn-2{background:#241811!important;background
 #chronicle .entry.big{color:#2a1e10!important;border-left:0!important}
 #chronicle .entry.grave{color:#6b2b23!important;border-left:0!important}
 #chronicle .entry.sys{color:#6a5537!important;border-left:0!important}
+#chronicle .entry.king{color:#3a2a12!important;border-left:0!important;font-style:italic;background:linear-gradient(90deg,rgba(201,162,75,.14),transparent);border-radius:4px;padding-left:6px}
 /* ---- ボトムナビ(木タブ+金彫刻アイコン) ---- */
 #bottombar{display:flex!important;position:fixed!important;bottom:0;left:0!important;right:0!important;margin-left:auto!important;margin-right:auto!important;transform:none!important;width:min(100%,400px)!important;max-width:400px!important;touch-action:manipulation!important;background:linear-gradient(180deg,#241811,#120b06)!important;border-top:2px solid var(--rk-gold-dk)!important;box-shadow:0 -4px 14px rgba(0,0,0,.5),inset 0 1px 0 rgba(201,162,75,.18)!important;padding:0 2px env(safe-area-inset-bottom)!important;gap:0!important;z-index:60;overflow:visible!important}
 #bottombar button{flex:1 1 0!important;min-width:0!important;width:auto!important;display:flex!important;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;padding:8px 0!important;font-family:'Shippori Mincho',serif;font-size:9px!important;color:var(--rk-gold)!important;opacity:.9;background:none!important;border:0!important;border-left:1px solid rgba(0,0,0,.35)!important;border-right:1px solid rgba(201,162,75,.06)!important;position:relative;white-space:nowrap;border-radius:0!important;cursor:pointer}
@@ -7042,7 +7044,7 @@ function checkKingsReflection(){
   const cat=kingReflectionCategory();
   const pool=KING_REFLECTIONS[cat]||KING_REFLECTIONS.solitude;
   S.flags=S.flags||{}; S.flags.lastKingReflect=S.day;
-  chron("〈王の述懐〉 "+pool[Math.floor(Math.random()*pool.length)],"big");
+  chron("〈王の述懐〉 "+pool[Math.floor(Math.random()*pool.length)],"king");
 }
 function checkObservatoryPortent(){
   if(!(S.flags&&S.flags.observatory))return;
