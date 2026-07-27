@@ -3797,6 +3797,19 @@ const RANDOM_RARE=[
    }}},
    {label:"今は控える",hint:"堅実(治安わずかに↑)",fx:{st:{order:1},log:"華やかな催しは今ではないと、王は大会を見送った。浮つかぬその判断を、家臣は堅実と受け止めた(治安+1)。"}},
   ]},
+ {tag:"商 談",title:"馴染みの行商人",
+  body:"たびたび城下を訪れる行商人が、王に折り入って願い出た。「どうか、この地を商いの拠点とさせてくだされ。便宜を図っていただければ、以後はあなたさまだけに、とっておきの品を、安うお分けいたしますぞ」。",
+  speaker:"セラ「悪い話ではありませぬ。腰を据えた商人は、王国の目となり耳となりましょう」",
+  choices:[
+   {label:"便宜を図り、誼を結ぶ(50G)",hint:"以後【行商人の店】が拡充=品数が増え価格も安くなる(永続)",fx:{call:()=>{
+     if(S.gold<50){chron("先立つものがなく、行商人との商談は流れてしまった。","");return;}
+     if(S.flags&&S.flags.shopFavor){S.gold-=50;apply({st:{economy:2},log:"既に馴染みの行商人とは誼を結んでいる。心付けを渡すと、相手は上機嫌で交易を約した(経済+2)。"});return;}
+     S.gold-=50;S.flags=S.flags||{};S.flags.shopFavor=true;S.shop=null; // 次に店を開いた時、拡充された品揃えを生成する
+     apply({st:{economy:3,diplomacy:1},mood:1,log:"行商人と正式に誼を結んだ。以後【行商人の店】は品数が増え、値も張らぬ馴染み価格となる。財貨の使い道が、また一つ豊かになった(経済+3)。",logCls:"big"});
+   }}},
+   {label:"通常の取引だけ行う",hint:"当座の実入り(国庫↑)",fx:{call:()=>{const g=ri(40,80);apply({gold:g,st:{economy:1},log:`深入りはせず、一度きりの取引をまとめた。手堅く財貨${g}を得た。`});}}},
+   {label:"胡散臭いと追い返す",hint:"堅実(治安↑)",fx:{st:{order:2},log:"素性の知れぬ商人を、王は丁重に、しかしきっぱりと追い返した。軽々に外様を引き入れぬ慎重さを、家臣は頼もしく思った(治安+2)。"}},
+  ]},
  {tag:"疫 病",title:"流行り病の影",
   body:"城下で、質の悪い流行り病がぽつぽつと出始めた。今はまだ小さな火だが、放てば燎原の火となりかねない。王として、どう手を打つか。",
   speaker:"セラ「初動が肝要にございます。……が、いずれの手も、痛みを伴いましょう」",
@@ -10084,18 +10097,21 @@ const SHOP_PRICE={common:45,uncommon:100,rare:210,epic:440};
 const SHOP_REFRESH_DAYS=12;
 function refreshShopStock(){
   const pool=ITEMS.filter(i=>i.rarity!=="legendary"); // 伝説級は店には並ばない(入手はダンジョン/遠征の到達点として残す)
+  const favor=!!(S.flags&&S.flags.shopFavor); // 「馴染みの行商人」との誼:品数が増え、価格も安くなる
   const weight={common:5,uncommon:4,rare:2,epic:0.6};
+  const slots=favor?5:4;
+  const priceMult=favor?0.85:1;
   const stock=[];
   const used=new Set();
   let guard=0;
-  while(stock.length<4&&guard++<200){
+  while(stock.length<slots&&guard++<200){
     let tot=0;for(const it of pool)if(!used.has(it.key))tot+=(weight[it.rarity]||1);
     if(tot<=0)break;
     let r=Math.random()*tot, pick=null;
     for(const it of pool){if(used.has(it.key))continue;r-=(weight[it.rarity]||1);if(r<0){pick=it;break;}}
     if(!pick)break;
     used.add(pick.key);
-    stock.push({key:pick.key,price:SHOP_PRICE[pick.rarity]||100,sold:false});
+    stock.push({key:pick.key,price:Math.round((SHOP_PRICE[pick.rarity]||100)*priceMult),sold:false});
   }
   S.shop={stock,refreshDay:S.day+SHOP_REFRESH_DAYS};
 }
@@ -10117,7 +10133,7 @@ function renderItemsShop(){
   const left=Math.max(0,(S.shop.refreshDay||0)-S.day);
   let h=`<div style="border:1px solid rgba(201,162,75,.4);border-radius:8px;padding:10px;margin-bottom:12px;background:rgba(0,0,0,.16)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <span style="color:var(--gold);font-weight:800;font-size:13px"><i class="icon-market"></i>行商人の店</span>
+      <span style="color:var(--gold);font-weight:800;font-size:13px"><i class="icon-market"></i>行商人の店${(S.flags&&S.flags.shopFavor)?'<span style="color:#8fbf6f;font-size:10px;font-weight:700">〔馴染み〕</span>':""}</span>
       <span style="font-size:10.5px;color:var(--dim)">品替えまで${left}日 ／ 国庫${Math.round(S.gold)}G</span>
     </div>`;
   h+=`<div style="display:flex;flex-direction:column;gap:6px">`;
