@@ -3460,6 +3460,27 @@ const EARLY_GROWTH=[
 ];
 /* ---------- レアイベント:通常より低頻度・高インパクト ---------- */
 const RANDOM_RARE=[
+ {tag:"慶 事",title:"兵の縁談",
+  body:"隊の一人に、心を通わせた相手ができたという。所帯を持ちたいと願い出てきた――皆が我がことのように浮き立っている。王として、どう祝おうか。",
+  speaker:"セラ「めでたい話でございます。良き祝いは、兵の心を長く繋ぎ止めましょう」",
+  choices:[
+   {label:"盛大な祝宴を開く(50G)",hint:"本人の忠誠・士気↑↑ 全兵と民心も沸く(出費)",fx:{call:()=>{
+     if(S.gold<50){chron("祝宴を張るだけの蓄えがなく、ささやかに祝うにとどめた。","");return;}
+     S.gold-=50;
+     const cands=S.units.filter(u=>u.role==="active");
+     const u=cands.length?cands[Math.floor(Math.random()*cands.length)]:null;
+     if(u){u.loyalty=Math.min(100,(u.loyalty||0)+12);u.moral=Math.min(100,(u.moral||0)+12);unitHistory(u,"心を通わせた相手と所帯を持ち、盛大な祝宴で祝福された。");}
+     for(const o of S.units)o.moral=Math.min(100,(o.moral||0)+2);
+     apply({mood:4,log:u?`${u.nm}の婚礼が盛大に祝われた。城下は祝いの熱気に包まれ、兵たちも我がことのように喜んでいる。`:"婚礼が盛大に祝われ、城下は祝いの熱気に包まれた。",logCls:"big"});
+   }}},
+   {label:"心ばかりの祝いを贈る",hint:"本人の忠誠・士気↑ 民心少し↑",fx:{call:()=>{
+     const cands=S.units.filter(u=>u.role==="active");
+     const u=cands.length?cands[Math.floor(Math.random()*cands.length)]:null;
+     if(u){u.loyalty=Math.min(100,(u.loyalty||0)+6);u.moral=Math.min(100,(u.moral||0)+6);unitHistory(u,"所帯を持ち、長より心ばかりの祝いを贈られた。");}
+     apply({mood:1,log:u?`${u.nm}の門出に、長は心ばかりの祝いを贈った。ささやかだが、温かな祝福だった。`:"門出を、長は心ばかりの品で祝った。"});
+   }}},
+   {label:"職務の合間に静かに見守る",hint:"治安+1",fx:{st:{order:1},log:"長は私事に深く立ち入らず、静かに二人の門出を見守った。折り目正しい対応に、家中の風紀も引き締まった。"}},
+  ]},
  {tag:"外 交",title:"同盟の使節",
   body:"隣国から使節が訪れた。「両国の益のため、正式な同盟を結びませんか」。誼を結べば心強い後ろ盾となるが、相応の貢ぎ物も求められよう。",
   speaker:"セラ「後ろ盾は心強うございます。が、対価は見極めねばなりませぬ」",
