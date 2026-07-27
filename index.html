@@ -10047,7 +10047,13 @@ function renderDungeonPanel(){
   }
   if(dgTab==="available"){
     const list=S.availableDungeons||[];
-    if(!list.length)h=`<div class="udet-empty">今のところ、噂に聞くダンジョンはない。ミッションに出れば見つかるかもしれない。</div>`;
+    // 攻略型の制覇コレクション進捗=全型踏破という収集目標の到達度を常に確かめられるように(磨き込み)
+    {
+      const done=Object.keys(S.clearedTypes||{}).length, total=DUNGEON_TYPES.length;
+      const remain=DUNGEON_TYPES.filter(x=>!(S.clearedTypes||{})[x.key]);
+      h+=`<div class="ds" style="color:var(--dim);font-size:11px;margin-bottom:8px">攻略型 制覇 <span style="color:${done>=total?"var(--gold)":"#c9a86a"};font-weight:700">${done}/${total}</span>${done>=total?" ／ 全型制覇済み":(done<total&&remain.length<=4?" ／ 未踏:"+remain.map(x=>x.label).join("・"):"")}</div>`;
+    }
+    if(!list.length)h+=`<div class="udet-empty">今のところ、噂に聞くダンジョンはない。ミッションに出れば見つかるかもしれない。</div>`;
     for(const d of list){
       const c=d.rarity.color;
       const est=estimateDungeonSuccess(d);
