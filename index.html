@@ -2403,6 +2403,9 @@ const UNIT_DREAMS=[
  {key:"strong",text:"誰よりも強い兵になること",done:u=>u.lv>=20},
  {key:"skilled",text:"一流の技を身につけること",done:u=>(u.skills||[]).some(k=>{const s=SKILL_DB.find(x=>x.key===k);return s&&(s.tier==="gold"||s.tier==="unique");})},
  {key:"loyal",text:"長に忠義を尽くし、篤い信を得ること",done:u=>(u.loyalty||0)>=95},
+ {key:"arms",text:"揃いの武具一式を身に纏うこと",done:u=>typeof equipSetTier==="function"&&!!equipSetTier(u)},
+ {key:"master",text:"数多の技を修めた達人となること",done:u=>(u.skills||[]).length>=6},
+ {key:"veteran",text:"長きにわたり隊を支える古参となること",done:u=>(S.day-(u.joinDay||S.day))>=365},
 ];
 function assignDream(u){
   if(u.dream!==undefined)return;
