@@ -4019,6 +4019,39 @@ const RANDOM_RARE=[
      chron("流浪の錬金術師の物語は、癒しの碧光とともに幕を下ろした。","big");
    }}},
   ]},
+ // ===== 連続物語(イベント連鎖):流浪の剣客。腕を認めさせれば、名うての剣客が仲間に加わる(踏破を重ねる=クエストで英傑を得る新しい加入の道) =====
+ {tag:"剣客",title:"流浪の剣客",
+  cond:s=>!(s.flags&&s.flags.wandererArc)&&STAGES[s.stage].rank>=2&&s.day>=40&&s.units.length<unitCap(),
+  body:"腰に一振りを提げた寡黙な剣客が、訓練場の隅で兵たちの調練を見つめていた。「――悪くない。だが、まだ足りぬ」。噂に聞く流浪の剣客だという。「この国が、我が剣を預けるに足ると示せたなら……その時は、馳せ参じよう」。試すような、それでいてどこか期待を含んだ眼だった。",
+  speaker:"ガレオン「あの立ち姿……相当の遣い手かと。迷宮での働きを、見せてやろうではありませんか」",
+  choices:[
+   {label:"腕を示すと誓う",hint:"この先いくつかの迷宮を踏破して器量を示せば、剣客が仲間に加わる物語の始まり",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.wandererArc=1;S.flags.wandererTarget=(S.dungeonsCleared||0)+3;
+     apply({mood:2,log:"王は剣客の目を見返し、いずれ器量を示すと誓った。剣客は静かに頷き、「では、見せてもらおう」と辺境の宿に居を移した。次の踏破が、その約束への一歩となる。",logCls:"big"});
+   }}},
+   {label:"今は民の暮らしが先だと断る",hint:"堅実(民心・治安↑ / この物語は始まらない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.wandererArc=-1;
+     apply({mood:1,st:{order:1},log:"王は武辺者を求めるより、まず民の暮らしをと剣客の申し出を辞した。剣客は「それも一つの器量よ」と笑い、去っていった(民心↑ 治安+1)。"});
+   }}},
+  ]},
+ {tag:"剣客",title:"剣客、参ずる",
+  cond:s=>(s.flags&&s.flags.wandererArc)===1&&(s.dungeonsCleared||0)>=(s.flags.wandererTarget||0)&&s.units.length<unitCap(),
+  body:"迷宮踏破の報せを聞き届けた剣客が、再び訓練場に現れた。「見事な働きだった。この国の兵は、ただ強いだけではない――守るべきもののために剣を取っている。ならば、我が剣も預けよう」。そう言って、剣客は深々と一礼した。",
+  speaker:"セラ「まあ……あの流浪の剣客が。これほど心強い味方は、そうそうおりませぬ」",
+  choices:[
+   {label:"迎え入れる",hint:"名うての剣客が、鍛え上げられた腕をもって仲間に加わる",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.wandererArc=2;
+     if(S.units.length>=unitCap()){apply({mood:2,log:"だが兵舎は満員だった。剣客は「席が空いた頃、また来よう」と苦笑し、しばし旅に戻った。"});S.flags.wandererArc=1;return;}
+     const u=makeUnit();
+     u.trait="trr_03";u.traitTier="rare";const tr=traitInfo("trr_03");if(tr){for(const k of["str","vit","int","agi","wis","lead"])u[k]+=tr[k]||0;u.pw=tr.pw||u.pw||0;u.gm=tr.gm||u.gm||1;}
+     const targetLv=ri(13,18);for(let i=1;i<targetLv;i++)u.exp+=i*10;processLevelUps(u,true);
+     u.nickname="流浪の剣客";
+     S.units.push(u);
+     unitHistory(u,"諸国を流浪した末に、この国の兵の在り方に惚れ込んで加わった。");
+     apply({mood:5,st:{military:2},log:`――流浪の剣客${fullName(u)}が、正式にアルヴェインの列に加わった。歴戦の腕と静かな気迫が、軍の芯を一段太くする(民心↑ 軍事+2)。`,logCls:"big"});
+     chron("流浪の剣客の物語は、頼もしい新たな仲間とともに幕を開けた。","big");
+   }}},
+  ]},
  {tag:"継 承",title:"王家の家宝を定める",
   cond:s=>!(s.flags&&s.flags.heirloom)&&STAGES[s.stage].rank>=4,
   body:"王国が確かな地歩を築いた今、家臣たちが進言した。「陛下、そろそろ我が王家の『家宝』を定められては。末代まで受け継がれ、王国を永く支える一つの象徴を」。三つの候補が、王の前に並べられた。一度選べば、二度とは選び直せない。",
