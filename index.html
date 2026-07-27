@@ -1522,6 +1522,7 @@ const TRAIT_RARE=[
  {key:"trr_43",name:"博打打ちの気性",desc:"勝負どころで運を手繰り寄せる剛胆な性分。伴う迷宮踏破は大成功に転じやすいが、無茶が祟って本人は傷を負いやすい",gm:1.1,fortuneRoll:10,injuryMult:1.2},
  {key:"trr_44",name:"老いて盛ん",desc:"歳を重ねるほど円熟味を増す遅咲きの質。老いによる衰えが人並より緩やかで、長く一線で戦い続けられる",gm:1.08,ageResist:0.4,vit:4},
  {key:"trr_45",name:"気難しい天才",desc:"目を瞠る才の持ち主だが、気位が高く扱いにくい。才の伸びは抜群だが、忠義はなかなか深まらない(お気に入りや宴で繋ぎ止めたい)",gm:1.35,loyaltyGrow:-0.15},
+ {key:"trr_46",name:"生まれつきの癒し手",desc:"傷の手当てに天賦の才を持つ、生来の癒し手。この者を伴う部隊は、迷宮で痛手を負ってもその傷が軽く済みやすい",gm:1.07,fieldMedic:0.5,wis:5},
 ];
 const TRAIT_EPIC=[
  {key:"swordsaint",name:"剣聖の末裔",desc:"名も知れぬ剣豪の血を引くという",gm:1.4,injuryMult:0.5,deathMult:0.55},
@@ -7905,7 +7906,7 @@ function checkDungeonTypeFirstClear(dungeon,squad){
 }
 /* 従軍医の心得: 部隊に手当ての心得ある者がいると、負傷の重さ(severity)が軽い方へ寄る=支援(医療)ビルド */
 function medicAdjustWeights(w,squad){
-  const m=squad&&squad.length?Math.max(0,...squad.map(u=>skillEffects(u).fieldMedic||0)):0;
+  const m=squad&&squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).fieldMedic||0,(traitInfo(u.trait).fieldMedic)||0))):0; // スキル(従軍医の心得)と特性(生まれつきの癒し手)の医療効果を同格に扱う=特性/スキル両対応の医療ビルド
   if(!m)return w;
   const shift=Math.min(w[2],0.5*m); // 重傷の確率を軽傷側へ移す
   return [w[0]+shift, w[1], Math.max(0,w[2]-shift)];
@@ -9223,6 +9224,8 @@ function traitEffectText(tr){
   if(tr.moralGrow)parts.push(`士気成長${tr.moralGrow>=0?"+":""}${tr.moralGrow}/日`);
   if(tr.instructorMult&&tr.instructorMult!==1)parts.push(`教官時の指導効果×${tr.instructorMult}`);
   if(tr.guardianSave)parts.push(`戦友の致命傷を${Math.round(tr.guardianSave*100)}%で肩代わり`);
+  if(tr.fieldMedic)parts.push("部隊の迷宮での負傷を軽減");
+  if(tr.itemFind)parts.push(`迷宮で追加の品を拾う(${Math.round(tr.itemFind*100)}%)`);
   if(tr.lootLuck)parts.push(`迷宮のドロップ率+${Math.round(tr.lootLuck*100)}%`);
   if(tr.goldFind)parts.push(`迷宮の獲得財貨+${Math.round(tr.goldFind*100)}%`);
   if(tr.campSupport)parts.push(`遠征時の部隊の疲労蓄積-${Math.round(tr.campSupport*100)}%`);
