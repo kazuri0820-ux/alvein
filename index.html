@@ -4363,6 +4363,7 @@ const RANDOM_RARE=[
      if(prep==="stock"){S.food=Math.max(0,(S.food||0)-20);apply({mood:2,st:{order:1},log:"積み増した蔵の糧が、民を飢えから守った。王国は大した傷も負わず飢饉を乗り切り、民は王の先見に深く感謝した(民心↑ 治安+1)。",logCls:"big"});chron("――飢饉の試練は、賢明な備えによって軽々と乗り越えられた。王の先見は、長く語り草となった。","big");}
      else if(prep==="frugal"){S.food=Math.max(0,(S.food||0)-45);S.mood=Math.max(0,(S.mood||0)-3);apply({log:"倹約が功を奏し、辛くも飢饉を凌いだ。ひもじい冬ではあったが、民は互いに支え合い、一人の餓死者も出さなかった(食糧↓ 民心↓)。",logCls:"big"});chron("――飢饉の試練は、民の耐えと支え合いによって越えられた。王国はまた一つ、厳しい季節を生き延びた。","big");}
      else{S.food=Math.max(0,(S.food||0)-90);S.mood=Math.max(0,(S.mood||0)-8);S.pop=Math.max(1,(S.pop||0)-ri(2,5));apply({st:{order:-2},log:"備えなき王国を、飢饉は容赦なく蹂躙した。蔵は空となり、飢えた民の一部は谷を離れていった。王は、備えを怠った己を深く悔いた(食糧↓↓ 民心↓↓ 人口↓ 治安↓)。",logCls:"grave"});chron("――飢饉の試練は、大きな爪痕を残して過ぎ去った。備えの尊さを、王国は身をもって学んだ。","grave");}
+     recordAnnal(prep==="none"?"大飢饉が王国に大きな爪痕を残した。":"大飢饉の試練を、備えをもって乗り越えた。","famine",true);
      clamp();
    }}},
   ]},
@@ -4398,6 +4399,7 @@ const RANDOM_RARE=[
      if(prep==="quarantine"){const c=healthy();const n=Math.min(1,c.length);for(let i=0;i<n;i++){const u=c[i];u.fatigue=Math.min(100,(u.fatigue||0)+ri(15,25));}apply({mood:1,log:"厳しい隔離が功を奏し、病はほとんど広がらず収束した。倒れた兵もわずかで、王国は難を逃れた(民心↑)。",logCls:"big"});chron("――疫病の試練は、素早い封じ込めによって軽々と越えられた。王の英断が、多くの命を守った。","big");}
      else if(prep==="treat"){const c=healthy();const n=Math.min(2,c.length);for(let i=0;i<n;i++){const u=c[i];if(u.injured<=0){inflictInjury(u,[0.9,0.1,0]);unitHistory(u,"流行り病に倒れたが、手厚い治療で程なく癒えた。");}}apply({mood:-1,log:"薬師たちの奮闘で、病は程なく抑え込まれた。数名の兵が床に伏せたが、いずれも軽く済み、じきに戻るだろう(数名が短い病臥 民心↓)。",logCls:"big"});chron("――疫病の試練は、薬師たちの尽力によって乗り越えられた。","big");}
      else{const c=healthy();const n=Math.min(Math.max(2,Math.round(c.length*0.4)),c.length);for(let i=0;i<n;i++){const u=c[i];if(u.injured<=0){inflictInjury(u,[0.5,0.4,0.1]);unitHistory(u,"流行り病に倒れ、長く床に伏せることになった。");}}S.mood=Math.max(0,(S.mood||0)-6);S.pop=Math.max(1,(S.pop||0)-ri(2,4));apply({st:{order:-1},log:`備えなき王国を、病は容赦なく蝕んだ。兵${n}名が床に伏せ、城下にも倒れる者が相次いだ。王は、油断を悔いた(兵が病臥 民心↓↓ 人口↓ 治安↓)。`,logCls:"grave"});chron("――疫病の試練は、大きな爪痕を残して過ぎ去った。健やかさの尊さを、王国は身をもって学んだ。","grave");}
+     recordAnnal(prep==="none"?"流行り病が王国に大きな爪痕を残した。":"流行り病の試練を、備えをもって乗り越えた。","plague",true);
      clamp();render();renderTroops();
    }}},
   ]},
@@ -4435,6 +4437,7 @@ const RANDOM_RARE=[
      else if(prep==="dialogue"){const ord=(S.st&&S.st.order)||0;if(ord>=45){apply({st:{order:1},mood:2,log:"かつて膝を交えた代表たちが、逸る民をなだめて回った。王が約した改革が一つ二つと形になっていたことも幸いし、一揆は流血なく解かれた(治安+1 民心↑)。",logCls:"big"});chron("――一揆は、対話の積み重ねによって血を見ずに収められた。","big");}else{S.mood=Math.max(0,(S.mood||0)-4);apply({st:{order:-1},log:"対話は尽くしたものの、治安の緩みがつけ入る隙を与えた。小競り合いのうちに騒ぎは鎮まったが、しこりは残った(民心↓ 治安↓)。",logCls:"grave"});chron("――一揆は辛くも収められたが、治めの甘さが小さからぬ傷を残した。","grave");}}
      else if(prep==="suppress"){S.mood=Math.max(0,(S.mood||0)-9);S.pop=Math.max(1,(S.pop||0)-ri(2,4));const act=S.units.filter(u=>u&&u.role==="active"&&u.injured<=0);if(act.length){const u=act[Math.floor(Math.random()*act.length)];inflictInjury(u,[0.7,0.3,0]);unitHistory(u,"一揆の鎮圧に駆り出され、民との衝突で手傷を負った。");}apply({st:{order:-3},log:"抑えつけられていた憤懣は、堰を切って荒れ狂った。城下で衝突が起き、鎮圧に出た兵にも怪我人が出た。谷を離れる民もあり、王は力に頼った己を悔いた(民心↓↓ 人口↓ 治安↓ 兵が負傷)。",logCls:"grave"});chron("――一揆は、大きな爪痕を残して鎮められた。力で伏せた不満は、いつか必ず牙を剥くと、王国は学んだ。","grave");}
      else{S.mood=Math.max(0,(S.mood||0)-6);S.pop=Math.max(1,(S.pop||0)-ri(1,3));apply({st:{order:-2},log:"備えなき王国を、一揆は容赦なく揺さぶった。城下は荒れ、蔵の一部が略奪され、民の幾人かは谷を去った。王は、民情を軽んじた己を悔いた(民心↓ 人口↓ 治安↓)。",logCls:"grave"});chron("――一揆の試練は、爪痕を残して過ぎ去った。民心を軽んじる代償を、王国は身をもって学んだ。","grave");}
+     recordAnnal(prep==="relief"||prep==="dialogue"?"民の一揆を、善政と対話によって収めた。":"民の一揆が王国を揺るがした。","uprising",true);
      clamp();render();renderTroops();
    }}},
   ]},
@@ -4701,6 +4704,7 @@ const RANDOM_RARE=[
      let n=0;for(const nb of (S.neighbors||[])){if(!nb.allied){nb.relation=Math.min(100,(nb.relation||0)+ri(15,25));n++;}}
      apply({st:{diplomacy:6},mood:6,log:`アルヴェイン王は列強を前に堂々と持論を述べ、諸国の利を調停してみせた。${n?`${n}の隣国が王国に一目置き、関係が大きく前進した。`:""}小国から始まったこの国は、いまや大陸の秩序を導く一極となった(外交↑↑ 民心↑ 隣国との関係↑)。`,logCls:"big"});
      chron("――大陸会議の席で、アルヴェインは盟主としての格を示した。かつて雪深い谷にあった小村を思えば、隔世の感がある。","big");
+     recordAnnal("大陸会議に列し、諸国の盟主としての格を示した。","council",true);
    }}},
    {label:"交易の中心地として名乗りを上げる",hint:"経済↑↑ 国庫↑ 隣国との関係↑",fx:{call:()=>{
      S.flags=S.flags||{};S.flags.contCouncil="trade";
@@ -4708,11 +4712,13 @@ const RANDOM_RARE=[
      for(const nb of (S.neighbors||[])){if(!nb.allied)nb.relation=Math.min(100,(nb.relation||0)+ri(8,12));}
      const g=ri(180,280);apply({st:{economy:6,diplomacy:2},gold:g,mood:3,log:`王は会議で、アルヴェインを東西交易の結節点として売り込んだ。諸国の商隊が王国を目指すことが約され、早くも国庫に${g}の交易利が転がり込んだ(経済↑↑ 国庫+${g} 隣国との関係↑)。`,logCls:"big"});
      chron("――大陸会議を機に、アルヴェインは大陸交易の要衝としての地歩を固めた。","big");
+     recordAnnal("大陸会議を機に、大陸交易の要衝としての地歩を固めた。","council",true);
    }}},
    {label:"威を示しつつ、しがらみを避けて退く",hint:"軍事↑ 治安↑ 独立不羈(関係は動かさず)",fx:{call:()=>{
      S.flags=S.flags||{};S.flags.contCouncil="neutral";
      apply({st:{military:3,order:3},mood:2,log:"王は会議で王国の武威だけを静かに示し、いずれの陣営にも与せず席を立った。しがらみを負わぬ独立の姿勢に、諸国はかえって王国を侮れぬものと見た(軍事↑ 治安↑)。",logCls:"big"});
      chron("――大陸会議において、アルヴェインは独立不羈の気概を貫いた。誰の駒にもならぬ一国として、その名は畏れをもって記憶された。","big");
+     recordAnnal("大陸会議において、独立不羈の気概を貫いた。","council",true);
    }}},
   ]},
  {tag:"災 い",title:"燃え広がる炎",
@@ -6297,6 +6303,7 @@ function checkMilestone(){
       if(!S.flags["m"+k]){
         S.flags["m"+k]=true;
         recordEraChapterClose(k-1);      // 直前の時代を一つの章として締めくくる
+        recordAnnal(`王国は歩みを進め、「${STAGES[k].name}」と呼ばれるに至った。`,"stage"+k,true); // 国の格が上がった節目を年表に刻む
         if(EVENTS["milestone"+k])pushEvent("milestone"+k);
         else chron("――村は成長し、ついに「"+STAGES[k].name+"」と呼ばれるようになった。"+STAGES[k].note,"big");
         S.eraChapterStart=snapshotEra();  // 新たな時代の起点を刻む
@@ -7614,12 +7621,22 @@ function renownTierIndex(){const r=(S&&S.renown)||0;let i=0;for(let k=0;k<RENOWN
 function renownTier(){return RENOWN_TIERS[renownTierIndex()];}
 function renownRecruitMult(){return renownTier().mult;}
 function renownNextThreshold(){const i=renownTierIndex();return (i+1<RENOWN_TIERS.length)?RENOWN_TIERS[i+1].min:null;}
+/* 栄光の年表:王国の歩みの中で、真に画期となった一握りの出来事だけを選りすぐって刻む。流れて消える
+   年代記とは別に、"この治世で何を成したか"を一望できる記録帳。振り返る楽しさと、遊ぶほど固有になる
+   王国史の手応え(legacy)を与える演出=節目を後から俯瞰できる新レバー。カテゴリごとに一度きり等で重複を防ぐ。 */
+function recordAnnal(text,cat,once){
+  if(!text)return;
+  S.annals=S.annals||[];
+  if(once&&S.annals.some(a=>a.cat===cat))return; // 一度きりの節目(建国・魔王討伐等)は二重に刻まない
+  S.annals.push({day:S.day,text,cat:cat||""});
+  if(S.annals.length>60)S.annals.shift();
+}
 function grantRenown(n,reason){
   if(!n)return;
   const before=renownTierIndex();
   S.renown=(S.renown||0)+n;
   const after=renownTierIndex();
-  if(after>before){const t=RENOWN_TIERS[after];for(const u of S.units)if(u.role==="active")u.moral=Math.min(100,(u.moral||0)+3);S.mood=Math.min(100,(S.mood||0)+3);chron(`――アルヴェインの武名は、いまや「${t.name}」と謳われるに至った。${reason?reason+"が、":""}王国の威信をまた一段と高めている。この名を慕い、腕自慢の者たちが門を叩き始めるだろう(全軍の誇り↑ 逸材が集いやすくなる)。`,"big");}
+  if(after>before){const t=RENOWN_TIERS[after];for(const u of S.units)if(u.role==="active")u.moral=Math.min(100,(u.moral||0)+3);S.mood=Math.min(100,(S.mood||0)+3);chron(`――アルヴェインの武名は、いまや「${t.name}」と謳われるに至った。${reason?reason+"が、":""}王国の威信をまた一段と高めている。この名を慕い、腕自慢の者たちが門を叩き始めるだろう(全軍の誇り↑ 逸材が集いやすくなる)。`,"big");recordAnnal(`王国の武名が「${t.name}」と謳われるに至った。`,"renown_"+after,true);}
 }
 function hiddenPotentialChance(rankLabel){
   const t={F:0.075,E:0.07,D:0.06,C:0.04,B:0.035,A:0.025,S:0.02,SS:0.018,Z:0.015};
@@ -9372,7 +9389,7 @@ function resolveDungeonRun(dungeonId){
         S.flags=S.flags||{};S.flags.bossKings=S.flags.bossKings||{};
         if(!S.flags.bossKings[dungeon.bossTrait]&&BOSS_TRAITS[dungeon.bossTrait]){S.flags.bossKings[dungeon.bossTrait]=S.day;grantRenown(4,`「${BOSS_TRAITS[dungeon.bossTrait].label}」の討伐`);chron(`――「${BOSS_TRAITS[dungeon.bossTrait].label}」を初めて討ち取った。討伐した王の名が、また一つ王国史に刻まれる。`,"big");
           {const ldr=squad.filter(Boolean).sort((a,b)=>unitPower(b)-unitPower(a))[0];if(ldr)recordSigFeat(ldr,`いまだ誰も討たぬ強大な王「${BOSS_TRAITS[dungeon.bossTrait].label}」を、王国で初めて討ち取った`,4);} // 未踏の王の初討伐は語り草に
-          if(Object.keys(S.flags.bossKings).length>=BOSS_TRAIT_KEYS.length&&!S.flags.allKingsSlain){S.flags.allKingsSlain=true;for(const x of S.units){if(x.role==="active"){x.moral=Math.min(100,(x.moral||0)+6);x.loyalty=Math.min(100,(x.loyalty||0)+6);}}apply({mood:12,st:{military:5}});chron(`――ありとあらゆる「王」を、アルヴェインの兵は討ち果たした。${BOSS_TRAIT_KEYS.length}種すべての強大なる王を屠りし武名は、大陸の隅々にまで轟いている。この偉業に、全軍が誇りと闘志をみなぎらせている。`,"big");igniteFervor(10,"あらゆる王を討ち果たした空前の偉業");}}
+          if(Object.keys(S.flags.bossKings).length>=BOSS_TRAIT_KEYS.length&&!S.flags.allKingsSlain){S.flags.allKingsSlain=true;for(const x of S.units){if(x.role==="active"){x.moral=Math.min(100,(x.moral||0)+6);x.loyalty=Math.min(100,(x.loyalty||0)+6);}}apply({mood:12,st:{military:5}});chron(`――ありとあらゆる「王」を、アルヴェインの兵は討ち果たした。${BOSS_TRAIT_KEYS.length}種すべての強大なる王を屠りし武名は、大陸の隅々にまで轟いている。この偉業に、全軍が誇りと闘志をみなぎらせている。`,"big");igniteFervor(10,"あらゆる王を討ち果たした空前の偉業");recordAnnal(`${BOSS_TRAIT_KEYS.length}種すべての「王」を討ち果たした。`,"allkings",true);}}
         if(dungeon.bossTrait==="unyielding"){const g=Math.round(goldGained*0.35);apply({gold:g});chron(`「不屈」のボスを討ち取った手応えは格別だ。上乗せの財貨${g}を得た。`,"big");}
         else if(dungeon.bossTrait==="greedy"){const g=Math.round(ri(45,85)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「貪欲」なボスが溜め込んでいた財貨${g}を回収した。`,"big");}
         else if(dungeon.bossTrait==="hoarder"){const eq=rollEquipmentDrop(dungeon.rarity.key);if(eq){addEquipment(eq.key);chron(`「宝物狂い」のボスの蒐集品から、「${eq.name}」を手に入れた。`,"big");}}
@@ -9418,6 +9435,7 @@ function resolveDungeonRun(dungeonId){
         S.flags.demonLordDefeated=true;
         apply({mood:20,st:{military:15,order:10},gold:500});
         chron("――魔王は、ついに討たれた。長きにわたる脅威は去り、アルヴェインに真の平和が訪れた。","big");
+        recordAnnal("魔王を討ち果たし、大陸に真の平和をもたらした。","demonlord",true);
         spawnDemonAbyssDungeon();
       }
       if(dungeon.id==="demonlord_abyss")spawnDemonAbyssDungeon();
@@ -11034,6 +11052,14 @@ function renderProjects(){
      <div style="height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#c9a86a,#e0be6f)"></div></div>
      <div class="ds" style="font-size:10px;color:var(--dim);margin-top:3px;text-align:right">${nx!=null?`次の格「${RENOWN_TIERS[ti+1].name}」まで あと${nx-cur}`:"最高位に到達"}</div>
    </div>`;
+  }
+  // ── 栄光の年表(この治世の画期を一望) ──
+  if((S.annals||[]).length){const items=[...S.annals].reverse();const showN=8;
+   h+=`<div class="pcard" style="margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-laurel"></i>栄光の年表 <span style="color:var(--dim);font-size:10.5px">${S.annals.length}件の画期</span></div>
+     <div class="ds" style="margin:2px 0 6px;font-size:10.5px">この治世で成し遂げた、真に画期となった出来事の記録。</div>
+     <div class="udet-timeline" style="margin-top:2px">`+items.slice(0,showN).map(a=>`<div class="titem"><span class="td">DAY ${a.day}</span>${a.text}</div>`).join("")+
+     (items.length>showN?`<details style="margin-top:4px"><summary style="cursor:pointer;font-size:11px;color:var(--gold2)">これ以前の${items.length-showN}件を表示</summary><div style="margin-top:4px">`+items.slice(showN).map(a=>`<div class="titem"><span class="td">DAY ${a.day}</span>${a.text}</div>`).join("")+`</div></details>`:"")+
+     `</div></div>`;
   }
   // ── 民の声(嘆願・陳情の裁定) ──
   if(S.petition){const pt=petitionDef();if(pt){const left=Math.max(0,(S.petition.expires||0)-S.day);const afford=!pt.cost||S.gold>=pt.cost;
