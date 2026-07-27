@@ -2330,6 +2330,7 @@ const TITLE_DB=[
  {key:"t_generalslayer",name:"魔将殺し",desc:"魔王軍の名だたる魔将を討ち取った",effect:"injuryMult",value:0.9},
  {key:"t_dragonslayer",name:"竜殺し",desc:"伝説に謳われる古龍を討ち取った、不世の武功の持ち主",effect:"injuryMult",value:0.88},
  {key:"t_calamityender",name:"厄災を退けし者",desc:"国を脅かす災厄を討ち果たし、王国を救った英傑",effect:"moralGrow",value:0.12},
+ {key:"t_nemesisbane",name:"宿敵を討ちし者",desc:"かつて討ち逃した宿敵に再び挑み、積年の因縁に決着をつけた不屈の兵",effect:"injuryMult",value:0.9},
  {key:"t_grandveteran",name:"百錬の達人",desc:"レベル30に到達し、幾多の研鑽の末に練達の域へと至った",effect:"moralGrow",value:0.12},
  {key:"t_peerless",name:"不世出の兵",desc:"レベル45に到達し、一代の英傑と称される域へと至った",effect:"injuryMult",value:0.85},
  {key:"t_transcend",name:"神域の兵",desc:"レベル60に到達し、人の理を超えた域へと至った、まさに生ける伝説",effect:"expMult",value:1.12},
@@ -8828,7 +8829,7 @@ function resolveNemesisClosure(dungeon,squad){
   S.nemesis=null;
   grantRelicShards(2);
   apply({mood:8,st:{military:2,order:2},gold:140,log:`――かつて討ち逃した宿敵、${dungeon.bossName}に、ついに決着をつけた。長きにわたる因縁に終止符が打たれ、王国は溜飲を下げた(民心↑↑ 秘宝の断片+2 財貨+140)。`,logCls:"big"});
-  for(const u of squad){if(u&&S.units.some(x=>x.id===u.id)){u.moral=Math.min(100,(u.moral||0)+6);unitHistory(u,`宿敵${dungeon.bossName}を討ち、王国積年の因縁に決着をつけた。`);}}
+  for(const u of squad){if(u&&S.units.some(x=>x.id===u.id)){u.moral=Math.min(100,(u.moral||0)+6);grantTitle(u,"t_nemesisbane");unitHistory(u,`宿敵${dungeon.bossName}を討ち、王国積年の因縁に決着をつけた。`);}}
 }
 function maybeTriumphReturn(squad,crit){
   if(!squad||!squad.length)return;
@@ -11434,6 +11435,7 @@ function renderDungeonPanel(){
     summary+=` ／ 魔王軍対応Lv.${army} ／ 討った魔将${gens}体`;
     summary+=`<div style="font-size:10.5px;color:var(--dim);margin-top:2px">魔王の玉座への道:対応Lv.12(現${army})・累計踏破20(現${cleared})・魔将2体撃破(現${gens})</div>`;
   }
+  if(S.nemesis){summary+=`<div style="font-size:11px;color:#d97a7a;margin-top:3px" title="かつて討ち逃した宿敵。討伐一覧の〔宿敵〕迷宮で決着をつけられる"><i class="icon-boss"></i>宿敵:${S.nemesis.name}が、再戦の時を待っている</div>`;}
   $("#dgSummary").innerHTML=summary;
   const tabs=[["available","探索可能"],["active","進行中"],["expedition","遠征"]];
   $("#dgTabRow").innerHTML=tabs.map(([k,l])=>{
