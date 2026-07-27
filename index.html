@@ -5367,6 +5367,7 @@ const NATIONAL_DOCTRINES=[
  {key:"bonds",name:"絆の国",desc:"戦友の情を重んじる国是。背中を預け合う絆の連携が、戦場で一層力になる。"},
  {key:"loot",name:"宝物狂の国",desc:"財宝を追い求める国是。以後、ドロップする装備の個体差(アフィックス)が、より優れたものになりやすい。"},
  {key:"vigor",name:"健勇の国",desc:"不屈の気風を重んじる国是。兵たちの疲れの抜けが永続的に早まり、休みなく戦い続けられる。"},
+ {key:"heroes",name:"英傑の国",desc:"人材を何より重んじる国是。以後、志願兵に隠れた逸材(掘り出し物)が眠りやすくなる。"},
 ];
 function doctrineIs(k){return !!(S.flags&&S.flags.doctrine===k);}
 function doctrineName(){const d=NATIONAL_DOCTRINES.find(x=>x.key===(S.flags&&S.flags.doctrine));return d?d.name:null;}
@@ -6057,6 +6058,7 @@ function hiddenPotentialChance(rankLabel){
   const t={F:0.075,E:0.07,D:0.06,C:0.04,B:0.035,A:0.025,S:0.02,SS:0.018,Z:0.015};
   let c=t[rankLabel]!=null?t[rankLabel]:0.03;
   if(S.flags&&S.flags.renownBanner)c*=1.3; // 名声の旗印: 掘り出し物が眠りやすくなる永続効果
+  if(typeof doctrineIs==="function"&&doctrineIs("heroes"))c*=1.35; // 「英傑の国」の国是: 志願兵に隠れた逸材が眠りやすくなる
   return c;
 }
 /* 志願兵の来歴:一部の志願者は、志願書に「前歴」を記してくる。前歴は志願書で見て取れ、採用すると
