@@ -1964,6 +1964,7 @@ function addEquipment(defKey){
   const affixes=def?((typeof doctrineIs==="function"&&doctrineIs("loot"))?rollAffixesBest(def.rarity,2):rollAffixes(def.rarity)):[];
   const inst={id:Math.random().toString(36).slice(2,9),key:defKey,affixes};
   S.equipmentInventory.push(inst);
+  if(def&&def.rarity==="legendary"){S.flags=S.flags||{};if(!S.flags.firstLegendaryEquip){S.flags.firstLegendaryEquip=true;if(typeof chron==="function")chron(`――王国の武具庫に、ついに伝説級の逸品「${equipInstName(inst)}」が納められた。この一振りは、幾多の戦を彩る至宝として、末永く語り継がれることだろう。`,"big");}} // 初の伝説級装備を一度だけ祝う=収集の到達点を演出
   return inst;
 }
 function equipItem(unitId,instanceId){
