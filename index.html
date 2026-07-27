@@ -7827,6 +7827,16 @@ const FORMATIONS={
  swift:{label:"迅速陣",color:"#7ac98f",pwMult:0.97,injShift:0,dur:-2,desc:"速さ重視の布陣。所要日数が縮み手数を稼げるが、攻略はわずかに落ちる(周回向き)"},
 };
 const FORMATION_KEYS=Object.keys(FORMATIONS);
+/* ===== 秘策(ダンジョンの新レバー):派遣時に、費えと引き換えに"この一戦限り"の策を仕込める。陣形(常時の
+   布陣の癖)とは別軸で、勝負所の一戦に金を投じて攻めに賭けるか、大事な兵を守りに徹するかを選ぶ、使い切りの
+   戦術判断。狙った迷宮に照準を合わせる面白さと、財の使い所という新たな決断を生む。 ===== */
+const DUNGEON_TACTICS={
+ none:{label:"なし",cost:0,color:"#9a8f7a"},
+ fireplan:{label:"火計",cost:40,color:"#d4694a",desc:"火を放って敵を攪乱する。踏破判定が有利になり、大成功も出やすい(この一戦のみ)。"},
+ retreat:{label:"撤収の備え",cost:50,color:"#7aa0c9",desc:"退き口を確保しておく。大失敗に陥っても、この一戦では兵を死なせない(この一戦のみ)。"},
+};
+const DUNGEON_TACTIC_KEYS=["none","fireplan","retreat"];
+const TACTIC_FIRE_BONUS=13; // 火計:踏破判定への上乗せ
 /* 陣形に応じて負傷の重さの重み(軽/中/重)を寄せる。攻勢陣は重傷寄り、堅守陣は軽傷寄り。 */
 function formationAdjustWeights(w,fmKey){
  const fm=FORMATIONS[fmKey]||FORMATIONS.balanced;
@@ -8716,7 +8726,7 @@ const FIRST_SORTIE_LINES=[
  (u,d)=>`${u}が初めて実戦の遠征に発つ。城門を出る足取りには、隠しきれぬ緊張と高揚が滲んでいた。`,
  (u,d)=>`「必ず、生きて戻ります」。初陣の${u}は王にそう告げ、「${d}」へ向かう隊に加わった。`,
 ];
-function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision){
+function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision,tactic){
   const idx=(S.availableDungeons||[]).findIndex(d=>d.id===dungeonId);
   if(idx<0)return;
   const dungeon=S.availableDungeons[idx];
@@ -8724,6 +8734,8 @@ function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision){
   dungeon.delve=!!delve; // 深層まで攻めるか(踏破時に奥の主へ挑む博打)
   dungeon.provisioned=!!provision&&(S.food||0)>=PROVISION_COST; // 兵站を持たせるか(食糧を割いて帰還時の消耗を和らげる)
   if(dungeon.provisioned)S.food=Math.max(0,(S.food||0)-PROVISION_COST); // 出立時に食糧を割く
+  dungeon.tactic=DUNGEON_TACTICS[tactic]?tactic:"none"; // 秘策(この一戦限りの策)を記録
+  {const td=DUNGEON_TACTICS[dungeon.tactic];if(td&&td.cost){if(S.gold>=td.cost){S.gold-=td.cost;}else{dungeon.tactic="none";}}} // 費えを払えなければ秘策なし
   const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy&&!u.campUntil);
   let squad;
   if(manualIds&&manualIds.length){
@@ -8939,7 +8951,8 @@ function resolveDungeonRun(dungeonId){
   const fortune=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).fortuneRoll||0,(traitInfo(u.trait).fortuneRoll)||0))):0; // 「勝負師の勘」(スキル)「武運の女神に愛されし者」(特性)持ちは踏破判定に下駄を履く=大成功が出やすくなる
   const scoutRoll=dungeon.scouted?SCOUT_ROLL_BONUS:0; // 偵察済み:罠と地形を知り、この一戦の攻略判定が有利になる
   const weakBonus=weaknessMatched(dungeon,squad)?WEAKNESS_BONUS:0; // 斥候の勘所に噛み合う編成で挑めば、急所を突いて判定が有利になる
-  const centerRoll=squadPower/dungeon.requiredPower*100+fortune+scoutRoll+weakBonus; // 揺らぎ抜きの実力中央値(逆転勝ちの判定に使う)
+  const tacticBonus=dungeon.tactic==="fireplan"?TACTIC_FIRE_BONUS:0; // 秘策「火計」:この一戦の踏破判定が有利になる
+  const centerRoll=squadPower/dungeon.requiredPower*100+fortune+scoutRoll+weakBonus+tacticBonus; // 揺らぎ抜きの実力中央値(逆転勝ちの判定に使う)
   if(weakBonus>0){const w=weaknessInfo(dungeon);if(w)chron(`斥候の見立て通り、${dungeon.name}のボスの急所(${w.tag})を突く布陣が功を奏した。`,"");}
   const roll=centerRoll+rnd(-20,20);
   const tier=roll>=165?"critical_success":roll>=105?"success":roll>=60?"fail":"critical_fail";
@@ -9199,7 +9212,7 @@ function resolveDungeonRun(dungeonId){
     chron(`「${dungeon.name}」への挑戦は失敗に終わった。部隊は撤退した。`,"grave");
     recordHardship(squad,dungeon.name); // 叩き上げ:敗北を生き延びた兵が経験から学ぶ
   }else{ // critical_fail
-    const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1)*(S.flags.heirloom==="banner"?0.82:1)*(alliedWith("draconis")?0.85:1)*(festivalIs("remembrance")?0.85:1)*(relicHas("ward")?0.88:1)*(squadEthos==="bulwark"?0.85:1)*(S.flags.dragonRaised?0.85:1); // 治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗/家宝「不滅の王旗」でさらに戦没が減る。竜嶺のドラコニアとの軍事同盟(援軍の約定)でも戦没が減る。慰霊祭の開催中も戦没が減る。遺物「不滅の護符」でも戦没が減る。育て上げた竜が空から戦場を見守れば、戦没はさらに減る
+    const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1)*(S.flags.heirloom==="banner"?0.82:1)*(alliedWith("draconis")?0.85:1)*(festivalIs("remembrance")?0.85:1)*(relicHas("ward")?0.88:1)*(squadEthos==="bulwark"?0.85:1)*(S.flags.dragonRaised?0.85:1)*(dungeon.tactic==="retreat"?0:1); // 秘策「撤収の備え」なら、この一戦では兵を死なせない。治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗/家宝「不滅の王旗」でさらに戦没が減る。竜嶺のドラコニアとの軍事同盟(援軍の約定)でも戦没が減る。慰霊祭の開催中も戦没が減る。遺物「不滅の護符」でも戦没が減る。育て上げた竜が空から戦場を見守れば、戦没はさらに減る
     const hurtOnes=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*0.6)));
     const critW=medicAdjustWeights(formationAdjustWeights(cond==="blessed"?[0.4,0.4,0.2]:[0.1,0.3,0.6],fmKey),squad); // 陣形→古の祝福(大失敗でも深手を和らげる)→従軍医の順に負傷の重さを補正
     for(const u of hurtOnes){inflictInjury(u,critW);unitHistory(u,`「${dungeon.name}」で${INJURY_TIERS[u.injurySeverity].label}を負った。`);memberLog.push({u,gain:0,note:INJURY_TIERS[u.injurySeverity].label});}
@@ -12042,7 +12055,7 @@ function reactivateInstructor(u){
 }
 /* ---------- ダンジョン・アイテムパネル ---------- */
 let dgTab="available";
-let dgSelectingDungeonId=null, dgSelectedUnitIds=[], dgFormation="balanced", dgDelve=false, dgProvision=false;
+let dgSelectingDungeonId=null, dgSelectedUnitIds=[], dgFormation="balanced", dgDelve=false, dgProvision=false, dgTactic="none";
 let expSelecting=false, expSelectedUnitIds=[];
 let itemRarityFilter="all";
 /* ===== 行商人の店(新機軸:貯めた財貨を能動的に品へ換える経済の出口) =====
@@ -12496,6 +12509,11 @@ function renderDungeonPanel(){
       <div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:4px">食糧${PROVISION_COST}を割いて糧食と手当てを携える。帰還時、部隊の疲労が和らぎ、負った傷も浅く済む。連戦で兵を回す時の兵站の一手。${canProv?"":"(食糧が足りない)"}</div>
     </div>`;
     }
+    {const curT=DUNGEON_TACTICS[dgTactic]?dgTactic:"none";
+     h+=`<div style="margin-top:10px"><div class="ds" style="font-size:11px;color:var(--gold);margin-bottom:4px">秘策(この一戦限りの策)</div>
+       <div style="display:flex;gap:5px;flex-wrap:wrap">`+DUNGEON_TACTIC_KEYS.map(k=>{const t=DUNGEON_TACTICS[k];const on=k===curT;const afford=!t.cost||S.gold>=t.cost;const dis=!afford&&k!=="none";return `<button class="dg-tactic-btn" data-t="${k}" ${dis?"disabled":""} style="flex:1;min-width:70px;background:${on?t.color:"transparent"};color:${on?"var(--ink)":dis?"rgba(255,255,255,.3)":t.color};border:1px solid ${dis?"rgba(255,255,255,.12)":t.color};border-radius:6px;padding:7px 4px;font-family:'Shippori Mincho',serif;font-size:11px;font-weight:${on?"800":"600"};cursor:${dis?"default":"pointer"}">${t.label}${t.cost?`(${t.cost}G)`:""}</button>`;}).join("")+`</div>
+       ${DUNGEON_TACTICS[curT]&&DUNGEON_TACTICS[curT].desc?`<div class="ds" style="font-size:10.5px;color:var(--dim);margin-top:4px">${DUNGEON_TACTICS[curT].desc}</div>`:""}</div>`;
+    }
     h+=`<div style="display:flex;gap:6px;margin-top:10px">
       <button id="dgDispatchConfirm" ${selSquad.length?"":"disabled"} style="flex:1;background:${selSquad.length?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${selSquad.length?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:10px;font-family:'Shippori Mincho',serif;font-weight:800;cursor:${selSquad.length?"pointer":"default"}">この編成で派遣する</button>
       <button id="dgDispatchCancel" style="flex:1;background:transparent;border:1px solid var(--dim);color:var(--dim);border-radius:6px;padding:10px;font-family:'Shippori Mincho',serif;cursor:pointer">戻る</button>
@@ -12521,15 +12539,16 @@ function renderDungeonPanel(){
       $("#panelUnitDetail").classList.add("show");
     });
     $("#dgBody").querySelectorAll(".dg-formation-btn").forEach(el=>el.onclick=()=>{dgFormation=el.dataset.f;renderDungeonPanel();});
+    $("#dgBody").querySelectorAll(".dg-tactic-btn").forEach(el=>el.onclick=()=>{dgTactic=el.dataset.t;renderDungeonPanel();});
     const delveToggle=$("#dgDelveToggle");
     if(delveToggle)delveToggle.onclick=()=>{dgDelve=!dgDelve;renderDungeonPanel();};
     const provToggle=$("#dgProvisionToggle");
     if(provToggle)provToggle.onclick=()=>{dgProvision=!dgProvision;renderDungeonPanel();};
     const confirmBtn=$("#dgDispatchConfirm");
     if(confirmBtn)confirmBtn.onclick=()=>{
-      const id=dgSelectingDungeonId;const ids=[...dgSelectedUnitIds];const fm=dgFormation;const dv=dgDelve;const pv=dgProvision;
-      dgSelectingDungeonId=null;dgSelectedUnitIds=[];
-      dispatchDungeon(id,ids,fm,dv,pv);
+      const id=dgSelectingDungeonId;const ids=[...dgSelectedUnitIds];const fm=dgFormation;const dv=dgDelve;const pv=dgProvision;const tc=dgTactic;
+      dgSelectingDungeonId=null;dgSelectedUnitIds=[];dgTactic="none";
+      dispatchDungeon(id,ids,fm,dv,pv,tc);
       dgTab="active";renderDungeonPanel();
     };
     $("#dgDispatchCancel").onclick=()=>{dgSelectingDungeonId=null;dgSelectedUnitIds=[];renderDungeonPanel();};
