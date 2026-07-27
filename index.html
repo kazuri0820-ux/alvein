@@ -7270,6 +7270,7 @@ function dailyEconomySettle(){
   fiefDailyIncome(); // 知行:領地持ちの臣の所領から、日々わずかな禄が国庫に還る
   checkOutpostReport(); // 前哨からの報せ:折に触れて届く思わぬ吉事
   vaultDaily(); // 王室金庫:預けた蓄えが日々わずかに利息を生む(上限まで)
+  loanDaily(); // 富商からの借款:返済期日が来たら国庫から取り立て、返せねば信用に傷
   ministerDaily(); // 重臣の執政:要職に就いた兵の器量に応じ、日々その分野の国力が育つ
   immigrationDaily(); // 移民政策:入植方針に応じた治安の推移と、開放策のもとでの入植者の流入
   clamp();
@@ -11540,6 +11541,55 @@ function withdrawVault(amt){
   chron(`王室金庫から${a}を引き出し、国庫へ戻した(金庫残高${S.vault})。`,"");
   clamp();render();renderProjects();save();
 }
+/* ===== 富商からの借款(内政・経済の新軸):国庫が細った折、富商から財を借り受ける危機の一手。今すぐの大金と
+   引き換えに、期日までに利息を上乗せして返さねばならない。返せねば富商の信を失い、民心・治安・経済が揺らぐ。
+   蓄える金庫(王室金庫)とは逆向きの、"先に借りて後で返す"時間を跨いだ資金繰りの緊張。窮地からの立て直しや、
+   勝負所への前借りを可能にする、財の綱渡りの新レバー。 ===== */
+const LOAN_INTEREST=0.22;   // 借款の利息(元本への上乗せ)
+const LOAN_TERM=30;         // 返済期日までの日数
+function loanLimit(){const rank=(typeof STAGES!=="undefined"&&STAGES[S.stage]&&STAGES[S.stage].rank)||1;return 150+Math.round((S.st.economy||0)*4)+rank*80;} // 借りられる上限=経済力と国の格
+function loanActive(){return S.loan||null;}
+function takeLoan(amount){
+  if(S.loan){chron("既に富商への借りがある。まずはこれを返さねば、次は貸してもらえまい。","");return;}
+  amount=Math.max(50,Math.min(loanLimit(),Math.round(amount)));
+  S.gold+=amount;
+  S.loan={principal:amount,owed:Math.round(amount*(1+LOAN_INTEREST)),dueDay:S.day+LOAN_TERM};
+  chron(`王は富商より${amount}の財を借り受けた。期日(${LOAN_TERM}日後)までに、利息を含め${S.loan.owed}を返さねばならない。窮地を凌ぐ大金だが、返済の重みは常に付き纏う。`,"big");
+  clamp();render();renderProjects();save();
+}
+function repayLoan(amt){
+  if(!S.loan)return;
+  const pay=(amt==="all")?Math.min(S.gold,S.loan.owed):Math.min(S.gold,S.loan.owed,Math.round(amt));
+  if(pay<=0){chron("返済に充てる財が足りない。","");return;}
+  S.gold-=pay;S.loan.owed-=pay;
+  if(S.loan.owed<=0){
+    S.loan=null;
+    apply({mood:2,st:{order:1},log:"富商への借款を、期日前に誠実に返し終えた。約定を違えぬ王の姿勢に、富商も城下の商人も厚い信を寄せている(民心↑ 治安↑)。"});
+    chron("――借款は完済された。信用は、金では買えぬ王国の財産である。","big");
+  }else{
+    chron(`富商へ${pay}を返済した。残る借りは${S.loan.owed}(期日まであと${Math.max(0,S.loan.dueDay-S.day)}日)。`,"");
+  }
+  clamp();render();renderProjects();save();
+}
+function loanDaily(){
+  if(!S.loan)return;
+  if(S.day<S.loan.dueDay)return;
+  const owed=S.loan.owed;
+  const pay=Math.min(S.gold,owed);
+  S.gold-=pay;
+  const short=owed-pay;
+  if(short<=0){
+    S.loan=null;
+    chron(`富商への借款の期日が来た。国庫から${pay}を返し、約定通り借りを清算した。`,"");
+  }else{
+    S.loan=null;
+    const moodHit=Math.min(14,4+Math.round(short/40));
+    S.mood=Math.max(0,(S.mood||0)-moodHit);
+    apply({st:{order:-3,economy:-2},log:`富商への借款を期日までに返しきれなかった(不足${short})。富商は落胆し、城下の商人たちも王国との取引に慎重になった。信を損なった代償は小さくない(民心↓ 治安↓ 経済↓)。`,logCls:"grave"});
+    chron("――返せぬ借りは、金より重い。王国の信用に、確かな傷が残った。","grave");
+  }
+  clamp();
+}
 /* 山の隠者の賜物:庵を結んだ後、隠者がときおり若い兵に技を授けたり、国に叡智をもたらす。
    一度きりでも常時でもない"折に触れて訪れる恵み"=継続的な報酬タイプ(物語のある永続の縁) */
 /* 絹の道の恵み:東方との交易路が開けた後、折に触れて遠国の隊商が珍品を携えて到着する。財貨に加え、時に
@@ -11630,6 +11680,8 @@ function renderProjects(){
    if(S.envoy)chips.push(["使者",`${neighborName(S.envoy.key)}へ(残${Math.max(0,S.envoy.resolveDay-S.day)}日)`,"#c9a86a"]); // 親善の使者の出立中
 
    if((S.vault||0)>0)chips.push(["金庫",`${S.vault}${(S.vault||0)>=vaultCap()?"(満)":""}`,(S.vault||0)>=vaultCap()?"#d99a6a":"#8fbf6f"]);
+   if(S.loan)chips.push(["借款",`残債${S.loan.owed}(期日まで${Math.max(0,S.loan.dueDay-S.day)}日)`,(S.loan.dueDay-S.day)<=7?"#d97a7a":"#d0a85a"]); // 富商への借り:返済期日を見失わぬよう概況に
+
    if((S.outposts||[]).length)chips.push(["前哨",`${S.outposts.length}/${outpostCap()}`,"#c9a86a"]);
    if(S.nemesis)chips.push(["宿敵",S.nemesis.name,"#d97a7a"]);
    if(fervorActive())chips.push(["熱狂",`残${Math.max(0,(S.fervorUntil||0)-S.day)}日`,"#e0a870"]); // 国中の熱狂:入隊殺到・鍛錬に熱の高揚窓
@@ -11726,6 +11778,20 @@ function renderProjects(){
      <div style="display:flex;gap:5px;margin-bottom:5px"><span style="color:var(--dim);font-size:10.5px;align-self:center;flex:0 0 auto">預ける▸</span>${mkBtn("vault-dep-btn",100,"100",g>=100)}${mkBtn("vault-dep-btn",500,"500",g>=500)}${mkBtn("vault-dep-btn","all","全部",g>0)}</div>
      <div style="display:flex;gap:5px"><span style="color:var(--dim);font-size:10.5px;align-self:center;flex:0 0 auto">引き出す▸</span>${mkBtn("vault-wd-btn",100,"100",vault>=100)}${mkBtn("vault-wd-btn",500,"500",vault>=500)}${mkBtn("vault-wd-btn","all","全部",vault>0)}</div>
    </div>`;
+  }
+  // ── 富商からの借款(先に借りて後で返す・危機の資金繰り) ──
+  {const ln=loanActive();const g=Math.floor(S.gold);
+   if(ln){const left=Math.max(0,ln.dueDay-S.day);const urgent=left<=7;
+     h+=`<div class="pcard" style="margin-bottom:10px;border-color:${urgent?"#d97a7a":"#d0a85a"}"><div class="nm" style="color:${urgent?"#e0908a":"#e0b870"}"><i class="icon-market"></i>富商への借り <span style="color:var(--parch,#e8d9b5);font-size:12px">残債 ${ln.owed}</span></div>
+       <div class="ds" style="margin:2px 0 6px">期日まで<span style="color:${urgent?"#e0908a":"var(--gold)"};font-weight:700"> あと${left}日</span>。期日までに返しきれねば、富商の信を失い民心・治安・経済が揺らぐ。早めに返せば、約定を守る王として信を得る。</div>
+       <div style="display:flex;gap:5px"><span style="color:var(--dim);font-size:10.5px;align-self:center;flex:0 0 auto">返済▸</span>${(()=>{const mk=(amt,lbl,en)=>`<button class="loan-repay-btn" data-amt="${amt}" ${en?"":"disabled"} style="flex:1;min-width:52px;background:transparent;border:1px solid ${en?"var(--gold2)":"rgba(255,255,255,.12)"};color:${en?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px 3px;font-family:'Shippori Mincho',serif;font-size:11px;cursor:${en?"pointer":"default"}">${lbl}</button>`;return mk(100,"100",g>=100&&ln.owed>0)+mk(500,"500",g>=500&&ln.owed>=1)+mk("all","全部返す",g>0&&ln.owed>0);})()}</div>
+     </div>`;
+   }else{const lim=loanLimit();
+     h+=`<div class="pcard" style="margin-bottom:10px"><div class="nm" style="color:var(--gold)"><i class="icon-market"></i>富商からの借款 <span style="color:var(--dim);font-size:11px">上限 ${lim}</span></div>
+       <div class="ds" style="margin:2px 0 6px">国庫が細った折、富商から財を借り受けられる。今すぐの大金と引き換えに、${LOAN_TERM}日後の期日までに利息(${Math.round(LOAN_INTEREST*100)}%上乗せ)を含めて返さねばならない。返せねば信用に傷がつく。窮地の立て直しや、勝負所への前借りに。</div>
+       <div style="display:flex;gap:5px"><span style="color:var(--dim);font-size:10.5px;align-self:center;flex:0 0 auto">借りる▸</span>${(()=>{const amts=[Math.min(150,lim),Math.min(400,lim),lim];const seen={};let bt="";for(const a of amts){if(a<50||seen[a])continue;seen[a]=1;bt+=`<button class="loan-take-btn" data-amt="${a}" style="flex:1;min-width:52px;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px 3px;font-family:'Shippori Mincho',serif;font-size:11px;cursor:pointer">${a}<span style="color:var(--dim);font-size:9px"> →返${Math.round(a*(1+LOAN_INTEREST))}</span></button>`;}return bt;})()}</div>
+     </div>`;
+   }
   }
   // ── 前哨拠点(迷宮の跡地を版図に組み入れる) ──
   {const ops=S.outposts||[];const cap=outpostCap();const yld={gold:"財貨",food:"糧",order:"治安・民心",train:"兵の鍛錬"};
@@ -11940,6 +12006,8 @@ function renderProjects(){
    const gb=$("#prjList").querySelector(".grain-buy-btn");if(gb)gb.onclick=()=>buyGrain();}
   $("#prjList").querySelectorAll(".vault-dep-btn").forEach(b=>b.onclick=()=>{const a=b.dataset.amt;depositVault(a==="all"?"all":+a);});
   $("#prjList").querySelectorAll(".vault-wd-btn").forEach(b=>b.onclick=()=>{const a=b.dataset.amt;withdrawVault(a==="all"?"all":+a);});
+  $("#prjList").querySelectorAll(".loan-take-btn").forEach(b=>b.onclick=()=>{takeLoan(+b.dataset.amt);});
+  $("#prjList").querySelectorAll(".loan-repay-btn").forEach(b=>b.onclick=()=>{const a=b.dataset.amt;repayLoan(a==="all"?"all":+a);});
   $("#prjList").querySelectorAll(".outpost-abandon-btn").forEach(b=>b.onclick=()=>abandonOutpost(b.dataset.id));
   {const pg=$("#prjList").querySelector(".petition-grant");if(pg)pg.onclick=()=>grantPetition();
    const pd=$("#prjList").querySelector(".petition-deny");if(pd)pd.onclick=()=>denyPetition();}
