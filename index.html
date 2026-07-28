@@ -11092,6 +11092,19 @@ function maybeClutchVictory(squad,dungeon,centerRoll,tier){
   const line=CLUTCH_LINES[ri(0,CLUTCH_LINES.length-1)];
   chron(line(fullName(u),dungeon.name),"big");
   for(const m of alive){m.moral=Math.min(100,(m.moral||0)+4);} // 逆転劇は隊の士気を大きく高める
+  // 番狂わせの糧:力の差を覆した死闘は、兵を大きく育てる(不利なほど得るものは大きい)。格上への挑戦=安牌でない一戦に、成長という felt な報いを与える。
+  const upsetGap=Math.max(0,Math.min(45,Math.round(100-centerRoll))); // どれほどの不利を覆したか(0〜45)
+  if(upsetGap>=4){
+    const grew=[];
+    for(const m of alive){
+      const from=m.lv;
+      const bonus=Math.max(1,Math.round((3+upsetGap*0.4)*(1+(m.lv||1)*0.05)));
+      m.exp=(m.exp||0)+bonus; if(typeof processLevelUps==="function")processLevelUps(m);
+      if(m.lv>from)grew.push(`${m.nm} Lv.${from}→${m.lv}`);
+    }
+    chron(`格上を覆した死闘は、何にも代えがたい糧となった。部隊は一戦にして大きく武を練り上げている${grew.length?`(${grew.slice(0,4).join("、")})`:""}。`,"");
+    if(upsetGap>=15&&typeof grantRenown==="function")grantRenown(1,`格上「${dungeon.name}」を覆した番狂わせ`); // 大きな下克上の武名は国の威信をも高める
+  }
   grantTitle(u,"t_survivor"); // 死線を越えた証
   recordSigFeat(u,`絶体絶命の「${dungeon.name}」を、力の差を覆して制した番狂わせの立役者`,3); // 番狂わせの主役は、その兵の語り草となる
 }
