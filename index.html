@@ -9622,7 +9622,11 @@ function squadSynergyMult(squad){
     const trS=(traitInfo(u.trait)||{}).squadSynergy; if(trS)tacticianBonus+=trS; // 「座持ちの才」等の特性も采配系と同様に連携を高める(特性/スキル両対応)
   }
   tacticianBonus=Math.min(0.12,tacticianBonus);
-  return Math.max(0.9,Math.min(1.45,1+sameRouteBonus-overlapPenalty+historyBonus+bondBonus+rivalBonus-discordPenalty+packBonus+honorBonus+tacticianBonus));
+  // 老将の采配:軍位最上位(将軍)まで昇りつめた古参が部隊にいると、その威と積年の戦場勘が全体の連携を高める。
+  // 長い奉公の到達(軍位)に、戦場での felt な報いを与える(自身の忠誠維持だけでない、部隊への貢献)。一人いれば十分=重ねない
+  let veteranCommand=0;
+  for(const u of squad){if(u&&typeof militaryRankIndex==="function"&&militaryRankIndex(u)>=5){veteranCommand=0.05;break;}}
+  return Math.max(0.9,Math.min(1.45,1+sameRouteBonus-overlapPenalty+historyBonus+bondBonus+rivalBonus-discordPenalty+packBonus+honorBonus+tacticianBonus+veteranCommand));
 }
 // パーティの「質」を測る指標。人数を増やすだけで有利にならないよう平均戦力を基準にし、
 // 5人編成を基準にしたrequiredPowerとそのまま比較できるよう5倍して正規化する。
@@ -14590,11 +14594,13 @@ function renderDungeonPanel(){
         for(const u of selSquad){if(u.bondWith&&ids.has(u.bondWith)&&u.id<u.bondWith)bp++;if(u.rivalWith&&ids.has(u.rivalWith)&&u.id<u.rivalWith)rp++;if(u.discordWith&&ids.has(u.discordWith)&&u.id<u.discordWith)dp++;}
         const beastCount=selSquad.filter(u=>u.race==="beastkin").length;
         let tact=0;for(const u of selSquad){for(const k of (u.skills||[])){const s=SKILL_DB.find(x=>x.key===k);if(s&&s.squadSynergy)tact++;}if((traitInfo(u.trait)||{}).squadSynergy)tact++;}
+        const hasGeneral=selSquad.some(u=>typeof militaryRankIndex==="function"&&militaryRankIndex(u)>=5);
         const parts=[];
         if(bp)parts.push(`<span style="color:#d99ab0">戦友×${bp}</span>`);
         if(rp)parts.push(`<span style="color:#d9a05e">好敵手×${rp}</span>`);
         if(beastCount>=2)parts.push(`<span style="color:#b5794a">獣人の群れ×${beastCount}</span>`);
         if(tact)parts.push(`<span style="color:#8fbf6f">采配×${tact}</span>`);
+        if(hasGeneral)parts.push(`<span style="color:#e0be6f">老将の采配</span>`);
         if(dp)parts.push(`<span style="color:#d97a7a;font-weight:700">確執×${dp}(連携↓)</span>`);
         return parts.length?`<div class="ds" style="font-size:10.5px;color:var(--dim)">連携の内訳:${parts.join(" ／ ")}</div>`:"";
       })():""}
