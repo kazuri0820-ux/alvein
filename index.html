@@ -3576,6 +3576,30 @@ const STAGES=[
  {min:1200,rank:6,name:"アルヴェイン王国",   era:"建国",  note:"ついに王国を名乗る時が来た。"},
 ];
 function stageOf(pop){let i=0;for(let k=0;k<STAGES.length;k++)if(pop>=STAGES[k].min)i=k;return i;}
+/* 段階の到達(演出の空白を埋める):人口が節目を越え、王国が新たな時代を迎える瞬間――開拓村から村・
+   町・自治領・そして公国へ――は、これまで render() で静かに S.stage が書き換わるだけで、何の感慨も
+   無かった。到達を国を挙げて祝い、年表に刻む。最終段階(王国=建国)は既存の戴冠イベントに委ね、
+   ロード済みの進行度は遡って祝わず既読化のみ(降格や初期化では祝わない)。 */
+function checkStageAdvance(){
+  if(typeof STAGES==="undefined"||typeof stageOf!=="function")return;
+  const si=stageOf(S.pop||0);
+  S.flags=S.flags||{}; S.flags.stageReached=S.flags.stageReached||{};
+  if(!S.flags.stageInit){ // 初回(ロード直後・新規開始直後):現段階までを既読化し、過去の到達は祝わない
+    S.flags.stageInit=1;
+    for(let s=0;s<=si;s++)if(!S.flags.stageReached[s])S.flags.stageReached[s]=S.day;
+    return;
+  }
+  for(let s=1;s<=si;s++){
+    const st=STAGES[s]; if(!st||S.flags.stageReached[s])continue;
+    S.flags.stageReached[s]=S.day;
+    if(s===si&&s<STAGES.length-1){ // 到達した最新の段階を祝う(最終段階の王国は戴冠イベントの晴れ舞台に譲る)
+      apply({mood:6});
+      for(const u of (S.units||[]))if(u&&u.role==="active")u.moral=Math.min(100,(u.moral||0)+3);
+      chron(`――人口は${st.min}を超え、王国は新たな時代を迎えた。この地は今や【${st.name}】。${st.note}民は誇らしげに顔を上げ、国中が沸いている(民心↑ 全軍の士気↑)。`,"king");
+      if(typeof recordAnnal==="function")recordAnnal(`国が【${st.name}】へと発展した(${st.era})。`,"stage_"+s,true);
+    }
+  }
+}
 
 /* ---------- 表示 ---------- */
 const STATDEF=[["military","軍事"],["economy","経済"],["agriculture","農業"],["magic","魔導"],["order","治安"],["diplomacy","外交"]];
@@ -7088,6 +7112,7 @@ function rollRandomTurnEvent(){
   checkReignFeats(); // 治世の偉業:治世を貫く到達目標を達成した折、王国を挙げて祝い、恩賞を下す
   checkKingTitle(); // 王号:治世の色に応じて民が王をどう呼ぶかが定まり、色が移ろえば呼び名も変わる
   applyKingTitleBoon(); // 王徳:現在の王号に宿る治世の恵みを日々わずかに国へ及ぼす
+  checkStageAdvance(); // 段階の到達:人口の節目を越え新たな時代を迎えた瞬間を国を挙げて祝う
   if(S.units.length&&Math.random()<0.004){pushEvent("__old_equipment__");return;}
   if(S.units.length&&Math.random()<0.0035){pushEvent("__job_change_surprise__");return;}
   // 日常フレーバー(パラメータに影響しない、ログを賑やかにするためだけの小さな一言)は1日1回程度
