@@ -2869,6 +2869,24 @@ function kingdomFirstBladeId(){
     if(p>bp){bp=p;best=u.id;} else if(p===bp&&best!=null&&String(u.id)<String(best)){best=u.id;} }
   return best;
 }
+/* 手厚い療養(侍医を遣わす):国庫を投じ、負傷した兵の残り療養日数を半ば縮める。回復イベントや稀少な薬に頼らず、
+   狙った一人をピンポイントで手当てし、大一番を前に掛け替えのない兵を早く戦列へ戻す――消耗管理×資金繰りの能動的
+   な一手。運用の主導権を felt にする(重い傷ほど費えもかさむ)。 */
+function tendCost(u){ if(!u||(u.injured||0)<=0)return 0; const sevAdd=u.injurySeverity==="severe"?40:u.injurySeverity==="moderate"?18:0; return Math.round(20+(u.injured||0)*14+sevAdd); }
+function tendReduced(u){ return u&&(u.injured||0)>0 ? Math.max(0,u.injured-Math.max(1,Math.ceil(u.injured/2))) : 0; } // 手当て後の残り療養日数(表示と実処理で共有)
+function tendUnit(uid){
+  const u=findAnyUnit(uid); if(!u||(u.injured||0)<=0)return;
+  const cost=tendCost(u);
+  if(S.gold<cost){chron(`${u.nm}に手厚い療養を施す蓄えが足りない(${cost}G必要)。`,"");return;}
+  S.gold-=cost;
+  const before=u.injured;
+  u.injured=tendReduced(u); // 残りの療養を半ば縮める(最低1日短縮)
+  if(u.injured<=0)u.injurySeverity=null;
+  u.moral=Math.min(100,(u.moral||0)+2);
+  unitHistory(u,`王の計らいで侍医の手厚い療養を受け、傷の癒えが早まった。`);
+  chron(u.injured<=0?`${fullName(u)}に侍医が遣わされ、手厚い療養の甲斐あって傷はすっかり癒えた。すぐにも戦列へ戻れるだろう。`:`${fullName(u)}に侍医が遣わされ、手厚い療養が施された。傷の癒えが早まっている(残り療養 ${before}→${u.injured}日)。`,"");
+  clamp();render();renderTroops();save();
+}
 /* 知行の下賜(内政×育成の新レバー):国庫を投じて、功ある古参に領地を与える。領地持ちとなった兵は王国に深く
    根を張り、忠義が揺るがなくなる(気難しい才・低忠誠のリスクを、財を投じて能動的に断つ手)。お気に入り(無償の贔屓)や
    叙任の儀(全兵一律)とは別に、"この一人を確かに繋ぎ止める"投資。領地からはわずかな禄も国庫に還る。 */
@@ -14399,6 +14417,7 @@ function renderUnitDetail(uid){
         <span class="condbadge" style="background:${cond.color}22;color:${cond.color};border-color:${cond.color}66">${u.injured>0?ICON_INJURED:""}${cond.label}</span>
         ${u.injured>0?`<span class="condnote">戦力が${Math.round((1-injTier.pwMult)*100)}%低下しています。療養が終わるまであと<b>${u.injured}日</b>。</span>`:`<span class="condnote">戦力への影響:${cond.pwMult>1?"+":""}${Math.round((cond.pwMult-1)*100)}%</span>`}
       </div>
+      ${u.injured>0&&u.role==="active"?(()=>{const tc=tendCost(u);const can=S.gold>=tc;return `<button id="btnTend" ${can?"":"disabled"} style="width:100%;margin-top:7px;background:${can?"rgba(201,162,75,.12)":"transparent"};border:1px solid ${can?"var(--gold2)":"rgba(255,255,255,.12)"};color:${can?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${can?"pointer":"default"}" title="国庫を投じて侍医を遣わし、この兵の残り療養日数を半ば縮める。大一番の前に、狙った一人を早く戦列へ戻す一手">${can?`侍医を遣わし手厚く療養させる(${tc}G ／ 残り${u.injured}日→${tendReduced(u)}日)`:`蓄えが足りず侍医を遣わせない(${tc}G必要)`}</button>`;})():""}
       <div style="font-size:10.5px;color:var(--dim);margin-top:6px">疲労度:${Math.round(u.fatigue||0)}/100${(u.fatigue||0)>=60?`<span style="color:#d99a6a">(疲れきって出撃できない ― 迷宮・遠征・任務に出すには休養が要る)</span>`:(u.fatigue||0)>=48?`<span style="color:#c9a86a">(疲労が溜まってきた ― あと少しで出撃できなくなる)</span>`:""}</div>
       ${u.envoyUntil?`<div style="font-size:10.5px;color:#c9a86a;margin-top:3px">使 親善の使者として出立中(あと${Math.max(0,u.envoyUntil-S.day)}日で帰還・その間は迷宮/訓練に参加不可)</div>`:u.dungeonBusy?`<div style="font-size:10.5px;color:#c98fe8;margin-top:3px">⛏ ダンジョン探索中(あと${Math.max(0,u.dungeonBusy-S.day)}日で帰還・その間は訓練/ミッションに参加不可)</div>`:""}
       <div style="font-size:10.5px;color:var(--dim);margin-top:3px">得意なダンジョン:<span style="color:${bestDungeonTypeFor(u).color}">${bestDungeonTypeFor(u).label}</span></div>
@@ -14613,6 +14632,7 @@ function renderUnitDetail(uid){
   if(favBtnHeader)favBtnHeader.onclick=()=>{u.favorite=!u.favorite;renderUnitDetail(uid);refreshOpenPanels();};
   const fiefBtn=$("#btnFief");
   if(fiefBtn)fiefBtn.onclick=()=>{grantFief(uid);renderUnitDetail(uid);refreshOpenPanels();};
+  {const tendBtn=$("#btnTend");if(tendBtn)tendBtn.onclick=()=>{tendUnit(uid);renderUnitDetail(uid);refreshOpenPanels();};}
   const talkBtn=$("#btnTalk");
   if(talkBtn)talkBtn.onclick=()=>{talkToUnit(u);renderUnitDetail(uid);save();};
   $("#unitDetailBody").querySelectorAll(".eq-open-btn").forEach(b=>b.onclick=()=>{
