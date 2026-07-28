@@ -2938,6 +2938,10 @@ function addToHallOfFame(u,reason){
     wasCaptain:u.captain, bondPartner:partner?partner.nm:null,
     uniqueJobName:u.uniqueJob?(UNIQUE_JOBS.find(x=>x.key===u.uniqueJob)||{}).nickname:null,
     career:{clears:u.dungeonClearCount||0,leaderCount:u.leaderCount||0,titles:(u.titles||[]).length,tenure:Math.max(0,S.day-(u.joinDay||S.day)),dreamDone:!!u.dreamDone}, // 戦績を殿堂に刻む
+    beast:u.beast?{kind:u.beast.kind,nm:u.beast.nm}:null, // 生涯寄り添った相棒獣
+    meiWeapon:(u.equipment&&u.equipment.weapon&&u.equipment.weapon.mei)?u.equipment.weapon.mei:null, // 絆を結び銘を得た相棒の得物
+    pupilName:u.pupilId?((S.units.find(x=>x.id===u.pupilId)||{}).nm||null):null, // 技を継いだ弟子
+    veteranTier:(typeof veteranTemper==="function")?veteranTemper(u):0, // 歴戦の凄み
     reason, day:S.day, age:Math.floor(u.age),
     epitaph: reason==="death"
       ? `天寿を全うし、${Math.floor(u.age)}歳でこの世を去った。`
@@ -14468,9 +14472,9 @@ function renderHall(){
     h+=`<div class="hallcard ${hasUnique?"legend":""}">
       <div class="hh"><span class="hn">${r.wasCaptain?"★ ":""}${r.nm}${r.surname?" "+r.surname:""}</span><span class="hreason">DAY${r.day}・${REASON_LABEL[r.reason]||r.reason}</span></div>
       <div class="hjob">${JOB_TREES[r.cls].label}・${r.jobName} Lv.${r.lv}${r.uniqueJobName?`・《${r.uniqueJobName}》`:""}${race.key!=="human"?"・"+race.name:""}${r.wasCaptain?"・元騎士団長":""}</div>
-      <div class="hepi">${r.epitaph}${r.bondPartner?` 戦友${r.bondPartner}との日々を最期まで忘れなかったという。`:""}</div>
+      <div class="hepi">${r.epitaph}${r.bondPartner?` 戦友${r.bondPartner}との日々を最期まで忘れなかったという。`:""}${r.beast?(()=>{const k=(typeof beastKind==="function")?beastKind(r.beast.kind):null;return k?` 相棒の${k.nm}「${r.beast.nm}」は、主を喪ってなお、その名を鳴き続けたという。`:"";})():""}${r.meiWeapon?` 手に馴染んだ得物「${r.meiWeapon}」は、この者と共に数多の死線を越えた一振りだった。`:""}${r.pupilName?` その技は、弟子${r.pupilName}へと確かに受け継がれた。`:""}</div>
       ${r.career?(()=>{const c=r.career,parts=[];if(c.clears>0)parts.push(`迷宮踏破${c.clears}`);if(c.leaderCount>0)parts.push(`指揮${c.leaderCount}回`);if(c.titles>0)parts.push(`称号${c.titles}`);if(c.dreamDone)parts.push(`夢を成就`);parts.push(`在籍${c.tenure}日`);return `<div class="hepi" style="color:var(--gold2);font-size:10.5px;font-style:normal;opacity:.85">生涯の記録: ${parts.join(" ／ ")}</div>`;})():""}
-      <div class="htags">${r.skills.filter(s=>s.tier==="unique"||s.tier==="gold"||s.tier==="silver").map(s=>`<span class="skchip t-${s.tier}">${s.name}</span>`).join("")}${(r.traitTier==="epic"||r.traitTier==="legend")?`<span class="skchip t-${r.traitTier==="legend"?"unique":"gold"}">${r.traitName}</span>`:""}</div>
+      <div class="htags">${r.skills.filter(s=>s.tier==="unique"||s.tier==="gold"||s.tier==="silver").map(s=>`<span class="skchip t-${s.tier}">${s.name}</span>`).join("")}${(r.traitTier==="epic"||r.traitTier==="legend")?`<span class="skchip t-${r.traitTier==="legend"?"unique":"gold"}">${r.traitName}</span>`:""}${(r.veteranTier||0)>=4?`<span class="skchip" style="background:rgba(201,151,106,.18);border-color:#c9976a;color:#c9976a" title="数多の迷宮を潜り抜けた歴戦の古参">歴戦の古参</span>`:""}${r.beast?(()=>{const k=(typeof beastKind==="function")?beastKind(r.beast.kind):null;return k?`<span class="skchip" style="background:${k.color}22;border-color:${k.color};color:${k.color}" title="生涯寄り添った相棒獣">相棒・${k.nm}</span>`:"";})():""}</div>
     </div>`;
   }
   $("#hallList").innerHTML=h;
