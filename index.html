@@ -13253,7 +13253,7 @@ function renderProjects(){
 
    if(academyLevel()>0)chips.push(["学院","Lv."+academyLevel(),"#c9a86a"]);
    if(typeof doctrineName==="function"&&doctrineName())chips.push(["国是",doctrineName(),"#d8b45e"]); // 掲げた永続の国是を一望の要約にも(王国のアイデンティティ)
-   if(S.policyFocus)chips.push(["重点",focusLabels[S.policyFocus],"#c9a86a"]);
+   if(S.policyFocus){const ps=S.policyStreak||0;const sb=Math.round(Math.min(0.6,ps*0.15)*100);chips.push(["重点",`${focusLabels[S.policyFocus]}${sb>0?`(専念+${sb}%)`:""}`,sb>0?"#8fbf6f":"#c9a86a"]);} // 継続の専念ボーナスも一望に=方針を貫く見返りを可視化
    const fa=typeof festivalActive==="function"?festivalActive():null; if(fa){const ft=festivalType(fa.key);chips.push(["祝祭",`${ft.name}(残${fa.until-S.day}日)`,"#e0a870"]);}
    if(S.caravan)chips.push(["隊商",`${neighborName(S.caravan.key)}へ(残${Math.max(0,S.caravan.resolveDay-S.day)}日)`,"#c9a86a"]);
    if(S.envoy)chips.push(["使者",`${neighborName(S.envoy.key)}へ(残${Math.max(0,S.envoy.resolveDay-S.day)}日)`,"#c9a86a"]); // 親善の使者の出立中
