@@ -6167,6 +6167,27 @@ const RANDOM_CHOICE_EXTRA=[
    {label:"立派な記念碑を建てる",hint:"国庫↓ 武名↑ 民心↑",fx:{gold:-45,mood:3,call:()=>{if(typeof grantRenown==="function")grantRenown(2,"武功を刻む記念碑の建立");chron("城下の広場に、これまでの武功を刻んだ立派な記念碑が建てられた。訪れる者はその偉業を仰ぎ、王国の誉れは長く語り継がれるだろう。","big");}}},
    {label:"質素な石碑に留める",hint:"民心が少し上がる",fx:{mood:2,log:"記念碑は質素な石碑に留められた。それでも、刻まれた武功に足を止める民は少なくない。"}},
   ]},
+ /* ── 出自の発覚(公平か厚遇かの選択) ── */
+ {tag:"出 自",title:"兵の生い立ち",
+  body:"一兵卒として仕える者の一人が、実は名のある家の血を引くと判明した。取り立てて遇するか、これまで通り一兵卒として扱うか。",
+  choices:[
+   {label:"血筋にふさわしく取り立てる",hint:"その兵の忠誠↑ 民心↓(えこひいきの声)",fx:{mood:-2,call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+12);u.moral=Math.min(100,(u.moral||0)+8);unitHistory(u,"生まれ持った血筋にふさわしく取り立てられ、その恩顧に深く報いんと誓った。");chron(`${fullName(u)}の名家の血筋が明らかとなり、相応の待遇で取り立てられた。当人は面目を施し、いっそう忠勤に励んでいる。`,"people");}}},
+   {label:"これまで通り、一兵卒として遇する",hint:"治安↑ 民心↑(公平の証)",fx:{mood:2,st:{order:1},call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,"血筋を鼻にかけず、これまで通り一兵卒として黙々と務めた。");chron(`${fullName(u)}の血筋が知れても、扱いは変わらなかった。分け隔てのない公平さに、兵も民も静かに信を寄せている。`,"");}}},
+  ]},
+ /* ── 陣中の和み(思わぬ一面・愛着) ── */
+ {tag:"余 興",title:"兵の隠し芸",
+  body:"陣中の宴の席で、無口な兵の一人が思いがけない隠し芸を披露し、皆を大いに沸かせたという。",
+  choices:[
+   {label:"皆で存分に楽しむ",hint:"全兵の士気↑ 民心↑",fx:{mood:2,call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.moral=Math.min(100,(u.moral||0)+ri(2,4));chron("無口な兵の見事な隠し芸に、陣中は笑いと喝采に包まれた。思わぬ一面に、兵たちの距離もぐっと縮まっている。","big");}}},
+   {label:"ほどほどに切り上げさせる",hint:"軍事↑(節度)",fx:{st:{military:1},log:"余興はほどほどに切り上げられた。節度を保ちつつも、兵たちの顔にはやわらかな笑みが残っている。"}},
+  ]},
+ /* ── 古参兵への労り(武人の矜持) ── */
+ {tag:"労 り",title:"古参兵の古傷",
+  body:"長く仕えてきた古参兵の一人が、昔の戦で負った古傷の痛みに、密かに耐えているという。侍医に診せるか、本人の意地に任せるか。",
+  choices:[
+   {label:"侍医に手厚く診せる",hint:"国庫↓ その兵の忠誠と士気↑",fx:{gold:-25,call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];u.fatigue=Math.max(0,(u.fatigue||0)-25);u.moral=Math.min(100,(u.moral||0)+8);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);unitHistory(u,"長の計らいで古傷を手厚く診てもらい、深く恩義に感じた。");chron(`${fullName(u)}の古傷は侍医の手で丁寧に癒された。長の心遣いに、老兵は目を潤ませている。`,"people");}}},
+   {label:"本人の意地に任せる",hint:"その兵の武人の矜持は保たれる",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+2);unitHistory(u,"古傷の痛みをおくびにも出さず、武人の意地で務めを果たし続けた。");chron(`${fullName(u)}は古傷の痛みを表に出さず、黙々と務めを果たした。その矜持を、若い兵たちも密かに仰いでいる。`,"");}}},
+  ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
 /* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
