@@ -14602,11 +14602,16 @@ function renderVolunteers(){
     }[rank.label]||{glow:"none",bw:"1px",bg:"transparent",badge:""};
     const muted=(rank.label==="D"?"opacity:.8":rank.label==="C"?"opacity:.85":rank.label==="E"?"opacity:.7":rank.label==="F"?"opacity:.6":"");
     const vcc=CLASS_COLOR[u.cls];
-    h+=`<div class="pcard${rank.label==="Z"?" mat-awakened-glow":""}" style="border-color:${rank.color};border-width:${rankStyle.bw};box-shadow:${rankStyle.glow};background:${rankStyle.bg};${muted}">
+    // 歴史に名を残す英傑の志願は、志願書の中でひときわ荘厳に見せる(金枠・偉章・二つ名・出身地)
+    const isGreat=!!v.great;
+    const st=isGreat?{glow:`0 0 16px rgba(240,210,122,.7), inset 0 0 20px rgba(240,210,122,.15)`,bw:"2px",bg:`linear-gradient(135deg, rgba(240,210,122,.18), rgba(184,137,44,.08) 60%, transparent 90%)`,badge:""}:rankStyle;
+    const greatNameLine=isGreat?`<div class="nickname greatname" style="margin-top:1px"><span class="great-badge" title="歴史に名を刻む英傑">偉</span>「${u.nickname||""}」${u.greatRegion?`<span class="great-region">${u.greatRegion}</span>`:""}</div>`:"";
+    h+=`<div class="pcard${rank.label==="Z"?" mat-awakened-glow":""}" style="border-color:${isGreat?"#f0d27a":rank.color};border-width:${st.bw};box-shadow:${st.glow};background:${st.bg};${muted}">
       <div style="display:flex;align-items:center;gap:9px">
         <div class="pcard-portrait" style="background:radial-gradient(circle at 35% 30%, ${vcc}, ${vcc}88 70%, #1c2030)">${classpicHtml(u)}</div>
         <div style="flex:1;min-width:0">
-          <div class="nm" style="color:${rank.color}">${rankStyle.badge?rankStyle.badge+" ":""}${u.nm} ${u.surname} <span style="font-size:11px;color:var(--dim);font-weight:400">推定ランク ${rank.label}</span></div>
+          <div class="nm" style="color:${isGreat?"#f0d27a":rank.color}">${st.badge?st.badge+" ":""}${u.nm} ${u.surname} <span style="font-size:11px;color:var(--dim);font-weight:400">推定ランク ${rank.label}</span></div>
+          ${greatNameLine}
           <div class="ds" style="margin-top:0">${race.name}・${origin?origin.name:""}・${u.personality} ／ ${JOB_TREES[u.cls].label}志望</div>
         </div>
       </div>
