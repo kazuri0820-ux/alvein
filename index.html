@@ -7492,6 +7492,24 @@ function checkFullClassRoster(){
     chron("――アルヴェインの軍は、剣も魔も弓も拳も、祈りも影も、あらゆる道の者で満ちた。多彩な才が一堂に会し、いかなる戦場にも応じられる布陣が整った。","big");
   }
 }
+/* 全種族の結集:人・エルフ・ドワーフ・獣人・亜人・竜人・星霊種――あらゆる種族の兵が一つの旗の下に
+   揃った瞬間を、一度だけ讃える。稀少な竜人や、魔王討伐後の世にしか現れぬ星霊種まで含む全種族を集めるのは
+   治世屈指の長い道のり。多様な人材を迎え入れた王国の到達点に、職種コンプリートとは別軸の重い手応えを
+   与える(収集/到達の頂。威信と年表にも刻む)。 */
+function checkFullRaceRoster(){
+  if(S.flags&&S.flags.fullRaceSeen)return;
+  const active=S.units.filter(u=>u.role==="active"||!u.role);
+  if(active.length<RACES.length)return; // 全種族に満たないうちは早期に打ち切る
+  const races=new Set(active.map(u=>u.race));
+  if(RACES.every(r=>races.has(r.key))){
+    S.flags.fullRaceSeen=true;
+    apply({mood:4});
+    for(const u of S.units)if(u.role==="active")u.moral=Math.min(100,(u.moral||0)+4);
+    if(typeof grantRenown==="function")grantRenown(3,"あらゆる種族が一つの旗の下に集ったこと");
+    if(typeof recordAnnal==="function")recordAnnal("人・エルフ・ドワーフをはじめ、あらゆる種族の兵が一つの旗の下に集った。アルヴェインは、種を超えて人材を迎える大いなる王国となった。","fullRace",true);
+    chron("――いまやアルヴェインの旗の下には、人もエルフもドワーフも、獣人も亜人も、竜の血を引く者も星の裔も、あらゆる種族の兵が肩を並べている。種を超えて集うこの懐の深さこそ、王国の誇りだ。","big");
+  }
+}
 /* 栄華の只中:民心・国庫・食糧がそろって潤う日々が続くと、稀に王国の栄華を年代記に讃える。
    危機や別れの一節が多い年代記に、良き統治が報われる"満ち足りた時代"の手応えを添える(演出)。 */
 /* ===== 国中の熱狂(演出×運用の新機軸):大きな武勲を挙げると、王国全体が数日のあいだ沸き立つ。栄華(受動的な
@@ -7800,6 +7818,7 @@ function dailyEconomySettle(){
   checkFervor(); // 国中の熱狂:大武勲で沸き立った王国の高揚の窓(民心↑・入隊殺到・鍛錬に熱)
   checkGoldenAge(); // 栄華の只中を稀に讃える(良き統治への手応え)
   checkFullClassRoster(); // 全職種が揃った布陣を一度だけ讃える(多彩な編成への到達)
+  checkFullRaceRoster(); // 全種族が旗の下に集った布陣を一度だけ讃える(多様な人材の結集=収集/到達の頂)
   checkArmySizeMilestone(); // 軍の規模が節目に達したことを一度だけ讃える
   checkDoctrineUnlock(); // 中盤の節目に国是を定める
   checkFavoriteMoment(); // 推しの日常の一幕
