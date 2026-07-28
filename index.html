@@ -13611,12 +13611,15 @@ function checkCampReturns(){
   for(const u of S.units){
     if(u.campUntil&&S.day>=u.campUntil){
       u.campUntil=null;u.campDuration=null;
+      const _pre={}; for(const k of["str","vit","int","agi","wis","lead"])_pre[k]=u[k]; // 修練前の能力を控え、伸びを felt にする(長期投資の成果の可視化)
+      const _growTxt=()=>["str","vit","int","agi","wis","lead"].map(k=>({k,d:u[k]-_pre[k]})).filter(x=>x.d>0).sort((a,b)=>b.d-a.d).map(x=>`${USTAT_DEF[x.k].lbl}+${x.d}`).join("・");
       if(u.studyDest&&STUDY_DEST[u.studyDest]){ // 異国留学の帰還:留学先の特色を帯びた成長
         const dest=u.studyDest, info=STUDY_DEST[dest]; u.studyDest=null;
         for(const k of["str","vit","int","agi","wis","lead"]){u[k]+=(info.grow.includes(k))?ri(8,14):ri(2,5);}
         const learned=trySkillUp(u);
-        unitHistory(u,`同盟国・${studyDestName(dest)}への留学を終え、${info.flavor}、一回り大きくなって帰国した。`);
-        chron(`――${fullName(u)}が${studyDestName(dest)}への留学から帰国した。${info.flavor}、${info.statLabel}を大きく伸ばしている。${learned?`新たに「${learned.name}」を会得した。`:""}`,"big");
+        const gtxt=_growTxt();
+        unitHistory(u,`同盟国・${studyDestName(dest)}への留学を終え、${info.flavor}、一回り大きくなって帰国した(${gtxt})。`);
+        chron(`――${fullName(u)}が${studyDestName(dest)}への留学から帰国した。${info.flavor}、${info.statLabel}を大きく伸ばしている(${gtxt})。${learned?`新たに「${learned.name}」を会得した。`:""}`,"big");
         continue;
       }
       const pr=statPriorityFor(u);
@@ -13625,8 +13628,9 @@ function checkCampReturns(){
         u[k]+=g;
       }
       const learned=trySkillUp(u);
-      unitHistory(u,"特別訓練場での修練を終え、大きく成長して戻ってきた。");
-      chron(`――${fullName(u)}が特別訓練場から帰還した。見違えるほど鍛え上げられている。${learned?`新たに「${learned.name}」を習得した。`:""}`,"big");
+      const gtxt=_growTxt();
+      unitHistory(u,`特別訓練場での修練を終え、大きく成長して戻ってきた(${gtxt})。`);
+      chron(`――${fullName(u)}が特別訓練場から帰還した。見違えるほど鍛え上げられている(${gtxt})。${learned?`新たに「${learned.name}」を習得した。`:""}`,"big");
     }
   }
 }
