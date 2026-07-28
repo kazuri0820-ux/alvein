@@ -5983,6 +5983,28 @@ const RANDOM_CHOICE_EXTRA=[
    {label:"兵を割いて探させる",hint:"上質な装備が手に入るかも",fx:{call:()=>{const eq=rollEquipmentDrop(Math.random()<0.25?"epic":"rare");if(eq){const inst=addEquipment(eq.key);chron(`古き軍旗と共に、埋もれていた名品「${equipInstName(inst)}」を掘り起こした(${equipInstBonusText(inst)})。`,"big");}else{const g=ri(40,70);apply({gold:g});chron(`軍旗は朽ちて久しかったが、副葬されていた財貨${g}を持ち帰った。`,"");}}}},
    {label:"戯言と取り合わない",hint:"治安↑",fx:{st:{order:1},log:"長は噂を戯言と退けた。今は守りを固めるが肝要である。"}},
   ]},
+ /* ── 兵同士の絆を育む(関係性の発見・愛着) ── */
+ {tag:"宴 席",title:"戦勝を祝う酒宴",
+  body:"連戦の労をねぎらい、兵たちのために酒宴を開いてはどうかと声が上がっている。羽目を外させるか、質素に留めるか。",
+  choices:[
+   {label:"盛大に酒宴を開く",hint:"国庫↓ 士気↑ 兵に新たな絆が生まれるかも",fx:{gold:-40,call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.moral=Math.min(100,(u.moral||0)+ri(3,6));let bonded=false;if(typeof forgeSquadBond==="function"&&Math.random()<0.7)bonded=forgeSquadBond(act,"戦勝の宴");if(!bonded)chron("盛大な酒宴が催され、兵たちは大いに英気を養った。杯を交わすうち、陣中の空気もいっそう和んでいる。","big");}}},
+   {label:"質素に留め、英気を養わせる",hint:"士気が少し上がる",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.moral=Math.min(100,(u.moral||0)+2);chron("酒宴は質素に留められたが、兵たちは静かに羽を休め、英気を養った。","");}}},
+  ]},
+ /* ── 一兵卒の晴れ舞台(個の武を輝かせる・愛着) ── */
+ {tag:"申 出",title:"腕自慢の兵の申し出",
+  body:"血気盛んな兵の一人が、日頃鍛えた腕前を披露したいと申し出てきた。皆の前で立ち合わせれば、士気も上がろう。",
+  choices:[
+   {label:"皆の前で腕を披露させる",hint:"その兵が成長し、隊の士気も上がる",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){chron("だが今は披露の場を設ける余裕がなかった。","");return;}const u=act[Math.floor(Math.random()*act.length)];u.exp=(u.exp||0)+ri(18,32);processLevelUps(u);u.moral=Math.min(100,(u.moral||0)+8);for(const o of act)if(o.id!==u.id)o.moral=Math.min(100,(o.moral||0)+2);unitHistory(u,"皆の前で見事な武を披露し、意気を大いに上げた。");chron(`${fullName(u)}が皆の前で鮮やかな腕前を披露し、陣中は喝采に沸いた。`,"big");}}},
+   {label:"稽古に専念させる",hint:"堅実に鍛錬を続ける",fx:{st:{military:1},log:"披露の場は設けず、兵たちは黙々と日々の稽古に励んだ。"}},
+  ]},
+ /* ── 異国との文化交流(外交と誉れ) ── */
+ {tag:"来 訪",title:"異国の芸術家の来訪",
+  body:"遠い異国から名高い芸術家が訪れ、しばし逗留して腕を振るいたいと申し出た。手厚くもてなすには費えがかかるが、その名は国の誉れとなろう。",
+  speaker:"フィオナ「異国の風は、時に思わぬ財をもたらしますわ」",
+  choices:[
+   {label:"手厚くもてなす",hint:"国庫↓ 外交↑ 民心↑",fx:{gold:-30,st:{diplomacy:2},mood:3,log:"異国の芸術家は手厚くもてなされ、その滞在は城下の語り草となった。国の名は遠くまで知れ渡っている。"}},
+   {label:"丁重に、しかし簡素に迎える",hint:"外交がわずかに上がる",fx:{st:{diplomacy:1},log:"芸術家は簡素ながら礼を尽くして迎えられ、満足げに次の地へと旅立っていった。"}},
+  ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
 /* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
