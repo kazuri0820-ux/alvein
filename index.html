@@ -10404,6 +10404,15 @@ function battleAdmireSpotlight(squad,foeLabel){
   const g=ri(6,11); young.exp+=g; processLevelUps(young); young.moral=Math.min(100,(young.moral||0)+3);
   chron(ADMIRE_SPOTLIGHT_LINES[Math.floor(Math.random()*ADMIRE_SPOTLIGHT_LINES.length)](young.nm,hero.nm,foeLabel),"");
   unitHistory(young,`憧れの${hero.nm}と肩を並べて${foeLabel}と戦い、その背中から多くを学んだ。`);
+  // 憧れが師弟の縁へ:肩を並べて戦ううち、憧れの英雄が自らを慕う若手の成長を認め、正式に弟子として迎えることがある
+  // (一方的な憧憬=育成軸を、直に薫陶を受ける師弟の縁へと昇華させる。背中を追うだけの関係に、結実の一幕を与える)
+  if((hero.lv||1)>=15 && !hero.pupilId && !young.masterId && !young.pupilId && (young.lv||1)<(hero.lv||1)-6 && Math.random()<0.35){
+    hero.pupilId=young.id; young.masterId=hero.id; young.admires=null;
+    young.moral=Math.min(100,(young.moral||0)+4); hero.moral=Math.min(100,(hero.moral||0)+3);
+    unitHistory(young,`憧れ続けた${hero.nm}に、ついに弟子として認められた。背中を追うだけの日々は終わり、直に薫陶を受ける身となった。`);
+    unitHistory(hero,`己を慕い、ひたむきに背を追ってきた${young.nm}を、正式に弟子として迎えた。`);
+    chron(`――${foeLabel}を共に退けたその日、${hero.nm}は自らを慕い続ける${young.nm}の成長を認め、正式に弟子として迎えた。一方的な憧れは、確かな師弟の縁へと結ばれた。`,"big");
+  }
 }
 /* 師弟の共闘:師とその弟子が同じ部隊で勝利を掴んだ時の一幕。師弟(育成軸)に"実戦で受け継ぐ"という戦場の
    payoff を与える。稽古場の日々だけでなく、生きた戦いの中で技が継承され、弟子は一段速く独り立ちへ近づく。 */
