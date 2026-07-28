@@ -6229,6 +6229,27 @@ const RANDOM_CHOICE_EXTRA=[
    {label:"売り出して名を広める",hint:"経済↑ 国庫↑",fx:{st:{economy:2},call:()=>{const g=ri(25,45);apply({gold:g});chron(`領内の名物は評判を呼び、遠方の商人たちがこぞって買い求めた。まとまった財貨${g}が国庫を潤し、王国の名も広まっている。`,"big");}}},
    {label:"民に振る舞い、喜びを分かつ",hint:"民心↑↑",fx:{mood:5,log:"名物は惜しみなく民に振る舞われ、城下は喜びに沸いた。長の気前のよさは、末永く語り草となるだろう。"}},
   ]},
+ /* ── 兵の家族の慶事(守るものを得る愛着) ── */
+ {tag:"慶 事",title:"兵に子が生まれる",
+  body:"兵の一人に、待望の子が生まれたという知らせが届いた。長として祝いを贈るか、静かに言祝ぐか。",
+  choices:[
+   {label:"祝いの品を贈る",hint:"国庫を少し / その兵の忠誠と士気↑ 人口↑",fx:{gold:-15,pop:1,call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+8);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+10);unitHistory(u,"我が子の誕生に長より祝いを賜り、家族と王国への想いをいっそう強くした。");chron(`${fullName(u)}に子が生まれ、長から祝いの品が贈られた。守るべきものを得た${u.nm}の面持ちは、いっそう頼もしい。`,"people");}}},
+   {label:"温かな言葉を贈る",hint:"民心↑",fx:{mood:2,log:"長からの温かな言祝ぎに、若い親となった兵は深々と頭を下げた。めでたい話は、城下にも和やかに広まっている。"}},
+  ]},
+ /* ── 辺境からの急報(即応か確認かの判断) ── */
+ {tag:"急 報",title:"辺境の狼煙",
+  body:"遠い辺境の物見から、助けを求める狼煙が上がったという。ただちに兵を割いて救援に向かわせるか、まず状況を確かめてからにするか。",
+  choices:[
+   {label:"ただちに救援を送る",hint:"兵が疲れる / 治安↑ 民心↑",fx:{st:{order:1},mood:2,call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.fatigue=Math.min(100,(u.fatigue||0)+ri(5,12));chron("兵たちは休む間もなく辺境へ駆けつけ、危地の民を救い出した。皆へとへとに疲れているが、その働きは辺境の隅々にまで伝わっている。","big");}}},
+   {label:"まず状況を確かめる",hint:"5日以内に対応しないと悪い結果に",fx:{schedule:[[5,"__border_deadline__"]],log:"救援は保留され、まず物見を放って状況を確かめることにした。判断が遅れねばよいが。"}},
+  ]},
+ /* ── 個の武勇が語り継がれる(誉れと矜持) ── */
+ {tag:"誉 れ",title:"兵の武勇、歌となる",
+  body:"かつての戦での兵の目覚ましい働きが、いつしか吟遊詩人の歌となって国中に広まっているという。",
+  choices:[
+   {label:"その誉れを大いに讃える",hint:"武名↑ その兵の士気↑",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+8);unitHistory(u,"武勇が歌となって国中に広まり、王国の誉れとして讃えられた。");if(typeof grantRenown==="function")grantRenown(1,"兵の武勇が歌に謳われたこと");chron(`${fullName(u)}の武勇を讃える歌が国中に響いている。当人は面映ゆそうにしつつも、その名は王国の誉れとなっている。`,"big");}}},
+   {label:"驕らぬよう戒める",hint:"治安↑(引き締め)",fx:{st:{order:1},log:"誉れは誉れとしつつ、驕らぬようそっと戒めた。実直な姿勢が、かえって兵たちの信を集めている。"}},
+  ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
 /* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
