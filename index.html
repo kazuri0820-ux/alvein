@@ -6376,6 +6376,37 @@ const RANDOM_CHOICE_EXTRA=[
      apply({st:{order:1},mood:1,log:"長は幼い志願者を諭し、いま少し時を待つよう論した。子を案じる親兵たちは、その思慮深さに胸を撫で下ろしている。"});
    }}},
   ]},
+ /* ── 兵の恋煩い(人間味・愛着) ── */
+ {tag:"恋 慕",title:"兵の恋煩い",
+  body:"このところ、一人の兵がどこか上の空だという。聞けば、想いを寄せる相手のことで胸がいっぱいなのだとか。微笑ましくもあり、任務には障る。どう計らうか。",
+  speaker:"フィオナ「若さの特権にございましょう。とはいえ、戦場で上の空は困りもの」",
+  choices:[
+   {label:"短い休暇を与え、会いに行かせる",hint:"本人の士気↑↑ / 疲労も癒える",fx:{call:()=>{
+     const act=S.units.filter(u=>u.role==="active");const u=act.length?act[Math.floor(Math.random()*act.length)]:null;
+     if(u){u.moral=Math.min(100,(u.moral||0)+12);u.loyalty=Math.min(100,(u.loyalty||0)+4);u.fatigue=Math.max(0,(u.fatigue||0)-ri(6,12));unitHistory(u,"長の粋な計らいで短い休暇を得て、想い人のもとへ会いに行った。晴れやかな顔で戻ってきたという。");chron(`――${u.nm}は暇を得て想い人のもとへ駆けた。戻ってきたその足取りは軽く、周りの兵も微笑ましく見守っている。`,"people");}else{apply({mood:1,log:"恋煩いの噂は、いつしか温かな笑い話になっていた。"});}
+   }}},
+   {label:"想いを綴った文を届けさせる",hint:"本人の忠誠↑ 民心+1",fx:{call:()=>{
+     const act=S.units.filter(u=>u.role==="active");const u=act.length?act[Math.floor(Math.random()*act.length)]:null;
+     if(u){u.loyalty=Math.min(100,(u.loyalty||0)+6);u.moral=Math.min(100,(u.moral||0)+5);unitHistory(u,"長の計らいで、想いを綴った文を届けることができた。その心遣いを深く胸に刻んだ。");}
+     apply({mood:1,log:u?`${u.nm}の想いを綴った文が、長の計らいで届けられた。粋な取り計らいに、兵たちも頬をゆるめている。`:"想いの文が届けられた。"});
+   }}},
+   {label:"今は任務に打ち込ませる",hint:"治安+1",fx:{st:{order:1},log:"長は「想いは戦の後に」とやんわり諭し、任務への集中を促した。折り目正しい導きに、当人も気を引き締めたようだ。"}},
+  ]},
+ /* ── 辺境の獣害(国政の危機対応) ── */
+ {tag:"獣 害",title:"辺境を荒らす獣害",
+  body:"辺境の村々を、飢えた獣の群れが荒らし回っているという。家畜が襲われ、民は怯えている。どう手を打つか。",
+  speaker:"ガレオン「放てば被害は広がりましょう。とはいえ、兵を割けば疲れも溜まります」",
+  choices:[
+   {label:"討伐隊を差し向ける",hint:"治安↑↑ 食糧↑ / 兵が疲弊",fx:{call:()=>{
+     const act=S.units.filter(u=>u.role==="active");for(const u of act)u.fatigue=Math.min(100,(u.fatigue||0)+ri(8,14));
+     apply({st:{order:2},food:ri(15,30),mood:1,log:"討伐隊が獣の群れを狩り払い、辺境に平穏が戻った。獲物の肉は蔵を潤したが、兵たちは狩りに疲れている。"});
+   }}},
+   {label:"柵と番人を置いて守る",hint:"国庫↓ 治安↑(手堅い)",fx:{call:()=>{
+     const g=ri(30,55);S.gold=Math.max(0,(S.gold||0)-g);
+     apply({st:{order:1},mood:1,log:`辺境の村々に柵が巡らされ、番人が配された。金貨${g}を要したが、以後の獣害はぐっと減り、民は安堵している。`});
+   }}},
+   {label:"民に自衛を促すにとどめる",hint:"国庫は痛まぬが 民心↓",fx:{mood:-3,st:{order:-1},log:"長は民に自衛を促すにとどめた。出費は抑えられたが、獣害に手を焼く辺境の民からは、不安と不満の声が上がっている。"}},
+  ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
 /* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
