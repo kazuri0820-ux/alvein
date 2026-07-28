@@ -12392,7 +12392,9 @@ function holdTournament(){
   // 勝ち抜き戦:各試合は戦力に応じた重み付き抽選。接戦の組は好敵手の火種として記録
   let bracket=[...entrants].sort(()=>Math.random()-0.5);
   const closeBouts=[];
+  let runnerUp=null; // 決勝で覇者に敗れた者=準優勝。決勝の顔ぶれの物語(縁ある二人の頂上決戦)を felt にするために控える
   while(bracket.length>1){
+    const isFinal=bracket.length===2; // この回が決勝(残り二人)
     const next=[];
     for(let i=0;i<bracket.length;i+=2){
       const a=bracket[i], b=bracket[i+1];
@@ -12403,6 +12405,7 @@ function holdTournament(){
       const loser=(winner===a)?b:a;
       if(close)closeBouts.push([a,b]);
       loser.exp+=ri(1,3); // 敗者にも一戦の糧
+      if(isFinal)runnerUp=loser; // 決勝の敗者を準優勝として記録
       next.push(winner);
     }
     bracket=next;
@@ -12429,6 +12432,23 @@ function holdTournament(){
   apply({mood:5,st:{military:1},log:`⚔ 王の御前で武を競う御前試合が催された。精鋭${entrants.length}名が勝ち抜き戦で覇を競い、決勝を制したのは${fullName(champ)}。満場の喝采を浴び、「御前試合の覇者」の誉れと大きな成長を手にした(民心↑ 軍事+1)。`,logCls:"big"});
   if(upset){champ.moral=Math.min(100,(champ.moral||0)+3);chron(`――番狂わせだ。下馬評では${favorite.nm}が本命と目されていたが、${champ.nm}がその評を覆して頂点に立った。この一番は、長く語り草となろう。`,"big");}
   if(newRival)chron(`――この御前試合の名勝負が縁となり、${newRival[0].nm}と${newRival[1].nm}は互いを好敵手と認め合った。二人はこれから、相手の背を追って腕を磨き合うだろう。`,"big");
+  // 準優勝の健闘に報い、決勝が縁ある二人の頂上決戦だった時はその物語を立ち上げる(関係性×御前試合の見せ場=愛着と演出の厚み)
+  if(runnerUp&&runnerUp.id!==champ.id){
+    runnerUp.moral=Math.min(100,(runnerUp.moral||0)+4);runnerUp.exp+=ri(6,12);processLevelUps(runnerUp); // 決勝まで勝ち上がった健闘に報いる
+    unitHistory(runnerUp,`御前試合で決勝まで勝ち上がり、惜しくも${champ.nm}に敗れた。あと一歩の悔しさを、次への糧とした。`);
+    const rel=(champ.rivalWith===runnerUp.id||runnerUp.rivalWith===champ.id)?"rival"
+      :(champ.bondWith===runnerUp.id||runnerUp.bondWith===champ.id)?"bond"
+      :(champ.masterId===runnerUp.id)?"champPupil"
+      :(champ.pupilId===runnerUp.id)?"champMaster"
+      :(runnerUp.admires===champ.id)?"admire"
+      :(champ.admires===runnerUp.id)?"championAdmire":null;
+    if(rel==="rival")chron(`――決勝は好敵手同士の頂上決戦となった。${champ.nm}と${runnerUp.nm}、互いを最もよく知る二人の一番は、居合わせた誰もが息を呑む名勝負であった。`,"big");
+    else if(rel==="bond")chron(`――決勝で相まみえたのは、背中を預け合う戦友${champ.nm}と${runnerUp.nm}であった。手の内を知り尽くした真剣勝負に、練兵場は静まり返り、そして万雷の拍手に包まれた。`,"big");
+    else if(rel==="champPupil")chron(`――決勝は師弟の対決となった。弟子${champ.nm}が師${runnerUp.nm}を破って頂点に立つ。教えた技で教えた者に越えられ、師の目は悔しさよりも誇らしさに潤んでいた。`,"big");
+    else if(rel==="champMaster")chron(`――決勝は師弟の対決となった。師${champ.nm}が弟子${runnerUp.nm}の挑戦を退け、なお健在を示す。だが決勝まで駆け上がった弟子の成長は、誰の目にも明らかであった。`,"big");
+    else if(rel==="admire")chron(`――決勝で${runnerUp.nm}は、かねて憧れた${champ.nm}その人と刃を交えた。敗れはしたが、憧れの背に真っ向から挑んだ一番は、若き胸に一生の宝として刻まれた。`,"big");
+    else if(rel==="championAdmire")chron(`――${champ.nm}は決勝で、かねて憧れた${runnerUp.nm}を破って頂点に立った。憧れを越えた者の面には、喜びと、一抹の寂しさが入り混じっていた。`,"big");
+  }
   clamp();render();renderProjects();renderTroops();save();
 }
 /* ===== 民の声(内政の新軸):折に触れ、城下から嘆願・陳情が王のもとへ届く。応えれば費えと引き換えに国力や
