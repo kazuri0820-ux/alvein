@@ -7449,6 +7449,7 @@ const NATIONAL_DOCTRINES=[
  {key:"loot",name:"宝物狂の国",desc:"財宝を追い求める国是。以後、ドロップする装備の個体差(アフィックス)が、より優れたものになりやすい。"},
  {key:"vigor",name:"健勇の国",desc:"不屈の気風を重んじる国是。兵たちの疲れの抜けが永続的に早まり、休みなく戦い続けられる。"},
  {key:"heroes",name:"英傑の国",desc:"人材を何より重んじる国是。以後、志願兵に隠れた逸材(掘り出し物)が眠りやすくなる。"},
+ {key:"alliance",name:"盟約の国",desc:"誼を重んじる国是。近隣諸国との関係が温まりやすく冷めにくくなり、交易の恵みも増す。同盟・盟約を軸に据える国の礎。"},
 ];
 function doctrineIs(k){return !!(S.flags&&S.flags.doctrine===k);}
 function doctrineName(){const d=NATIONAL_DOCTRINES.find(x=>x.key===(S.flags&&S.flags.doctrine));return d?d.name:null;}
@@ -7467,6 +7468,7 @@ function doctrineEffectText(){
     loot:"ドロップ装備の個体差を二度引いて優れた方を採る(名品が出やすい)",
     vigor:"兵の疲れの抜けが日々 +4 速く、休みなく戦い続けられる",
     heroes:"志願兵に隠れた逸材が眠る確率 +35%",
+    alliance:"近隣諸国との関係が日々 +0.1 温まりやすく、交易・同盟の恵み(国庫+30%・食糧+20%)が増す",
   }[k]||null;
 }
 function buildDoctrineEvent(){
@@ -12184,6 +12186,7 @@ function neighborDaily(){
     // 同盟国とは関係が冷めにくい(盟約が絆を保つ)。ただし著しく冷えれば同盟は破棄される
     let drift=nb.allied?(nb.relation<70?rnd(0,0.25):rnd(-0.1,0.1)):(nb.relation<48?rnd(0,0.35):rnd(-0.35,0.15));
     if(councilLeader)drift+=0.08; // 盟主としての威信が、日々の関係を穏やかに底上げする
+    if(doctrineIs("alliance"))drift+=0.1; // 「盟約の国」の国是:諸国との誼が温まりやすく冷めにくい
     nb.relation=Math.max(0,Math.min(100,nb.relation+drift));
     if(nb.allied&&nb.relation<50){ // 関係が崩れれば盟約も破れる
       nb.allied=false;
@@ -12195,6 +12198,7 @@ function neighborDaily(){
       if(nb.key==="suria")food+=2+(nb.relation-50)*0.04;
     }
   }
+  if(doctrineIs("alliance")){income*=1.3;food*=1.2;} // 「盟約の国」の国是:交易・同盟の恵みが増す
   if(income>0)S.gold+=income;
   if(food>0)S.food=Math.min(999,(S.food||0)+food);
 }
