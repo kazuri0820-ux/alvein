@@ -9042,6 +9042,42 @@ const GREAT_FIGURES=[{"id":"g_nobunaga","nm":"織田信長","region":"日ノ本"
     if(!SKILL_DB.some(s=>s.key===g.skill.key))SKILL_DB.push(g.skill);
   }
 })();
+// 英傑同士の史実の縁。両者が同時に麾下にあると、絆(戦友)または好敵手が結ばれる
+const GREAT_RELATIONS=[
+ {a:"g_kanu",b:"g_chouhi",type:"bond",note:"――関羽と張飛。桃園に義を誓った仲が、時を超えてこの国で再び轡を並べた。二人は固い絆で結ばれている。"},
+ {a:"g_ryohi",b:"g_kanshin",type:"bond",note:"――劉邦と韓信。天下を共に得た名君と名将が、再び同じ旗の下に集った。深い信で結ばれている。"},
+ {a:"g_nobunaga",b:"g_hideyoshi",type:"bond",note:"――織田信長と豊臣秀吉。かつての主従が、この国で再びその縁を結び直した。"},
+ {a:"g_hideyoshi",b:"g_kanbei",type:"bond",note:"――豊臣秀吉と黒田官兵衛。天下取りを支えた名軍師との縁が、再びこの地で結ばれた。"},
+ {a:"g_ieyasu",b:"g_tadakatsu",type:"bond",note:"――徳川家康と本多忠勝。生涯を捧げた主君と忠臣が、この国で再び轡を並べている。"},
+ {a:"g_koumei",b:"g_chouun",type:"bond",note:"――諸葛亮と趙雲。蜀を支えた智と武が、時を超えて同じ陣に立った。厚い信頼で結ばれている。"},
+ {a:"g_koumei",b:"g_shibai",type:"rival",note:"――諸葛亮と司馬懿。五丈原に相まみえた宿命の好敵手が、この国で再び火花を散らす。"},
+ {a:"g_kou_u",b:"g_ryohi",type:"rival",note:"――項羽と劉邦。天下を賭けて争った両雄が、同じ国に集い、互いを好敵手と認め合った。"},
+ {a:"g_hannibal",b:"g_scipio",type:"rival",note:"――ハンニバルとスキピオ。ザマに雌雄を決した名将同士が、この地で再び好敵手として相対する。"},
+ {a:"g_shingen",b:"g_kenshin",type:"rival",note:"――武田信玄と上杉謙信。川中島に幾度も刃を交えた好敵手が、この国で再び覇を競い合う。"},
+ {a:"g_musashi",b:"g_bokuden",type:"rival",note:"――宮本武蔵と塚原卜伝。時代を隔てた二人の剣聖が、互いの剣に好敵手を見出した。"},
+ {a:"g_hakuki",b:"g_ryohou",type:"rival",note:"――白起と廉頗。戦国を代表する両将が、同じ国に立ち、互いを好敵手と認めた。"},
+];
+function checkGreatRelations(){
+  const by={};
+  for(const u of S.units){if(u.great)by[u.great]=u;}
+  for(const rel of GREAT_RELATIONS){
+    const a=by[rel.a], b=by[rel.b];
+    if(!a||!b||a.id===b.id)continue;
+    if(rel.type==="bond"){
+      if(a.bondWith||b.bondWith)continue; // 既に他と絆があるならそのまま
+      if(a.rivalWith===b.id||b.rivalWith===a.id)continue;
+      a.bondWith=b.id; b.bondWith=a.id;
+      if(typeof unitHistory==="function"){unitHistory(a,`史実の縁により、${b.nm}と戦友の絆で結ばれた。`);unitHistory(b,`史実の縁により、${a.nm}と戦友の絆で結ばれた。`);}
+      chron(rel.note||`${a.nm}と${b.nm}が、歴史を超えて固い絆で結ばれた。`,"big");
+    }else if(rel.type==="rival"){
+      if(a.rivalWith||b.rivalWith)continue;
+      if(a.bondWith===b.id||b.bondWith===a.id)continue;
+      a.rivalWith=b.id; b.rivalWith=a.id;
+      if(typeof unitHistory==="function"){unitHistory(a,`史実の縁により、${b.nm}を好敵手と認めた。`);unitHistory(b,`史実の縁により、${a.nm}を好敵手と認めた。`);}
+      chron(rel.note||`${a.nm}と${b.nm}、好敵手として火花を散らす。`,"big");
+    }
+  }
+}
 function greatById(id){return GREAT_FIGURES.find(g=>g.id===id)||null;}
 function greatIsTaken(id){
   if((S.units||[]).some(u=>u.great===id))return true;
@@ -9145,7 +9181,7 @@ function hireVolunteer(volId){
   let potentialBonus=null;
   if(v.hiddenPotential)potentialBonus=rollHiddenPotential(v.unit);
   S.units.push(v.unit);
-  if(v.unit&&v.unit.great){S.flags=S.flags||{};S.flags.greatsHired=S.flags.greatsHired||{};S.flags.greatsHired[v.unit.great]=true;}
+  if(v.unit&&v.unit.great){S.flags=S.flags||{};S.flags.greatsHired=S.flags.greatsHired||{};S.flags.greatsHired[v.unit.great]=true;if(typeof checkGreatRelations==="function")checkGreatRelations();}
   S.volunteers.splice(idx,1);
   unitHistory(v.unit,"志願書を通じて、アルヴェインの一員となった。");
   chron(`${v.unit.nm} ${v.unit.surname}が志願書を経て正式に入団した。「よろしくお願いします」`,"big");
