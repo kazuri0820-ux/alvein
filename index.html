@@ -9963,6 +9963,15 @@ function claimRelic(key){
   chron(`集めた秘宝の断片から、恒久の遺物「${def.name}」が鍛造された。${def.desc}`,"big");
   clamp();render();renderDungeonPanel();save();
 }
+const RELIC_SHARD_EXCHANGE_COST=10; // 全遺物を鍛え終えた後、余る断片を活かす道:秘薬の請願
+function exchangeRelicShards(){
+  if((S.relicShards||0)<RELIC_SHARD_EXCHANGE_COST){chron(`秘薬を請うには秘宝の断片が足りない(${S.relicShards||0}/${RELIC_SHARD_EXCHANGE_COST})。`,"");return;}
+  S.relicShards-=RELIC_SHARD_EXCHANGE_COST;
+  const it=(typeof rollItemDrop==="function")?rollItemDrop(Math.random()<0.55?"epic":"rare"):null;
+  if(it&&typeof addItem==="function"){addItem(it.key);chron(`余った秘宝の断片${RELIC_SHARD_EXCHANGE_COST}を魔導師に託すと、その力を注いだ「${it.name}」が生み出された。`,"big");}
+  else chron(`秘宝の断片${RELIC_SHARD_EXCHANGE_COST}を捧げたが、めぼしい品は生み出せなかった。`,"");
+  clamp();render();renderDungeonPanel();save();
+}
 function estimateDungeonSuccess(dungeon){
   const eligible=S.units.filter(u=>u.injured<=0&&(u.fatigue||0)<70&&!u.dungeonBusy&&!u.campUntil);
   const size=Math.min(5,eligible.length);
@@ -14794,7 +14803,9 @@ function renderDungeonPanel(){
      if(shards>0||unclaimed.length<RELIC_DEFS.length){
        h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:8px"><div class="nm" style="color:var(--gold)"><i class="icon-laurel"></i>秘宝の断片:${shards}</div>`;
        if(unclaimed.length)h+=`<div class="ds" style="margin:2px 0 6px;font-size:11px">断片を集めて恒久の遺物を鍛造できる。踏破を重ねるほど断片は貯まる。</div>`;
-       else h+=`<div class="ds" style="margin:2px 0 4px;font-size:11px;color:var(--gold)">全ての遺物を鍛造済み。</div>`;
+       else {h+=`<div class="ds" style="margin:2px 0 4px;font-size:11px;color:var(--gold)">全ての遺物を鍛造済み。</div>`;
+         const canEx=shards>=RELIC_SHARD_EXCHANGE_COST;
+         h+=`<button class="relic-exchange-btn" ${canEx?"":"disabled"} style="display:block;width:100%;text-align:left;background:${canEx?"rgba(201,162,75,.14)":"transparent"};border:1px solid ${canEx?"var(--gold)":"rgba(255,255,255,.14)"};color:${canEx?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px 10px;margin-top:5px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canEx?"pointer":"default"}"><b>秘薬を請う</b>（断片${RELIC_SHARD_EXCHANGE_COST}）<br><span style="font-size:10.5px;color:var(--dim)">余った断片を魔導師に託し、上質な秘薬(稀に絶品)を一つ生み出す${canEx?"":`　― あと${RELIC_SHARD_EXCHANGE_COST-shards}`}</span></button>`;}
        for(const r of RELIC_DEFS){
          if(relicHas(r.key)){h+=`<div class="ds" style="font-size:11px;color:var(--gold)">◆ ${r.name}(鍛造済) ― ${r.desc}</div>`;continue;}
          const ok=shards>=r.cost;
@@ -14838,6 +14849,7 @@ function renderDungeonPanel(){
   $("#dgBody").innerHTML=h;
   $("#dgBody").querySelectorAll(".dg-scout-btn").forEach(b=>b.onclick=()=>{scoutDungeon(b.dataset.id);});
   $("#dgBody").querySelectorAll(".relic-claim-btn").forEach(b=>b.onclick=()=>{claimRelic(b.dataset.k);});
+  {const eb=$("#dgBody").querySelector(".relic-exchange-btn");if(eb)eb.onclick=()=>exchangeRelicShards();}
   $("#dgBody").querySelectorAll(".dg-go-btn").forEach(b=>b.onclick=()=>{
     dgSelectingDungeonId=b.dataset.id;
     const d=(S.availableDungeons||[]).find(x=>x.id===b.dataset.id);
