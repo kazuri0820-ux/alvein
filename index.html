@@ -7000,7 +7000,14 @@ function barracksVignette(){
       `配膳の列で隣り合った${nm(u)}と${nm(p)}が、ふいと顔を背け合った。張り詰めた二人の空気に、周りの兵はそっと距離を取っていた。`,
     ];cand.push(lines[Math.floor(Math.random()*lines.length)]);}}
     const k=(typeof beastKindOf==="function")?beastKindOf(u):null;
-    if(k&&u.beast)cand.push(`${nm(u)}の相棒の${k.nm}「${u.beast.nm}」が、主の膝で丸くなって微睡んでいた。${nm(u)}は、その背をそっと撫でてやっていた。`);
+    if(k&&u.beast){ // 獣の種ごとに情景を変える(小獣は膝で微睡み、隼は肩に、大熊は傍らに構える)
+      const bscene={wolf:`${nm(u)}の相棒の銀狼「${u.beast.nm}」が、主の足元で静かに伏せ、その耳だけが辺りの気配を探るように動いていた。${nm(u)}は、そっとその頭を撫でてやっていた。`,
+        hawk:`${nm(u)}の相棒の蒼隼「${u.beast.nm}」が、その肩に止まって羽づくろいをしていた。${nm(u)}が腕を掲げると、隼は誇らしげに翼を広げてみせた。`,
+        cat:`${nm(u)}の相棒の霊猫「${u.beast.nm}」が、主の膝で丸くなって微睡んでいた。${nm(u)}は、その背をそっと撫でてやっていた。`,
+        bear:`${nm(u)}の相棒の大熊「${u.beast.nm}」が、訓練場の傍らにどっしりと構え、主の一挙一動を見守っていた。その巨躯があるだけで、周りの新兵は妙に安心するらしい。`
+      }[u.beast.kind]||`${nm(u)}の相棒の${k.nm}「${u.beast.nm}」が、主の傍らに寄り添っていた。${nm(u)}は、その背をそっと撫でてやっていた。`;
+      cand.push(bscene);
+    }
     const w=u.equipment&&u.equipment.weapon;
     if(w&&w.mei)cand.push(`${nm(u)}が、相棒の得物「${w.mei}」の刃を丁寧に研いでいた。幾多の死線を共にした一振りを、まるで我が身の一部のように慈しんでいる。`);
     if(u.dream&&!u.dreamDone){const d=(typeof UNIT_DREAMS!=="undefined")&&UNIT_DREAMS.find(x=>x.key===u.dream);if(d&&d.text)cand.push(`夜更けの兵舎で、${nm(u)}が一人黙々と剣を振っていた。「${d.text}」――その背には、まだ口にせぬ願いが宿っているようだった。`);}
