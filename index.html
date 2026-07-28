@@ -4004,6 +4004,8 @@ const BEAST_KINDS=[
    desc:"眼が良く、踏破の折に見落とされた獲物を見つけ出す",lineDesc:"蒼い翼の隼。高みから、獲物も宝も見逃さない"},
   {key:"cat",nm:"霊猫",boon:"vigor",boonLabel:"英 気",color:"#8fbf6f",
    desc:"傍にあれば心安らぎ、遠征の疲れが浅く済む",lineDesc:"淡く光る毛並みの猫。傍にいるだけで、不思議と気が晴れる"},
+  {key:"bear",nm:"大熊",boon:"guard",boonLabel:"守 り",color:"#a5764a",
+   desc:"猛々しくも情に厚く、危地では身を挺して部隊を庇い、戦没を減らす",lineDesc:"巌のような巨躯の熊。荒事の折、真っ先に前へ出て仲間を守る"},
 ];
 const BEAST_NAMES=["フェン","ルーナ","シロ","クロ","ソラ","ハク","ミオ","レオ","コハク","ユキ","ナギ","トワ","アオ","ヒナ","モモ","ライ","テト","ノア"];
 function beastKind(key){return BEAST_KINDS.find(b=>b.key===key)||null;}
@@ -10672,7 +10674,7 @@ function resolveDungeonRun(dungeonId){
     defeatVignette(squad,dungeon,false); // 撤退の一幕:敗走にも絆・献身の物語を添える
     recordHardship(squad,dungeon.name,memberLog); // 叩き上げ:敗北を生き延びた兵が経験から学ぶ
   }else{ // critical_fail
-    const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1)*(S.flags.heirloom==="banner"?0.82:1)*(alliedWith("draconis")?0.85:1)*(festivalIs("remembrance")?0.85:1)*(relicHas("ward")?0.88:1)*(squadEthos==="bulwark"?0.85:1)*(S.flags.dragonRaised?0.85:1)*(dungeon.decoy?0.7:1)*(dungeon.tactic==="retreat"?0:1); // 陽動(別動隊)が敵の目を引きつければ、本隊の戦没も減る。秘策「撤収の備え」なら、この一戦では兵を死なせない。治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗/家宝「不滅の王旗」でさらに戦没が減る。竜嶺のドラコニアとの軍事同盟(援軍の約定)でも戦没が減る。慰霊祭の開催中も戦没が減る。遺物「不滅の護符」でも戦没が減る。育て上げた竜が空から戦場を見守れば、戦没はさらに減る
+    const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1)*(S.flags.heirloom==="banner"?0.82:1)*(alliedWith("draconis")?0.85:1)*(festivalIs("remembrance")?0.85:1)*(relicHas("ward")?0.88:1)*(squadEthos==="bulwark"?0.85:1)*(S.flags.dragonRaised?0.85:1)*(dungeon.decoy?0.7:1)*(squadHasBeastBoon(squad,"guard")?0.82:1)*(dungeon.tactic==="retreat"?0:1); // 陽動(別動隊)が敵の目を引きつければ、本隊の戦没も減る。秘策「撤収の備え」なら、この一戦では兵を死なせない。治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗/家宝「不滅の王旗」でさらに戦没が減る。竜嶺のドラコニアとの軍事同盟(援軍の約定)でも戦没が減る。慰霊祭の開催中も戦没が減る。遺物「不滅の護符」でも戦没が減る。育て上げた竜が空から戦場を見守れば、戦没はさらに減る。相棒獣・大熊が部隊を庇えば、戦没がさらに減る
     const hurtOnes=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*0.6)));
     const critW=medicAdjustWeights(formationAdjustWeights(cond==="blessed"?[0.4,0.4,0.2]:[0.1,0.3,0.6],fmKey),squad); // 陣形→古の祝福(大失敗でも深手を和らげる)→従軍医の順に負傷の重さを補正
     for(const u of hurtOnes){inflictInjury(u,critW);unitHistory(u,`「${dungeon.name}」で${INJURY_TIERS[u.injurySeverity].label}を負った。`);memberLog.push({u,gain:0,note:INJURY_TIERS[u.injurySeverity].label});}
