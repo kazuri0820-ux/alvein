@@ -6954,6 +6954,7 @@ function checkFixedDayEvents(){
     if(S.day>=45&&(S.neighbors||[]).some(n=>n&&!n.allied)&&Math.random()<0.10)pool.push("__defector__"); // 国が育ち諸国との縁が生まれた頃、非同盟国から亡命者が訪れる
     if((S.neighbors||[]).some(n=>n&&n.allied)&&Math.random()<0.10)pool.push("__ally_request__"); // 同盟を結んでいると、時に盟友が窮地に助けを求めてくる(盟約は双方向)
     if((S.units||[]).some(u=>u&&u.role==="active"&&(S.day-(u.joinDay||S.day))>=120)&&Math.random()<0.08)pool.push("__homecoming__"); // 長く仕える古参が、募る里心に暇を願い出る(兵に暮らしと家族を)
+    if(S.day>=70&&(S.units||[]).filter(u=>u&&u.role==="active").length>=3&&Math.random()<0.07)pool.push("__bard__"); // 国が形をなした頃、吟遊詩人が王国の物語を歌にしに訪れる(武名・殿堂・民心を歌に)
     if(typeof findDiscordPair==="function"&&findDiscordPair()&&Math.random()<0.35)pool.push("__discord_mediation__"); // 兵舎に確執がくすぶっている時、王に仲裁の機会が巡る
     pushEvent(pool[Math.floor(Math.random()*pool.length)]);
     fired=true;
@@ -7901,6 +7902,7 @@ const EVENT_ID_EXACT={
   "__defector__":()=>buildDefectorEvent(),
   "__ally_request__":()=>buildAllyRequestEvent(),
   "__homecoming__":()=>buildHomecomingEvent(),
+  "__bard__":()=>buildBardEvent(),
   "__discord_mediation__":()=>buildDiscordMediationEvent(),
   "__growth__":()=>pickFresh(EARLY_GROWTH),
   "__mission__":()=>buildMissionEvent(),
@@ -12321,6 +12323,42 @@ function buildHomecomingEvent(){
       unitHistory(u,`里帰りの願いは、国の大事を前に聞き届けられなかった。`);
       chron(`王は${u.nm}に、今は国の大事と諭した。${u.nm}は「……承知いたしました」と頭を垂れたが、その背には隠しきれぬ寂しさが漂っていた(士気少し↓)。`,"");
       clamp();render();renderTroops();save();
+    }}},
+   ]};
+}
+/* 吟遊詩人の来訪(演出・威信の新機軸:武名を歌にして大陸へ広める):流浪の詩人が、王国の名を諸国へ運ぶ一篇を
+   作りたいと申し出る。誰を歌に詠むかで、一人の英傑の武名を轟かせる(威信＋その兵の誉れ)/殿堂の英霊を悼み現役の
+   結束を高める/民の暮らしを讃え国を和ませる――治世が育んだ物語を"歌"として結晶させ、王国の伝説を felt にする
+   文化の一幕。積み上げた武名・殿堂・民心を歌に変える、既存システムの再結合。 */
+function buildBardEvent(){
+  const acts=(S.units||[]).filter(u=>u&&u.role==="active");
+  if(!acts.length)return null;
+  const storyScore=(u)=>((u.titles||[]).length*2)+(u.dungeonClearCount||0)+Math.floor((S.day-(u.joinDay||S.day))/AGE_YEAR_DAYS)+(u.sigFeat?3:0)+(u.uniqueJob?4:0)+(u.awakened?4:0);
+  const hero=[...acts].sort((a,b)=>storyScore(b)-storyScore(a))[0];
+  const hallN=(S.hallOfFame||[]).length;
+  return {tag:"詩 人",title:"吟遊詩人の来訪",
+   body:`竪琴を負うた流浪の吟遊詩人が城を訪れた。「陛下、この国には、諸国へ語り継ぐに足る物語がございましょう。ひとつ、王国の名を大陸へ運ぶ歌を、詠ませてはいただけませぬか」。何を歌に紡ぐか――それは、この治世が何を誇りとするかを映すだろう。`,
+   speaker:`セラ「歌は、剣よりも遠くまで届きまする。王国の名を、大陸の隅々まで運びましょう」`,
+   choices:[
+    {label:`${hero.nm}の武名を歌わせる`,hint:`英傑の名を大陸へ ／ 威信↑ ${hero.nm}の誉れ・士気↑`,fx:{call:()=>{
+      if(typeof grantRenown==="function")grantRenown(2,`${fullName(hero)}の武名を讃える歌`);
+      hero.moral=Math.min(100,(hero.moral||0)+ri(6,10));hero.loyalty=Math.min(100,(hero.loyalty||0)+ri(4,7));
+      if(typeof recordSigFeat==="function")recordSigFeat(hero,"吟遊詩人にその武名を歌に詠まれ、大陸にその勇名を轟かせた",3);
+      apply({mood:4});
+      unitHistory(hero,`吟遊詩人にその武名を歌に詠まれ、名が大陸に広まった。`);
+      chron(`吟遊詩人は${fullName(hero)}の武勲を一篇の歌に紡いだ。その調べは旅の商人や巡礼の口を伝い、やがて大陸の隅々まで${hero.nm}の名を運んでいった。王国の武名が高まり、民は誇らしげである(威信↑ 民心↑)。`,"big");
+      clamp();render();renderTroops();renderProjects();save();
+    }}},
+    {label:hallN?"殿堂の英霊を歌わせる":"斃れた者たちを悼む歌を",hint:`死者を悼み、生者を鼓舞 ／ 民心↑ 全兵の忠誠↑`,fx:{call:()=>{
+      apply({mood:5});
+      for(const u of acts)u.loyalty=Math.min(100,(u.loyalty||0)+ri(2,4));
+      chron(hallN?`吟遊詩人は殿堂に眠る英霊たちの武勲を、荘厳な鎮魂の歌に紡いだ。斃れてなお語り継がれる先達の姿に、現役の兵たちは背筋を正し、王国に仕える誇りを新たにした(民心↑ 全兵の忠誠↑)。`:`吟遊詩人は、名もなき兵たちの献身を静かな歌に紡いだ。誰もが自らの奉公を思い返し、王国に仕える誇りを新たにした(民心↑ 全兵の忠誠↑)。`,"big");
+      clamp();render();renderTroops();save();
+    }}},
+    {label:"民の暮らしを歌わせる",hint:`国を和ませる ／ 民心↑↑ 治安↑`,fx:{call:()=>{
+      apply({mood:6,st:{order:1,economy:1}});
+      chron(`吟遊詩人は、かまどの煙や市の賑わい、子らの笑い声――民の何気ない暮らしを、慈しむように歌い上げた。その温かな調べは城下に広まり、王国は穏やかな幸福感に包まれた(民心↑↑ 治安↑ 経済↑)。`,"big");
+      clamp();render();renderProjects();save();
     }}},
    ]};
 }
