@@ -14113,6 +14113,7 @@ const EXPEDITION_DESTINATIONS=[
  {key:"peak",    name:"未踏の霊峰",   short:"霊峰", desc:"上質な装備や秘宝の断片を狙う。財貨は控えめ。",   g:0.85,e:0.9, d:1.6, disc:0,ren:0,shard:2,econ:0,dip:0,risk:0},
  {key:"frontier",name:"戦乱の辺境",   short:"辺境", desc:"実戦続きで部隊が大きく育つ。危険もやや増す。",   g:0.9, e:1.5, d:0.9, disc:0,ren:1,shard:0,econ:0,dip:0,risk:1},
  {key:"ruins",   name:"古の遺跡群",   short:"遺跡", desc:"新たな迷宮の発見と名声を得やすい。",           g:0.95,e:0.95,d:1.15,disc:1,ren:3,shard:1,econ:0,dip:1,risk:0},
+ {key:"wander",  name:"諸国遍歴の旅", short:"遍歴", desc:"各地を巡り、仕官を望む人材を高い確度で連れ帰る(時に傑物も)。財貨・装備は控えめ。", g:0.8, e:0.95,d:0.7, disc:0,ren:1,shard:0,econ:0,dip:2,risk:0,recruitBoost:true},
 ];
 function expeditionDest(key){return EXPEDITION_DESTINATIONS.find(d=>d.key===key)||EXPEDITION_DESTINATIONS[0];}
 let itemRarityFilter="all";
@@ -14379,10 +14380,14 @@ function resolveLongExpedition(id){
     {const eq=rollEquipmentDrop(tier==="great"?"epic":"rare");if(eq){addEquipment(eq.key);equipGained=eq;gainedEquips.push(eq.name);}} // 装備は確定で持ち帰る
     if((tier==="great"&&Math.random()<0.5)||(dest.key==="peak"&&Math.random()<0.45)){const eq2=rollEquipmentDrop("epic");if(eq2){addEquipment(eq2.key);gainedEquips.push(eq2.name);}} // 霊峰は上質な装備を多く持ち帰る
     if(Math.random()<(tier==="great"?0.7:0.4)+(dest.disc?0.35:0))dungeonFound=checkDungeonDiscovery(1.6,squad[0]);
-    // 遠征でしか結べぬ縁:道中で腕利きの流れ者と出会い、共に王国へ帰ることがある(遠征だけの特典)
-    if(S.units.length<unitCap()&&Math.random()<(tier==="great"?0.45:0.2)){
-      recruit=makeRecruitCandidate();recruit.joinDay=S.day;S.units.push(recruit);
-      unitHistory(recruit,"遠征部隊が道中で見出し、共に王国へ帰った流れ者。");
+    // 遠征でしか結べぬ縁:道中で腕利きの流れ者と出会い、共に王国へ帰ることがある(遠征だけの特典)。
+    // 「諸国遍歴」はこの人材発掘を主目的とし、確度が高く、時に傑物を連れ帰る=兵を失った隊の再建や層を厚くする遠征
+    const recChance=dest.recruitBoost?(tier==="great"?1.0:0.85):(tier==="great"?0.45:0.2);
+    if(S.units.length<unitCap()&&Math.random()<recChance){
+      recruit=makeRecruitCandidate();recruit.joinDay=S.day;
+      if(dest.recruitBoost&&Math.random()<0.4)recruit.talented=true; // 遍歴で見出す者には、時に並外れた才が混じる
+      S.units.push(recruit);
+      unitHistory(recruit,dest.recruitBoost?"諸国遍歴の遠征隊に見出され、仕官を望んで王国へ加わった。":"遠征部隊が道中で見出し、共に王国へ帰った流れ者。");
     }
     if(dest.risk&&Math.random()<0.5){const v=squad[Math.floor(Math.random()*squad.length)];if(v&&(v.injured||0)<=0){inflictInjury(v,[0.85,0.15,0]);unitHistory(v,"辺境の絶え間ない実戦の中で、軽い手傷を負って帰った。");}} // 戦乱の辺境:成長は厚いが、手傷を負いやすい
     chron(`――遠征部隊が「${dest.name}」から凱旋した。${squad.map(fullName).join("・")}が${goldGain}Gと戦利品を携え、見違えるほど逞しくなって戻った。${recruit?`道中で見出した${fullName(recruit)}も隊に加わった。`:""}`,"big");
