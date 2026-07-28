@@ -11218,6 +11218,7 @@ function buildExpeditionEvent(){
   const theme=EXPEDITION_THEMES[Math.floor(Math.random()*EXPEDITION_THEMES.length)];
   const rarity=expeditionRarity();
   const level=missionLevelForExpedition();
+  const focus=themeStatFocus(theme); // この地で物を言う資質を明かす=誰を選び、どう育てるかの手応え
   const leaderCands=[...eligible].sort((a,b)=>theme.statFn(b)-theme.statFn(a)).slice(0,5);
   expeditionState={theme,rarity,level,leaderCands};
   const rarityPrefix=rarity.label?`【${rarity.label}】`:"";
@@ -11228,9 +11229,18 @@ function buildExpeditionEvent(){
   }));
   choices.push({label:"今回は見送る",hint:"部隊を休ませる",fx:{log:`「${theme.name}」の話は今回、見送ることにした。`,call:()=>{expeditionState=null;}}});
   return{tag:"ミッション:人選",title:`${rarityPrefix}ミッション:${theme.name}(難度目安Lv.${level})`,
-   body:`${theme.flavor}\n\nまずは部隊を率いるリーダーを選ぶ。リーダーは特別に多くの経験値を得る。`,
+   body:`${theme.flavor}${focus?`\n\n(この地で物を言う資質:${focus})`:""}\n\nまずは部隊を率いるリーダーを選ぶ。リーダーは特別に多くの経験値を得る。`,
    speaker:"ガレオン「誰を大将に据えるか。それだけで結果が大きく変わりましょう」",
    choices};
+}
+// ミッションの地が要求する資質を、statFn を単位ベクトルで叩いて上位2つ抽出し名で示す(あらゆるテーマに自動対応)
+function themeStatFocus(theme){
+  if(!theme||typeof theme.statFn!=="function")return "";
+  const labels=[["str","腕力"],["vit","体力"],["int","魔力"],["agi","敏捷"],["wis","知力"],["lead","統率"]];
+  const zero={str:0,vit:0,int:0,agi:0,wis:0,lead:0};
+  let w;try{w=labels.map(([k,l])=>[l,theme.statFn(Object.assign({},zero,{[k]:1}))]);}catch(e){return "";}
+  w=w.filter(x=>x[1]>0.01).sort((a,b)=>b[1]-a[1]);
+  return w.slice(0,2).map(x=>x[0]).join("・");
 }
 function buildExpeditionRiskEvent(){
   if(!expeditionState||!expeditionState.leader)return null;
