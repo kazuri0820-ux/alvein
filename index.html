@@ -2578,16 +2578,18 @@ const RACES=[
  {key:"dragonkin",name:"竜人",str:2,vit:2,int:2,lifespan:260,desc:"竜の血を薄く引くという、極めて稀な存在"},
  {key:"starkin",name:"星霊種",str:3,vit:2,int:4,lifespan:500,desc:"星々の加護を受けて生まれるという伝説上の存在。魔王討伐後の世にごく稀に現れる"},
 ];
-/* 種族の個性(怪我率):フレーバーを機構に反映。小柄な亜人は危険回避が上手く重傷を負いにくい */
-const RACE_INJURY_MULT={halfling:0.82,beastkin:0.92};
+/* 種族の個性(怪我率):フレーバーを機構に反映。小柄な亜人は危険回避が上手く重傷を負いにくい。星霊種は星の加護に護られ傷を負いにくい */
+const RACE_INJURY_MULT={halfling:0.82,beastkin:0.92,starkin:0.9};
+/* 種族の個性(致命傷の生存):竜人は薄く引く竜の血が死地でも命を繋ぎ、稀に致命傷を生き延びる(最も稀な種族に固有の手応えを与える) */
+const RACE_DEATH_MULT={dragonkin:0.85};
 /* 種族の機構的な個性を一言で(兵の詳細で「なぜこの種族か」を読めるように=種族選択の手応え) */
 const RACE_PERK={
  beastkin:"群れの戦法――同じ部隊に2人以上で連携が高まる。負傷もやや軽い",
  dwarf:"頑健――日々の疲れの抜けが早い。長命で衰えも緩やか",
  halfling:"危険回避の妙――重い傷を負いにくい",
  elf:"技巧の器――技の所有枠+2。長寿ゆえ老いも極めて緩やか",
- dragonkin:"竜の血――高い素質を備えた稀有な存在",
- starkin:"星霊の加護――並外れた素質を宿す伝説の存在",
+ dragonkin:"竜の血――死地でも稀に命を繋ぐ。高い素質を備え長命",
+ starkin:"星霊の加護――星に護られ傷を負いにくい。並外れた素質と長命を宿す",
 };
 /* 出身地(種族と連動、軽いステータス傾向) */
 const ORIGINS=[
@@ -11964,7 +11966,7 @@ function resolveDungeonRun(dungeonId){
     apply({mood:-5,gold:-Math.round(ri(10,30))});
     if(Math.random()<deathChance){
       const victim=squad[Math.floor(Math.random()*squad.length)];
-      const selfSurvive=(()=>{const dm=(traitInfo(victim.trait).deathMult||1)*(skillEffects(victim).deathMult||1);return dm<1&&Math.random()>=dm;})();
+      const selfSurvive=(()=>{const dm=(traitInfo(victim.trait).deathMult||1)*(skillEffects(victim).deathMult||1)*((typeof RACE_DEATH_MULT!=="undefined"&&RACE_DEATH_MULT[victim.race])||1);return dm<1&&Math.random()>=dm;})();
       let guardian=null;
       if(!selfSurvive){ // 戦友の盾/守護の化身: 同部隊に庇護者(スキルまたは特性)がいれば、我が身を挺して戦友の命を守る=守護型ビルドが死線で報われる
         for(const g of squad){ if(!g||g.id===victim.id||g.injured>0)continue; const gsave=Math.max(skillEffects(g).guardianSave||0,(traitInfo(g.trait).guardianSave)||0); if(gsave>0&&Math.random()<gsave){guardian=g;break;} }
