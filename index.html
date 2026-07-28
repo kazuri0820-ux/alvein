@@ -11424,7 +11424,12 @@ function showDungeonResult(dungeon,tier,bossWin,memberLog,goldGained,itemGained,
   if(itemGained){const c=RARITY_COLOR[itemGained.rarity];h+=`<div class="pcard" style="border-color:${c}"><div class="nm" style="color:${c}">◆アイテム入手:${itemGained.name}</div><div class="ds">${itemGained.desc}</div></div>`;}
   if(dungeonFound){const c=dungeonFound.rarity.color||"#8fd0e8";h+=`<div class="pcard" style="border-color:${c}"><div class="nm" style="color:${c}">◆新たなダンジョンを発見</div><div class="ds">${dungeonFound.rarity.label?`【${dungeonFound.rarity.label}】`:""}「${dungeonFound.name}」への入口が見つかった。</div></div>`;}
   for(const l of memberLog){
-    h+=`<div class="pcard"><div class="nm">${l.u.nm}</div><div class="ds">${l.gain?`経験値+${l.gain} ／ `:""}${l.note}</div></div>`;
+    // 踏破に成功しても道中で傷を負って戻ることがある(深部の手傷・死線からの生還)。成功時の記録は「踏破」で
+    // 固定されるため負傷が結果に表れなかった。現在の負傷状態を見て、まだ記されていなければ帰還後の傷を明示する
+    // (誰が療養入りするかを結果の場で掴め、次の出撃の算段に繋がる=手応え/導線の可視化)。
+    const noteIsInjury=(typeof INJURY_TIERS!=="undefined"&&Object.keys(INJURY_TIERS).some(k=>INJURY_TIERS[k].label===l.note))||/傷|療養|負傷|重体/.test(l.note||""); // 失敗経路は note 自体が負傷名(軽傷/重傷/重体)なので二重表示を避ける
+    const hurt=(l.u&&(l.u.injured||0)>0&&!noteIsInjury)?`<span style="color:#d97a7a"> ／ ${((typeof INJURY_TIERS!=="undefined"&&INJURY_TIERS[l.u.injurySeverity])||{}).label||"負傷"}を負って帰還(療養あと${l.u.injured}日)</span>`:"";
+    h+=`<div class="pcard"${hurt?' style="border-color:rgba(217,122,122,.5)"':""}><div class="nm">${l.u.nm}</div><div class="ds">${l.gain?`経験値+${l.gain} ／ `:""}${l.note}${hurt}</div></div>`;
   }
   if(died)h+=`<div class="pcard" style="border-color:#d97a7a"><div class="nm" style="color:#d97a7a">戦没</div><div class="ds">${died.nm}は、このダンジョンで命を落とした。${diedWasHallWorthy?"殿堂に記録が残る。":""}</div></div>`;
   const alreadyShowing=$("#panelDungeonResult").classList.contains("show");
