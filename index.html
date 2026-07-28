@@ -12552,12 +12552,13 @@ const FESTIVAL_TYPES=[
   {key:"harvest",name:"収穫祭",icon:"🌾",cost:{food:40},desc:"実りに感謝する祭。民心が大きく高まり、しばらくの間、蔵に日々の恵みが積まれる。",effectLabel:"民心↑↑ / 期間中 食糧が日々潤う"},
   {key:"feast",name:"戦勝祭",icon:"⚔",cost:{gold:60},desc:"武勲を讃える宴。兵の士気が上がり、しばらくの間、迷宮踏破で得る経験が増す。",effectLabel:"民心↑ / 期間中 踏破経験+15%"},
   {key:"remembrance",name:"慰霊祭",icon:"🕯",cost:{gold:50},desc:"逝きし者を悼む祭。国に静かな結束が生まれ、しばらくの間、兵の戦没が減る。",effectLabel:"治安↑ 民心↑ / 期間中 迷宮での戦死率↓"},
+  {key:"market",name:"市祭",icon:"⚖",cost:{gold:45},desc:"諸国の商人を招く賑わいの大市。経済が上向き、しばらくの間、交易の実りで日々の国庫が潤う。",effectLabel:"経済↑↑ 民心↑ / 期間中 日々の国庫が潤う"},
 ];
 function festivalActive(){return (S.festival&&S.day<S.festival.until)?S.festival:null;}
 function festivalIs(key){const f=festivalActive();return !!(f&&f.key===key);}
 function festivalType(key){return FESTIVAL_TYPES.find(f=>f.key===key);}
 function festivalCooldownLeft(){return Math.max(0,FESTIVAL_COOLDOWN-(S.day-(S.lastFestivalDay??-FESTIVAL_COOLDOWN)));}
-function festivalDaily(){ const f=festivalActive(); if(f&&f.key==="harvest")S.food=Math.min(999,(S.food||0)+ri(3,5)); } // 収穫祭の間、蔵が日々潤う
+function festivalDaily(){ const f=festivalActive(); if(f&&f.key==="harvest")S.food=Math.min(999,(S.food||0)+ri(3,5)); if(f&&f.key==="market")S.gold=(S.gold||0)+ri(6,10)+Math.round((S.st.economy||0)*0.04); } // 収穫祭の間は蔵が、市祭の間は国庫が日々潤う(市祭の実りは経済が高いほど大きい=交易の賑わい)
 function holdFestival(key){
   const ft=festivalType(key); if(!ft)return;
   if(festivalActive()){chron("いままさに祭の最中だ。","");return;}
@@ -12568,7 +12569,7 @@ function holdFestival(key){
   if(cost.gold)S.gold-=cost.gold; if(cost.food)S.food=Math.max(0,(S.food||0)-cost.food);
   const dur=FESTIVAL_DURATION+((S.flags&&S.flags.alchemy==="catalyst")?3:0); // 錬金術「祝祭の触媒」:祭の恵みが長持ちする
   S.festival={key,until:S.day+dur}; S.lastFestivalDay=S.day;
-  const fx=key==="harvest"?{mood:8,st:{agriculture:1}}:key==="feast"?{mood:6,st:{military:1}}:{mood:5,st:{order:2}};
+  const fx=key==="harvest"?{mood:8,st:{agriculture:1}}:key==="feast"?{mood:6,st:{military:1}}:key==="market"?{mood:6,st:{economy:2}}:{mood:5,st:{order:2}};
   apply(Object.assign({},fx,{log:`${ft.icon} 国を挙げて「${ft.name}」が催された。${ft.effectLabel}(${dur}日間)。人々の顔に、久方ぶりの華やぎが差した。`,logCls:"big"}));
   clamp();render();renderProjects();save();
 }
