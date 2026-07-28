@@ -7358,15 +7358,26 @@ const YEAR_REFLECTIONS=[
 function checkYearTurn(){
   const yr=Math.floor(S.day/AGE_YEAR_DAYS);
   if(yr<1)return;
-  if(S.yearSeen===undefined){S.yearSeen=yr;return;} // 初回は無音でセット
+  const yearSnap=()=>({u:S.units.length,g:Math.round(S.gold),p:S.pop,c:S.dungeonsCleared||0,h:(S.hallOfFame||[]).length}); // 治世の歩みを測る年次スナップショット
+  if(S.yearSeen===undefined){S.yearSeen=yr;S.lastYearChronicle=yearSnap();return;} // 初回は無音でセット(翌年から前年比を刻める)
   if(S.yearSeen>=yr)return;
   S.yearSeen=yr;
+  const prevYear=S.lastYearChronicle; // 前年の姿(古いセーブには無い=初年は前年比を出さない)
   const stg=STAGES[S.stage];
   const cleared=S.dungeonsCleared||0;
   const hall=(S.hallOfFame||[]).length;
   const eldest=S.units.reduce((a,u)=>(!a||u.age>a.age)?u:a,null);
   const refl=YEAR_REFLECTIONS[(yr-1)%YEAR_REFLECTIONS.length];
   chron(`――${yr}年目の暮れ。${stg.name}の王国に兵${S.units.length}名が仕え、国庫${Math.round(S.gold)}・民${S.pop}を数える。${cleared?`踏破したダンジョンは${cleared}件、`:""}${hall?`${hall}名が殿堂に名を刻んだ。`:""}${eldest?`最古参は${eldest.nm}(${Math.floor(eldest.age)}歳)。`:""}${refl}`,"big");
+  // 治世の歩み:前年の姿と引き比べ、王国が伸びたか退いたかを年の瀬に felt に。数年越しの投資(兵を抱え国を富ませる営み)が数字で見える到達の手応え。国力の週次推移とは別軸=長期の規模の推移を測る。
+  if(prevYear){
+    const sg=(n)=>n>=0?"＋"+n:"－"+Math.abs(n);
+    const dU=S.units.length-prevYear.u, dG=Math.round(S.gold)-prevYear.g, dP=S.pop-prevYear.p, dC=(S.dungeonsCleared||0)-prevYear.c, dH=((S.hallOfFame||[]).length)-prevYear.h;
+    const grew=(dU>0?1:dU<0?-1:0)+(dG>0?1:dG<0?-1:0)+(dP>0?1:dP<0?-1:0); // 兵・国庫・民の増減の総合で歩みの色を決める
+    const tone=grew>=2?"実り豊かな一年であった。":grew<=-2?"耐え忍ぶ一年であった。":"起伏を経て、王国は歩みを続けた。";
+    chron(`治世の歩み――前年に比べ、兵${sg(dU)}名・国庫${sg(dG)}・民${sg(dP)}。${dC>0?`この一年で新たに${dC}件の迷宮を踏破し、`:""}${dH>0?`${dH}名が殿堂へ加わった。`:(dC>0?"戦果を積み上げた。":"")}${tone}`,"");
+  }
+  S.lastYearChronicle=yearSnap(); // 今年の姿を来年の物差しとして残す
   // 従軍の労い:年の瀬に、最も長く仕える古参を王が名指しで労う(長く連れ添う兵への愛着と、古参を抱え続ける手応えを felt に)
   const vets=S.units.filter(u=>u.role==="active"&&(S.day-(u.joinDay||S.day))>=AGE_YEAR_DAYS);
   if(vets.length){
