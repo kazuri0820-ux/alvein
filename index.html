@@ -2727,6 +2727,8 @@ const TITLE_DB=[
  {key:"t_pathmaster",name:"道を究めし者",desc:"若き日に選んだ専心の道を、迷わず歩み抜いて英雄の格に至った者。その一途な研鑽が、揺るがぬ自負となって兵を支える",effect:"moralGrow",value:0.12},
  {key:"t_beastbond",name:"掛け替えなき相棒",desc:"迷宮で懐いた獣と幾多の日々を共にし、一心同体というべき掛け替えのない絆で結ばれた",effect:"loyaltyGrow",value:0.14},
  {key:"t_veterancommander",name:"百戦の指揮者",desc:"幾度も部隊を率いて戦場を渡り歩いた、頼れる指揮の要",effect:"expMult",value:1.05},
+ {key:"t_eldersage",name:"古老の賢者",desc:"老境に至ってなお研鑽を怠らず、深い叡智を湛えた生きた知恵袋。その一言が兵たちを導く",effect:"expMult",value:1.05},
+ {key:"t_prodigy",name:"十代の麒麟児",desc:"二十歳にも満たぬ身で、早くも軍団長格の武を修めた稀代の麒麟児",effect:"moralGrow",value:0.12},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -3460,6 +3462,8 @@ function checkDailyTitles(u){
   const effLifespan=race?race.lifespan*((traitInfo(u.trait).lifespanMult)||1)*(u.lifespanVariance||1):999;
   if(race&&u.age>=effLifespan)grantTitle(u,"t_longlife");
   if((stage.key==="old"||stage.key==="venerable")&&!u.retired)grantTitle(u,"t_evergreen");
+  if((stage.key==="old"||stage.key==="venerable")&&(u.wis||0)>=40)grantTitle(u,"t_eldersage"); // 古老の賢者:老境の高い叡智を讃える(長く生かした知将への到達点、t_evergreenの武の対の"知")
+  if((u.age||99)<20&&(u.lv||0)>=40)grantTitle(u,"t_prodigy"); // 十代の麒麟児:二十歳未満で軍団長格に至った早熟の英傑(t_youngelite=精鋭格 の一段上の到達)
   if((u.injuryCount||0)>=5)grantTitle(u,"t_scarred5");
   if((u.severeInjuryCount||0)>=3)grantTitle(u,"t_scarred3");
   if(S.day-(u.joinDay||1)>=365)grantTitle(u,"t_1year");
