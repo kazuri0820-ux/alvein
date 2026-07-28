@@ -2847,6 +2847,14 @@ function militaryRankScore(u){
 function militaryRankIndex(u){const s=militaryRankScore(u);let i=0;for(let k=0;k<MILITARY_RANKS.length;k++)if(s>=MILITARY_RANKS[k].min)i=k;return i;}
 function militaryRank(u){return MILITARY_RANKS[militaryRankIndex(u)];}
 function militaryRankGrow(u){return militaryRankIndex(u)*0.015;} // 位が高いほど、日々の忠誠・士気がわずかに保たれやすい(帰属と誇り)
+/* 王国最強(第一の武人):今この時、現役の兵の中で最も戦力の高い一人。歴代最強の"記録"とは別に、"現在の筆頭"を
+   動的に指し示す。育て上げた兵がこの座を掴み、若手がその背を追う――軍を鍛える営みに、内部の到達目標と誇りを添える。 */
+function kingdomFirstBladeId(){
+  let best=null,bp=-1;
+  for(const u of (S.units||[])){ if(!u||u.role!=="active")continue; const p=unitPower(u);
+    if(p>bp){bp=p;best=u.id;} else if(p===bp&&best!=null&&String(u.id)<String(best)){best=u.id;} }
+  return best;
+}
 /* 知行の下賜(内政×育成の新レバー):国庫を投じて、功ある古参に領地を与える。領地持ちとなった兵は王国に深く
    根を張り、忠義が揺るがなくなる(気難しい才・低忠誠のリスクを、財を投じて能動的に断つ手)。お気に入り(無償の贔屓)や
    叙任の儀(全兵一律)とは別に、"この一人を確かに繋ぎ止める"投資。領地からはわずかな禄も国庫に還る。 */
@@ -14218,6 +14226,7 @@ function renderUnitDetail(uid){
         ${(u.scars||0)>0?`<span class="udet-chip" style="color:#c98f7a;border-color:#c98f7a" title="幾多の負傷を乗り越えて刻まれた歴戦の傷痕。傷を負いにくくなっている(傷痕${u.scars}=負傷率${Math.round((1-scarInjuryMult(u))*100)}%減)">歴戦の傷痕 ${"✚".repeat(Math.min(5,u.scars))}</span>`:""}
         ${avengeActive(u)?`<span class="udet-chip" style="color:#d98a6a;border-color:#d98a6a" title="喪った${u.avengeName||"戦友"}の弔いを胸に奮い立っている。この間、戦力が高まる(あと${Math.max(0,(u.avengeUntil||0)-S.day)}日)">弔い合戦 ⚔ あと${Math.max(0,(u.avengeUntil||0)-S.day)}日</span>`:""}
         ${u.vigor?`<span class="udet-chip" style="color:#8fbf6f;border-color:#8fbf6f" title="十分に休養して英気を養った状態。次の出撃で戦力が高まる(出撃で消費)">英気充溢</span>`:""}
+        ${(()=>{if(isInstructor)return"";const fb=kingdomFirstBladeId();if(!fb)return"";if(fb===u.id)return `<span class="udet-chip" style="color:#e8c874;border-color:#e8c874;background:rgba(232,200,116,.12);font-weight:700" title="今この時、現役の兵の中で最も戦力が高い王国第一の武人。兵が育てば、この座は移ろう">◆王国最強</span>`;const top=S.units.find(x=>x.id===fb);if(!top)return"";const gap=Math.max(0,Math.round(unitPower(top)-unitPower(u)));if(gap<=0)return"";return `<span class="udet-chip" style="color:var(--dim);border-color:var(--dim)" title="現役最強の${top.nm}まで、あと戦力${gap}。追い抜けば「王国最強」の座を継ぐ">筆頭まで 戦力あと${gap}</span>`;})()}
         ${(()=>{const k=beastKindOf(u);if(!k)return"";const seas=u.beast&&u.beast.seasoned;return `<span class="udet-chip" style="color:${k.color};border-color:${k.color}" title="迷宮で懐いた生涯の相棒。${k.desc}(遠征に付き従い、${k.boonLabel}の恩恵をもたらす)${seas?" ／ 長く連れ添った老練の相棒:一心同体の呼吸で通じ合い、主の忠義がわずかに揺るがない":""}">${seas?"◆":""}相棒:${k.nm}「${u.beast.nm}」〔${k.boonLabel}〕${seas?"・老練":""}</span>`;})()}
         ${(()=>{if(isInstructor)return"";if((S.day-(u.joinDay||1))<20)return"";if(!((u.loyalty||0)<55||(u.moral||0)<48))return"";return `<span class="udet-chip" style="color:#c98f9a;border-color:#c98f9a" title="長く仕えながら、忠義か士気に翳りがさしている。いずれ王への拝謁を願い出るやもしれぬ。労い・褒賞・叱咤のいずれかで応えれば、離れかけた心を繋ぎ止められる">心に憂いあり</span>`;})()}
         ${(()=>{const lg=(tr&&tr.loyaltyGrow)||0;if(lg>=0.3)return `<span class="udet-chip" style="color:#d8b45e;border-color:#d8b45e" title="生来、忠義が深まりやすく、めったに揺らがない質。長く仕えるほど頼れる忠臣となる">忠義篤し</span>`;if(lg<=-0.1)return `<span class="udet-chip" style="color:#c99a6a;border-color:#c99a6a" title="才は光るが気位が高く、忠誠を繋ぎ止めにくい質。お気に入り・結束の宴・拝謁で心を留めておきたい">気位高し</span>`;return "";})()}
