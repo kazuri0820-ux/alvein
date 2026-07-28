@@ -2208,6 +2208,7 @@ function versatilityBonus(u){ const n=jobsWalkedCount(u); return n>=4?3:n>=3?2:n
 function skillCap(u){
   let cap=(u.skillCapBase||3);
   if(u.trait==="reborn")cap+=10;
+  if(u.race==="elf")cap+=2; // エルフ:長寿と魔力への親和で、生涯に多くの技を修める素質を持つ(種族の個性=技巧派の器)
   cap+=versatilityBonus(u); // 複数の職を修めた兵は、覚えられる技の枠が広がる
   return Math.min(cap,20);
 }
@@ -2364,7 +2365,7 @@ function pickUniqueSkill(u){
 /* 種族(国交が開くと出現)寿命付き */
 const RACES=[
  {key:"human",name:"人間",str:0,vit:0,int:0,lifespan:65,desc:""},
- {key:"elf",  name:"エルフ",str:-1,vit:-1,int:4,lifespan:400,desc:"魔力に長け、弓も得意とする。老いを知らぬに等しい"},
+ {key:"elf",  name:"エルフ",str:-1,vit:-1,int:4,lifespan:400,desc:"魔力に長け、弓も得意とする。老いを知らぬに等しく、生涯に多くの技を修める(技の所有枠+2)"},
  {key:"dwarf",name:"ドワーフ",str:3,vit:3,int:-2,lifespan:150,desc:"頑健で力強い。人間よりずっと長生きする"},
  {key:"beastkin",name:"獣人",str:1,vit:1,int:-1,lifespan:55,desc:"俊敏で野性的。群れで動くことを好む"},
  {key:"halfling",name:"小柄な亜人",str:-2,vit:0,int:0,lifespan:90,desc:"体は小さいが身のこなしが良く、危険を避けるのが上手い"},
