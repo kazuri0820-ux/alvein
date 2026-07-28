@@ -10181,7 +10181,7 @@ const KING_TITLE_BOON={
   pioneer:{label:"開拓の治世",desc:"版図を拓く気風が、日々わずかに新たな民を呼び寄せる",day:()=>{S.pop=(S.pop||0)+Math.max(1,Math.round((S.pop||0)*0.0025));}},
 };
 function kingTitleBoon(){const k=S.kingTitle;return (k&&KING_TITLE_BOON[k])?KING_TITLE_BOON[k]:null;}
-function applyKingTitleBoon(){const b=kingTitleBoon();if(b&&typeof b.day==="function"){try{b.day();}catch(e){}}}
+function applyKingTitleBoon(){const b=kingTitleBoon();if(!b||typeof b.day!=="function"){S.lastKingBoonGold=0;return;}const g0=S.gold||0;try{b.day();}catch(e){}S.lastKingBoonGold=Math.max(0,Math.round((S.gold||0)-g0));} // 王徳による日々の財貨(富王など)を捕捉し、国庫の収支内訳に正しく織り込む
 function relicDef(key){return RELIC_DEFS.find(r=>r.key===key);}
 function grantRelicShards(n){S.relicShards=(S.relicShards||0)+n;}
 /* ===== 前哨拠点(ダンジョン×内政の新レバー):踏破した迷宮の跡地を、王国の前哨として確保できる。
@@ -13718,8 +13718,9 @@ function renderStatsDetail(){
       const inc=Math.round(S.lastBudget.inc),up=Math.round(S.lastBudget.up);
       const fief=(S.units||[]).filter(u=>u&&u.fief&&u.role==="active").length; // 知行の禄(領地持ち一人につき+1/日)
       const trade=Math.round(S.lastNeighborIncome||0); // 良好な隣国・同盟との交易収入(外交の実り)
-      const net=inc+fief+trade-up;
-      budgetLine=`<div style="font-size:11px;color:var(--dim);margin-top:3px">前日の収支:<span style="color:#8fbf6f">税収+${inc}</span>${fief>0?` <span style="color:#d8b45e">所領+${fief}</span>`:""}${trade>0?` <span style="color:#8fb0d0">交易+${trade}</span>`:""} <span style="color:#d99a6a">維持費-${up}</span> ＝ 差引 <b style="color:${net>=0?"#8fbf6f":"#d97a7a"}">${net>=0?"+":""}${net}</b>/日${net<0?"(赤字が続くと民心が下がる)":""}</div>`;
+      const boonG=Math.round(S.lastKingBoonGold||0); // 王徳(富王「殖産の治世」など)による日々の財貨
+      const net=inc+fief+trade+boonG-up;
+      budgetLine=`<div style="font-size:11px;color:var(--dim);margin-top:3px">前日の収支:<span style="color:#8fbf6f">税収+${inc}</span>${fief>0?` <span style="color:#d8b45e">所領+${fief}</span>`:""}${trade>0?` <span style="color:#8fb0d0">交易+${trade}</span>`:""}${boonG>0?` <span style="color:#d8b45e">王徳+${boonG}</span>`:""} <span style="color:#d99a6a">維持費-${up}</span> ＝ 差引 <b style="color:${net>=0?"#8fbf6f":"#d97a7a"}">${net>=0?"+":""}${net}</b>/日${net<0?"(赤字が続くと民心が下がる)":""}</div>`;
     }
     h+=`<div class="srow"><div class="sh"><div class="nm">国庫</div><div class="vl">${Math.round(S.gold)}</div></div><div class="ef">毎日 経済に応じた税収が入り、軍事維持費などが出ていく。マイナスが続くと民心が下がる。<span style="color:var(--dim)">／ 現在の税制:<b style="color:${taxLevel()==="heavy"?"#d99a6a":taxLevel()==="light"?"#8fbf6f":"#c9a86a"}">${taxInfo().label}</b>(徴税収入${Math.round(taxInfo().incomeMult*100)}%・国政画面で変更)</span>${budgetLine}</div></div>`;
   }
