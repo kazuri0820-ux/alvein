@@ -10569,6 +10569,28 @@ function checkDungeonTypeFirstClear(dungeon,squad){
     if(remaining.length===1)chron(`未踏の攻略型は、あとは「${remaining[0].label}」ただ一つ。全${total}種の制覇まで、いよいよ王手だ。`,"big");
   }
 }
+/* 難度の初踏破:初めて【レア】【エピック】【レジェンド】級の迷宮を制した瞬間を、王国史の"格の一段"として刻む。
+   攻略型の初踏破(=多様性の軸)とも通算節目(=量の軸)とも異なる「どれだけ格上に挑めたか=難度の軸」。
+   より高い格の迷宮ほど報いは跳ね上がり、覚醒の隊士には確かな手応えを残す。 */
+const RARITY_MILESTONE={
+  rare:{name:"レア",renown:1,mood:3,gold:60,moral:3,line:"――王国は初めて【レア】級の迷宮を制した。並の迷宮では得られぬ手応えに、兵たちは己の成長を確かに噛みしめている。"},
+  epic:{name:"エピック",renown:2,mood:5,gold:150,moral:5,line:"――ついに【エピック】級の迷宮を攻略してのけた。かつては見上げるしかなかった難関を、王国の精鋭は正面から打ち破ったのだ。"},
+  legendary:{name:"レジェンド",renown:4,mood:8,gold:400,moral:8,line:"――大陸の語り草となる【レジェンド】級の迷宮を、王国はついに踏破した。この偉業は幾代も語り継がれ、兵たちの名は伝説の隣に並ぶだろう。"},
+};
+function checkRarityFirstClear(dungeon,squad){
+  const key=dungeon&&dungeon.rarity&&dungeon.rarity.key;
+  const ms=key&&RARITY_MILESTONE[key];
+  if(!ms)return; // common(通常)や rarity 無しの特殊迷宮は対象外
+  S.flags=S.flags||{};
+  S.flags.rarityFirstClear=S.flags.rarityFirstClear||{};
+  if(S.flags.rarityFirstClear[key])return; // 各難度、最初の一度だけ
+  S.flags.rarityFirstClear[key]=S.day;
+  grantRenown(ms.renown,`初の【${ms.name}】級の踏破`); // 威信:格上への初挑戦成功は名声を大きく押し上げる
+  apply({gold:ms.gold,mood:ms.mood});
+  for(const u of (squad||[]))if(u&&u.role==="active")u.moral=Math.min(100,(u.moral||0)+ms.moral);
+  chron(ms.line,"big");
+  if(key==="legendary")recordAnnal("初めて【レジェンド】級の迷宮を踏破した。","firstLegendaryDungeon",true); // 最高難度の初制覇は年表に永久記録
+}
 /* 従軍医の心得: 部隊に手当ての心得ある者がいると、負傷の重さ(severity)が軽い方へ寄る=支援(医療)ビルド */
 function medicAdjustWeights(w,squad){
   const m=squad&&squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).fieldMedic||0,(traitInfo(u.trait).fieldMedic)||0))):0; // スキル(従軍医の心得)と特性(生まれつきの癒し手)の医療効果を同格に扱う=特性/スキル両対応の医療ビルド
@@ -10695,6 +10717,7 @@ function resolveDungeonRun(dungeonId){
       if(!dungeon.isFinal&&!dungeon.isNemesis&&(S.outposts||[]).length<outpostCap()&&Math.random()<0.25)claimOutpost(dungeon); // 前哨拠点:踏破した跡地を稀に王国の前哨として確保(空きがあれば)
       maybeRelicShard(dungeon,crit,squadEthos==="fortune"?0.18:0); // 踏破の報酬軸:稀に秘宝の断片を持ち帰る(福運の隊は出やすい)
       checkDungeonTypeFirstClear(dungeon,squad); // 攻略型の初踏破を記念する
+      checkRarityFirstClear(dungeon,squad); // 難度(レア/エピック/レジェンド)の初踏破を王国史に刻む
       checkDungeonClearMilestone(); // 通算踏破数の節目を年代記に刻む
       tryUnlockDemonLordDungeon();
       const _tk=dungeon.type&&dungeon.type.key;
