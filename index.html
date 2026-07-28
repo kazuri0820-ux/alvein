@@ -10861,6 +10861,7 @@ function showDungeonResult(dungeon,tier,bossWin,memberLog,goldGained,itemGained,
   { // この一戦を彩った采配・力を一望に:積み上げた仕組み(主眼・一番槍・熟成・相棒獣・装備の霊験・歴戦…)が働いた手応えを、結果画面で felt にする(磨き込み)
     const rsquad=(dungeon.squadIds||[]).map(id=>S.units.find(u=>u.id===id)).filter(Boolean);
     const facs=[];
+    if(dungeon.condition&&typeof DUNGEON_CONDITIONS!=="undefined"&&DUNGEON_CONDITIONS[dungeon.condition])facs.push(`環境:${DUNGEON_CONDITIONS[dungeon.condition].label}`); // その地の環境=報酬を最も左右する要素を結果にも明示(手応えの可視化)
     if(bossWin&&dungeon.bossTrait&&typeof BOSS_TRAITS!=="undefined"&&BOSS_TRAITS[dungeon.bossTrait])facs.push(`討王:${BOSS_TRAITS[dungeon.bossTrait].label}`);
     if(dungeon.aim&&dungeon.aim!=="balanced"&&typeof DUNGEON_AIMS!=="undefined"&&DUNGEON_AIMS[dungeon.aim])facs.push(`主眼:${DUNGEON_AIMS[dungeon.aim].label}`);
     if((dungeon.festerReward||0)>0)facs.push(`熟成の実り +${Math.round(dungeon.festerReward*100)}%`);
