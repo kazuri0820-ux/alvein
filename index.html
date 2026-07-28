@@ -6304,6 +6304,41 @@ const RANDOM_CHOICE_EXTRA=[
    }}},
    {label:"務めゆえと、そっと諭す",hint:"治安+1",fx:{st:{order:1},log:"長は私情を差し挟まず、務めの大切さをそっと説いた。厳しくも筋の通った態度が、家中の規律を引き締めている。"}},
   ]},
+ /* ── 危機対応(装備を守るか兵を守るか) ── */
+ {tag:"急 火",title:"武具庫の火災",
+  body:"夜半、武具庫から火の手が上がった。中には兵たちの得物や蓄えた装備が納められている。即断が要る。",
+  speaker:"ガレオン「猶予はありませぬ。お指図を!」",
+  choices:[
+   {label:"兵を動員し、消し止める",hint:"装備を守る / 兵が疲弊・軽い負傷者も",fx:{call:()=>{
+     const act=S.units.filter(u=>u.role==="active");for(const u of act)u.fatigue=Math.min(100,(u.fatigue||0)+ri(10,18));
+     if(act.length){const u=act[Math.floor(Math.random()*act.length)];u.injured=Math.max(u.injured||0,ri(1,2));unitHistory(u,"武具庫の火災で消火に当たり、軽い火傷を負った。");}
+     apply({st:{order:1},mood:1,log:"兵たちが夜を徹して消火に当たり、武具庫は守り抜かれた。皆すすだらけで疲れ果てているが、蓄えは無事だ。"});
+   }}},
+   {label:"延焼を防ぐことを優先し、武具庫は諦める",hint:"国庫損失 / 兵は無事",fx:{call:()=>{
+     const loss=ri(40,80);S.gold=Math.max(0,(S.gold||0)-loss);
+     apply({st:{order:1},log:`延焼を食い止めることを優先し、武具庫は焼け落ちた。焼失した備えの補填に金貨${loss}を要したが、兵に怪我人は出なかった。`});
+   }}},
+  ]},
+ /* ── 若い兵の芽(育成・愛着) ── */
+ {tag:"献 策",title:"若き兵の献策",
+  body:"年若い兵の一人が、緊張の面持ちで一つの献策を申し出てきた。拙いながらも、その眼には確かな熱がある。どう扱うか。",
+  speaker:"フィオナ「若さゆえの飛躍もございましょう。芽は摘まぬが得策かと」",
+  choices:[
+   {label:"策を採り上げ、任せてみる",hint:"若い兵の統率・経験↑ / 治安+1",fx:{call:()=>{
+     const young=S.units.filter(u=>u.role==="active"&&typeof ageStageOf==="function"&&ageStageOf(u).key==="young");
+     const pool=young.length?young:S.units.filter(u=>u.role==="active");
+     const u=pool.length?pool[Math.floor(Math.random()*pool.length)]:null;
+     if(u){u.lead=(u.lead||0)+ri(2,4);u.exp=(u.exp||0)+u.lv*6;u.moral=Math.min(100,(u.moral||0)+6);unitHistory(u,"若くして献策が容れられ、任を果たして自信を深めた。");chron(`――${u.nm}の献策が容れられた。若い兵は任を立派に果たし、その統率に一段の伸びを見せている。`,"people");}else{apply({log:"献策する兵が見当たらず、話は流れた。"});}
+     apply({st:{order:1}});
+   }}},
+   {label:"経験が浅いと諭し、見送る",hint:"本人の士気は少し下がるが規律は保たれる",fx:{call:()=>{
+     const young=S.units.filter(u=>u.role==="active"&&typeof ageStageOf==="function"&&ageStageOf(u).key==="young");
+     const pool=young.length?young:S.units.filter(u=>u.role==="active");
+     const u=pool.length?pool[Math.floor(Math.random()*pool.length)]:null;
+     if(u){u.moral=Math.max(0,(u.moral||0)-3);unitHistory(u,"献策は時期尚早と諭された。悔しさを胸に、さらなる研鑽を誓ったという。");}
+     apply({st:{order:1},log:"長は若い兵の熱意を認めつつ、今はまだ時期尚早と諭した。折り目正しい対応に、家中の規律は保たれている。"});
+   }}},
+  ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
 /* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
