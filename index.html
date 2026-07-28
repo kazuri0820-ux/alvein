@@ -12582,9 +12582,32 @@ function checkForbiddenOmen(){
     else{const g=ri(15,35);S.gold=Math.max(0,S.gold-g);apply({mood:-1,log:`禁書の頁が独りでに燃え、書庫の一角が焼けた。消火と復旧に費えがかさんだ(国庫-${g})。禁断の力は、時にこうして牙を剥く。`,logCls:"grave"});}
   }
 }
+// 進行中の連続物語(イベント連鎖)を一覧化:数十日に跨る物語の途中経過を見失わないように、いま抱える物語の糸と"何が次を手繰るか"を示す(長編の手応え・導線)
+function activeStoryChains(){
+  const F=(S&&S.flags)||{}; const out=[];
+  const dayHint=(td,what)=>{const d=Math.max(0,Math.ceil((td||0)-(S.day||0)));return d>0?`あと約${d}日で${what}`:`まもなく${what}`;};
+  if(F.pilgrimArc===1)out.push(["星を追う巡礼者","巡礼者が再び星図を携え訪れるのを待っている"]);
+  else if(F.pilgrimArc===2)out.push(["星を追う巡礼者","『星冠の遺跡』を踏破すれば終幕を迎える"]);
+  if(F.alchemyArc===1)out.push(["流浪の錬金術師",dayHint(F.alchemyArcDay,"錬金術師が三つの秘術を成す")]);
+  if(F.smithArc===1)out.push(["落魄の名工",dayHint(F.smithArcDay,"名工が最後の一領を打ち上げる")]);
+  if(F.wandererArc===1){const n=Math.max(0,(F.wandererTarget||0)-(S.dungeonsCleared||0));out.push(["流浪の剣客",n>0?`あと${n}回の踏破で器量を示せば剣客が加わる`:"次の踏破で剣客が仲間に加わる"]);}
+  if(F.spiritArc===1)out.push(["英霊、夢枕に立つ",dayHint(F.spiritDay,"英霊の加護が結ばれる")]);
+  if(F.hermitArc===1)out.push(["山の隠者",dayHint(F.hermitDay,"隠者が秘伝を授ける")]);
+  if(F.forbiddenArc===1)out.push(["封じられし禁書",dayHint(F.forbiddenDay,"禁書の解読が進む")]);
+  if(F.dragonEggArc===1)out.push(["竜の卵",dayHint(F.dragonEggDay,"卵が孵るのを待っている")]);
+  return out;
+}
 function renderProjects(){
   let h="";
   const focusLabels={military:"軍事",economy:"経済",agriculture:"農業",magic:"魔導",order:"治安",diplomacy:"外交"};
+  // ── 進行中の物語(連続イベント連鎖の途中経過) ──
+  {const chains=activeStoryChains();
+   if(chains.length){
+     h+=`<div class="pcard" style="margin-bottom:10px;border-color:#c9a0c0"><div class="nm" style="color:#d9b0d0"><i class="icon-laurel"></i>進行中の物語 <span style="color:var(--dim);font-size:10.5px">${chains.length}編</span></div>`;
+     for(const [nm,hint] of chains)h+=`<div class="ds" style="font-size:11px;margin-top:3px">◈ <b style="color:#e0c0d8">${nm}</b> <span style="color:var(--dim)">― ${hint}</span></div>`;
+     h+=`</div>`;
+   }
+  }
   // ── 魔王軍の脅威(終盤の時計:玉座への道のりを可視化。何を満たせば最後の戦いへ挑めるかを明示する) ──
   if(S.flags&&S.flags.demonNoticed&&!S.flags.demonLordDefeated){
     const army=S.demonArmyLevel||0, cleared=S.dungeonsCleared||0, gens=S.demonGeneralsDefeated||0;
