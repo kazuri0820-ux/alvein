@@ -10168,11 +10168,15 @@ const REIGN_FEATS=[
  {key:"legion",name:"精鋭の軍団",icon:"⚔",desc:"称号を3つ以上帯びた誉れある兵を5人擁する",
    prog:s=>[Math.min(5,(s.units||[]).filter(u=>(u.titles||[]).length>=3).length),5],cond:s=>(s.units||[]).filter(u=>(u.titles||[]).length>=3).length>=5,
    reward:()=>{apply({st:{military:4},mood:3});return "軍事+4・民心↑";}},
+ {key:"peace",name:"泰平の世",icon:"🕊",desc:"民心を高く(85以上)、30日続けて保つ",
+   prog:s=>[Math.min(30,s.peaceDays||0),30],cond:s=>(s.peaceDays||0)>=30,
+   reward:()=>{apply({st:{order:3,agriculture:2},mood:5});return "治安+3・農業+2・民心↑";}},
 ];
 function featDone(key){return !!(S.reignFeats&&S.reignFeats[key]);}
 function checkReignFeats(){
   if(S.day<3)return; // 立ち上がり直後の遡及的な一斉達成を避ける
   S.reignFeats=S.reignFeats||{};
+  S.peaceDays=((S.mood||0)>=85)?((S.peaceDays||0)+1):0; // 泰平の世:民心が高く保たれた日を数える。途切れれば振り出しに戻る=持続の統治力を測る
   for(const f of REIGN_FEATS){
     if(S.reignFeats[f.key])continue;
     let ok=false; try{ok=!!f.cond(S);}catch(e){ok=false;}
