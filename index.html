@@ -6931,6 +6931,7 @@ function checkFixedDayEvents(){
     if(Math.random()<0.12)pool.push("__merchant_visit__","__merchant_visit__","__merchant_visit__");
     if(S.day>=45&&(S.neighbors||[]).some(n=>n&&!n.allied)&&Math.random()<0.10)pool.push("__defector__"); // 国が育ち諸国との縁が生まれた頃、非同盟国から亡命者が訪れる
     if((S.neighbors||[]).some(n=>n&&n.allied)&&Math.random()<0.10)pool.push("__ally_request__"); // 同盟を結んでいると、時に盟友が窮地に助けを求めてくる(盟約は双方向)
+    if((S.units||[]).some(u=>u&&u.role==="active"&&(S.day-(u.joinDay||S.day))>=120)&&Math.random()<0.08)pool.push("__homecoming__"); // 長く仕える古参が、募る里心に暇を願い出る(兵に暮らしと家族を)
     if(typeof findDiscordPair==="function"&&findDiscordPair()&&Math.random()<0.35)pool.push("__discord_mediation__"); // 兵舎に確執がくすぶっている時、王に仲裁の機会が巡る
     pushEvent(pool[Math.floor(Math.random()*pool.length)]);
     fired=true;
@@ -7877,6 +7878,7 @@ const EVENT_ID_EXACT={
   "__merchant_visit__":()=>buildMerchantVisitEvent(),
   "__defector__":()=>buildDefectorEvent(),
   "__ally_request__":()=>buildAllyRequestEvent(),
+  "__homecoming__":()=>buildHomecomingEvent(),
   "__discord_mediation__":()=>buildDiscordMediationEvent(),
   "__growth__":()=>pickFresh(EARLY_GROWTH),
   "__mission__":()=>buildMissionEvent(),
@@ -12239,6 +12241,40 @@ function buildAllyRequestEvent(){
     body:`同盟を結ぶ${nbName}より、火急の使者が参じた。「盟邦のよしみを頼み、伏してお願い申す」――聞けば、${c.body}という。盟邦の求めに、王はどう応えるか。`,
     speaker:`ガレオン「盟友の窮地にございます。応えれば絆は深まり、王国の義もまた示されましょう。……なれど、無理は禁物にございます」`,
     choices};
+}
+/* 兵の里帰り(人心の新機軸:兵に暮らしと家族を与える):長く仕える古参が、募る里心を胸に、家族に会うための暇を願い出る。
+   兵を"戦力の駒"でなく、故郷と暮らしを持つ一人の人間として描き、王の情け(あるいは非情)が忠誠・士気に返ってくる。
+   厚く送り出せば英気を養って戻り、務めを優先すれば寂しさが残る――在籍を重ねた兵ほど起こる、愛着を深める personal な一幕。 */
+function buildHomecomingEvent(){
+  const vets=(S.units||[]).filter(u=>u&&u.role==="active"&&!u.dungeonBusy&&!u.campUntil&&(u.injured||0)<=0&&(S.day-(u.joinDay||S.day))>=120);
+  if(!vets.length)return null;
+  vets.sort((a,b)=>(a.joinDay||0)-(b.joinDay||0)); // 最も長く仕える者ほど里心もひとしお
+  const u=vets[Math.floor(Math.random()*Math.min(3,vets.length))];
+  const served=Math.max(1,Math.floor((S.day-(u.joinDay||S.day))/AGE_YEAR_DAYS));
+  return {tag:"里 心",title:"兵の里帰り",
+   body:`長く王国に仕える${fullName(u)}が、思い詰めた面持ちで王の前に進み出た。「陛下……${served}年、勤めて参りました。厚かましいお願いとは存じますが、しばし暇を頂き、故郷の家族に達者な顔を見せてやりとうございます」。その眼には、募る里心が滲んでいる。`,
+   speaker:`セラ「長年の忠勤にございます。……たまの休みは、かえって兵を強くいたしましょう」`,
+   choices:[
+    {label:"路銀を持たせ、快く送り出す(30G)",hint:`厚く報いる ／ ${u.nm}の忠誠・士気↑↑ 英気充溢`,fx:{call:()=>{
+      if(S.gold>=30)S.gold-=30;
+      u.loyalty=Math.min(100,(u.loyalty||0)+ri(10,15));u.moral=Math.min(100,(u.moral||0)+ri(8,12));u.fatigue=0;u.vigor=true;
+      unitHistory(u,`王の計らいで故郷に帰り、家族と水入らずの時を過ごした。英気を養って戻った。`);
+      chron(`王は${fullName(u)}に路銀まで持たせ、快く里帰りを許した。数日の後、${u.nm}は晴れやかな顔で戻り、以前にも増して王国に身を捧げる覚悟を新たにしていた(忠誠・士気↑↑ 英気充溢)。`,"big");
+      clamp();render();renderTroops();save();
+    }}},
+    {label:"短い暇を許す",hint:`無理のない範囲で ／ ${u.nm}の忠誠・士気↑`,fx:{call:()=>{
+      u.loyalty=Math.min(100,(u.loyalty||0)+ri(4,7));u.moral=Math.min(100,(u.moral||0)+ri(3,6));u.fatigue=Math.max(0,(u.fatigue||0)-30);
+      unitHistory(u,`王より短い暇を許され、故郷の土を踏んで戻った。`);
+      chron(`王は${u.nm}に短い暇を許した。慌ただしくも故郷の土を踏んだ${u.nm}は、満ち足りた面持ちで務めに戻った(忠誠・士気↑)。`,"");
+      clamp();render();renderTroops();save();
+    }}},
+    {label:"今は国の大事と諭す",hint:`務めを優先 ／ ${u.nm}の士気少し↓`,fx:{call:()=>{
+      u.moral=Math.max(0,(u.moral||0)-ri(3,6));u.loyalty=Math.max(0,(u.loyalty||0)-ri(1,3));
+      unitHistory(u,`里帰りの願いは、国の大事を前に聞き届けられなかった。`);
+      chron(`王は${u.nm}に、今は国の大事と諭した。${u.nm}は「……承知いたしました」と頭を垂れたが、その背には隠しきれぬ寂しさが漂っていた(士気少し↓)。`,"");
+      clamp();render();renderTroops();save();
+    }}},
+   ]};
 }
 // 確執の仲裁:兵舎にくすぶる不仲を、王がじきじきに裁く一幕(確執システムに能動的な手当てを与える)
 function findDiscordPair(){
