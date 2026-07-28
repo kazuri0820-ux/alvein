@@ -2782,6 +2782,23 @@ function dreamProgress(u){
     default: return null;
   }
 }
+/* 志の継承:師が、叶えぬ夢を抱いたまま世を去る/退く時、その悲願を弟子が我が志として受け継ぐことがある。
+   師弟(関係)と兵の夢(personal な目標)を結び、"果たせなかった想いが次代へ渡る"という legacy の一幕を生む
+   (愛着×師弟×夢の再結合)。弟子が既に叶えた/満たしている夢は継がない。 */
+function inheritMasterDream(master){
+  if(!master||!master.dream||master.dreamDone)return; // 師が叶えぬ夢を抱いていた時のみ
+  if(Math.random()>=0.6)return; // 常にではなく、時に弟子が師の悲願を継ぐ
+  const pupil=(S.units||[]).find(u=>u&&u.id===master.pupilId&&u.role==="active");
+  if(!pupil)return;
+  if(pupil.dream===master.dream&&!pupil.dreamDone)return; // 既に同じ志を追っているなら不要
+  if(Array.isArray(pupil.dreamsFulfilled)&&pupil.dreamsFulfilled.includes(master.dream))return; // 弟子が既に叶えた夢は継がない
+  const d=UNIT_DREAMS.find(x=>x.key===master.dream); if(!d)return;
+  let met=false;try{met=d.done(pupil);}catch(e){} if(met)return; // 弟子が既に満たしているなら継ぐ意味がない
+  pupil.dream=master.dream; pupil.dreamDone=false; pupil.dreamRenewDay=null;
+  pupil.moral=Math.min(100,(pupil.moral||0)+3);
+  unitHistory(pupil,`師${master.nm}が果たせなかった夢「${d.text}」を、我が志として継ぐと誓った。`);
+  chron(`${fullName(pupil)}は、師${master.nm}が遂に叶えられなかった夢「${d.text}」を、自らの志として受け継いだ。師の想いは、弟子の胸に生き続ける。`,"big");
+}
 function makeUnit(){
   const cls=pickClass();
   const race=pickRace();
@@ -3142,7 +3159,7 @@ function removeUnitById(id,reason){
   // 憧れの英雄を失った若手は、深く悼み、その遺志を胸に歩み出す
   for(const ad of S.units){ if(ad.id!==u.id&&ad.admires===u.id){ ad.admires=null; ad.moral=Math.max(0,(ad.moral||0)-5); unitHistory(ad,`憧れた英雄${u.nm}を失い、深い喪失に沈んだ。だがその背中を胸に刻み、あとを継ぐと誓った。`); chron(`${ad.nm}は、憧れの${u.nm}の死を誰よりも悼んだ。いつかあの人のように――その想いは、決意へと姿を変えていく。`,"grave"); } }
   if(u.masterId){const mst=S.units.find(x=>x.id===u.masterId);if(mst){mst.pupilId=null;mst.moral=Math.max(0,(mst.moral||0)-5);setAvenge(mst,u.nm);unitHistory(mst,`育てていた弟子${u.nm}を失い、その無念を晴らさんと刃を執った(弔い合戦)。`);}}
-  if(u.pupilId){const pu=S.units.find(x=>x.id===u.pupilId);if(pu){pu.masterId=null;pu.moral=Math.max(0,(pu.moral||0)-6);setAvenge(pu,u.nm);unitHistory(pu,`師${u.nm}を失い、その教えを胸に、遺志を継ぐと誓って戦場へ立った(弔い合戦)。`);chron(`${pu.nm}は、師${u.nm}の遺志を継ぐと誓い、その想いを力に変えて戦い続けた。`,"grave");}}
+  if(u.pupilId){const pu=S.units.find(x=>x.id===u.pupilId);if(pu){if(typeof inheritMasterDream==="function")inheritMasterDream(u);pu.masterId=null;pu.moral=Math.max(0,(pu.moral||0)-6);setAvenge(pu,u.nm);unitHistory(pu,`師${u.nm}を失い、その教えを胸に、遺志を継ぐと誓って戦場へ立った(弔い合戦)。`);chron(`${pu.nm}は、師${u.nm}の遺志を継ぐと誓い、その想いを力に変えて戦い続けた。`,"grave");}}
   if(u.favorite&&reason==="death"){ // 長が目をかけていた兵の死は、隊全体に大きな喪失感を残す
     S.mood=Math.max(0,(S.mood||0)-4);
     for(const o of S.units)if(o.id!==u.id)o.moral=Math.max(0,o.moral-4);
@@ -3486,7 +3503,7 @@ function retirementTribute(u,asInstructor){
   {const yrs=Math.floor(tenure/((typeof AGE_YEAR_DAYS!=="undefined")?AGE_YEAR_DAYS:25));if(yrs>=1)feats.push(`${yrs}年の奉公`);}
   const featTxt=feats.length?`(${feats.join("・")}を遺し)`:"";
   chron(`――${fullName(u)}${featTxt}、${asInstructor?"第一線を退いて指南役の道へ進んだ":"惜しまれつつ現役を退いた"}。${u.sigFeat?`「${u.sigFeat.text}」――その武勲は、長く語り草となるだろう。`:"その歩みは、王国の記憶に確かに刻まれている。"}`,"big");
-  if(u.pupilId){const pu=S.units.find(x=>x.id===u.pupilId);if(pu){pu.masterId=null;pu.moral=Math.min(100,(pu.moral||0)+3);unitHistory(pu,`師${u.nm}の引退を見送り、その教えを胸に刻んだ。`);chron(`弟子${pu.nm}は、師${u.nm}の背をいつまでも見送っていた。その教えは、確かに受け継がれている。`,"");}}
+  if(u.pupilId){const pu=S.units.find(x=>x.id===u.pupilId);if(pu){if(typeof inheritMasterDream==="function")inheritMasterDream(u);pu.masterId=null;pu.moral=Math.min(100,(pu.moral||0)+3);unitHistory(pu,`師${u.nm}の引退を見送り、その教えを胸に刻んだ。`);chron(`弟子${pu.nm}は、師${u.nm}の背をいつまでも見送っていた。その教えは、確かに受け継がれている。`,"");}}
   const admirers=S.units.filter(x=>x.admires===u.id);
   for(const a of admirers){a.admires=null;a.moral=Math.min(100,(a.moral||0)+2);unitHistory(a,`憧れの${u.nm}の引退を見届けた。いつか自分もあの背中に、と胸に誓って。`);}
   if(typeof recordAnnal==="function"&&(titles>=3||clears>=15||u.wasCaptain))recordAnnal(`${fullName(u)}が、輝かしい武功を遺して現役を退いた。`,"retire",false);
