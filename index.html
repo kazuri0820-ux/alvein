@@ -12789,26 +12789,41 @@ function advisorRemark(p){
   if(!p)return "";
   const nm=p.nm||"", rl=p.rl||"";
   const has=(...ks)=>ks.some(k=>nm.includes(k)||rl.includes(k));
+  // 週次推移を側近が肌で感じ取り、勢いのある/翳りのある局面ではまずそれに触れる(施策の手応えを人の言葉で返す演出)
+  const trend=(k)=>(S.stTrend&&S.stTrend.st&&typeof S.stTrend.st[k]==="number")?Math.round(S.st[k])-Math.round(S.stTrend.st[k]):0;
+  const SWING=4; // これ以上の週次変動を「はっきりした潮目」とみなす
   if(has("ネロ","行商","金","財務")){ // 経済・国庫
     if((S.gold||0)<0)return "「国庫が赤字にございます、陛下。無駄な出費を切り詰めねば、村が死にまする」";
+    const t=trend("economy");
+    if(t>=SWING)return `「市場がこのところ上向いております(経済 +${t})。この勢い、大切になされませ」`;
+    if(t<=-SWING)return `「商いに翳りが見えまする(経済 ${t})。税や出費、いま一度お見直しを」`;
     if((S.gold||0)>=800)return "「国庫は潤沢。……なれど、金は使うてこそ生きるもの。死蔵は禁物ですぞ」";
     if((S.st.economy||0)>=60)return "「商いは上々。市場には活気がございます」";
     return "「国庫はまずまず。されど、算盤の手は緩められませぬ」";
   }
   if(has("マーサ","畑","農")){ // 農業・食糧
     if((S.food||0)<30)return "「蔵の食糧が心細うございます。このままでは、民がひもじい思いをしますじゃ」";
+    const t=trend("agriculture");
+    if(t>=SWING)return `「畑がぐんと実り始めたぞ(農業 +${t})。この調子じゃ、頼むぞ」`;
+    if(t<=-SWING)return `「作柄が落ちてきとる(農業 ${t})。早う手を入れんと、冬が危ういよ」`;
     if((S.food||0)>=300)return "「蔵は満々じゃ。しばらくは食うに困らんよ」";
     if((S.st.agriculture||0)>=60)return "「今年の畑はよう実っとる。何よりの実りじゃ」";
     return "「畑はまあまあじゃな。あとは、お天道様次第よ」";
   }
   if(has("ガレオン","軍","猟師")){ // 軍事・兵
     const n=S.units.filter(u=>u.role==="active").length;
+    const t=trend("military");
+    if(t>=SWING)return `「兵の練度が目に見えて上がっております(軍事 +${t})。頼もしい限り」`;
+    if(t<=-SWING)return `「軍の力が鈍り始めました(軍事 ${t})。鍛錬を怠らぬよう、お下知を」`;
     if((S.st.military||0)>=60)return `「我が軍は精強。${n}名の兵、いつなりとお下知を」`;
     if((S.st.military||0)<35)return "「兵の練度に不安が残ります。まずは備えを固めるべきかと」";
     return `「${n}名の兵が務めについております。今のところ、大過はございませぬ」`;
   }
   if(has("セラ","書記","内務")){ // 治安・全体
     if((S.mood||0)<35)return "「民心が沈んでおります、陛下。速やかに手をお打ちくださいませ」";
+    const t=trend("order");
+    if(t>=SWING)return `「綱紀が引き締まってまいりました(治安 +${t})。良い流れにございます」`;
+    if(t<=-SWING)return `「治安が緩み始めております(治安 ${t})。早めのお手当てを進言いたします」`;
     if((S.st.order||0)<35)return "「治安に綻びが見えます。取り締まりの強化を進言いたします」";
     if((S.st.order||0)>=60)return "「城下は静穏。綱紀もよく保たれております」";
     return "「記録によれば、王国は概ね、順調に歩んでおります」";
