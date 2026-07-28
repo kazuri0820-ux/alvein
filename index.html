@@ -7887,7 +7887,7 @@ function turnTick(){
     if(ended)return;
     S.day++;S.turn=0;
     // 国力の週次推移スナップショット:一週間ごとに現在値を記録し、国力画面で「今週どちらへ動いているか」を可視化する(施策の手応えを読めるように)
-    if(!S.stTrend||typeof S.stTrend.day!=="number"||(S.day-S.stTrend.day)>=7){S.stTrend={day:S.day,st:Object.assign({},S.st)};}
+    if(!S.stTrend||typeof S.stTrend.day!=="number"||(S.day-S.stTrend.day)>=7){S.stTrend={day:S.day,st:Object.assign({},S.st),mood:S.mood};} // 民心(統治の生命線)も併せて記録し、週次の趨勢を国力画面で読めるように
   }else{
     S.turn++;
   }
@@ -13482,7 +13482,14 @@ function renderStatsDetail(){
     h+=`<div class="srow"><div class="sh"><div class="nm">国庫</div><div class="vl">${Math.round(S.gold)}</div></div><div class="ef">毎日 経済に応じた税収が入り、軍事維持費などが出ていく。マイナスが続くと民心が下がる。<span style="color:var(--dim)">／ 現在の税制:<b style="color:${taxLevel()==="heavy"?"#d99a6a":taxLevel()==="light"?"#8fbf6f":"#c9a86a"}">${taxInfo().label}</b>(徴税収入${Math.round(taxInfo().incomeMult*100)}%・国政画面で変更)</span>${budgetLine}</div></div>`;
   }
   h+=`<div class="srow"><div class="sh"><div class="nm">食糧</div><div class="vl">${Math.round(S.food)}</div></div><div class="ef">農業に応じて増え、人口に応じて減る。尽きると民心が下がる。</div></div>`;
-  h+=`<div class="srow"><div class="sh"><div class="nm">民心</div><div class="vl">${Math.round(S.mood)} / 100</div></div><div class="ef">0になると民の支持を失い、統治が終わる。治安・食糧・国庫の影響を受ける。70以上で兵士の忠誠がじわじわ高まり、30未満では逆に蝕まれていく。</div></div>`;
+  let moodTrend=""; // 民心の週次推移:統治の生命線が今週どちらへ動いているかを一目で読めるように(国力6軸と同じ趨勢表示)
+  if(S.stTrend&&typeof S.stTrend.mood==="number"){
+    const md=Math.round(S.mood)-Math.round(S.stTrend.mood);
+    if(md>=1)moodTrend=`<span style="color:#8fbf6f;font-weight:700;margin-left:6px" title="今週ここまでの民心の推移">▲+${md}</span>`;
+    else if(md<=-1)moodTrend=`<span style="color:#d97a7a;font-weight:700;margin-left:6px" title="今週ここまでの民心の推移">▼${md}</span>`;
+    else moodTrend=`<span style="color:var(--dim);margin-left:6px" title="今週ここまでの民心の推移">―</span>`;
+  }
+  h+=`<div class="srow"><div class="sh"><div class="nm">民心</div><div class="vl">${Math.round(S.mood)} / 100${moodTrend}</div></div><div class="ef">0になると民の支持を失い、統治が終わる。治安・食糧・国庫の影響を受ける。70以上で兵士の忠誠がじわじわ高まり、30未満では逆に蝕まれていく。</div></div>`;
   $("#statList").innerHTML=h;
 }
 function skillEffectText(s){
