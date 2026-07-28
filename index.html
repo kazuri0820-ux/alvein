@@ -12066,6 +12066,7 @@ const ROYAL_DECREES=[
  {key:"festival",name:"祝祭の布告",desc:"国庫を開いて祝祭を催す。全兵の士気と民心が大きく上がる(国庫120)。",fx:()=>{for(const u of S.units)u.moral=Math.min(100,u.moral+10);apply({gold:-120,mood:8,log:"王の名のもとに盛大な祝祭が催された。兵も民も、心ゆくまで楽しんだ。",logCls:"big"});}},
  {key:"levy",name:"臨時徴税",desc:"臨時の税を課す。国庫が大きく潤うが、民心は下がる。",fx:()=>apply({gold:220,mood:-8,st:{economy:1},log:"臨時徴税が布告された。国庫は潤ったが、民の顔には翳りが差した。",logCls:"big"})},
  {key:"investiture",name:"叙任の儀",desc:"武功ある兵を讃える儀式を催す。全兵の忠誠が上がる。",fx:()=>{for(const u of S.units)u.loyalty=Math.min(100,u.loyalty+8);apply({mood:3,log:"叙任の儀が執り行われ、兵たちは王への忠誠を新たにした。",logCls:"big"});}},
+ {key:"summon",name:"求賢の勅令",desc:"広く天下に人材を求める触れを出す。腕に覚えある志願者が幾人か志願所に加わる(満杯なら支度金)。人材難の打開に。",fx:()=>{S.volunteers=S.volunteers||[];const names=[];let added=0;const n=ri(2,3);for(let i=0;i<n;i++){if(S.volunteers.length>=8)break;const v=makeVolunteer();v.hiddenPotential=Math.random()<0.5;v.comment="王の求賢の勅令に応じ、我こそはと門を叩いた志願者。";names.push(`${v.unit.nm} ${v.unit.surname}`);S.volunteers.push(v);added++;}if(added>0)chron(`求賢の勅令が国中に響き、${names.join("・")}が志願所に加わった。`,"big");else{const g=ri(80,140);apply({gold:g});chron(`求賢の勅令を布告したが、志願所は既に満杯。応じた者たちは支度金${g}を残し、また来ると去っていった。`,"big");}}},
 ];
 function decreeCooldownLeft(){return Math.max(0,DECREE_COOLDOWN-(S.day-(S.lastDecreeDay??-DECREE_COOLDOWN)));}
 /* ===== 近隣諸国との外交(内政の新軸):名を持つ隣国との関係を築き、交易の恵みを得る/脅威を避ける ===== */
