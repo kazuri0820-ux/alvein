@@ -2374,6 +2374,15 @@ const RACES=[
 ];
 /* 種族の個性(怪我率):フレーバーを機構に反映。小柄な亜人は危険回避が上手く重傷を負いにくい */
 const RACE_INJURY_MULT={halfling:0.82,beastkin:0.92};
+/* 種族の機構的な個性を一言で(兵の詳細で「なぜこの種族か」を読めるように=種族選択の手応え) */
+const RACE_PERK={
+ beastkin:"群れの戦法――同じ部隊に2人以上で連携が高まる。負傷もやや軽い",
+ dwarf:"頑健――日々の疲れの抜けが早い。長命で衰えも緩やか",
+ halfling:"危険回避の妙――重い傷を負いにくい",
+ elf:"技巧の器――技の所有枠+2。長寿ゆえ老いも極めて緩やか",
+ dragonkin:"竜の血――高い素質を備えた稀有な存在",
+ starkin:"星霊の加護――並外れた素質を宿す伝説の存在",
+};
 /* 出身地(種族と連動、軽いステータス傾向) */
 const ORIGINS=[
  {key:"valley",name:"谷の集落",race:"human",bonus:{}},
@@ -13890,6 +13899,7 @@ function renderUnitDetail(uid){
     const tendency=variance>=1.1?"人一倍、健やかな体質のようだ":variance<=0.9?"あまり丈夫な質ではないようだ":"ごく人並みな健やかさのようだ";
     h+=`<div class="udet-sec"><h4>年齢・寿命</h4>
     <div style="font-size:11.5px;color:var(--dim);line-height:1.7">${race.name}――${tendency}。現在「${stage.label}」段階で、全盛期比の実効能力は<b style="color:var(--parch)">${Math.round(effectiveAgeMult(u)*100)}%</b>。</div>
+    ${RACE_PERK[u.race]?`<div style="font-size:11px;color:#a9c47a;margin-top:4px">種族の個性:${RACE_PERK[u.race]}</div>`:""}
     <div style="font-size:11px;color:var(--gold2);font-style:italic;margin-top:5px">――${ageFlavorFor(u)}</div>
   </div>`;
   }
