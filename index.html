@@ -14397,6 +14397,27 @@ function renderTroops(){
       </div>`;
     }
   }
+  // 出撃態勢の一望:大所帯になるほど「今すぐ動ける兵が何人いて、誰がなぜ手を離せないか」が掴みづらい。
+  // 名簿の頭に配備の可否を集計して示し、出撃・派遣の算段を助ける(編成判断の導線)。数え方は実際の
+  // 迷宮派遣の資格(療養なし・疲労70未満・迷宮/特訓に出ていない)と一致させ、表示と実挙動を揃える。
+  if(S.units.length){
+    let ready=0,inj=0,dgn=0,camp=0,tired=0;
+    for(const u of S.units){
+      if((u.injured||0)>0)inj++;
+      else if(u.dungeonBusy)dgn++;
+      else if(u.campUntil)camp++;
+      else if((u.fatigue||0)>=70)tired++;
+      else ready++;
+    }
+    const parts=[];
+    if(inj)parts.push(`<span style="color:#d97a7a">療養${inj}</span>`);
+    if(dgn)parts.push(`<span style="color:#c98fe8">迷宮中${dgn}</span>`);
+    if(camp)parts.push(`<span style="color:#8fbf6f">特訓中${camp}</span>`);
+    if(tired)parts.push(`<span style="color:#d9b56a">疲労${tired}</span>`);
+    const readyCol=ready>0?"#8fbf6f":"#d97a7a";
+    const readyLine=`<div class="ds" style="font-size:11px;color:var(--dim);margin:0 2px 8px;padding:6px 9px;border:1px solid rgba(154,122,47,.22);border-radius:6px;background:rgba(0,0,0,.12)">いま出撃できる兵:<b style="color:${readyCol}">${ready}</b>人${parts.length?` ／ 手が離せない兵 ${parts.join(" ")}`:"（全兵が即応できる）"}</div>`;
+    h=readyLine+h;
+  }
   $("#troopList").innerHTML=h;
 }
 let troopListDelegationBound=false;
