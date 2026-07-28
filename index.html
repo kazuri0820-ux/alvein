@@ -2748,6 +2748,20 @@ function checkDreamFulfilled(u){
   unitHistory(u,`かねての夢だった「${d.text}」を叶えた。`);
   chron(`${fullName(u)}が、かねての夢だった「${d.text}」を叶えた。長年の願いが実を結び、その顔には静かな誇りが浮かんでいる。`,"big");
 }
+/* 夢の歩み:数で測れる夢について、達成条件までの現在地を返す([現在,目標,単位ラベル])。人物詳細で
+   一人ひとりの"ひそかな夢"を見える目標に変え、どの兵を何に向けて育てるかの愛着ある指針を与える。 */
+function dreamProgress(u){
+  if(!u||!u.dream)return null;
+  switch(u.dream){
+    case "conquer":   return [Math.min(8,u.dungeonClearCount||0),8,"踏破"];
+    case "decorated": return [Math.min(4,(u.titles||[]).length),4,"称号"];
+    case "strong":    return [Math.min(20,u.lv||0),20,"Lv"];
+    case "master":    return [Math.min(6,(u.skills||[]).length),6,"技"];
+    case "veteran":   return [Math.min(365,Math.max(0,S.day-(u.joinDay||S.day))),365,"日在籍"];
+    case "loyal":     return [Math.min(95,Math.round(u.loyalty||0)),95,"忠誠"];
+    default: return null;
+  }
+}
 function makeUnit(){
   const cls=pickClass();
   const race=pickRace();
@@ -14440,6 +14454,19 @@ function renderUnitDetail(uid){
     h+=`<div class="udet-sec"><h4>ジョブ系統の道のり</h4>${roadmapHtml}</div>`;
   }
 
+  // ── ひそかな夢(個々の兵の personal な目標を見える化) ──
+  if(!isInstructor&&u.dream&&typeof UNIT_DREAMS!=="undefined"){
+    const d=UNIT_DREAMS.find(x=>x.key===u.dream);
+    if(d){
+      if(u.dreamDone){
+        h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>ひそかな夢</h4><div class="ds" style="color:var(--gold)">✦ 「${d.text}」を叶えた。<span style="color:var(--dim);font-size:10.5px">かねての願いを成し遂げた誉れ(称号「夢を叶えし者」)。</span></div></div>`;
+      }else{
+        const pr=(typeof dreamProgress==="function")?dreamProgress(u):null;
+        const progStr=pr?` <span style="color:var(--gold2)">(${pr[2]} ${pr[0]}/${pr[1]})</span>`:"";
+        h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>ひそかな夢</h4><div class="ds">「${d.text}」${progStr}<div style="font-size:10.5px;color:var(--dim);margin-top:2px">叶えた時、この兵は大きな誇りと忠義を得る。育てる先にある、その者だけの personal な目標。</div></div></div>`;
+      }
+    }
+  }
   // ── 特性 ──
   const TRAIT_TIER_LABEL={normal:"通常",rare:"レア",epic:"エピック",legend:"レジェンド"};
   h+=`<div class="udet-sec"><h4>特性</h4><div style="margin-bottom:4px">${traitBadge(u)}<span style="font-size:10px;color:var(--dim);margin-left:6px">${TRAIT_TIER_LABEL[u.traitTier]||"通常"}特性</span></div><div style="font-size:12px;color:var(--parch);margin-bottom:3px">${tr.name}</div><div style="font-size:11px;color:var(--dim)">${tr.desc}</div>${(()=>{const et=traitEffectText(tr);return et?`<div style="font-size:10.5px;color:var(--gold2);margin-top:3px">${et}</div>`:"";})()}</div>`;
