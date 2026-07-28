@@ -7859,6 +7859,11 @@ const KING_REFLECTIONS={
   "名簿に並ぶ古参の名を、王は指でなぞった。「入隊の日の、あの頼りない顔を覚えている。よくぞ、ここまで。皆、余の誇りだ」。",
   "夜の見回りの松明を城壁から眺め、王は静かに呟いた。「余が眠る間も、あの者たちが国を守っている。……ならば余は、あの者たちの帰る場所を守ろう」。",
  ],
+ frontier:[
+  "壁一面の大陸図を、王はしばし見つめた。踏破の印が、また一つ増えている。「未だ図の端は白いままだ。……その先に何があるのか、余はまだ、知りたい」。",
+  "帰還した部隊がもたらした古の遺物を、王は手のひらで転がした。「地の底には、まだ誰も見ぬ物語が眠っている。兵が持ち帰るのは、財ばかりではないのだな」。",
+  "夜半、探索の報告書を閉じ、王は遠い山並みを思った。「安寧を守るだけが王の務めではない。未知へ兵を送り出す、その決断もまた――余の器量が問われる」。",
+ ],
 };
 function kingReflectionCategory(){
   const crisis=(S.flags&&((S.flags.famineArc===1)||(S.flags.plagueArc===1)||(S.flags.unrestArc===1)))||(S.mood||100)<24||(S.food||99)<8;
@@ -7867,6 +7872,8 @@ function kingReflectionCategory(){
   if(S.flags&&S.flags.demonNoticed&&!S.flags.demonLordDefeated)return "war";
   if((typeof renownTierIndex==="function"&&renownTierIndex()>=3)||(typeof fervorActive==="function"&&fervorActive()))return "triumph";
   if((S.mood||0)>75&&(S.gold||0)>300)return "prosperity";
+  // 迷宮踏破を重ねた治世では、時に王も未知の地へ想いを馳せる(このゲームの探索・冒険の心を映す独白軸)
+  if((S.dungeonsCleared||0)>=12&&Math.random()<0.5)return "frontier";
   if((S.day||0)/AGE_YEAR_DAYS>=8)return "reign";
   // 長く仕えた古参や殿堂の英霊を抱える王は、時に軍を想う独白へ(兵と王の絆を映す演出の軸)
   if(((S.units||[]).some(u=>u&&(S.day-(u.joinDay||S.day))>=150)||(S.hallOfFame||[]).length>=2)&&Math.random()<0.5)return "soldiers";
