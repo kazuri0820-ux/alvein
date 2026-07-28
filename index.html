@@ -8742,6 +8742,8 @@ const BOSS_TRAITS={
   hoardmaster:{label:"秘蔵の王",color:"#e0c060",desc:"古の秘宝の欠片を溜め込む王。討ち果たせば、秘宝の断片をどっさり持ち帰る(遺物の鍛造が進む)"},
   starseer:{label:"星読みの王",color:"#8fb8e0",desc:"星の巡りから地の理を読む王。討ち果たせば、その知見が今ある全ての迷宮を偵察済みにする"},
   mentorking:{label:"教導の王",color:"#9fc98f",desc:"戦いながら兵を導く不思議な王。討ち果たせば、その教えから部隊の皆が大きく成長する(経験値)"},
+  beastlord:{label:"獣心の王",color:"#c98a5a",desc:"数多の獣を従える野生の王。討ち果たせば、懐いた獣の一匹が勲功第一の兵に生涯の相棒として付き従う(相棒獣)"},
+  anthemking:{label:"凱歌の王",color:"#e0b060",desc:"戦場に凱歌を轟かせる王。討ち果たせば、その勝ち鬨が部隊の疲れを吹き飛ばし、意気軒昂として帰還させる(疲労回復・士気↑)"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
 /* ダンジョンの環境(異変):一部のダンジョンに宿る特性。挑む前に見え、危険と実入りの綾を変える(ダンジョンの個性) */
@@ -8835,7 +8837,7 @@ function generateDungeon(){
   const duration=Math.max(3,Math.round(level/6)+Math.round((rarity.mult-1)*2.2));
   let bossPower=Math.round(requiredPower*1.3);
   let bossTrait=null;
-  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief"||bossTrait==="dragonlord"||bossTrait==="titanking")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift"||bossTrait==="revenant"||bossTrait==="treasurelord"||bossTrait==="mutator")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning"||bossTrait==="trialking"||bossTrait==="calamity")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier"||bossTrait==="renowned"||bossTrait==="forgelord"||bossTrait==="phantom"||bossTrait==="trickster"||bossTrait==="bountiful"||bossTrait==="sage"||bossTrait==="rallyking"||bossTrait==="fountwarden"||bossTrait==="cartographer"||bossTrait==="hoardmaster"||bossTrait==="starseer"||bossTrait==="mentorking")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
+  if(Math.random()<0.2){bossTrait=BOSS_TRAIT_KEYS[Math.floor(Math.random()*BOSS_TRAIT_KEYS.length)];if(bossTrait==="warchief"||bossTrait==="dragonlord"||bossTrait==="titanking")bossPower=Math.round(bossPower*1.3);else if(bossTrait==="unyielding"||bossTrait==="swift"||bossTrait==="revenant"||bossTrait==="treasurelord"||bossTrait==="mutator")bossPower=Math.round(bossPower*1.22);else if(bossTrait==="cunning"||bossTrait==="trialking"||bossTrait==="calamity")bossPower=Math.round(bossPower*1.15);else if(bossTrait==="ancient"||bossTrait==="venomous"||bossTrait==="purifier"||bossTrait==="renowned"||bossTrait==="forgelord"||bossTrait==="phantom"||bossTrait==="trickster"||bossTrait==="bountiful"||bossTrait==="sage"||bossTrait==="rallyking"||bossTrait==="fountwarden"||bossTrait==="cartographer"||bossTrait==="hoardmaster"||bossTrait==="starseer"||bossTrait==="mentorking"||bossTrait==="beastlord"||bossTrait==="anthemking")bossPower=Math.round(bossPower*1.13);} // 手強い特性は要戦力up
   const condition=Math.random()<0.3?DUNGEON_CONDITION_KEYS[Math.floor(Math.random()*DUNGEON_CONDITION_KEYS.length)]:null; // 稀に環境の異変を宿す
   if(condition==="treasure")bossPower=Math.round(bossPower*1.18); // 財宝の霊気は守りが堅く、ボスが手強い
   if(condition==="eliteden")bossPower=Math.round(bossPower*1.16); // 精鋭の巣は強敵揃いで、ボスが手強い
@@ -10408,6 +10410,8 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="hoardmaster"){const n=ri(3,5);grantRelicShards(n);apply({mood:2});chron(`「秘蔵の王」を討ち果たすと、溜め込まれていた古の秘宝の欠片が零れ落ちた。秘宝の断片を${n}つ持ち帰った(計${S.relicShards||0}・遺物の鍛造が進む)。`,"big");}
         else if(dungeon.bossTrait==="starseer"){const avail=(S.availableDungeons||[]).filter(x=>!x.scouted&&!x.isFinal);for(const x of avail)x.scouted=true;chron(avail.length?`「星読みの王」を討ち果たすと、その星読みの知見が王国のものとなった。今ある${avail.length}つの迷宮の罠と地形が、ことごとく見通せるようになった(すべて偵察済みに)。`:`「星読みの王」を討ち果たし、星読みの知見を得た。今は他に噂の迷宮がなく、次に現れる迷宮でその眼が活きるだろう。`,"big");}
         else if(dungeon.bossTrait==="mentorking"){for(const u of squad){const g=Math.round(ri(16,26)*levelMult);u.exp+=g;processLevelUps(u);}chron(`「教導の王」を討ち果たした部隊は、その死闘のさなかに授けられた教えを胸に、見違えて成長した(部隊全員が大きく経験を積んだ)。`,"big");}
+        else if(dungeon.bossTrait==="beastlord"){const mvp=squad.filter(u=>u&&S.units.some(x=>x.id===u.id)&&!u.beast&&u.role==="active").sort((a,b)=>unitPower(b)-unitPower(a))[0];if(mvp&&typeof assignBeast==="function"){const bt=assignBeast(mvp);const k=beastKind(bt.kind);unitHistory(mvp,`「獣心の王」を討った際、その眷属の幼き${k.nm}「${bt.nm}」が懐き、生涯の相棒となった。`);chron(`「獣心の王」を討ち果たすと、従えられていた獣の一匹が、勲功第一の${fullName(mvp)}に懐いた。幼き${k.nm}「${bt.nm}」が、これより生涯の相棒として付き従う(相棒獣・${k.boonLabel})。`,"big");}else{const g=Math.round(ri(40,70)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「獣心の王」を討ち果たした。相棒に迎えられる獣はいなかったが、その巣から財貨${g}を持ち帰った。`,"");}}
+        else if(dungeon.bossTrait==="anthemking"){let n=0;for(const u of squad){if(u&&S.units.some(x=>x.id===u.id)&&u.role==="active"){u.fatigue=Math.max(0,(u.fatigue||0)-40);u.moral=Math.min(100,(u.moral||0)+6);n++;}}if(n)chron(`「凱歌の王」を討ち果たすと、鳴り響いた勝ち鬨が部隊${n}名の疲れを吹き飛ばした。皆、意気軒昂として――疲労を癒し、士気も高く帰還した(すぐにまた出撃できる)。`,"big");else{const g=Math.round(ri(30,60)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「凱歌の王」を討ち果たし、財貨${g}を得た。`,"");}}
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
@@ -10767,6 +10771,7 @@ function showDungeonResult(dungeon,tier,bossWin,memberLog,goldGained,itemGained,
   { // この一戦を彩った采配・力を一望に:積み上げた仕組み(主眼・一番槍・熟成・相棒獣・装備の霊験・歴戦…)が働いた手応えを、結果画面で felt にする(磨き込み)
     const rsquad=(dungeon.squadIds||[]).map(id=>S.units.find(u=>u.id===id)).filter(Boolean);
     const facs=[];
+    if(bossWin&&dungeon.bossTrait&&typeof BOSS_TRAITS!=="undefined"&&BOSS_TRAITS[dungeon.bossTrait])facs.push(`討王:${BOSS_TRAITS[dungeon.bossTrait].label}`);
     if(dungeon.aim&&dungeon.aim!=="balanced"&&typeof DUNGEON_AIMS!=="undefined"&&DUNGEON_AIMS[dungeon.aim])facs.push(`主眼:${DUNGEON_AIMS[dungeon.aim].label}`);
     if((dungeon.festerReward||0)>0)facs.push(`熟成の実り +${Math.round(dungeon.festerReward*100)}%`);
     if(dungeon.vanguardId){const vg=rsquad.find(u=>u.id===dungeon.vanguardId);facs.push(`一番槍${vg?":"+vg.nm:""}`);}
