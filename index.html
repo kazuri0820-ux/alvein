@@ -6879,6 +6879,7 @@ function rollRandomTurnEvent(){
   if(Math.random()<0.7){
     // 兵舎の一幕:しばしば、汎用の町の情景ではなく、実在の兵とその関係・愛着を映す personal な一幕を綴る(演出の底上げ)
     if(Math.random()<0.45){const v=barracksVignette();if(v&&v!==S._lastFlavor){chron(v,"");S._lastFlavor=v;return;}}
+    if(Math.random()<0.5){const v=townVignette();if(v&&v!==S._lastFlavor){chron(v,"");S._lastFlavor=v;return;}} // 城下の一幕:国の実情に応答する動的な民の情景(固定フレーバーより先に、状態に即した一幕を試みる)
     const timeMatched=FLAVOR_ONLY.filter(f=>f.t===S.turn);
     const universal=FLAVOR_ONLY.filter(f=>f.t===undefined);
     const pool=Math.random()<0.4&&timeMatched.length?timeMatched:universal;
@@ -6957,6 +6958,27 @@ function barracksVignette(){
     if(u.devoted)cand.push(`${nm(u)}が、王旗の前で無言のまま片膝をついていた。捧げた忠誠に迷いはない――その背が、そう語っていた。`);
   }
   if(!cand.length)return null;
+  return cand[Math.floor(Math.random()*cand.length)];
+}
+// 城下の一幕:兵ではなく"民"の暮らしを、王国のいまの実情(豊かさ・食・治安・武名・季節)に即して映す。
+// 汎用の固定フレーバーに対し、国の状態に応答する動的な情景で城下に息づかいを与える(没入・愛着の底上げ)。
+function townVignette(){
+  const cand=[];
+  const mood=S.mood||0, food=S.food||0;
+  const st=S.st||{}; const eco=st.economy||0, order=st.order||0, mil=st.military||0;
+  if(mood>=80)cand.push("城下は笑い声に満ちていた。市の立つ広場では、見知らぬ者同士が肩を叩き合って上機嫌に語らっている。");
+  else if(mood<=30)cand.push("城下の空気は重い。井戸端に集う女たちの声は低く、行き交う人々の足取りにも、どこか力がなかった。");
+  if(food>=280)cand.push("蔵という蔵が実りで満ち、城下のかまどからは絶えず湯気が立ちのぼっていた。ひもじさを知らぬ日々が続いている。");
+  else if(food<40)cand.push("市の穀物棚は寂しく、パン屋の前には朝から長い列ができていた。誰もが、来る日々を静かに案じている。");
+  if(eco>=65)cand.push("大通りには各地からの荷馬車が絶えず行き交い、両替商の前は賑わっていた。商いの活気が谷いっぱいに満ちている。");
+  if(order>=65)cand.push("夜更けの城下は静かで、見回りの松明だけが規則正しく巡っていた。「安んじて眠れる夜は何よりの宝じゃ」と、老人が孫に語っていた。");
+  else if(order<=30)cand.push("路地の奥で諍いの声がした。近頃は物騒だと、店じまいを早める商家も増えているという。");
+  if(mil>=65)cand.push("城壁の上を巡る兵たちの姿に、城下の民は頼もしげな眼差しを送っていた。「あの守りがある限りは」と、誰もが口にする。");
+  if((S.winStreak||0)>=3)cand.push("酒場は、連戦連勝の武勲譚で持ちきりだった。兵たちの名が、掲げられる杯とともに幾度も響いている。");
+  if((S.hallOfFame||[]).length>=3)cand.push("広場の隅で、吟遊詩人が殿堂に名を刻んだ英傑たちの物語を歌っていた。子供らが目を輝かせて聞き入っている。");
+  const season=(typeof currentSeason==="function")?currentSeason():null;
+  if(season){const sl={spring:"城下の軒先に若葉が芽吹き、子らが土手で花を摘んでいた。春の日差しが、谷を柔らかく照らしている。",summer:"照りつける陽の下、城下の井戸には水を汲む列ができていた。木陰では老人たちが将棋盤を囲んでいる。",autumn:"実りの季、城下の市には色とりどりの作物が並び、値の駆け引きの声が賑やかに飛び交っていた。",winter:"底冷えする城下、家々の窓から漏れる灯りと煙が、身を寄せ合う暮らしの温もりを伝えていた。"}[season.key];if(sl)cand.push(sl);}
+  cand.push("城下では今日も、変わらぬ営みが淡々と続いていた。パン屋の煙、鍛冶の音、子らの駆ける足音――それらが織りなす日常こそ、王国の礎だ。");
   return cand[Math.floor(Math.random()*cand.length)];
 }
 /* ---------- 1日ぶんの経済・加齢・敗北判定(晩にまとめて処理) ---------- */
