@@ -13096,7 +13096,11 @@ function renderProjects(){
      <div class="ds" style="margin:2px 0 6px">踏破した迷宮の跡地を王国の前哨として確保し、日々の実りを得る。維持できる数には上限があり、空きが無ければ新たな要地は取れない。${ops.length>=cap?`<span style="color:#d99a6a;font-size:10.5px">(上限に達している。畳めば新たな跡地を確保できる)</span>`:`<span style="color:#8fbf6f;font-size:10.5px">(あと${cap-ops.length}箇所、確保の余地あり)</span>`}</div>`;
    if(!ops.length){h+=`<div class="ds" style="color:var(--dim);font-size:11px">まだ前哨はない。迷宮を踏破すると、その跡地を稀に前哨として確保できる。</div>`;}
    for(const o of ops){
-     const detail=((o.type==="gold"||o.type==="food")?`日々 ${yld[o.type]}+${o.yield}`:`日々 ${yld[o.type]}を支える`)+(o.developed?" ／ 根付いた里":"");
+     // 定着の歩み:長く保持すると根付き実りが増す(OUTPOST_DEVELOP_DAYS)——その節目までの残りを可視化し、"畳まず育てる"選択に手応えを与える(磨き込み)
+     let rootStr;
+     if(o.developed){rootStr=` ／ <span style="color:var(--gold)">根付いた里</span>`;}
+     else{const held=Math.max(0,S.day-(o.day||S.day));const left=Math.max(1,OUTPOST_DEVELOP_DAYS-held);rootStr=` ／ <span style="color:var(--dim)">定着まであと${left}日${(o.type==="gold"||o.type==="food")?"(実り増)":"(実り安定)"}</span>`;}
+     const detail=((o.type==="gold"||o.type==="food")?`日々 ${yld[o.type]}+${o.yield}`:`日々 ${yld[o.type]}を支える`)+rootStr;
      const rpCost=outpostRepurposeCost();
      h+=`<div style="border:1px solid rgba(201,162,75,.3);border-radius:6px;padding:8px 10px;margin-bottom:5px">
        <div style="display:flex;align-items:center;gap:8px">
