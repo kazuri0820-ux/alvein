@@ -3109,6 +3109,12 @@ function inflictInjury(u,weights){
   u.injurySeverity=tier;
   u.injuryCount=(u.injuryCount||0)+1;
   if(tier==="severe")u.severeInjuryCount=(u.severeInjuryCount||0)+1;
+  // 呪われた得物の代償を、物語としても felt に:重い傷を負った時、その一因が呪いにあったと年代記・戦歴に刻む。
+  // 数値だけだった諸刃のリスクに情感を与え、装備選択の重みを物語で裏打ちする(#653の新機軸を磨き込む)。
+  if((tier==="severe"||tier==="moderate")&&typeof unitHasCursedGear==="function"&&unitHasCursedGear(u)){
+    if(typeof unitHistory==="function")unitHistory(u,`${INJURY_TIERS[tier].label}を負った。振るう呪われた得物が、また主の血を求めたかのようだった。`);
+    if(tier==="severe"&&typeof chron==="function"&&Math.random()<0.35)chron(`${(typeof fullName==="function")?fullName(u):u.nm}が重体に陥った。手にした呪いの得物が、力と引き換えに主の血を啜ったかのようだった。`,"grave");
+  }
 }
 function priestBlessing(){
   const n=Math.min(3,S.units.filter(u=>u.cls==="priest"&&u.injured<=0).length);
