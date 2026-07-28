@@ -14428,6 +14428,8 @@ function renderItemsPanel(){
     if(S.flags&&S.flags.resilienceBanner)boons.push({icon:"旗",c:"#d0a0a0",t:`不屈の軍旗`,d:"ダンジョンでの兵の戦没率が永続でわずかに下がっている"});
     if(S.flags&&S.flags.renownBanner)boons.push({icon:"名",c:"#d9c07a",t:`名声の旗印`,d:"志願書に隠れた逸材(掘り出し物)が混じりやすくなっている"});
     if(S.flags&&S.flags.kingsRegalia)boons.push({icon:"♚",c:"#e8c874",t:`王家の宝器`,d:"玉座の間に安置された王国の宝。国のあらゆる面に加護が宿ったという"});
+    // 鋳造した遺物も、この治世に宿る永続の加護。他の恒久の恩恵と並べて一望できるようにする(秘宝の断片を集めて鍛えた到達の可視化=収集の手応え)
+    if(typeof RELIC_DEFS!=="undefined"&&typeof relicHas==="function"){for(const r of RELIC_DEFS){if(relicHas(r.key))boons.push({icon:"◈",c:"#b79ad0",t:`遺物「${r.name}」`,d:r.desc});}}
     const bh=$("#itemsBoons");
     if(bh){
       if(boons.length){
