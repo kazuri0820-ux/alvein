@@ -6020,6 +6020,27 @@ const RANDOM_CHOICE_EXTRA=[
    {label:"手厚くもてなす",hint:"国庫↓ 外交↑ 民心↑",fx:{gold:-30,st:{diplomacy:2},mood:3,log:"異国の芸術家は手厚くもてなされ、その滞在は城下の語り草となった。国の名は遠くまで知れ渡っている。"}},
    {label:"丁重に、しかし簡素に迎える",hint:"外交がわずかに上がる",fx:{st:{diplomacy:1},log:"芸術家は簡素ながら礼を尽くして迎えられ、満足げに次の地へと旅立っていった。"}},
   ]},
+ /* ── 未知への入口(発見の当たり外れ) ── */
+ {tag:"報 せ",title:"迷宮帰りの生存者",
+  body:"見知らぬ迷宮から命からがら逃げ延びたという男が、村外れで保護された。手には、まだ誰も踏み入っていない深い坑道の見取り図が握られている。",
+  choices:[
+   {label:"見取り図を頼りに道を探らせる",hint:"新たなダンジョンが出現するかも",fx:{call:()=>{if(Math.random()<0.75){const nd=generateDungeon();S.availableDungeons=S.availableDungeons||[];S.availableDungeons.push(nd);if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}chron(`生存者の見取り図が、${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」への道を照らし出した(討伐の一覧に加わった)。`,"big");}else{const g=ri(30,55);apply({gold:g});chron(`見取り図はところどころ破れて判読できず、道は辿れなかった。せめてもの礼にと、男は蓄えの財貨${g}を国庫に納めて去った。`,"");}}}},
+   {label:"男を手厚く介抱し、休ませる",hint:"民心↑",fx:{mood:3,log:"男は手厚い介抱を受け、憔悴した顔にようやく生気が戻った。その篤い情けは、静かに城下の評判となっている。"}},
+  ]},
+ /* ── 外邦への晴れ舞台(外交と個の武名) ── */
+ {tag:"招 待",title:"奉納試合への招き",
+  body:"隣邦の領主から、神前に武を奉じる奉納試合への招きが届いた。腕利きを一人送り出せば、王国の武名と誼を示す好機となろう。",
+  choices:[
+   {label:"腕利きを一人、送り出す",hint:"外交↑ その兵が武名と経験を得る",fx:{st:{diplomacy:2},call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];u.exp=(u.exp||0)+ri(15,28);processLevelUps(u);u.moral=Math.min(100,(u.moral||0)+6);unitHistory(u,"隣邦の奉納試合に王国の代表として臨み、見事な武を披露した。");if(typeof grantRenown==="function")grantRenown(1,"奉納試合での晴れ舞台");chron(`${fullName(u)}が奉納試合に王国の代表として臨み、隣邦の武人たちを唸らせる武を披露した。`,"big");}}},
+   {label:"丁重に辞退する",hint:"波風を立てない",fx:{log:"奉納試合への招きは丁重に辞退した。隣邦との関係は、変わらず穏やかである。"}},
+  ]},
+ /* ── 統治者としての選択(民心と秩序の板挟み) ── */
+ {tag:"訴 え",title:"王への直訴",
+  body:"一人の民が、衛兵の制止を振り切って直訴に及んだ。重い年貢に暮らしが立ちゆかぬという、切実な訴えである。",
+  choices:[
+   {label:"じきじきに耳を傾ける",hint:"民心↑ 治安↑(時を割く)",fx:{mood:3,st:{order:1},log:"長はじきじきに民の訴えに耳を傾けた。丁寧な対応は瞬く間に城下へ伝わり、民は「話の分かるお方だ」と胸を撫で下ろしている。"}},
+   {label:"秩序を乱すとして退ける",hint:"治安↑ 民心↓",fx:{st:{order:2},mood:-3,log:"直訴は秩序を乱すものとして退けられた。示しはついたが、民の間には拭いきれぬわだかまりが残っている。"}},
+  ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
 /* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
