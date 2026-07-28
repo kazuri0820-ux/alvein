@@ -3291,6 +3291,15 @@ function checkAging(){
         chron(`${u.nm}が${yrs}歳の誕生日を迎えた。`,"");
       }
     }
+    // 老練の相棒:長く連れ添った相棒獣は、主との呼吸が完全に合い、掛け替えのない存在となる。相棒獣に"共に重ねた歳月"の
+    // 成長軸を与え(兵の歴戦度に相当する獣版)、長く連れ添うほど愛着が深まる手応えを felt に。以後、主の忠誠がわずかに保たれやすい。
+    if(u.beast&&!u.beast.seasoned&&(S.day-(u.beast.day||S.day))>=180){
+      u.beast.seasoned=true;
+      const bk=(typeof beastKind==="function")?beastKind(u.beast.kind):null;
+      u.loyalty=Math.min(100,(u.loyalty||0)+4);u.moral=Math.min(100,(u.moral||0)+4);
+      unitHistory(u,`長く連れ添った相棒${bk?bk.nm:"獣"}「${u.beast.nm}」と、掛け替えのない絆で結ばれた(老練の相棒)。`);
+      chron(`${u.nm}と相棒の${bk?bk.nm:"獣"}「${u.beast.nm}」は、幾多の日々を共にし、いまや一心同体というべき呼吸で通じ合っている。${u.nm}にとって、この相棒はもはや家族も同然だ(忠誠・士気↑ 以後わずかに忠義が揺るがなくなる)。`,"big");
+    }
     const stage=ageStageOf(u);
     const eff=skillEffects(u);
     const teff=titleEffectsFor(u);
@@ -3298,7 +3307,8 @@ function checkAging(){
     if(eff.fatigueRecover)u.fatigue=Math.max(0,(u.fatigue||0)-eff.fatigueRecover); // スキル(不撓の体力 等)による追加の疲労回復
     const rankGrow=militaryRankGrow(u); // 軍位:奉公を重ねた高位の兵は、王国への帰属と誇りで忠誠・士気が保たれやすい
     const fiefGrow=fiefLoyaltyGrow(u); // 知行:領地持ちの臣は忠義が揺るがない
-    u.loyalty=Math.max(0,Math.min(100,u.loyalty+eff.loyaltyGrow*0.3+teff.loyaltyGrow*0.3+(tgr.loyaltyGrow||0)*0.3+bless.loyalty+hallGrow+rankGrow+fiefGrow));
+    const beastComfort=(u.beast&&u.beast.seasoned)?0.15:0; // 老練の相棒がそばにいる兵は、日々わずかに忠義が保たれやすい(掛け替えのない相棒の安心)
+    u.loyalty=Math.max(0,Math.min(100,u.loyalty+eff.loyaltyGrow*0.3+teff.loyaltyGrow*0.3+(tgr.loyaltyGrow||0)*0.3+bless.loyalty+hallGrow+rankGrow+fiefGrow+beastComfort));
     u.moral=Math.max(0,Math.min(100,u.moral+eff.moralGrow*0.3+teff.moralGrow*0.3+(tgr.moralGrow||0)*0.3+bless.moral+rankGrow*0.6));
     {const rIdx=militaryRankIndex(u); // 軍位の叙任:奉公が実り位が上がった折を、一幕として祝う
      if(u.rankShown===undefined){u.rankShown=rIdx;}
@@ -14123,7 +14133,7 @@ function renderUnitDetail(uid){
         ${(u.scars||0)>0?`<span class="udet-chip" style="color:#c98f7a;border-color:#c98f7a" title="幾多の負傷を乗り越えて刻まれた歴戦の傷痕。傷を負いにくくなっている(傷痕${u.scars}=負傷率${Math.round((1-scarInjuryMult(u))*100)}%減)">歴戦の傷痕 ${"✚".repeat(Math.min(5,u.scars))}</span>`:""}
         ${avengeActive(u)?`<span class="udet-chip" style="color:#d98a6a;border-color:#d98a6a" title="喪った${u.avengeName||"戦友"}の弔いを胸に奮い立っている。この間、戦力が高まる(あと${Math.max(0,(u.avengeUntil||0)-S.day)}日)">弔い合戦 ⚔ あと${Math.max(0,(u.avengeUntil||0)-S.day)}日</span>`:""}
         ${u.vigor?`<span class="udet-chip" style="color:#8fbf6f;border-color:#8fbf6f" title="十分に休養して英気を養った状態。次の出撃で戦力が高まる(出撃で消費)">英気充溢</span>`:""}
-        ${(()=>{const k=beastKindOf(u);if(!k)return"";return `<span class="udet-chip" style="color:${k.color};border-color:${k.color}" title="迷宮で懐いた生涯の相棒。${k.desc}(遠征に付き従い、${k.boonLabel}の恩恵をもたらす)">相棒:${k.nm}「${u.beast.nm}」〔${k.boonLabel}〕</span>`;})()}
+        ${(()=>{const k=beastKindOf(u);if(!k)return"";const seas=u.beast&&u.beast.seasoned;return `<span class="udet-chip" style="color:${k.color};border-color:${k.color}" title="迷宮で懐いた生涯の相棒。${k.desc}(遠征に付き従い、${k.boonLabel}の恩恵をもたらす)${seas?" ／ 長く連れ添った老練の相棒:一心同体の呼吸で通じ合い、主の忠義がわずかに揺るがない":""}">${seas?"◆":""}相棒:${k.nm}「${u.beast.nm}」〔${k.boonLabel}〕${seas?"・老練":""}</span>`;})()}
         ${(()=>{if(isInstructor)return"";if((S.day-(u.joinDay||1))<20)return"";if(!((u.loyalty||0)<55||(u.moral||0)<48))return"";return `<span class="udet-chip" style="color:#c98f9a;border-color:#c98f9a" title="長く仕えながら、忠義か士気に翳りがさしている。いずれ王への拝謁を願い出るやもしれぬ。労い・褒賞・叱咤のいずれかで応えれば、離れかけた心を繋ぎ止められる">心に憂いあり</span>`;})()}
         ${(()=>{const lg=(tr&&tr.loyaltyGrow)||0;if(lg>=0.3)return `<span class="udet-chip" style="color:#d8b45e;border-color:#d8b45e" title="生来、忠義が深まりやすく、めったに揺らがない質。長く仕えるほど頼れる忠臣となる">忠義篤し</span>`;if(lg<=-0.1)return `<span class="udet-chip" style="color:#c99a6a;border-color:#c99a6a" title="才は光るが気位が高く、忠誠を繋ぎ止めにくい質。お気に入り・結束の宴・拝謁で心を留めておきたい">気位高し</span>`;return "";})()}
         ${(()=>{if(isInstructor)return"";const vt=veteranTemper(u);if(vt<=0)return"";return `<span class="udet-chip" style="color:#c9976a;border-color:#c9976a" title="数多の迷宮を潜り抜けた歴戦の古参。戦場の労苦に体が慣れ、日々の疲労の抜けが早い(通算踏破${u.dungeonClearCount||0}回／疲労回復+${vt})">歴戦 ✚${vt}</span>`;})()}
