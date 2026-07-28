@@ -9793,6 +9793,21 @@ function forgeSquadBond(squad,squadName){
   chron(`${squadName}で同じ釜の飯を食った${a.nm}と${b.nm}が、いつしか背中を預け合う戦友になった。`,"sys");
   return true;
 }
+/* 命の恩の絆:死地で戦友を庇い命を救ったその一瞬が、救った者と救われた者を生涯の戦友に結ぶ。
+   guardianSave(致命傷の肩代わり)は稀で劇的な瞬間なのに、これまで関係を残さなかった――その最も絆に
+   ふさわしい出来事を、実際の戦友の縁として結晶させる(人心の深い報い)。双方が戦友を持たず、互いに確執も
+   無い時にのみ成立し、確執がある場合は既存の"共に踏破して和解"の道に委ねる。 */
+function forgeGuardianBond(victim,guardian,dungeonName){
+  if(!victim||!guardian||victim.id===guardian.id)return false;
+  if(victim.bondWith||guardian.bondWith)return false;
+  if(victim.discordWith===guardian.id||guardian.discordWith===victim.id)return false;
+  victim.bondWith=guardian.id;guardian.bondWith=victim.id;
+  victim.moral=Math.min(100,(victim.moral||0)+4);guardian.moral=Math.min(100,(guardian.moral||0)+4);
+  unitHistory(victim,`「${dungeonName}」で命を救われたあの一瞬から、${guardian.nm}を生涯の戦友と頼むようになった。`);
+  unitHistory(guardian,`「${dungeonName}」の死地で庇い抜いた${victim.nm}と、以来かけがえのない戦友となった。`);
+  chron(`――死線を分かち合った${victim.nm}と${guardian.nm}は、この日を境に、背中を預け合う生涯の戦友となった。`,"big");
+  return true;
+}
 function squadSynergyMult(squad){
   if(squad.length<2)return 1.0;
   // 同じルートを2人以上組ませると連携ボーナス(同ルートの人数が多いほど、または複数ペアあるほど上乗せ)
@@ -10870,6 +10885,7 @@ function resolveDungeonRun(dungeonId){
         victim.moral=Math.min(100,(victim.moral||0)+3);guardian.loyalty=Math.min(100,(guardian.loyalty||0)+2);
         guardian.guardianSaveCount=(guardian.guardianSaveCount||0)+1;grantTitle(guardian,"t_shieldbearer");
         chron(`――「${dungeon.name}」は大失敗に終わった。${victim.nm}が致命傷を負いかけたその刹那、戦友${guardian.nm}が身を挺して庇い、その命を守り抜いた。`,"big");
+        forgeGuardianBond(victim,guardian,dungeon.name); // 命の恩が、二人を生涯の戦友に結ぶ(戦友を持たぬ同士のみ)
         const rec=memberLog.find(l=>l.u.id===victim.id);if(rec)rec.note="致命傷(戦友に救われた)";
         const grec=memberLog.find(l=>l.u.id===guardian.id);if(grec&&guardian.injured>0)grec.note=INJURY_TIERS[guardian.injurySeverity].label+"(戦友を庇った)";
       }else if(S.flags.dragonRaised&&Math.random()<0.4){ // 王国の守り竜:斃れかけた兵を、大空から舞い降りて救い上げる(育て上げた竜の加護を felt に)
