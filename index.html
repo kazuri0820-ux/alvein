@@ -13921,6 +13921,16 @@ function renderItemsShop(){
   el.innerHTML=h;
   el.querySelectorAll(".shop-buy-btn").forEach(b=>b.onclick=()=>buyShopItem(Number(b.dataset.i)));
 }
+/* アイテムの種別札(可読性):鍵の接頭辞で種別が100%確実に判る品にだけ、迷わぬよう小さな札を添える
+   (転職の秘薬・仲間を招く品・能力の腕輪)。曖昧な品には付けない=誤った分類で混乱させない安全設計。 */
+function itemQuickTag(def){
+  if(!def)return null;
+  const k=def.key||"";
+  if(k.indexOf("job_change_")===0)return {t:"転職",c:"#c98fe8"};
+  if(k.indexOf("join_")===0)return {t:"招集",c:"#8fbf6f"};
+  if(k.indexOf("eq_")===0)return {t:"腕輪",c:"#c9a86a"};
+  return null;
+}
 function renderItemsPanel(){
   renderItemsShop();
   const items=S.items||[];
@@ -13940,6 +13950,9 @@ function renderItemsPanel(){
     if(S.flags&&S.flags.heirloom){const hn={banner:["旗","#d0a0a0","王家の家宝・不滅の王旗:兵の戦死率が永続で下がっている"],horn:["杯","#d9c07a","王家の家宝・豊穣の角杯:日々の国庫と食糧が永続で潤っている"],archive:["書","#9fb0d0","王家の家宝・賢王の書架:迷宮踏破の経験値が永続で増えている"]}[S.flags.heirloom];if(hn)boons.push({icon:hn[0],c:hn[1],t:`王家の家宝`,d:hn[2]});}
     if(S.flags&&S.flags.crownRelic)boons.push({icon:"♔",c:"#e8c874",t:`古の王冠`,d:"以後の税収が永続でわずかに上がっている"});
     if(S.flags&&S.flags.artisanGuild)boons.push({icon:"⚒",c:"#a9c47a",t:`熟練の職人団`,d:"すべての施設の産出が永続で増えている"});
+    if(S.flags&&S.flags.resilienceBanner)boons.push({icon:"旗",c:"#d0a0a0",t:`不屈の軍旗`,d:"ダンジョンでの兵の戦没率が永続でわずかに下がっている"});
+    if(S.flags&&S.flags.renownBanner)boons.push({icon:"名",c:"#d9c07a",t:`名声の旗印`,d:"志願書に隠れた逸材(掘り出し物)が混じりやすくなっている"});
+    if(S.flags&&S.flags.kingsRegalia)boons.push({icon:"♚",c:"#e8c874",t:`王家の宝器`,d:"玉座の間に安置された王国の宝。国のあらゆる面に加護が宿ったという"});
     const bh=$("#itemsBoons");
     if(bh){
       if(boons.length){
@@ -13967,8 +13980,10 @@ function renderItemsPanel(){
     const def=ITEMS.find(i=>i.key===it.key);
     if(!def)continue;
     const c=RARITY_COLOR[def.rarity];
+    const tag=itemQuickTag(def); // 種別が確実に判る品(転職/招集/腕輪)にだけ、迷わぬよう小さな札を添える
+    const useHint=def.type==="permanent"?"・永続の宝":def.needsTarget?"・兵を選んで使う":"";
     h+=`<div class="pcard" style="border-color:${c}">
-      <div class="nm" style="color:${c}"><i class="gemicon gem-${def.rarity}"></i>${def.name} ×${it.count} <span style="font-size:10px;color:var(--dim)">(${RARITY_LABEL[def.rarity]}${def.needsTarget?"・装備品":""})</span></div>
+      <div class="nm" style="color:${c}"><i class="gemicon gem-${def.rarity}"></i>${def.name} ×${it.count} <span style="font-size:10px;color:var(--dim)">(${RARITY_LABEL[def.rarity]}${useHint})</span>${tag?`<span style="font-size:9.5px;color:${tag.c};border:1px solid ${tag.c}88;border-radius:4px;padding:1px 5px;margin-left:5px">${tag.t}</span>`:""}</div>
       <div class="ds">${def.desc}</div>
       <button class="item-use-btn" data-key="${it.key}" style="margin-top:8px;width:100%;background:transparent;border:1px solid ${c};color:${c};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-weight:700;cursor:pointer">${def.needsTarget?"対象を選んで使用":"使用する"}</button>
     </div>`;
