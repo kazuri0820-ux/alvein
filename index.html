@@ -2437,6 +2437,9 @@ const TITLE_DB=[
  {key:"t_scarred3",name:"満身創痍の勲章",desc:"重傷を3回経験し、なお生き抜いている",effect:"injuryMult",value:0.88},
  {key:"t_guardian",name:"護りし者",desc:"戦友と共に、幾多の危機を乗り越えてきた",effect:"loyaltyGrow",value:0.1},
  {key:"t_starchosen",name:"星に選ばれし者",desc:"隠れた才が大きく開花した",effect:"expMult",value:1.1},
+ {key:"t_beastfriend",name:"獣を友とする者",desc:"迷宮で懐いた獣を、生涯の相棒とした",effect:"moralGrow",value:0.12},
+ {key:"t_warhardened",name:"歴戦の古強者",desc:"数多の迷宮を潜り抜け、戦場の労苦に体を慣らしきった古参",effect:"injuryMult",value:0.9},
+ {key:"t_bladenamed",name:"銘を宿す得物の主",desc:"絆を結んだ相棒の得物に、固有の銘を刻んだ",effect:"expMult",value:1.05},
  // ── 生き様系(15) ──
  {key:"t_youngelite",name:"若き俊英",desc:"20歳未満で精鋭格に到達した",effect:"expMult",value:1.07},
  {key:"t_latebloom",name:"大器晩成",desc:"壮年を過ぎてから大きく道を切り拓いた",effect:"expMult",value:1.05},
@@ -3120,6 +3123,9 @@ function checkDailyTitles(u){
   if(typeof equipSetTier==="function"){const _st=equipSetTier(u);if(_st)grantTitle(u,"t_fullset");if(_st==="epic"||_st==="legendary")grantTitle(u,"t_grandset");if(_st==="legendary")grantTitle(u,"t_legendset");} // 至宝の一式/伝説装備:エピック以上・伝説一式の揃いは装備収集の頂として別格に讃える
   if(u.equipment&&u.equipment.weapon){const _wd=EQUIPMENT_DB.find(d=>d.key===u.equipment.weapon.key);if(_wd&&_wd.rarity==="legendary")grantTitle(u,"t_legendarm");} // 伝説級の武器を執る者を讃える(全ビルドで狙える伝説武器の到達点)
   if((u.skills||[]).length>=5)grantTitle(u,"t_skillful"); // 多芸:集めた技の数を讃える
+  if(u.beast)grantTitle(u,"t_beastfriend"); // 相棒獣を迎えた愛着の証
+  if(typeof veteranTemper==="function"&&veteranTemper(u)>=VETERAN_TEMPER_CAP)grantTitle(u,"t_warhardened"); // 歴戦度を極めた古参の証
+  if(u.equipment&&u.equipment.weapon&&u.equipment.weapon.mei)grantTitle(u,"t_bladenamed"); // 銘を刻んだ相棒の得物を持つ証
   if((u.skills||[]).length>=9)grantTitle(u,"t_polymath");
   if(u.loyalty>=90&&u.moral>=90)grantTitle(u,"t_prideofrealm");
   if(["str","vit","int","agi","wis","lead"].every(k=>(u[k]||0)>=40))grantTitle(u,"t_versatile"); // 六芸に通ず:全能力を高水準で備えた万能兵を讃える(混沌型で真価を発揮する育成の到達点)
@@ -12741,7 +12747,7 @@ function renderStatsDetail(){
     const v=Math.round(S.st[k]);
     let extra="";
     if(k==="diplomacy"&&S.neighbors&&S.neighbors.length){ // 外交の実態=近隣諸国との関係を国力画面からも一望できるように(磨き込み)
-      extra=`<div style="font-size:11px;color:var(--dim);margin-top:3px">近隣諸国:`+S.neighbors.map(nb=>{const r=Math.round(nb.relation);const c=r>=70?"#8fbf6f":r<=25?"#d97a7a":"#c9a86a";return `${neighborName(nb.key)} <span style="color:${c};font-weight:700">${r}</span>`;}).join(" ／ ")+`（国政画面で誼を深められる）</div>`;
+      extra=`<div style="font-size:11px;color:var(--dim);margin-top:3px">近隣諸国:`+S.neighbors.map(nb=>{const r=Math.round(nb.relation);const c=r>=70?"#8fbf6f":r<=25?"#d97a7a":"#c9a86a";const ally=nb.allied?`<span style="color:var(--gold);font-weight:700">◆同盟</span>`:"";const fav=(nb.allied&&typeof allyFavorReady==="function"&&allyFavorReady(nb))?`<span style="color:#8fbf6f">・盟約発動可</span>`:"";return `${neighborName(nb.key)} <span style="color:${c};font-weight:700">${r}</span>${ally?" "+ally:""}${fav}`;}).join(" ／ ")+`（国政画面で誼を深め、同盟国には盟約を発動できる）</div>`;
     }
     { // 重臣の執政:この国力を育てている要職の就任者を国力画面からも一望できるように(磨き込み)
       const off=typeof MINISTER_OFFICES!=="undefined"?MINISTER_OFFICES.find(o=>o.boost===k):null;
