@@ -6258,6 +6258,48 @@ const RANDOM_CHOICE_EXTRA=[
    {label:"その誉れを大いに讃える",hint:"武名↑ その兵の士気↑",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+8);unitHistory(u,"武勇が歌となって国中に広まり、王国の誉れとして讃えられた。");if(typeof grantRenown==="function")grantRenown(1,"兵の武勇が歌に謳われたこと");chron(`${fullName(u)}の武勇を讃える歌が国中に響いている。当人は面映ゆそうにしつつも、その名は王国の誉れとなっている。`,"big");}}},
    {label:"驕らぬよう戒める",hint:"治安↑(引き締め)",fx:{st:{order:1},log:"誉れは誉れとしつつ、驕らぬようそっと戒めた。実直な姿勢が、かえって兵たちの信を集めている。"}},
   ]},
+ /* ── 専心の道の壁(育成分岐の兵に手応え) ── */
+ {tag:"研 鑽",title:"専心の兵、壁に当たる",
+  body:"一つの道を究めんと励む兵の一人が、このところ伸び悩んでいるという。得手はよく光るが、そこから先の壁が厚い。どう後押しするか。",
+  speaker:"ガレオン「才ある者ほど、己の限界に苛立つもの。導きようで、殻を破りましょう」",
+  choices:[
+   {label:"得意を極める猛稽古を課す",hint:"本人の得意能力↑ だが疲労が募る",fx:{call:()=>{
+     const cands=S.units.filter(u=>u.role==="active"&&u.route);const pool=cands.length?cands:S.units.filter(u=>u.role==="active");
+     const u=pool.length?pool[Math.floor(Math.random()*pool.length)]:null;
+     if(u){const r=(typeof routeInfo==="function"&&u.route)?routeInfo(u.cls,u.route):null;const key=(r&&r.main)?r.main:"str";const inc=ri(2,4);u[key]=(u[key]||0)+inc;u.fatigue=Math.min(100,(u.fatigue||0)+ri(14,22));unitHistory(u,"血の滲む猛稽古の末、厚い壁の向こうへ一歩踏み出した。");chron(`――${u.nm}は猛稽古に打ち込み、${USTAT_DEF[key].lbl}が+${inc}された。だが疲労は色濃い。`,"big");}else{apply({log:"励むべき兵が見当たらず、この話は流れた。"});}
+   }}},
+   {label:"しばし静養させ、英気を養わせる",hint:"本人の疲労回復・士気↑",fx:{call:()=>{
+     const cands=S.units.filter(u=>u.role==="active"&&u.route);const pool=cands.length?cands:S.units.filter(u=>u.role==="active");
+     const u=pool.length?pool[Math.floor(Math.random()*pool.length)]:null;
+     if(u){u.fatigue=Math.max(0,(u.fatigue||0)-ri(20,32));u.moral=Math.min(100,(u.moral||0)+8);unitHistory(u,"焦りを手放し、静かな休息の中で再び前を向いた。");chron(`――${u.nm}は英気を養い、心身が軽くなった。`,"");}else{apply({log:"休ませるべき兵もおらず、話は流れた。"});}
+   }}},
+   {label:"焦らず、務めの中で見守る",hint:"治安+1",fx:{st:{order:1},log:"長は無理に急かさず、日々の務めの中で兵の成長を見守ることにした。落ち着いた家風が、かえって兵を伸ばしていく。"}},
+  ]},
+ /* ── 辺境の交易(国政の経済判断) ── */
+ {tag:"交 易",title:"辺境に市が立つ",
+  body:"辺境の街道沿いに、隣邦の隊商が集う市が自然と立ち始めた。うまく扱えば国の実入りになるが、放てば無法の温床にもなりかねない。",
+  speaker:"フィオナ「扱い一つで、宝にも火種にもなりましょう」",
+  choices:[
+   {label:"隊商に護衛を出し、交易路を守る",hint:"国庫↓ 経済↑↑ 外交↑",fx:{gold:-40,st:{economy:3,diplomacy:1},log:"護衛を得た隊商は安んじて往来し、辺境の市は活気づいた。隣邦との縁も深まっている。"}},
+   {label:"関税をかけて国庫を潤す",hint:"国庫↑↑ 外交↓",fx:{gold:ri(50,85),st:{diplomacy:-2},log:"市に関税が課され、国庫は潤った。だが商人たちの間には、いくらか不満もくすぶっている。"}},
+   {label:"自由な交易を許す",hint:"民心↑ 経済↑",fx:{mood:3,st:{economy:1},log:"自由な交易が許され、市は日ごとに賑わいを増した。安く豊かな品々に、民の暮らしも和んでいる。"}},
+  ]},
+ /* ── 故郷からの便り(兵への愛着) ── */
+ {tag:"便 り",title:"故郷からの便り",
+  body:"兵の一人のもとに、遠い故郷から久方ぶりの便りが届いた。懐かしさに、その面持ちはどこか揺れている。どう計らうか。",
+  choices:[
+   {label:"しばしの帰郷を許す",hint:"本人の忠誠・士気↑↑",fx:{call:()=>{
+     const act=S.units.filter(u=>u.role==="active");const u=act.length?act[Math.floor(Math.random()*act.length)]:null;
+     if(u){u.loyalty=Math.min(100,(u.loyalty||0)+10);u.moral=Math.min(100,(u.moral||0)+8);u.fatigue=Math.max(0,(u.fatigue||0)-ri(8,16));unitHistory(u,"長の計らいで故郷へ帰り、家族と水入らずの時を過ごして戻った。");chron(`――${u.nm}は束の間の帰郷を許され、晴れやかな顔で戻ってきた。長の情けを、深く胸に刻んでいる。`,"people");}else{apply({log:"便りの主が見当たらず、話は流れた。"});}
+   }}},
+   {label:"返礼の品を故郷へ送らせる",hint:"国庫少し↓ 本人の士気↑ 民心↑",fx:{call:()=>{
+     const act=S.units.filter(u=>u.role==="active");const u=act.length?act[Math.floor(Math.random()*act.length)]:null;
+     S.gold=Math.max(0,(S.gold||0)-15);
+     if(u){u.moral=Math.min(100,(u.moral||0)+6);unitHistory(u,"長の計らいで、故郷の家族へ心ばかりの返礼が届けられた。");chron(`――${u.nm}の故郷へ、長より心ばかりの品が送られた。遠く離れた家族への情けに、兵たちも胸を打たれている。`,"people");}
+     apply({mood:2,log:u?"":"故郷へ心ばかりの品が送られた。"});
+   }}},
+   {label:"務めゆえと、そっと諭す",hint:"治安+1",fx:{st:{order:1},log:"長は私情を差し挟まず、務めの大切さをそっと説いた。厳しくも筋の通った態度が、家中の規律を引き締めている。"}},
+  ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
 /* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
