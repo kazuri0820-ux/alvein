@@ -7797,6 +7797,7 @@ const CIVIC_WORKS=[
  {key:"road",  name:"大街道の敷設",   cost:150, rate:1.6, req:2, desc:"人と物の行き来が増える。経済と外交が上がる。",   fx:{st:{economy:4,diplomacy:4}}, doneLog:"大街道が四方に伸び、旅人と商隊の行き来が目に見えて増えた(経済↑ 外交↑)。"},
  {key:"academy",name:"王立武芸館",    cost:190, rate:1.3, req:3, desc:"兵法と武芸を体系立てて授ける学び舎。以後、日々の訓練の実りが永続で高まる(訓練効果+15%)。", fx:{st:{military:2}}, ongoing:"訓練効果+15%", doneLog:"王立武芸館が開かれ、兵法と武芸が体系立てて授けられるようになった。以後、兵たちの鍛錬の実りが一段と増す(訓練効果↑ 軍事↑)。"},
  {key:"arcanum", name:"大魔導院",      cost:200, rate:1.2, req:3, desc:"魔導研究の総本山。魔導が大きく上がり、以後は折に触れて研究の成果(秘宝の断片や珍品)がもたらされる。", fx:{st:{magic:7}}, ongoing:"研究成果が時折", doneLog:"大魔導院が開かれ、大陸中の魔導師と典籍が集った。以後、絶えざる研究が折に触れて成果を結ぶだろう(魔導↑↑)。"},
+ {key:"barracks",name:"兵舎の大増築",  cost:200, rate:1.4, req:2, desc:"兵の起居する兵舎を大きく拡げる。常備軍の定員が永続で+6され、より多くの兵を旗の下に抱えられる。", fx:{st:{military:2,order:1}}, ongoing:"定員+6", done:()=>{S.flags=S.flags||{};S.flags.barracksBonus=(S.flags.barracksBonus||0)+6;}, doneLog:"兵舎が大きく増築され、より多くの兵がこの旗の下に起居できるようになった(定員↑ 軍事↑)。"},
 ];
 function civicWorkState(key){ const s=(S.flags&&S.flags["civic_"+key]); return s||"none"; } // none / building / built
 function civicWorkAvailable(w){ return civicWorkState(w.key)==="none" && STAGES[S.stage].rank>=(w.req||1); }
@@ -7809,6 +7810,7 @@ function commissionCivicWork(key){
   S.projects.push({id:"civic_"+key,nm:w.name,desc:w.desc,p:0,rate:w.rate,done:false,fx:()=>{
     S.flags["civic_"+key]="built";
     apply(Object.assign({},w.fx,{log:"――勅令普請、成る。"+w.doneLog,logCls:"big"}));
+    if(typeof w.done==="function"){try{w.done();}catch(e){}} // 標準の国力fx以外の恒久効果(定員拡張など)を反映
     if(typeof recordAnnal==="function"&&!(S.flags._civicAnnal)){S.flags._civicAnnal=true;recordAnnal("王の勅令により、初の大普請が成った。","civicwork",true);}
   }});
   chron(`王の勅令により、「${w.name}」の普請が始まった。数十日の後、成るだろう(国庫${w.cost})。`,"big");
