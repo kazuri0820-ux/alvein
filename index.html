@@ -9534,7 +9534,7 @@ function bossTraitTag(d){
   const bt=BOSS_TRAITS[d.bossTrait];
   const slain=!!((S.flags&&S.flags.bossKings)?S.flags.bossKings[d.bossTrait]:false);
   const mark=slain?"":`<span style="color:#e8c874;font-weight:800"> 未討伐</span>`;
-  return `<span style="color:${bt.color};font-weight:800">【${bt.label}】</span>${mark}`;
+  return `<span title="${(bt.desc||"").replace(/"/g,"")}${slain?` ／ 初討伐 DAY${S.flags.bossKings[d.bossTrait]}`:" ／ 未だ討ち取っていない王"}" style="color:${bt.color};font-weight:800">【${bt.label}】</span>${mark}`;
 }
 /* 兵が部隊にもたらす支援効果(庇護/医療/兵站/宝運/金策)を短い印で示す=支援役を組み合わせた編成を組みやすくする(磨き込み) */
 function unitSupportTags(u){
@@ -14446,7 +14446,12 @@ function renderDungeonPanel(){
       const remain=DUNGEON_TYPES.filter(x=>!(S.clearedTypes||{})[x.key]);
       h+=`<div class="ds" style="color:var(--dim);font-size:11px;margin-bottom:8px">攻略型 制覇 <span style="color:${done>=total?"var(--gold)":"#c9a86a"};font-weight:700">${done}/${total}</span>${done>=total?" ／ 全型制覇済み":(done<total&&remain.length<=4?" ／ 未踏:"+remain.map(x=>x.label).join("・"):"")}${(()=>{const rank=(S.flags&&S.flags.explorerRank)||0;const nexts=[[5,"発見機会↑"],[10,"踏破経験↑"],[15,"断片↑"]];const nx=nexts.find(n=>done<n[0]);const rankLabel=rank>=3?"大陸の踏破者":rank>=2?"熟練の探検家":rank>=1?"名うての探検家":"";return `${rankLabel?` ／ <span style="color:var(--gold)">${rankLabel}</span>`:""}${nx?` <span style="color:var(--dim)">(あと${nx[0]-done}型で${nx[1]})</span>`:""}`;})()}</div>`;
       const bkDone=Object.keys((S.flags&&S.flags.bossKings)||{}).length, bkTotal=BOSS_TRAIT_KEYS.length;
-      if(bkDone>0){const bkRemain=BOSS_TRAIT_KEYS.filter(k=>!((S.flags&&S.flags.bossKings)||{})[k]);h+=`<div class="ds" style="color:var(--dim);font-size:11px;margin-bottom:8px">討伐した王 <span style="color:${bkDone>=bkTotal?"var(--gold)":"#c9a86a"};font-weight:700">${bkDone}/${bkTotal}</span>${bkDone>=bkTotal?" ／ 全ての王を討伐済み":(bkRemain.length<=4?" ／ 未討伐:"+bkRemain.map(k=>(BOSS_TRAITS[k]||{}).label||k).join("・"):"")}</div>`;}
+      if(bkDone>0){
+        h+=`<div class="ds" style="color:var(--dim);font-size:11px;margin-bottom:4px">討王録 <span style="color:${bkDone>=bkTotal?"var(--gold)":"#c9a86a"};font-weight:700">${bkDone}/${bkTotal}</span>${bkDone>=bkTotal?" ／ 全ての王を討伐済み":" ／ 未だ見ぬ王を狩り尽くせ"}</div>`;
+        // 討王録:個性ある王を一覧化し、討伐済み(色付き)と未討伐(灰・〈未〉)を見分けられる長期の狩りの到達目標。
+        // 未討伐の王も名と"何を落とすか"を露わにし(触れて確かめられる)、狙って狩る動機を与える(到達×可読性)。
+        h+=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:9px">`+BOSS_TRAIT_KEYS.map(k=>{const t=BOSS_TRAITS[k]||{};const slain=!!((S.flags&&S.flags.bossKings)||{})[k];const tip=`${(t.desc||"").replace(/"/g,"")}${slain?` ／ 初討伐 DAY${S.flags.bossKings[k]}`:" ／ まだ討ち取っていない王"}`;return `<span title="${tip}" style="font-size:9.5px;border-radius:4px;padding:1px 6px;border:1px solid ${slain?(t.color||"var(--gold2)"):"rgba(255,255,255,.14)"};color:${slain?(t.color||"var(--gold)"):"var(--dim)"};${slain?"":"opacity:.75"}">${slain?"":"〈未〉"}${t.label||k}</span>`;}).join("")+`</div>`;
+      }
     }
     // ── 秘宝の断片と遺物の鍛造 ──
     {const shards=S.relicShards||0;const unclaimed=RELIC_DEFS.filter(r=>!relicHas(r.key));
