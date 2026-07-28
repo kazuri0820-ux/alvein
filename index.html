@@ -9091,6 +9091,12 @@ const GREAT_RELATIONS=[
  {a:"g_shingen",b:"g_kenshin",type:"rival",note:"――武田信玄と上杉謙信。川中島に幾度も刃を交えた好敵手が、この国で再び覇を競い合う。"},
  {a:"g_musashi",b:"g_bokuden",type:"rival",note:"――宮本武蔵と塚原卜伝。時代を隔てた二人の剣聖が、互いの剣に好敵手を見出した。"},
  {a:"g_hakuki",b:"g_ryohou",type:"rival",note:"――白起と廉頗。戦国を代表する両将が、同じ国に立ち、互いを好敵手と認めた。"},
+ {a:"g_sousou",b:"g_shibai",type:"bond",note:"――曹操と司馬懿。乱世の奸雄と、その才を見出された臥龍の宿敵。主と臣の縁が、この国で結び直された。"},
+ {a:"g_nobunaga",b:"g_mitsuhide",type:"discord",note:"――織田信長と明智光秀。本能寺に燃え上がった因縁が、時を超えてこの国に持ち込まれた。二人の間には、拭いがたい確執が横たわっている。"},
+ {a:"g_caesar",b:"g_cleopatra",type:"bond",note:"――カエサルとクレオパトラ。ナイルに結ばれた英雄と女王の縁が、この国で再び甦った。"},
+ {a:"g_alexander",b:"g_caesar",type:"rival",note:"――アレクサンドロスとカエサル。世界を制した征服者たちが、互いの背にかつての己を見て、好敵手と認め合った。"},
+ {a:"g_genghis",b:"g_attila",type:"rival",note:"――チンギス・ハンとアッティラ。大陸を席巻した草原の覇者同士が、同じ空の下で覇を競い合う。"},
+ {a:"g_leonidas",b:"g_themistocles",type:"bond",note:"――レオニダスとテミストクレス。祖国をペルシアの脅威から守り抜いた者同士が、固い絆で結ばれた。"},
 ];
 function checkGreatRelations(){
   const by={};
@@ -9110,6 +9116,12 @@ function checkGreatRelations(){
       a.rivalWith=b.id; b.rivalWith=a.id;
       if(typeof unitHistory==="function"){unitHistory(a,`史実の縁により、${b.nm}を好敵手と認めた。`);unitHistory(b,`史実の縁により、${a.nm}を好敵手と認めた。`);}
       chron(rel.note||`${a.nm}と${b.nm}、好敵手として火花を散らす。`,"big");
+    }else if(rel.type==="discord"){
+      if(a.discordWith||b.discordWith)continue;
+      if(a.bondWith===b.id||b.bondWith===a.id)continue;
+      a.discordWith=b.id; b.discordWith=a.id;
+      if(typeof unitHistory==="function"){unitHistory(a,`史実の因縁により、${b.nm}との間に確執が生まれた。`);unitHistory(b,`史実の因縁により、${a.nm}との間に確執が生まれた。`);}
+      chron(rel.note||`${a.nm}と${b.nm}の間に、拭いがたい確執が芽生えた。`,"big");
     }
   }
 }
