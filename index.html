@@ -1538,6 +1538,9 @@ const TRAIT_RARE=[
  {key:"trr_48",name:"山師の血",desc:"地に埋もれた遺構や洞の気配を、鼻で嗅ぎ分ける山師の血を引く。この者が任にあると、噂の迷宮への入口を見出しやすくなる",gm:1.06,dungeonFind:0.25,wis:4},
  {key:"trr_49",name:"忠烈の質",desc:"一度主と定めた相手には、生涯かけて忠義を尽くす一本気な質。忠誠がぐんぐん深まり、めったなことでは揺らがない",gm:1.06,loyaltyGrow:0.4,vit:4},
  {key:"trr_50",name:"隊商あがり",desc:"かつて隊商で場数を踏んだ目利き。金目のものと掘り出し物を見分ける勘に長け、伴う迷宮踏破では財貨も拾い物もわずかに増える",gm:1.06,goldFind:0.16,itemFind:0.12,agi:3},
+ {key:"tenpin",name:"天稟",desc:"生まれ持った才の煌めき。何を学んでも人より速く芯を掴み、めきめきと腕を上げる",gm:1.13,expMult:0.93},
+ {key:"keigan",name:"慧眼",desc:"物事の本質を見抜く鋭い眼。危地を先んじて察し、掘り出しにも目が利く",gm:1.06,injuryMult:0.9,lootLuck:0.05,wis:4},
+ {key:"meikyo",name:"明鏡止水",desc:"澄んだ水面の如き静心。何が起きても動じず乱れず、着実に力を伸ばし続ける",gm:1.08,moralGrow:0.1,injuryMult:0.9},
 ];
 const TRAIT_EPIC=[
  {key:"swordsaint",name:"剣聖の末裔",desc:"名も知れぬ剣豪の血を引くという",gm:1.4,injuryMult:0.5,deathMult:0.55},
@@ -9724,6 +9727,10 @@ const ITEMS=[
  {key:"trade_caravan",name:"隊商との取引",rarity:"uncommon",desc:"国庫がまとまって潤う。",effect:()=>apply({gold:ri(50,90),log:"隊商との取引がまとまり、実入りが増えた。"})},
  {key:"gambler_dice",name:"賭博師の骰子",rarity:"uncommon",desc:"転がせば吉と出るか凶と出るか――国庫が大きく増えるか、いくらか減るかは運次第(博打)。",effect:()=>{if(Math.random()<0.62){const g=ri(70,120);apply({gold:g,mood:1,log:`賭博師の骰子は吉と出た。思わぬ${g}が国庫に転がり込み、城下は幸運話で持ちきりだ。`,logCls:"big"});}else{const g=ri(20,45);apply({gold:-Math.min(S.gold,g),mood:-1,log:`賭博師の骰子は凶と出た。賭けは裏目に出て、${g}を失った。`});}}},
  {key:"traveling_troupe",name:"旅の一座",rarity:"uncommon",desc:"旅芸人の一座を招く。全兵士の士気が上がり、民心もわずかに沸く。",effect:()=>{for(const u of S.units)u.moral=Math.min(100,(u.moral||0)+ri(4,8));apply({mood:ri(2,4),log:"旅の一座の興行が谷を沸かせ、兵も民も久方ぶりに声を上げて笑った。",logCls:"big"});}},
+ {key:"heroic_saga",name:"英雄譚の写本",rarity:"uncommon",desc:"王国の武勇を綴った写本。読み継がれ、王国の威信が高まる。",effect:()=>{if(typeof grantRenown==="function")grantRenown(ri(1,2),"英雄譚の写本");chron("英雄譚の写本が各地で読み継がれ、アルヴェインの武名がまた一段広まった(威信↑)。","big");}},
+ {key:"harvest_deed",name:"豊穣の証文",rarity:"uncommon",desc:"蔵の余剰食糧を市場で捌き、まとまった国庫に換える(食糧→金)。",effect:()=>{const f=Math.min(S.food||0,ri(40,70));if(f>=20){const g=Math.round(f*1.1);apply({food:-f,gold:g,log:`豊穣の証文により、余剰の食糧${f}を市場で捌いて国庫に${g}を得た。`});}else{apply({gold:ri(15,30),log:"蔵に捌けるほどの余剰はなく、証文はわずかな実入りにとどまった。"});}}},
+ {key:"outlaw_gift",name:"義賊の置き土産",rarity:"uncommon",desc:"義賊が城門に残した財貨。国庫は潤うが、まんまと出し抜かれ役人の面目はやや潰れる(治安わずかに↓)。",effect:()=>{apply({gold:ri(60,100),st:{order:-1},log:"義賊の置き土産が国庫を潤したが、出し抜かれた役人たちはばつが悪そうにしている。"});}},
+ {key:"masters_relic",name:"名工の遺品",rarity:"rare",desc:"名工が遺した業物。上質な装備が一点、手に入る。",effect:()=>{const eq=(typeof rollEquipmentDrop==="function")?rollEquipmentDrop("rare"):null;if(eq&&typeof addEquipment==="function"){const inst=addEquipment(eq.key);const nm=(typeof equipInstName==="function")?equipInstName(inst):eq.name;chron(`名工の遺品を検めると、上質な装備「${nm}」が収められていた。`,"big");}else{apply({gold:ri(50,80),log:"名工の遺品に業物は残されておらず、財貨に換えた。"});}}},
  {key:"census_book",name:"戸籍簿の写し(続)",rarity:"uncommon",desc:"人口がまとまって増える。",effect:()=>apply({pop:ri(4,8),log:"戸籍簿の整理で、新たな住民が把握された。"})},
  {key:"morale_song",name:"鼓舞の歌",rarity:"uncommon",desc:"全兵士の士気が少し上がる。",effect:()=>{for(const u of S.units)u.moral=Math.min(100,u.moral+ri(6,12));chron("鼓舞の歌が広まり、全軍の士気が上向いた。","big");}},
  {key:"apprentice_scroll",name:"見習いの心得書",rarity:"uncommon",desc:"ランダムな兵に中量の経験値。",effect:()=>{if(!S.units.length)return;const u=S.units[Math.floor(Math.random()*S.units.length)];u.exp+=ri(12,22);processLevelUps(u);chron(`${u.nm}が心得書を熟読し、腕を上げた。`,"big");}},
