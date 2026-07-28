@@ -6112,6 +6112,28 @@ const RANDOM_CHOICE_EXTRA=[
    {label:"初陣の任を与える",hint:"若く未熟な兵が経験と自信を得る",fx:{call:()=>{const young=S.units.filter(u=>u.role==="active"&&(u.lv||1)<=6);const pool=young.length?young:S.units.filter(u=>u.role==="active");if(!pool.length)return;const u=pool[Math.floor(Math.random()*pool.length)];u.exp=(u.exp||0)+ri(12,22);processLevelUps(u);u.moral=Math.min(100,(u.moral||0)+7);unitHistory(u,"初陣を無事に果たし、一人前への一歩を踏み出した。");chron(`${fullName(u)}が初陣を立派に務め上げ、誇らしげに帰営した。皆がその成長を我がことのように喜んでいる。`,"big");}}},
    {label:"いま少し鍛えさせる",hint:"軍事↑(堅実に備える)",fx:{st:{military:1},log:"新兵はもうしばらく鍛錬に励むことになった。焦らず地力を養うのも、また肝要である。"}},
   ]},
+ /* ── 軍中の疑心(統治の機微) ── */
+ {tag:"密 告",title:"内通者の噂",
+  body:"軍中に敵と通じる者がいるという不穏な噂が流れている。密かに調べさせるか、根も葉もない噂と一蹴するか。",
+  speaker:"ガレオン「火のないところに煙は立たぬ、とも申しますが……」",
+  choices:[
+   {label:"密かに調べさせる",hint:"国庫を割く / 疑いが晴れ士気が安定",fx:{gold:-20,call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.moral=Math.min(100,(u.moral||0)+2);apply({st:{order:1},log:"密かな調べの末、噂は根も葉もないものと判明した。疑心暗鬼は晴れ、兵たちは安堵して務めに戻っている。"});}}},
+   {label:"噂と一蹴する",hint:"何も割かない(が…)",fx:{call:()=>{if(Math.random()<0.6){apply({st:{order:1},log:"長は噂を毅然と一蹴した。動じぬ姿に、かえって軍の結束は保たれている。"});}else{apply({mood:-2,st:{order:-1},log:"噂は放置され、疑心暗鬼が静かに広がった。確かな害はなかったが、軍中の空気は少しぎこちない。"});}}}},
+  ]},
+ /* ── 亡き戦友の意志を継ぐ(弔いと愛着) ── */
+ {tag:"形 見",title:"亡き戦友の形見",
+  body:"かつて志半ばで倒れた兵の遺した得物が、武具庫の奥から見つかった。誰かに託し、その意志を継がせてはどうか。",
+  choices:[
+   {label:"見込みある兵に託す",hint:"その兵が奮起する",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){chron("だが今、形見を託すに相応しい兵がいなかった。","");return;}const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+9);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+6);unitHistory(u,"亡き戦友の形見の得物を託され、その意志を継ぐと誓った。");chron(`${fullName(u)}が亡き戦友の形見を託された。受け継いだ想いを胸に、いっそう奮い立っている。`,"people");}}},
+   {label:"丁重に武具庫へ納める",hint:"民心↑(弔いの心)",fx:{mood:2,log:"形見の得物は、倒れた兵への弔いとして丁重に武具庫へ納められた。その心を、兵も民も静かに敬っている。"}},
+  ]},
+ /* ── 経済と民心の板挟み(交易路の采配) ── */
+ {tag:"関 所",title:"街道の関所",
+  body:"領内を通る交易路に関所を設け、通行料を取ってはどうかという案が上がっている。国庫は潤うが、行き交う商人の反発も見込まれる。",
+  choices:[
+   {label:"関所を設け、通行料を取る",hint:"経済↑ 民心↓",fx:{st:{economy:2},mood:-3,log:"街道に関所が設けられ、通行料が国庫を潤し始めた。だが行き交う商人たちの間には、不満の声もくすぶっている。"}},
+   {label:"街道は自由に通らせる",hint:"民心↑ 外交↑",fx:{mood:2,st:{diplomacy:1},log:"街道は誰もが自由に通れるままとされた。この寛容な計らいは、遠方の商人たちにも好意的に伝わっている。"}},
+  ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
 /* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
