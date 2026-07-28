@@ -1878,6 +1878,7 @@ const EQUIPMENT_DB=[
  {key:"eqp_armor_rare",name:"名工の板金鎧",slot:"armor",rarity:"rare",statBonus:{vit:12,int:4}},
  {key:"eqp_armor_epic",name:"竜鱗の鎧",slot:"armor",rarity:"epic",statBonus:{vit:18,int:7}},
  {key:"eqp_armor_legendary",name:"星屑の聖鎧",slot:"armor",rarity:"legendary",statBonus:{vit:26,int:12,wis:6}},
+ {key:"eqp_armor_masterwork",name:"銘匠の鎧グレンデル",slot:"armor",rarity:"legendary",statBonus:{vit:24,str:10,lead:9}},// イベント連鎖「落魄の名工」でのみ得られる一点物の業物
  // ── 防具・軽鎧(敏捷寄り=軽装・弓術職向け。重鎧が噛み合わぬ俊敏な兵の防具) ──
  {key:"eqp_hide_common",name:"革の胴着",slot:"armor",rarity:"common",statBonus:{agi:3,vit:2}},
  {key:"eqp_hide_uncommon",name:"なめし革の鎧",slot:"armor",rarity:"uncommon",statBonus:{agi:6,vit:3}},
@@ -4462,6 +4463,40 @@ const RANDOM_RARE=[
      S.flags=S.flags||{};S.flags.alchemy="elixir";S.flags.alchemyArc=2;
      apply({st:{magic:2},mood:2,log:"錬金術師は賢者の霊薬を成した。命を巡らせるその碧い雫のもと、以後は傷ついた兵が、時折ひとりでに癒えて戦列へ戻る(魔導+2)。",logCls:"big"});
      chron("流浪の錬金術師の物語は、癒しの碧光とともに幕を下ろした。","big");
+   }}},
+  ]},
+ // ===== 連続物語(イベント連鎖):落魄の名工。二部に跨り、支援の厚さが授かる業物の格を左右する(武具愛着×工房投資の新機軸) =====
+ {tag:"名 工",title:"落魄の名工",
+  cond:s=>!(s.flags&&s.flags.smithArc)&&STAGES[s.stage].rank>=2&&s.day>=35,
+  body:"かつて大陸に名を馳せたという老鍛冶が、すっかり落魄れた身なりで城門に立っていた。「わしの鎚を打つ炉が、もう無いのです。……もし工房を一つ、お与えくださるなら――この老いぼれの遺す最後の一領、きっと貴国の宝となりましょう」。節くれだった手が、静かに震えていた。",
+  speaker:"ガレオン「あの手の胼胝、そして眼の光……本物の名工にございます。捨て置くには、惜しい」",
+  choices:[
+   {label:"工房を与え、手厚く抱える(60G)",hint:"名工と篤い縁を結ぶ(後に授かる業物の格が上がる物語の始まり)",fx:{call:()=>{
+     if(S.gold<60){chron("工房を構える蓄えがなく、名工は深く頭を垂れ、また流浪の旅へ去っていった。","");return;}
+     S.gold-=60;S.flags=S.flags||{};S.flags.smithArc=1;S.flags.smithGoodwill=true;S.flags.smithArcDay=S.day+ri(8,12);
+     apply({mood:2,log:"王は名工に立派な工房と炉を与え、客人として手厚くもてなした。老鍛冶は目を潤ませ、「この恩、鎚に込めまする」と、その日のうちに炉に火を入れた。",logCls:"big"});
+   }}},
+   {label:"客分として迎える",hint:"様子見(物語は進むが、縁は浅い)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.smithArc=1;S.flags.smithGoodwill=false;S.flags.smithArcDay=S.day+ri(8,12);
+     apply({log:"王は名工を客分として迎え、ひとまず片隅の炉を貸し与えた。老鍛冶は静かに礼を述べ、黙々と鎚を振るい始めた。"});
+   }}},
+   {label:"今は余裕がないと丁重に断る",hint:"堅実(この物語は始まらない)",fx:{call:()=>{
+     S.flags=S.flags||{};S.flags.smithArc=-1;
+     apply({st:{order:1},log:"王は名工の申し出を、詫びとともに断った。老鍛冶は「無理もありませぬ」と力なく笑い、去っていった。分をわきまえた判断だと、家臣は静かに頷いた(治安+1)。"});
+   }}},
+  ]},
+ {tag:"名 工",title:"名工、最後の一領",
+  cond:s=>(s.flags&&s.flags.smithArc)===1&&s.day>=(s.flags.smithArcDay||0),
+  body:"幾夜も炉の火を絶やさなかった老鍛冶が、王を工房へ招いた。「――成りました。この老骨に遺された、最後にして最高の一領。どうか、王国の兵に纏わせてやってくだされ」。布を払うと、鈍く輝く一領の鎧が姿を現した。名工の顔には、やり遂げた者だけの静かな誇りが浮かんでいた。",
+  speaker:"セラ「なんという業物……。あの御方に工房を与えたこと、王国の誇りとなりましょう」",
+  choices:[
+   {label:"打ち上がった業物を受け取る",hint:"篤く支えていれば、遺されるのは一点物の名鎧",fx:{call:()=>{
+     S.flags=S.flags||{};const goodwill=!!S.flags.smithGoodwill;S.flags.smithArc=2;
+     let eqName="";
+     if(goodwill){const inst=addEquipment("eqp_armor_masterwork");eqName=equipInstName(inst);}
+     else{const eq=rollEquipmentDrop("epic");if(eq){const inst=addEquipment(eq.key);eqName=equipInstName(inst);}}
+     apply({mood:goodwill?5:3,st:{military:goodwill?3:1},log:`名工の遺した${eqName?`業物「${eqName}」`:"一領の鎧"}が、王国の武具庫に加えられた。${goodwill?"手厚い恩に、老鍛冶はその生涯の技を余さず注ぎ込んだ――これぞ一点物の名鎧(軍事+3 民心↑)。":"確かな業物ではあったが、老鍛冶はどこか力を出し切れぬ様子だった(軍事+1)。"}`,logCls:"big"});
+     chron(goodwill?"落魄の名工の物語は、生涯最高の一領とともに幕を下ろした。老鍛冶はやり遂げた顔で、静かに炉の火を落とした。":"落魄の名工の物語は、一領の鎧を遺して静かに幕を下ろした。","big");
    }}},
   ]},
  // ===== 連続物語(イベント連鎖):流浪の剣客。腕を認めさせれば、名うての剣客が仲間に加わる(踏破を重ねる=クエストで英傑を得る新しい加入の道) =====
