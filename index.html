@@ -9483,14 +9483,6 @@ const ITEMS=[
  {key:"letter_intro",name:"紹介状",rarity:"common",desc:"外交が少し上がる。",effect:()=>apply({st:{diplomacy:ri(1,3)},log:"紹介状が思わぬところで役に立った。"})},
  {key:"star_compass",name:"星詠みの羅針盤",rarity:"uncommon",desc:"未知のダンジョンへの道標を得る(新たなダンジョンが出現)。",effect:()=>{const nd=generateDungeon();S.availableDungeons=S.availableDungeons||[];S.availableDungeons.push(nd);if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}chron(`星詠みの羅針盤が、${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」への道を指し示した。`,"big");}},
  {key:"reforge_manual",name:"鍛冶の秘伝書",rarity:"rare",desc:"手持ち(在庫)の装備一点を、同系統の一つ上の格へ鍛え直す。",effect:()=>reforgeBestInventoryEquip()},
- {key:"rejuv_water",name:"若返りの霊水",rarity:"rare",desc:"選んだ兵の年輪を数年巻き戻す。老いの衰えに抗い、頼れる古兵をもう一花咲かせたい時に。",needsTarget:true,effect:(targetId)=>{
-   const u=findAnyUnit(targetId); if(!u){chron("霊水を注ぐ相手が見つからなかった。","");return;}
-   const yrs=ri(3,5); const before=Math.floor(u.age||16);
-   u.age=Math.max(16,(u.age||16)-yrs); const back=before-Math.floor(u.age);
-   u.rejuvenated=true; if(typeof grantTitle==="function")grantTitle(u,"t_agedefier");
-   if(back>0&&typeof unitHistory==="function")unitHistory(u,`若返りの霊水を浴び、年輪が${back}年ほど巻き戻った。`);
-   chron(`${fullName(u)}が若返りの霊水を浴びた。${back>0?`年輪が${back}年ほど巻き戻り、老いの衰えを退けて再びの盛りを取り戻した。`:"もとより若く、霊水の恵みは静かに身へ染み入った。"}`,"big");
- }},
  {key:"pioneer_map",name:"開かずの秘境図",rarity:"rare",desc:"いまだ制していない攻略型の秘境が姿を現す(未踏破の型を狙って出現)。",effect:()=>{
    const cleared=S.clearedTypes||{};
    const unconquered=DUNGEON_TYPES.filter(t=>!cleared[t.key]);
@@ -9645,6 +9637,7 @@ const ITEMS=[
    const after=Math.floor(u.age);
    if(after>=before){chron(`${u.nm}はまだ十分に若く、霊薬は静かにしまわれた。`,"");return;}
    const stg=ageStageOf(u); u.ageStageSeen=stg.key; // 段階の再評価が綺麗に働くよう演出フラグを現段階へ合わせる
+   u.rejuvenated=true; if(typeof grantTitle==="function")grantTitle(u,"t_agedefier"); // 若返りの証(人物詳細の「若返り」印+称号「時を欺きし者」)を、泉の主の恵みと同格に揃える
    unitHistory(u,`若返りの霊薬により、${before}歳から${after}歳の盛りへと時を巻き戻した。`);
    chron(`${u.nm}が若返りの霊薬をあおると、刻まれた歳月がほどけ、盛りの力がその身に甦った(${before}歳→${after}歳)。積み上げた技は、そのままに。`,"big");
  }},
