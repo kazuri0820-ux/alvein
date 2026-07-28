@@ -2191,6 +2191,28 @@ function enhanceEquip(unitId,slot){
   chron(`鍛冶場の炉が唸り、${u.nm}の「${equipInstName(inst)}」が鍛え直された。一段と強く、手に馴染む一品となった。`,"big");
   clamp();render();renderTroops();if(typeof renderUnitDetail==="function")renderUnitDetail(unitId);save();
 }
+/* 武具の打ち直し(装備の新機軸=個体差の振り直し):鍛冶で装備の宿す個体差(アフィックス)を鍛え直す賭け。運次第で
+   良くも悪くもなる。基礎能力を上げる「鍛冶(強化)」とは別軸で、"当たり個体を狙う"収集・最適化の楽しみを深める。
+   呪われた個体を打ち直して呪いを解く(あるいは新たに宿す)道でもある=呪具との付き合い方に選択肢を与える。 */
+function reforgeCost(inst){const def=EQUIPMENT_DB.find(d=>d.key===inst.key);if(!def)return 0;const disc=(S.flags&&S.flags.forgeWorkshop)?0.8:1;return Math.round((ENH_COST_BASE[def.rarity]||60)*2.2*disc);} // 打ち直しは強化より割高(振り直しの賭け)。常設の大工房で2割安い
+function reforgeEquip(unitId,slot){
+  const u=findAnyUnit(unitId); if(!u||!u.equipment||!u.equipment[slot])return;
+  const inst=u.equipment[slot]; const def=EQUIPMENT_DB.find(d=>d.key===inst.key); if(!def)return;
+  if(def.rarity==="common"){chron(`「${equipInstName(inst)}」には打ち直せる個体差がない。`,"");return;}
+  const cost=reforgeCost(inst);
+  if(S.gold<cost){chron("国庫が足らず、武具の打ち直しに出せなかった。","");return;}
+  S.gold-=cost;
+  const wasCursed=(typeof instIsCursed==="function")&&instIsCursed(inst);
+  inst.affixes=(typeof doctrineIs==="function"&&doctrineIs("loot"))?rollAffixesBest(def.rarity,2):rollAffixes(def.rarity); // 宝物狂の国なら打ち直しも良い方を採る
+  const nowCursed=(typeof instIsCursed==="function")&&instIsCursed(inst);
+  const after=equipInstBonusText(inst);
+  unitHistory(u,`装備「${equipInstName(inst)}」を鍛冶で打ち直した(個体差を振り直し)。`);
+  let extra="";
+  if(wasCursed&&!nowCursed)extra="宿っていた呪いは、炉の熱に溶けて消え去った。";
+  else if(!wasCursed&&nowCursed)extra="だが打ち直しの過程で、刃は禍々しい気を帯びてしまった――諸刃の一振りへと変じている。";
+  chron(`鍛冶場で${u.nm}の「${def.name}」が打ち直された。宿る個体差が新たに鍛え直され、${after}となった。${extra}`,"big");
+  clamp();render();renderTroops();if(typeof renderUnitDetail==="function")renderUnitDetail(unitId);save();
+}
 function skillTierWeight(){return[["red",9],["gray",44],["blue",30],["silver",13],["gold",4]];}
 /* ジョブ系統の昇格時専用の重み(灰〜銀中心、赤は低確率、金は3段階目以降の昇格でのみ解放) */
 function promotionTierWeight(includeGold){
@@ -14304,6 +14326,7 @@ function renderUnitDetail(uid){
           ${def?`<button class="eq-remove-btn" data-slot="${slot}" style="flex:1;background:transparent;border:1px solid rgba(217,122,122,.5);color:#d97a7a;border-radius:6px;padding:6px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">外す</button>`:""}
         </div>
         ${def?(()=>{const lv=enhLevel(inst);if(lv>=ENH_MAX)return `<div class="ds" style="font-size:11px;color:var(--gold);margin-top:6px">鍛冶:+${ENH_MAX}(最大まで鍛え上げた)</div>`;const cost=enhanceCost(inst);const ok=S.gold>=cost;return `<button class="eq-enhance-btn" data-slot="${slot}" ${ok?"":"disabled"} style="width:100%;margin-top:6px;background:${ok?"linear-gradient(180deg,#e0be6f,var(--gold))":"rgba(255,255,255,.08)"};color:${ok?"var(--ink)":"var(--dim)"};border:none;border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-weight:800;font-size:11.5px;cursor:${ok?"pointer":"default"}">鍛冶で鍛える(+${lv}→+${lv+1} / ${cost}G)</button>`;})():""}
+        ${def&&def.rarity!=="common"?(()=>{const cost=reforgeCost(inst);const ok=S.gold>=cost;return `<button class="eq-reforge-btn" data-slot="${slot}" ${ok?"":"disabled"} style="width:100%;margin-top:5px;background:transparent;border:1px solid ${ok?"#b79ad0":"rgba(255,255,255,.14)"};color:${ok?"#c9a0d0":"var(--dim)"};border-radius:6px;padding:6px;font-family:'Shippori Mincho',serif;font-size:11px;cursor:${ok?"pointer":"default"}" title="宿る個体差(アフィックス)を鍛え直す賭け。運次第で良くも悪くもなる。呪いを解く(または宿す)道でもある">打ち直す(個体差を振り直す / ${cost}G)</button>`;})():""}
       </div>`;
     }
     h+=`</div>`;
@@ -14379,6 +14402,9 @@ function renderUnitDetail(uid){
   });
   $("#unitDetailBody").querySelectorAll(".eq-enhance-btn").forEach(b=>b.onclick=()=>{
     enhanceEquip(uid,b.dataset.slot);refreshOpenPanels();
+  });
+  $("#unitDetailBody").querySelectorAll(".eq-reforge-btn").forEach(b=>b.onclick=()=>{
+    reforgeEquip(uid,b.dataset.slot);refreshOpenPanels();
   });
   const reBtn=$("#btnReactivate");
   if(reBtn)reBtn.onclick=()=>{reactivateInstructor(u);$("#panelUnitDetail").classList.remove("show");};
