@@ -11779,6 +11779,7 @@ const FACILITY_TYPES=[
  {key:"chapel",name:"祈祷所",desc:"担当を置くと、その知力・統率に応じて毎日わずかに民心が高まる(民の心の拠り所)。",cost:130,produce:"mood",statFn:u=>u.wis*0.3+u.lead*0.2},
  {key:"forge",name:"鍛冶場",desc:"担当を置くと、その腕力・知力に応じて時おり武具を打ち上げる(武具庫に加わる)。",cost:160,produce:"equip",statFn:u=>u.str*0.4+u.int*0.4+u.vit*0.2},
  {key:"academy",name:"学舎",desc:"担当を置くと、その知力・知恵に応じて、日々の研鑽の中で時おり新たな技を会得する(戦場に出さずとも兵の芸を磨ける)。",cost:170,produce:"skill",statFn:u=>u.int*0.5+u.wis*0.3+u.lead*0.2},
+ {key:"embassy",name:"迎賓館",desc:"担当を置くと、その統率・知恵に応じて、諸国との誼が日々わずかに温まる(最も冷えた非同盟国との関係が上向く)。外交・同盟を志す国の礎。",cost:160,produce:"diplo",statFn:u=>u.lead*0.06+u.wis*0.05+u.int*0.03},
 ];
 /* 施設の増改築:改築を重ねるほど産出が伸びる(Lv1=等倍→Lv4で2.5倍)。ゴールドの使い道と施設育成のやり込みを追加 */
 function facilityLevelMult(f){return 1+(((f&&f.level)||1)-1)*0.5;}
@@ -11809,10 +11810,16 @@ function facilityDailyProduce(){
     else if(ft.produce==="skill"){ // 学舎:担当が日々の研鑽で時おり新たな技を会得する(trySkillUpが上限判定と習得演出を担う)
       if((u.skills||[]).length<skillCap(u)&&Math.random()<Math.min(0.2,amount*0.028)){trySkillUp(u);}
     }
+    else if(ft.produce==="diplo"){ // 迎賓館:最も冷えた非同盟国との誼を日々わずかに温める(受動的な外交エンジン)。皆と誼が篤い/全同盟なら外交国力をわずかに底上げ
+      if(typeof ensureNeighbors==="function")ensureNeighbors();
+      const nbs=(S.neighbors||[]).filter(n=>n&&!n.allied);
+      if(nbs.length){nbs.sort((a,b)=>(a.relation||0)-(b.relation||0));nbs[0].relation=Math.min(100,(nbs[0].relation||0)+amount);}
+      else S.st.diplomacy=Math.min(100,(S.st.diplomacy||0)+amount*0.3);
+    }
     else S.food+=amount;
   }
 }
-const FACILITY_PRODUCE_LABEL={gold:"国庫",food:"食糧",exp:"経験値",heal:"療養支援",mood:"民心",equip:"鍛冶",skill:"技の研鑽"};
+const FACILITY_PRODUCE_LABEL={gold:"国庫",food:"食糧",exp:"経験値",heal:"療養支援",mood:"民心",equip:"鍛冶",skill:"技の研鑽",diplo:"隣国との誼"};
 /* ===== 重臣の任命(内政の新軸):有能な兵を国政の要職に就け、その器量で分野の国力を日々育てる。
    戦うだけでなく"国を治める"活躍の場と、限られた席に誰を据えるかという配置の選択を加える新機軸 ===== */
 const MINISTER_OFFICES=[
@@ -12851,7 +12858,7 @@ function renderProjects(){
       const amt=Math.round(ft.statFn(mgr)*FACILITY_PRODUCE_MULT*facilityLevelMult(f)*censorProductionMult());
       if(amt>0)agg[ft.produce]=(agg[ft.produce]||0)+amt;
     }
-    const order=["gold","food","mood","exp","heal","equip","skill"];
+    const order=["gold","food","mood","diplo","exp","heal","equip","skill"];
     const parts=order.filter(k=>agg[k]).map(k=>`${FACILITY_PRODUCE_LABEL[k]||k}+${agg[k]}`);
     if(parts.length)h+=`<div class="ds" style="font-size:10.5px;color:#a9c47a;margin-bottom:6px">担当を置いた施設の日々の産出(合計):${parts.join("・")}</div>`;
   }
