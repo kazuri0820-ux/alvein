@@ -14399,7 +14399,7 @@ function renderUnitDetail(uid){
         <span class="condbadge" style="background:${cond.color}22;color:${cond.color};border-color:${cond.color}66">${u.injured>0?ICON_INJURED:""}${cond.label}</span>
         ${u.injured>0?`<span class="condnote">戦力が${Math.round((1-injTier.pwMult)*100)}%低下しています。療養が終わるまであと<b>${u.injured}日</b>。</span>`:`<span class="condnote">戦力への影響:${cond.pwMult>1?"+":""}${Math.round((cond.pwMult-1)*100)}%</span>`}
       </div>
-      <div style="font-size:10.5px;color:var(--dim);margin-top:6px">疲労度:${Math.round(u.fatigue||0)}/100${(u.fatigue||0)>=70?"(ミッション不可)":(u.fatigue||0)>=60?"(ミッションに出せません)":""}</div>
+      <div style="font-size:10.5px;color:var(--dim);margin-top:6px">疲労度:${Math.round(u.fatigue||0)}/100${(u.fatigue||0)>=60?`<span style="color:#d99a6a">(疲れきって出撃できない ― 迷宮・遠征・任務に出すには休養が要る)</span>`:(u.fatigue||0)>=48?`<span style="color:#c9a86a">(疲労が溜まってきた ― あと少しで出撃できなくなる)</span>`:""}</div>
       ${u.envoyUntil?`<div style="font-size:10.5px;color:#c9a86a;margin-top:3px">使 親善の使者として出立中(あと${Math.max(0,u.envoyUntil-S.day)}日で帰還・その間は迷宮/訓練に参加不可)</div>`:u.dungeonBusy?`<div style="font-size:10.5px;color:#c98fe8;margin-top:3px">⛏ ダンジョン探索中(あと${Math.max(0,u.dungeonBusy-S.day)}日で帰還・その間は訓練/ミッションに参加不可)</div>`:""}
       <div style="font-size:10.5px;color:var(--dim);margin-top:3px">得意なダンジョン:<span style="color:${bestDungeonTypeFor(u).color}">${bestDungeonTypeFor(u).label}</span></div>
     </div>`;
