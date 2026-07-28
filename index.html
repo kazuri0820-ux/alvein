@@ -1528,6 +1528,9 @@ const TRAIT_RARE=[
  {key:"trr_45",name:"気難しい天才",desc:"目を瞠る才の持ち主だが、気位が高く扱いにくい。才の伸びは抜群だが、忠義はなかなか深まらない(お気に入りや宴で繋ぎ止めたい)",gm:1.35,loyaltyGrow:-0.15},
  {key:"trr_46",name:"生まれつきの癒し手",desc:"傷の手当てに天賦の才を持つ、生来の癒し手。この者を伴う部隊は、迷宮で痛手を負ってもその傷が軽く済みやすい",gm:1.07,fieldMedic:0.5,wis:5},
  {key:"trr_47",name:"物拾いの目",desc:"転がる品も見逃さぬ、生まれついての目ざとさ。この者を伴う迷宮踏破では、追加の品を拾い集めてくることがある",gm:1.06,itemFind:0.3,agi:4},
+ {key:"trr_48",name:"山師の血",desc:"地に埋もれた遺構や洞の気配を、鼻で嗅ぎ分ける山師の血を引く。この者が任にあると、噂の迷宮への入口を見出しやすくなる",gm:1.06,dungeonFind:0.25,wis:4},
+ {key:"trr_49",name:"忠烈の質",desc:"一度主と定めた相手には、生涯かけて忠義を尽くす一本気な質。忠誠がぐんぐん深まり、めったなことでは揺らがない",gm:1.06,loyaltyGrow:0.4,vit:4},
+ {key:"trr_50",name:"隊商あがり",desc:"かつて隊商で場数を踏んだ目利き。金目のものと掘り出し物を見分ける勘に長け、伴う迷宮踏破では財貨も拾い物もわずかに増える",gm:1.06,goldFind:0.16,itemFind:0.12,agi:3},
 ];
 const TRAIT_EPIC=[
  {key:"swordsaint",name:"剣聖の末裔",desc:"名も知れぬ剣豪の血を引くという",gm:1.4,injuryMult:0.5,deathMult:0.55},
@@ -1550,6 +1553,8 @@ const TRAIT_EPIC=[
  {key:"tre_07",name:"守護の化身",desc:"仲間を守ることに命を懸ける、生まれついての盾。同じ部隊の戦友が死線に立たされたとき、迷わず我が身を投げ出して庇う",gm:1.26,vit:14,injuryMult:0.72,guardianSave:0.45},
  {key:"tre_08",name:"強運の申し子",desc:"生まれついての幸運に愛された者。伴う迷宮踏破では、掘り出しの実りも持ち帰る財貨も、共に大きく増える",gm:1.24,lootLuck:0.22,goldFind:0.18},
  {key:"tre_09",name:"武運の女神に愛されし者",desc:"戦の女神に微笑まれし稀有な星の下に生まれた者。伴う迷宮踏破は、驚くほど大成功に転じやすくなる",gm:1.26,fortuneRoll:14,agi:6},
+ {key:"tre_10",name:"不動の忠将",desc:"揺るがぬ忠義を骨の髄まで宿した名将の器。深い忠誠は一片も色褪せず、死線に立っても容易には斃れない。王国の柱石となる者",gm:1.28,loyaltyGrow:0.45,deathMult:0.6,lead:8},
+ {key:"tre_11",name:"秘境の探究者",desc:"人跡未踏の秘境を渡り歩くことに生涯を捧げた探究者。噂の迷宮への道をいち早く見出し、その奥に眠る逸品をも引き当てる稀有な嗅覚を持つ",gm:1.26,dungeonFind:0.4,lootLuck:0.2,wis:8},
 ];
 const TRAIT_LEGEND=[
  {key:"reborn",name:"転生者",desc:"この世界の者とは異なる知識の気配を纏っている",gm:2.0,injuryMult:0.3,deathMult:0.25,ageResist:0.8},
@@ -13266,6 +13271,7 @@ function renderUnitDetail(uid){
         ${u.vigor?`<span class="udet-chip" style="color:#8fbf6f;border-color:#8fbf6f" title="十分に休養して英気を養った状態。次の出撃で戦力が高まる(出撃で消費)">英気充溢</span>`:""}
         ${(()=>{const k=beastKindOf(u);if(!k)return"";return `<span class="udet-chip" style="color:${k.color};border-color:${k.color}" title="迷宮で懐いた生涯の相棒。${k.desc}(遠征に付き従い、${k.boonLabel}の恩恵をもたらす)">相棒:${k.nm}「${u.beast.nm}」〔${k.boonLabel}〕</span>`;})()}
         ${(()=>{if(isInstructor)return"";if((S.day-(u.joinDay||1))<20)return"";if(!((u.loyalty||0)<55||(u.moral||0)<48))return"";return `<span class="udet-chip" style="color:#c98f9a;border-color:#c98f9a" title="長く仕えながら、忠義か士気に翳りがさしている。いずれ王への拝謁を願い出るやもしれぬ。労い・褒賞・叱咤のいずれかで応えれば、離れかけた心を繋ぎ止められる">心に憂いあり</span>`;})()}
+        ${(()=>{const lg=(tr&&tr.loyaltyGrow)||0;if(lg>=0.3)return `<span class="udet-chip" style="color:#d8b45e;border-color:#d8b45e" title="生来、忠義が深まりやすく、めったに揺らがない質。長く仕えるほど頼れる忠臣となる">忠義篤し</span>`;if(lg<=-0.1)return `<span class="udet-chip" style="color:#c99a6a;border-color:#c99a6a" title="才は光るが気位が高く、忠誠を繋ぎ止めにくい質。お気に入り・結束の宴・拝謁で心を留めておきたい">気位高し</span>`;return "";})()}
         ${(u.tourneyWins||0)>0?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)" title="御前試合で頂点に立った回数">御前試合 優勝${u.tourneyWins}回</span>`:""}
         ${(u.hardships||0)>=HARDENED_THRESHOLD?`<span class="udet-chip" style="color:#b89a6a;border-color:#b89a6a" title="幾多の敗北と辛酸を乗り越えた叩き上げの古兵。忠義と士気が篤い(乗り越えた敗北 ${u.hardships})">叩き上げ</span>`:(u.hardships||0)>0?`<span class="udet-chip" style="color:var(--dim);border-color:var(--dim)" title="迷宮での敗北を糧に成長している(あと${HARDENED_THRESHOLD-(u.hardships||0)}度の逆境で叩き上げに)">苦労人 ${u.hardships}/${HARDENED_THRESHOLD}</span>`:""}
         ${u.admires?(()=>{const h=S.units.find(x=>x.id===u.admires);return h?`<span class="udet-chip" style="color:#c9a0d0;border-color:#c9a0d0" title="${h.nm}に憧れ、その背中を追って人一倍伸びている">${h.nm}に憧れて</span>`:"";})():""}
