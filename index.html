@@ -2719,6 +2719,8 @@ const TITLE_DB=[
  {key:"t_typeadept",name:"型を極めし者",desc:"二つ以上の攻略の型を知り尽くし、いかなる迷宮にも応じてみせる練達の踏破者",effect:"expMult",value:1.06},
  {key:"t_typemaster",name:"万流の踏破者",desc:"四つ以上の攻略の型を極め尽くした、あらゆる迷宮を我が庭とする万流の達人",effect:"injuryMult",value:0.88},
  {key:"t_pathmaster",name:"道を究めし者",desc:"若き日に選んだ専心の道を、迷わず歩み抜いて英雄の格に至った者。その一途な研鑽が、揺るがぬ自負となって兵を支える",effect:"moralGrow",value:0.12},
+ {key:"t_beastbond",name:"掛け替えなき相棒",desc:"迷宮で懐いた獣と幾多の日々を共にし、一心同体というべき掛け替えのない絆で結ばれた",effect:"loyaltyGrow",value:0.14},
+ {key:"t_veterancommander",name:"百戦の指揮者",desc:"幾度も部隊を率いて戦場を渡り歩いた、頼れる指揮の要",effect:"expMult",value:1.05},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -3474,6 +3476,8 @@ function checkDailyTitles(u){
   if(u.equipment&&u.equipment.weapon){const _wd=EQUIPMENT_DB.find(d=>d.key===u.equipment.weapon.key);if(_wd&&_wd.rarity==="legendary")grantTitle(u,"t_legendarm");} // 伝説級の武器を執る者を讃える(全ビルドで狙える伝説武器の到達点)
   if((u.skills||[]).length>=5)grantTitle(u,"t_skillful"); // 多芸:集めた技の数を讃える
   if(u.beast)grantTitle(u,"t_beastfriend"); // 相棒獣を迎えた愛着の証
+  if(u.beast&&u.beast.seasoned)grantTitle(u,"t_beastbond"); // 掛け替えなき相棒:長く連れ添い老練の域に達した相棒獣との、掛け替えのない絆に報いる(相棒獣の歳月の到達点)
+  if((u.leaderCount||0)>=15)grantTitle(u,"t_veterancommander"); // 百戦の指揮者:部隊指揮を重ねた采配の中間到達点(名リーダー t_leader30 の一段手前の節目)
   if(typeof veteranTemper==="function"&&veteranTemper(u)>=VETERAN_TEMPER_CAP)grantTitle(u,"t_warhardened"); // 歴戦度を極めた古参の証
   if(u.equipment&&u.equipment.weapon&&u.equipment.weapon.mei)grantTitle(u,"t_bladenamed"); // 銘を刻んだ相棒の得物を持つ証
   if((u.skills||[]).length>=9)grantTitle(u,"t_polymath");
