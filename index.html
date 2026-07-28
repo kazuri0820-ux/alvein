@@ -3878,6 +3878,21 @@ function assignBeast(u,kindKey){
 }
 function squadBeastHolder(squad,boon){return (squad||[]).find(u=>{const k=beastKindOf(u);return k&&k.boon===boon;})||null;}
 function squadHasBeastBoon(squad,boon){return !!squadBeastHolder(squad,boon);}
+/* ===== 王への拝謁:忠義や士気に翳りのさした古参が、王に胸の内を明かす一幕。手駒を束ねる政ではなく、
+   一人の兵と王が face to face で向き合う"人心"の新しい軸。王の言葉一つで、離れかけた心を繋ぎ止められる
+   (演出×内政の人心。誰の心が翳っているかを見て、労い・褒賞・叱咤のどれで応えるかを選ぶ)。 ===== */
+function audienceCandidate(){
+  const cands=(S.units||[]).filter(u=>u.role==="active"&&!u.dungeonBusy&&!u.campUntil&&(S.day-(u.joinDay||1))>=20&&((u.loyalty||0)<55||(u.moral||0)<48));
+  if(!cands.length)return null;
+  cands.sort((a,b)=>((a.loyalty||0)+(a.moral||0))-((b.loyalty||0)+(b.moral||0)));
+  return cands[0];
+}
+function audienceGrievance(u){
+  const loyLow=(u.loyalty||0)<55, morLow=(u.moral||0)<48;
+  if(loyLow&&morLow)return "長きの奉公に、心も体もすり減らしているように見えた";
+  if(loyLow)return "王国への忠義が、いつしか揺らぎかけているようだった";
+  return "度重なる戦いに、士気が沈み、疲れが色濃く滲んでいた";
+}
 /* ---------- レアイベント:通常より低頻度・高インパクト ---------- */
 const RANDOM_RARE=[
  {tag:"寄 進",title:"篤志家の寄進",
@@ -3903,6 +3918,35 @@ const RANDOM_RARE=[
      chron(`${fullName(u)}のもとに、迷宮で見つけた幼き${k.nm}「${b.nm}」が懐いた。${k.desc}という。これからの遠征、頼もしい相棒となるだろう(相棒獣・${k.boonLabel}の恩恵)。`,"big");
    }}},
    {label:"迷宮の森へ帰してやる",hint:"獣は野に還る(民心わずかに↑)",fx:{call:()=>{apply({mood:2});chron("幼き獣は、兵たちに見送られて迷宮の森へと帰っていった。野に生きるものは野へ――王の情けを、兵たちは静かに頷いて受け止めた。","");}}},
+  ]},
+ {tag:"拝 謁",title:"王への拝謁",
+  cond:()=>!!audienceCandidate(),
+  body:"一人の古参の兵が、意を決したように王への拝謁を願い出た。城の広間に通されたその者は、しばし言葉を探すように俯き、やがて胸の内を静かに語り始めた。長く国に仕えてきた者の、心の翳りが滲んでいる。王として、どう応えようか。",
+  speaker:"セラ「兵の心は、束ねる政だけでは繋ぎ止められませぬ。時には王ご自身が、一人の兵と向き合うことも」",
+  choices:[
+   {label:"じっくりと耳を傾け、労う",hint:"費えなし。その兵の忠義と士気が篤く回復する",fx:{call:()=>{
+     const u=audienceCandidate();
+     if(!u){chron("拝謁を願い出た兵は、王の顔を見ただけで得心したのか、深く一礼して持ち場へ戻っていった。","");return;}
+     const griev=audienceGrievance(u);const origin=(typeof ORIGINS!=="undefined")?ORIGINS.find(o=>o.key===u.origin):null;
+     u.loyalty=Math.min(100,(u.loyalty||0)+16);u.moral=Math.min(100,(u.moral||0)+14);
+     unitHistory(u,`王に拝謁し、直に胸の内を聞き届けてもらった。翳りの晴れた心で、再び任に就く。`);
+     apply({mood:2,log:`${fullName(u)}が王に拝謁した。${griev}。王は玉座を降り、${origin?`${origin.name}の出という`:""}その者の話に、ただ静かに耳を傾けた。聞き届けられたというそれだけで、兵の面は晴れ、忠義と士気が篤く戻った。`,logCls:"big"});
+   }}},
+   {label:"褒賞を取らせる(45G)",hint:"忠義↑ さらに英気を養い、次の出撃で奮う(出費)",fx:{call:()=>{
+     const u=audienceCandidate();
+     if(!u){chron("褒賞を用意する間に、兵は静かに持ち場へ戻っていた。","");return;}
+     if(S.gold<45){chron("褒賞に充てる蓄えが乏しく、王は言葉を尽くして兵の労をねぎらうにとどめた。","");u.loyalty=Math.min(100,(u.loyalty||0)+8);u.moral=Math.min(100,(u.moral||0)+8);return;}
+     S.gold-=45;u.loyalty=Math.min(100,(u.loyalty||0)+12);u.moral=Math.min(100,(u.moral||0)+10);u.vigor=true;u.restDays=0;
+     unitHistory(u,`王より直々に褒賞を賜り、深く面目を施した。英気を養い、次の戦いへ奮い立っている。`);
+     chron(`${fullName(u)}に、王が直々に褒賞を取らせた。労苦を認められた誉れに兵は打ち震え、忠義を新たにした。十分に英気も養われ、次の出撃では人一倍の働きを見せるだろう(英気充溢)。`,"big");
+   }}},
+   {label:"王国の行く末を語り、共に励もうと説く",hint:"その兵の士気↑ 国の規律も引き締まる(治安わずか↑)",fx:{call:()=>{
+     const u=audienceCandidate();
+     if(!u){chron("王が言葉を継ぐより先に、兵は自ら得心したように面を上げ、持ち場へ戻っていった。","");return;}
+     u.moral=Math.min(100,(u.moral||0)+12);u.loyalty=Math.min(100,(u.loyalty||0)+5);
+     unitHistory(u,`王より国の行く末を直に説かれ、己の役割を胸に刻み直した。`);
+     apply({st:{order:1},mood:1,log:`王は${fullName(u)}に、これから築かんとする国の姿を熱く語った。己の刃が何のためにあるかを思い出した兵は、面を上げて頷いた。その気概は隊にも伝わり、国の規律が一段引き締まった(士気↑ 治安+1)。`,logCls:"big"});
+   }}},
   ]},
  {tag:"天 変",title:"隕鉄の落下",
   body:"夜空を一条の光が裂き、轟音とともに何かが辺境の丘に落ちた。焼け焦げた地の底に、鈍く輝く見慣れぬ鉄塊が埋まっているという。星の鉄――そう囁く者もいる。",
