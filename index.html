@@ -6197,6 +6197,27 @@ const RANDOM_CHOICE_EXTRA=[
    {label:"侍医に手厚く診せる",hint:"国庫↓ その兵の忠誠と士気↑",fx:{gold:-25,call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];u.fatigue=Math.max(0,(u.fatigue||0)-25);u.moral=Math.min(100,(u.moral||0)+8);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);unitHistory(u,"長の計らいで古傷を手厚く診てもらい、深く恩義に感じた。");chron(`${fullName(u)}の古傷は侍医の手で丁寧に癒された。長の心遣いに、老兵は目を潤ませている。`,"people");}}},
    {label:"本人の意地に任せる",hint:"その兵の武人の矜持は保たれる",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+2);unitHistory(u,"古傷の痛みをおくびにも出さず、武人の意地で務めを果たし続けた。");chron(`${fullName(u)}は古傷の痛みを表に出さず、黙々と務めを果たした。その矜持を、若い兵たちも密かに仰いでいる。`,"");}}},
   ]},
+ /* ── 未踏の攻略型へ誘う(全型制覇の後押し・発見) ── */
+ {tag:"風 聞",title:"未踏の型の噂",
+  body:"旅の者が、まだ王国が制したことのない類の迷宮の噂を携えてきた。その場所を突き止めさせるか、眉唾と聞き流すか。",
+  choices:[
+   {label:"斥候を放ち、場所を突き止める",hint:"未踏破の攻略型の迷宮が現れる",fx:{call:()=>{const cleared=S.clearedTypes||{};const unconquered=DUNGEON_TYPES.filter(t=>!cleared[t.key]);const pool=unconquered.length?unconquered:DUNGEON_TYPES;const type=pool[Math.floor(Math.random()*pool.length)];const nd=generateDungeon();nd.type=type;S.availableDungeons=S.availableDungeons||[];S.availableDungeons.push(nd);if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}chron(`斥候の探索が、${unconquered.length?"いまだ制したことのない":""}「${type.label}」の迷宮${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」への道を照らし出した(討伐の一覧に加わった)。`,"big");}}},
+   {label:"眉唾と聞き流す",hint:"治安↑",fx:{st:{order:1},log:"噂は眉唾と聞き流された。今は足元を固めるが肝要である。"}},
+  ]},
+ /* ── 死線を越えた者の心の傷(労りと克己) ── */
+ {tag:"労 り",title:"兵の悪夢",
+  body:"数多の死線を越えてきた古参兵の一人が、夜ごと過去の戦の悪夢にうなされているという。心を寄せて労うか、本人の克己に委ねるか。",
+  choices:[
+   {label:"じっくりと話を聞き、労う",hint:"その兵の士気と忠誠↑",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+8);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);unitHistory(u,"長に心を寄せて労われ、過去の重荷が少し軽くなった。");chron(`長が${fullName(u)}の話にじっくりと耳を傾けた。胸の内を吐き出した老兵の面持ちは、幾らか穏やかになっている。`,"people");}}},
+   {label:"本人の克己に委ねる",hint:"その兵は自ら乗り越える",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,"悪夢と自ら向き合い、武人としての心を強くした。");chron(`${fullName(u)}は悪夢と一人静かに向き合い、やがて乗り越えてみせた。その克己心は、いっそう深みを増している。`,"");}}},
+  ]},
+ /* ── 土地の名物(経済か民心かの采配) ── */
+ {tag:"献 上",title:"名物の献上",
+  body:"領内の職人が、丹精込めて作り上げた土地の名物を長に献上したいと申し出た。売り出して名を広めるか、民に振る舞って喜びを分かつか。",
+  choices:[
+   {label:"売り出して名を広める",hint:"経済↑ 国庫↑",fx:{st:{economy:2},call:()=>{const g=ri(25,45);apply({gold:g});chron(`領内の名物は評判を呼び、遠方の商人たちがこぞって買い求めた。まとまった財貨${g}が国庫を潤し、王国の名も広まっている。`,"big");}}},
+   {label:"民に振る舞い、喜びを分かつ",hint:"民心↑↑",fx:{mood:5,log:"名物は惜しみなく民に振る舞われ、城下は喜びに沸いた。長の気前のよさは、末永く語り草となるだろう。"}},
+  ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
 /* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
