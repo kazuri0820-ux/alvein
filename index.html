@@ -14159,7 +14159,7 @@ function renderUnitDetail(uid){
       <div class="udet-name">${u.captain?'<span class="star">★</span> ':""}${u.nm}${u.surname?" "+u.surname:""}${isInstructor?"(教官)":""}${!isInstructor?`<span id="btnFavHeader" title="お気に入り(長の期待に応え、訓練の伸びが少し上がる)" style="cursor:pointer;margin-left:6px;color:${u.favorite?"var(--gold)":"var(--dim)"}">${u.favorite?"★":"☆"}</span>`:""}</div>
       ${nicknameSpan(u)}
       <div class="udet-job">${JOB_TREES[u.cls].label}・${displayJobName(u)}${u.awakened?"":" Lv."+u.lv}</div>
-      ${!isInstructor?`<div style="font-size:10.5px;color:#c9a86a;margin-top:2px" title="王国への奉公(踏破・在籍年月・称号・統率・隊長歴)を重ねるほど上がる軍の位。位が高いほど忠誠と士気が保たれやすい">軍位:${militaryRank(u).name}</div>`:""}
+      ${!isInstructor?(()=>{const rIdx=militaryRankIndex(u);const nx=MILITARY_RANKS[rIdx+1];const rem=nx?Math.max(0,nx.min-militaryRankScore(u)):0;const nxStr=nx?`<span style="color:var(--dim)"> ／ 次位「${nx.name}」まであと${rem}</span>`:`<span style="color:var(--gold)"> ／ 極位に至る</span>`;return `<div style="font-size:10.5px;color:#c9a86a;margin-top:2px" title="王国への奉公(踏破×2・称号×3・在籍40日ごと・統率・隊長歴)を重ねるほど上がる軍の位。位が高いほど忠誠と士気が保たれやすい">軍位:${militaryRank(u).name}${nxStr}</div>`;})():""}
       ${!isInstructor&&!u.awakened?`<div class="uexp" style="margin-top:5px;max-width:180px" title="次のレベルまでの経験値"><i style="width:${Math.min(100,u.exp/expNeed*100)}%"></i></div><div style="font-size:10px;color:var(--dim);margin-top:2px">経験値 ${Math.round(u.exp)} / ${Math.round(expNeed)}</div>`:""}
       <div class="udet-chips">
         <span class="udet-chip">${race.name}</span>
