@@ -8808,6 +8808,7 @@ const DUNGEON_CONDITIONS={
   relic:{label:"王朝の遺構",color:"#c7a45e",desc:"滅びた古王朝の栄華が眠る遺構。踏破して持ち帰る典籍や財物が、王国の国力(治安・経済)そのものを高める"},
   fatebound:{label:"宿縁の霊地",color:"#d99ab0",desc:"縁ある者たちの絆が試される地。戦友・好敵手・師弟のいずれかの組を伴って踏破すれば、その絆に応じた特別な成長がもたらされる"},
   veiled:{label:"霧幻の帳",color:"#9fa8b8",desc:"深い霧が内部を閉ざし、斥候も見通せない。弱点も掴めぬまま挑む博打だが、霧の奥には手つかずの財と獲物が眠る"},
+  armory:{label:"武具の霊廟",color:"#c9b088",desc:"古の武人の魂が眠る霊廟。踏破すれば、隊の中の「まだ銘なき得物」に銘が宿り、分かちがたい相棒の一振りへと変わる"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 /* 陣形:ダンジョン派遣時に選ぶ布陣。攻略成否・負傷リスク・所要日数のトレードオフを一手加え、
@@ -10431,6 +10432,20 @@ function resolveDungeonRun(dungeonId){
         const got=[];const n=ri(1,2);
         for(let i=0;i<n;i++){const it=rollItemDrop(Math.random()<0.3?"rare":"uncommon");if(it){addItem(it.key);got.push(it.name);}}
         chron(got.length?`「${dungeon.name}」に満ちる秘薬の霊気の中から、${got.map(x=>`「${x}」`).join("、")}を持ち帰った。`:`「${dungeon.name}」の霊気を浴びて帰ったが、持ち帰れる品は見当たらなかった。`,got.length?"big":"");
+      }
+      if(cond==="armory"){ // 武具の霊廟: まだ銘なき得物に銘が宿り、相棒の一振りとなる(愛着ある"名を持つ武器"への到達路。長い共戦を経ずとも銘に至れる特別な地)
+        const cands=squad.filter(u=>u&&u.equipment&&u.equipment.weapon&&!u.equipment.weapon.mei&&!u.equipment.weapon.bonded);
+        if(cands.length){
+          cands.sort((a,b)=>((b.equipment.weapon.bondClears||0)-(a.equipment.weapon.bondClears||0))); // 最も長く連れ添った得物を優先(縁の深さに報いる)
+          const u=cands[0];const inst=u.equipment.weapon;const def=EQUIPMENT_DB.find(d=>d.key===inst.key);
+          inst.bonded=true;inst.bondUnitId=u.id;
+          const mei=assignWeaponMei(inst);
+          if(typeof grantTitle==="function")grantTitle(u,"t_bladenamed");
+          unitHistory(u,`「${dungeon.name}」の武具の霊廟で、得物「${def?def.name:"武器"}」に銘「${mei}」が宿り、分かちがたい相棒となった。`);
+          chron(`「${dungeon.name}」の武具の霊廟に眠る古の武魂が、${fullName(u)}の得物に宿った。名もなき一振りは「${mei}」の銘を得て、いまや我が身の一部――振るう力の増す相棒となった。`,"big");
+        }else{
+          chron(`「${dungeon.name}」の武具の霊廟を踏破したが、銘を宿すにふさわしい得物(まだ銘なき武器)を携えた者はおらず、その武魂は静かに眠りへ戻った。`,"");
+        }
       }
       if(cond==="heroordeal"){ // 英傑の試練: 少数精鋭で討ち果たすほど破格の恩賞(編成を絞る挑戦に報いる)
         const n=squad.filter(u=>u).length;
@@ -14489,6 +14504,7 @@ function renderDungeonPanel(){
       ${(()=>{const v=selSquad.filter(u=>u&&u.vigor).length;return v?`<div class="ds" style="font-size:11px;color:#8fbf6f">英気充溢の兵 ${v}名を投入(この出撃で戦力が高まり、英気を消費する)</div>`:"";})()}
       ${(()=>{const ids=new Set(selSquad.map(u=>u.id));let mentor=false,admire=false;for(const u of selSquad){if(u.pupilId&&ids.has(u.pupilId))mentor=true;if(u.admires&&ids.has(u.admires))admire=true;}const parts=[];if(mentor)parts.push("師弟");if(admire)parts.push("憧れ");return parts.length?`<div class="ds" style="font-size:11px;color:#c9a0d0">${parts.join("・")}の組を含む編成(共に戦えば、若手が実戦で大きく伸びる)</div>`:"";})()}
       ${d.condition==="fatebound"&&selSquad.length?(()=>{const ids=new Set(selSquad.map(x=>x.id));const paired=new Set();for(const x of selSquad){if(x.bondWith&&ids.has(x.bondWith)){paired.add(x.id);paired.add(x.bondWith);}if(x.rivalWith&&ids.has(x.rivalWith)){paired.add(x.id);paired.add(x.rivalWith);}if(x.masterId&&ids.has(x.masterId)){paired.add(x.id);paired.add(x.masterId);}if(x.pupilId&&ids.has(x.pupilId)){paired.add(x.id);paired.add(x.pupilId);}}const q=paired.size>0;return `<div class="ds" style="font-size:11px;color:${q?"#d99ab0":"var(--dim)"}">宿縁の霊地:${q?`縁ある組を含む【該当】(${paired.size}名が大きく成長)`:"戦友・好敵手・師弟の組を含めると特別な成長"}</div>`;})():""}
+      ${d.condition==="armory"&&selSquad.length?(()=>{const elig=selSquad.filter(u=>u&&u.equipment&&u.equipment.weapon&&!u.equipment.weapon.mei&&!u.equipment.weapon.bonded);const q=elig.length>0;return `<div class="ds" style="font-size:11px;color:${q?"#c9b088":"var(--dim)"}">武具の霊廟:${q?`まだ銘なき得物の持ち主 ${elig.length}名【該当】(踏破で一振りに銘が宿る)`:"銘なき得物を携えた兵を加えれば、その武器に銘が宿る"}</div>`;})():""}
       ${selSquad.length?(()=>{const tset=[];for(const u of selSquad){for(const t of unitSupportTags(u))if(!tset.includes(t))tset.push(t);}return tset.length?`<div class="ds" style="font-size:11px;color:#a9c47a">編成の支援:${tset.join("・")}</div>`:"";})():""}
     </div>`;
     h+=`<div style="font-size:11px;color:var(--dim);margin:4px 0 8px">派遣する兵を最大5人まで選べます(タップで選択/解除)</div>`;
