@@ -3145,6 +3145,8 @@ function priestBlessing(){
 function checkRecords(){
   if(!S.records)S.records={strongestUnit:null,longestLived:null,fastestHero:null,mostTitles:null,richestDay:null};
   const prevStrong=S.records.strongestUnit; // 首位交代の一幕を検出するための、更新前の歴代最強
+  const prevClears=S.records.mostClears; // 踏破記録の首位交代を検出
+  const prevTitles=S.records.mostTitles; // 称号記録の首位交代を検出
   for(const u of S.units){
     const p=unitPower(u);
     if(!S.records.strongestUnit||p>S.records.strongestUnit.power){
@@ -3164,6 +3166,18 @@ function checkRecords(){
   if(prevStrong&&nowStrong&&nowStrong.name!==prevStrong.name&&prevStrong.power>=40&&S.recordsStrongestSeen!==nowStrong.name){
     S.recordsStrongestSeen=nowStrong.name;
     chron(`${nowStrong.name}が、歴代最強と謳われた${prevStrong.name}をも上回り、王国史上もっとも強き兵となった。`,"big");
+  }
+  // 踏破記録の首位交代:最も多く迷宮を潜り抜けた兵の座が、別の兵に移った折を讃える(積み重ねた戦歴の到達を felt に)
+  const nowClears=S.records.mostClears;
+  if(prevClears&&nowClears&&nowClears.name!==prevClears.name&&prevClears.count>=8&&S.recordsClearsSeen!==nowClears.name){
+    S.recordsClearsSeen=nowClears.name;
+    chron(`${nowClears.name}が踏破の数で${prevClears.name}を抜き、王国で最も多くの迷宮を潜り抜けた兵となった(通算${nowClears.count}回)。`,"big");
+  }
+  // 称号記録の首位交代:最も多くの称号を帯びた兵の座が、別の兵に移った折を讃える(誉れを重ねる到達を felt に)
+  const nowTitles=S.records.mostTitles;
+  if(prevTitles&&nowTitles&&nowTitles.name!==prevTitles.name&&prevTitles.count>=5&&S.recordsTitlesSeen!==nowTitles.name){
+    S.recordsTitlesSeen=nowTitles.name;
+    chron(`${nowTitles.name}が帯びた称号の数で${prevTitles.name}を抜き、王国で最も多くの誉れを重ねた兵となった(称号${nowTitles.count}個)。`,"big");
   }
   if(!S.records.richestDay||S.gold>S.records.richestDay.gold){
     S.records.richestDay={gold:Math.round(S.gold),day:S.day};
