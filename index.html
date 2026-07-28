@@ -6935,6 +6935,10 @@ function barracksVignette(){
     if(u.bondWith){const p=findAnyUnit(u.bondWith);if(p&&u.id<p.id)cand.push(`${nm(u)}と${nm(p)}が、稽古のあとに水を酌み交わし、他愛のない軽口を叩き合っていた。背中を預け合う二人の笑い声が、兵舎に長く響いていた。`);}
     if(u.pupilId){const p=findAnyUnit(u.pupilId);if(p)cand.push(`${nm(u)}が${nm(p)}に木剣の握りを直してやっていた。「筋はいい。あとは数を重ねるだけだ」――師の言葉に、弟子は幾度も頷いていた。`);}
     if(u.rivalWith){const p=findAnyUnit(u.rivalWith);if(p&&u.id<p.id)cand.push(`${nm(u)}と${nm(p)}が、どちらが先に音を上げるか鍛錬の数を競い合っていた。互いに一歩も譲らぬその横顔は、どこか楽しげでもあった。`);}
+    if(u.discordWith){const p=findAnyUnit(u.discordWith);if(p&&u.id<p.id){const lines=[ // 確執のある二人の、剣呑な兵舎の一幕(新機軸の関係を平時の演出に映す)
+      `${nm(u)}と${nm(p)}が、訓練場の端と端で黙々と剣を振っていた。互いに一瞥もくれぬその背中には、埋めがたい溝がありありと見て取れた。`,
+      `配膳の列で隣り合った${nm(u)}と${nm(p)}が、ふいと顔を背け合った。張り詰めた二人の空気に、周りの兵はそっと距離を取っていた。`,
+    ];cand.push(lines[Math.floor(Math.random()*lines.length)]);}}
     const k=(typeof beastKindOf==="function")?beastKindOf(u):null;
     if(k&&u.beast)cand.push(`${nm(u)}の相棒の${k.nm}「${u.beast.nm}」が、主の膝で丸くなって微睡んでいた。${nm(u)}は、その背をそっと撫でてやっていた。`);
     const w=u.equipment&&u.equipment.weapon;
