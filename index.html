@@ -11481,7 +11481,7 @@ function facilityDailyProduce(){
     if(!ft||!f.managerId)continue;
     const u=findAnyUnit(f.managerId);
     if(!u){f.managerId=null;continue;}
-    const amount=ft.statFn(u)*FACILITY_PRODUCE_MULT*facilityLevelMult(f)*rnd(0.85,1.15)*(S.flags&&S.flags.artisanGuild?1.2:1); // 熟練の職人団を招くと全施設の産出が増える
+    const amount=ft.statFn(u)*FACILITY_PRODUCE_MULT*facilityLevelMult(f)*rnd(0.85,1.15)*(S.flags&&S.flags.artisanGuild?1.2:1)*censorProductionMult(); // 熟練の職人団を招くと全施設の産出が増える／按察使を据えると綱紀粛正で産出がさらに高まる
     if(ft.produce==="gold")S.gold+=amount;
     else if(ft.produce==="exp"){u.exp+=amount;processLevelUps(u);} // 練兵場:担当の兵自身が経験値を得る
     else if(ft.produce==="heal"){ // 療養所:負傷兵の療養日数を早める(産出が高いほど1日多く早まる)。過剰治癒を避け最大2日/日
@@ -11512,7 +11512,16 @@ const MINISTER_OFFICES=[
   {key:"marshal",name:"軍務卿",boost:"military",icon:"icon-project",statFn:u=>((u.lead||0)*0.6+(u.str||0)*0.4),desc:"統率と武勇に富む者が向く。日々、国の軍事が育つ。"},
   {key:"sage",   name:"賢者",  boost:"magic",   icon:"icon-project",statFn:u=>((u.int||0)*0.6+(u.wis||0)*0.4),desc:"魔力と知力に秀でた者が向く。日々、国の魔導が育つ。"},
   {key:"strategist",name:"軍師",dungeon:true,icon:"icon-project",statFn:u=>((u.int||0)*0.5+(u.lead||0)*0.3+(u.wis||0)*0.2),desc:"知略と采配に富む者が向く。その者を軍師に据える間、全軍の迷宮攻略が陰から支えられ、踏破判定が有利になる。"},
+  {key:"censor",name:"按察使",boost:"order",censor:true,icon:"icon-project",statFn:u=>((u.lead||0)*0.5+(u.wis||0)*0.5),desc:"統率と知略で綱紀を正す者が向く。据える間、国の治安が日々保たれ、加えて諸施設(市場・農場等)の産出が高まる(綱紀粛正の恵み)。"},
 ];
+/* 按察使の綱紀粛正:据えられている間、諸施設の産出が高まる(器量に応じ最大+30%)。国力を育てる財務卿らとは別に、
+   "既にある産出をより効率よく回す"という統治の効率の軸。長けた古参に、迷宮以外の実り厚い活躍の場を与える。 */
+function censorProductionMult(){
+  const u=(typeof ministerOf==="function")?ministerOf("censor"):null;
+  if(!u||u.role!=="active"||(u.injured||0)>0)return 1; // 負傷・不在の按察使は綱紀を正せない
+  const off=MINISTER_OFFICES.find(o=>o.key==="censor");
+  return 1+Math.min(0.3,off.statFn(u)/220);
+}
 function strategistRollBonus(){ // 軍師の采配:据えられている間、全ての迷宮攻略判定に下駄をのせる(器量に応じ最大+10)
   const u=(typeof ministerOf==="function")?ministerOf("strategist"):null;
   if(!u||u.role!=="active"||(u.injured||0)>0)return 0; // 負傷・不在の軍師は采配できない
@@ -11577,7 +11586,7 @@ function renderFacilityAssignSelect(){
   for(const u of eligible){
     h+=`<button class="fac-target-pick" data-id="${u.id}" style="display:block;width:100%;text-align:left;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--parch);border-radius:6px;padding:10px;margin-bottom:6px;font-family:'Zen Old Mincho',serif;cursor:pointer">
       ${fullName(u)} <span style="font-size:11px;color:var(--dim)">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span><br>
-      <span style="font-size:11px;color:var(--dim)">見込み産出:1日あたり${FACILITY_PRODUCE_LABEL[ft.produce]||"産出"}+${Math.round(ft.statFn(u)*FACILITY_PRODUCE_MULT)}</span>
+      <span style="font-size:11px;color:var(--dim)">見込み産出:1日あたり${FACILITY_PRODUCE_LABEL[ft.produce]||"産出"}+${Math.round(ft.statFn(u)*FACILITY_PRODUCE_MULT*censorProductionMult())}</span>
     </button>`;
   }
   $("#itemTargetBody").innerHTML=h;
@@ -12381,12 +12390,12 @@ function renderProjects(){
   // ── 重臣(要職の任命) ──
   h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 6px;letter-spacing:.15em">── 重臣 ──</div>`;
   ensureMinisters();
-  {const boostLabel={economy:"経済",military:"軍事",magic:"魔導"};
+  {const boostLabel={economy:"経済",military:"軍事",magic:"魔導",order:"治安",agriculture:"農業",diplomacy:"外交"};
    for(const off of MINISTER_OFFICES){
      const m=ministerOf(off.key);
-     h+=`<div class="pcard"><div class="nm"><i class="${off.icon}"></i>${off.name}${m?`<span style="font-size:10px;color:var(--gold);margin-left:6px">${off.boost?`${boostLabel[off.boost]||off.boost}を育成中`:`全軍の攻略を采配中(踏破判定+${strategistRollBonus()})`}</span>`:""}</div>
+     h+=`<div class="pcard"><div class="nm"><i class="${off.icon}"></i>${off.name}${m?`<span style="font-size:10px;color:var(--gold);margin-left:6px">${off.censor?`治安を保ち産出を高める`:off.boost?`${boostLabel[off.boost]||off.boost}を育成中`:`全軍の攻略を采配中(踏破判定+${strategistRollBonus()})`}</span>`:""}</div>
        <div class="ds" style="margin:2px 0 6px">${off.desc}</div>
-       <div class="ds">${m?`就任中:${fullName(m)}(器量${Math.round(off.statFn(m))}${off.boost?` ／ 1日あたり ${boostLabel[off.boost]||off.boost}+${ministerContribution(off,m).toFixed(2)}前後`:` ／ 迷宮の踏破判定+${strategistRollBonus()}`})`:"空席"}</div>
+       <div class="ds">${m?`就任中:${fullName(m)}(器量${Math.round(off.statFn(m))}${off.boost?` ／ 1日あたり ${boostLabel[off.boost]||off.boost}+${ministerContribution(off,m).toFixed(2)}前後`:` ／ 迷宮の踏破判定+${strategistRollBonus()}`}${off.censor?` ／ 諸施設の産出+${Math.round((censorProductionMult()-1)*100)}%`:""})`:"空席"}</div>
        <div style="display:flex;gap:6px;margin-top:6px">
          <button class="minister-assign-btn" data-k="${off.key}" style="flex:1;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${m?"任を解く/替える":"任じる"}</button>
          ${m?`<button class="minister-dismiss-btn" data-k="${off.key}" style="flex:0 0 auto;background:transparent;border:1px solid rgba(217,122,122,.5);color:#d97a7a;border-radius:6px;padding:7px 12px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">解任</button>`:""}
@@ -12430,10 +12439,10 @@ function renderProjects(){
     }else{
       const manager=built.managerId?findAnyUnit(built.managerId):null;
       const lv=built.level||1;
-      const produce=manager?Math.round(ft.statFn(manager)*FACILITY_PRODUCE_MULT*facilityLevelMult(built)):0;
+      const produce=manager?Math.round(ft.statFn(manager)*FACILITY_PRODUCE_MULT*facilityLevelMult(built)*censorProductionMult()):0;
       const upCost=facilityUpgradeCost(ft,built);
       h+=`<div class="pcard"><div class="nm"><i class="${ficon}"></i>${ft.name}<span style="font-size:10px;color:var(--gold);margin-left:6px">Lv.${lv}</span></div><div class="ds" style="margin:2px 0 6px">${ft.desc}</div>
-        <div class="ds">担当:${manager?fullName(manager):"未配置"}${manager?` ／ 1日あたり${FACILITY_PRODUCE_LABEL[ft.produce]||"産出"}+${produce}`:""}</div>
+        <div class="ds">担当:${manager?fullName(manager):"未配置"}${manager?` ／ 1日あたり${FACILITY_PRODUCE_LABEL[ft.produce]||"産出"}+${produce}`:""}${manager&&censorProductionMult()>1?`<span style="color:#8fbf6f"> （按察使の綱紀 +${Math.round((censorProductionMult()-1)*100)}%）</span>`:""}</div>
         <button class="fac-assign-btn" data-k="${ft.key}" style="margin-top:6px;width:100%;background:transparent;border:1px solid var(--gold2);color:var(--gold);border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${manager?"担当を変更する":"担当を配置する"}</button>
         ${lv<FACILITY_MAX_LEVEL?`<button class="fac-upgrade-btn" data-k="${ft.key}" style="margin-top:6px;width:100%;background:transparent;border:1px solid var(--gold2);color:${S.gold>=upCost?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">増改築してLv.${lv+1}に(${upCost}G・産出+50%)</button>`:`<div class="ds" style="margin-top:6px;color:var(--gold);font-size:11px">最大まで増改築済み(産出${Math.round(facilityLevelMult(built)*100)}%)</div>`}
       </div>`;
