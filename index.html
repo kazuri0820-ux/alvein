@@ -7885,7 +7885,10 @@ function dailyEconomySettle(){
   S.gold+=income-upkeep+(heirloomHorn?(3+S.st.economy*0.12):0);
   S.lastBudget={inc:income+(heirloomHorn?(3+S.st.economy*0.12):0),up:upkeep,day:S.day}; // 前日の実収支を控え、国力画面で歳入歳出の内訳として見せる(内政の手応え)
   const seasonMult=currentSeason().foodMult; // 収穫期の巡り:秋は実り豊か、冬は端境で生産が細る
-  S.food+=S.st.agriculture*0.7*noise*seasonMult-S.pop*0.085*(1-Math.min(0.3,S.st.agriculture*0.003))*(S.flags.statS_agriculture?0.95:1)*rationInfo().useMult+(heirloomHorn?4:0); // 農業が高いほど備蓄・分配も効率化し消費が抑えられる。農業Sで恒久的にさらに抑制。家宝「豊穣の角杯」で日々の実りが増す。食糧配給の方針(潤沢/倹約)で消費が増減する
+  const foodProd=S.st.agriculture*0.7*noise*seasonMult+(heirloomHorn?4:0); // 日々の収穫(農業×季節×豊穣の角杯)
+  const foodCons=S.pop*0.085*(1-Math.min(0.3,S.st.agriculture*0.003))*(S.flags.statS_agriculture?0.95:1)*rationInfo().useMult; // 日々の消費(人口×備蓄効率×配給方針)
+  S.food+=foodProd-foodCons; // 農業が高いほど備蓄・分配も効率化し消費が抑えられる。農業Sで恒久的にさらに抑制。家宝「豊穣の角杯」で日々の実りが増す。食糧配給の方針(潤沢/倹約)で消費が増減する
+  S.lastFoodBudget={prod:foodProd,cons:foodCons,day:S.day}; // 前日の糧の収支を控え、国力画面で歳入歳出と同じく明かす(食の手応え・飢饉への備え)
   const growChance=(0.16+Math.max(0,(S.food-20)/700)+Math.max(0,(S.mood-45)/400)+Math.max(0,(S.st.agriculture-40)/900))*immigrationInfo().popMult; // 農業が豊かなほど人口増加率も上がる。移民政策(入植方針)でも人口の伸びが変わる
   if(S.food>15&&S.mood>38&&Math.random()<Math.min(0.6,growChance))S.pop+=ri(1,3);
   if(S.food<0){S.food=0;S.mood-=2;if(S.day%3===0)chron("食糧が底を突きつつある。配給に長い列ができている。","grave");}
@@ -13681,7 +13684,15 @@ function renderStatsDetail(){
     }
     h+=`<div class="srow"><div class="sh"><div class="nm">国庫</div><div class="vl">${Math.round(S.gold)}</div></div><div class="ef">毎日 経済に応じた税収が入り、軍事維持費などが出ていく。マイナスが続くと民心が下がる。<span style="color:var(--dim)">／ 現在の税制:<b style="color:${taxLevel()==="heavy"?"#d99a6a":taxLevel()==="light"?"#8fbf6f":"#c9a86a"}">${taxInfo().label}</b>(徴税収入${Math.round(taxInfo().incomeMult*100)}%・国政画面で変更)</span>${budgetLine}</div></div>`;
   }
-  h+=`<div class="srow"><div class="sh"><div class="nm">食糧</div><div class="vl">${Math.round(S.food)}</div></div><div class="ef">農業に応じて増え、人口に応じて減る。尽きると民心が下がる。</div></div>`;
+  { // 前日の糧の収支:正味の増減だけでは見えない「どれだけ穫れ、どれだけ食んだか」を明かす(食の手応え・飢饉への備えの導線)。国庫の歳入歳出と対になる糧の内訳
+    let foodBudgetLine="";
+    if(S.lastFoodBudget&&typeof S.lastFoodBudget.prod==="number"){
+      const prod=Math.round(S.lastFoodBudget.prod),cons=Math.round(S.lastFoodBudget.cons),net=prod-cons;
+      const cs=(typeof currentSeason==="function")?currentSeason():null;
+      foodBudgetLine=`<div style="font-size:11px;color:var(--dim);margin-top:3px">前日の糧:<span style="color:#8fbf6f">収穫+${prod}</span>${cs?` <span style="color:var(--dim)">(${cs.name})</span>`:""} <span style="color:#d99a6a">消費-${cons}</span> ＝ 差引 <b style="color:${net>=0?"#8fbf6f":"#d97a7a"}">${net>=0?"+":""}${net}</b>/日${net<0?"(蓄えが尽きると民心が下がる)":""}</div>`;
+    }
+    h+=`<div class="srow"><div class="sh"><div class="nm">食糧</div><div class="vl">${Math.round(S.food)}</div></div><div class="ef">農業に応じて増え、人口に応じて減る。尽きると民心が下がる。${foodBudgetLine}</div></div>`;
+  }
   let moodTrend=""; // 民心の週次推移:統治の生命線が今週どちらへ動いているかを一目で読めるように(国力6軸と同じ趨勢表示)
   if(S.stTrend&&typeof S.stTrend.mood==="number"){
     const md=Math.round(S.mood)-Math.round(S.stTrend.mood);
