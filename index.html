@@ -8442,7 +8442,27 @@ function grantRenown(n,reason){
   const before=renownTierIndex();
   S.renown=(S.renown||0)+n;
   const after=renownTierIndex();
-  if(after>before){const t=RENOWN_TIERS[after];for(const u of S.units)if(u.role==="active")u.moral=Math.min(100,(u.moral||0)+3);S.mood=Math.min(100,(S.mood||0)+3);chron(`――アルヴェインの武名は、いまや「${t.name}」と謳われるに至った。${reason?reason+"が、":""}王国の威信をまた一段と高めている。この名を慕い、腕自慢の者たちが門を叩き始めるだろう(全軍の誇り↑ 逸材が集いやすくなる)。`,"big");recordAnnal(`王国の武名が「${t.name}」と謳われるに至った。`,"renown_"+after,true);}
+  if(after>before){const t=RENOWN_TIERS[after];for(const u of S.units)if(u.role==="active")u.moral=Math.min(100,(u.moral||0)+3);S.mood=Math.min(100,(S.mood||0)+3);chron(`――アルヴェインの武名は、いまや「${t.name}」と謳われるに至った。${reason?reason+"が、":""}王国の威信をまた一段と高めている。この名を慕い、腕自慢の者たちが門を叩き始めるだろう(全軍の誇り↑ 逸材が集いやすくなる)。`,"big");recordAnnal(`王国の武名が「${t.name}」と謳われるに至った。`,"renown_"+after,true);grantRenownTierReward(after);}
+}
+// 威信の到達報酬:名声が一段上がるたび、その格に相応しい"felt な"一度きりの恵みを添える。従来は志願の逸材率が上がる
+// 受動効果だけだったが、名声を慕って豪傑・使者・貢物が集うという到達の手応えを与える(長期のやり込み目標に報いる)。
+// レア級の永続アイテム(名声の旗印・職人団)とは重複させず、募兵と一時的な恵みで構成する。
+function grantRenownTierReward(tierIndex){
+  S.flags=S.flags||{};
+  const key="renownReward_"+tierIndex; if(S.flags[key])return; S.flags[key]=true;
+  const addVol=(comment,talented)=>{
+    S.volunteers=S.volunteers||[];
+    if(S.volunteers.length>=8){const g=ri(60,110);apply({gold:g});chron(`志願所は既に一杯で、名声を慕って訪れた者は支度金${g}を残して去っていった。`,"");return null;}
+    const v=makeVolunteer(); v.hiddenPotential=true; if(talented)v.unit.talented=true; v.comment=comment; S.volunteers.push(v); return v;
+  };
+  if(tierIndex===2){ // 名高き王国:名うての武人が仕官を願い出る
+    const v=addVol("高まる王国の武名を慕い、名うての武人が自ら仕官を願い出た。"); if(v)chron(`王国の名声に惹かれ、腕利き「${v.unit.nm} ${v.unit.surname}」が志願所に加わった(威信の高まりが逸材を招いた)。`,"big");
+  }else if(tierIndex===3){ // 大陸に轟く覇邦:諸国から祝いの使者と貢物が届く
+    const g=ri(80,140); apply({gold:g,mood:4,st:{diplomacy:2},log:`大陸に轟く武名のもとへ、諸国から祝いの使者と貢物が届いた(国庫+${g} 外交+2 民心↑)。`,logCls:"big"});
+    const v=addVol("覇邦の名を慕い、腕に覚えの者が海を越えて仕官に来た。"); if(v)chron(`さらに、名声を慕う武人「${v.unit.nm} ${v.unit.surname}」が志願所に加わった。`,"big");
+  }else if(tierIndex===4){ // 伝説と謳われる王国:名だけを頼りに豪傑が馳せ参じる
+    const v=addVol("伝説と謳われる王国――その名だけを頼りに、名だたる豪傑が馳せ参じた。",true); if(v)chron(`伝説の王国のもとへ、豪傑「${v.unit.nm} ${v.unit.surname}」が自ら馳せ参じた。傑物の予感を漂わせている。`,"big"); apply({mood:5});
+  }
 }
 function hiddenPotentialChance(rankLabel){
   const t={F:0.075,E:0.07,D:0.06,C:0.04,B:0.035,A:0.025,S:0.02,SS:0.018,Z:0.015};
