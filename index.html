@@ -8894,11 +8894,17 @@ function buildMissionEvent(){
   const rarity=missionRarity();
   const level=missionLevel();
   const cands=[...eligible].sort(()=>Math.random()-.5).slice(0,4);
-  const choices=cands.map(u=>({
-    label:`${u.nm}(${JOB_TREES[u.cls].label}・${jobFor(u.cls,u.lv,u.route).name} Lv.${u.lv})を送る`,
-    hint:`適性目安:${Math.round(m.statFn(u))} ／ 難度目安Lv.${level} ／ 腕${u.str}・体${u.vit}・魔${u.int}・敏${u.agi}・知${u.wis}・統${u.lead}${(u.fatigue||0)>=40?" / やや疲労気味":""}`,
-    fx:{call:()=>resolveMission(m,u,level,rarity)}
-  }));
+  const missionThreshold=6+level*0.13; // resolveMissionと同じ成功閾値。生の適性・難度Lvは尺度が異なり成否が読みにくかったので、成否目安を算出して明示(手応え/選択の可視化)
+  const choices=cands.map(u=>{
+    const apt=m.statFn(u);const margin=apt-missionThreshold; // 余裕(+で有利)。乱数rnd(-6,6)ぶんの振れ幅の中でどこにいるか
+    const[vl,vc]=margin>=6?["楽勝","#8fbf6f"]:margin>=2?["有利","#8fbf6f"]:margin>=-2?["五分","#d9b56a"]:margin>=-6?["不利","#d99a6a"]:["困難","#d97a7a"];
+    const greatReach=(apt+6)>=missionThreshold*1.7; // 大成功(閾値×1.7)が射程内か
+    return {
+      label:`${u.nm}(${JOB_TREES[u.cls].label}・${jobFor(u.cls,u.lv,u.route).name} Lv.${u.lv})を送る`,
+      hint:`成否目安:<span style="color:${vc};font-weight:700">${vl}</span>${greatReach?`<span style="color:#e0be6f"> ・大成功も射程</span>`:""} ／ 適性${Math.round(apt)}(難度目安Lv.${level}) ／ 腕${u.str}・体${u.vit}・魔${u.int}・敏${u.agi}・知${u.wis}・統${u.lead}${(u.fatigue||0)>=40?" / やや疲労気味":""}`,
+      fx:{call:()=>resolveMission(m,u,level,rarity)}
+    };
+  });
   choices.push({label:"今回は辞退する",hint:"民心がわずかに下がる",fx:{mood:-1,log:"今回の依頼は辞退した。村の評判にわずかに影を落とした。"}});
   return{tag:rarity.label?`${rarity.label}・${m.tag}`:m.tag,title:m.title,body:m.body,choices};
 }
