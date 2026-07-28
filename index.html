@@ -11409,6 +11409,7 @@ function showDungeonResult(dungeon,tier,bossWin,memberLog,goldGained,itemGained,
     const rsquad=(dungeon.squadIds||[]).map(id=>S.units.find(u=>u.id===id)).filter(Boolean);
     const facs=[];
     if(dungeon.condition&&typeof DUNGEON_CONDITIONS!=="undefined"&&DUNGEON_CONDITIONS[dungeon.condition])facs.push(`環境:${DUNGEON_CONDITIONS[dungeon.condition].label}`); // その地の環境=報酬を最も左右する要素を結果にも明示(手応えの可視化)
+    if(dungeon.ethos&&typeof SQUAD_ETHOS!=="undefined"){const e=SQUAD_ETHOS.find(x=>x.key===dungeon.ethos);if(e)facs.push(`隊是:${e.name}`);} // 発動した小隊の隊是=報酬・攻略を左右した気風も結果に明示(選択→結果までethosの効きを一貫して見せる)
     if(bossWin&&dungeon.bossTrait&&typeof BOSS_TRAITS!=="undefined"&&BOSS_TRAITS[dungeon.bossTrait])facs.push(`討王:${BOSS_TRAITS[dungeon.bossTrait].label}`);
     if(dungeon.aim&&dungeon.aim!=="balanced"&&typeof DUNGEON_AIMS!=="undefined"&&DUNGEON_AIMS[dungeon.aim])facs.push(`主眼:${DUNGEON_AIMS[dungeon.aim].label}`);
     if((dungeon.festerReward||0)>0)facs.push(`熟成の実り +${Math.round(dungeon.festerReward*100)}%`);
