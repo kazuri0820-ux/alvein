@@ -6341,6 +6341,41 @@ const RANDOM_CHOICE_EXTRA=[
      apply({st:{order:1},log:"長は若い兵の熱意を認めつつ、今はまだ時期尚早と諭した。折り目正しい対応に、家中の規律は保たれている。"});
    }}},
   ]},
+ /* ── 一兵の生き様を歴史に刻む(愛着・遺産) ── */
+ {tag:"記 録",title:"老兵の武勲を書き記す",
+  body:"王国の記録官が、長く仕えた老兵の武勲を年代記に書き残したいと申し出た。当人は面映ゆそうにしているが、その半生には確かに語り継ぐべきものがある。",
+  speaker:"ガレオン「一兵の生き様も、国の歴史の一頁。書き残す価値がございましょう」",
+  choices:[
+   {label:"盛大に武勲を書き記させる",hint:"武名↑ その老兵の士気↑↑",fx:{call:()=>{
+     const vets=S.units.filter(u=>u.role==="active"&&(u.lv>=20||(u.titles||[]).length>=2));
+     const pool=vets.length?vets:S.units.filter(u=>u.role==="active");
+     const u=pool.length?pool[Math.floor(Math.random()*pool.length)]:null;
+     if(u){u.moral=Math.min(100,(u.moral||0)+10);u.loyalty=Math.min(100,(u.loyalty||0)+5);unitHistory(u,"その武勲が王国の年代記に書き記され、末永く語り継がれることとなった。");if(typeof grantRenown==="function")grantRenown(2,`${u.nm}の武勲が年代記に刻まれたこと`);chron(`――${fullName(u)}の半生の武勲が、王国の年代記に燦然と書き記された。若い兵たちは、その頁を繰っては胸を熱くしている。`,"big");}else{apply({log:"書き記すべき兵が見当たらず、話は流れた。"});}
+   }}},
+   {label:"本人の望み通り、静かに留める",hint:"民心+1 その兵の忠誠↑",fx:{call:()=>{
+     const vets=S.units.filter(u=>u.role==="active"&&(u.lv>=20||(u.titles||[]).length>=2));
+     const pool=vets.length?vets:S.units.filter(u=>u.role==="active");
+     const u=pool.length?pool[Math.floor(Math.random()*pool.length)]:null;
+     if(u){u.loyalty=Math.min(100,(u.loyalty||0)+6);unitHistory(u,"派手な記録は望まず、静かな暮らしを選んだ。長がその意を汲んだことを、深く喜んだ。");}
+     apply({mood:1,log:u?`${u.nm}の望み通り、武勲は大仰に飾らず静かに書き留められた。奥ゆかしい人柄が、かえって兵たちの敬意を集めている。`:"武勲は静かに書き留められた。"});
+   }}},
+  ]},
+ /* ── 二代にわたる奉公(世代の継承・愛着) ── */
+ {tag:"世 継",title:"兵の子、入隊を志す",
+  body:"王国に仕える兵の子が、親と同じ道を志して入隊を願い出てきた。まだ幼さの残る面立ちだが、その眼差しは真剣そのものだ。どう迎えるか。",
+  speaker:"フィオナ「親の背を見て育った子は、良き兵になりましょう。……危うさも、また然り」",
+  choices:[
+   {label:"誇りある兵として迎え入れる",hint:"人手↑ 兵力↑ 民心↑ 親兵の士気↑",fx:{call:()=>{
+     const parent=S.units.filter(u=>u.role==="active");const pu=parent.length?parent[Math.floor(Math.random()*parent.length)]:null;
+     if(pu){pu.moral=Math.min(100,(pu.moral||0)+8);pu.loyalty=Math.min(100,(pu.loyalty||0)+4);unitHistory(pu,"我が子が同じ道を志して入隊し、親として誇らしさに胸を熱くした。");chron(`――${pu.nm}の子が、親の背を追って王国軍の門を叩いた。二代にわたる奉公に、城下は温かな祝福に包まれている。`,"people");}
+     apply({pop:1,mood:2,troops:2,log:pu?"":"兵の子が誇りある新兵として迎え入れられた。"});
+   }}},
+   {label:"まだ幼いと諭し、時を待たせる",hint:"治安+1 / 民心わずかに",fx:{call:()=>{
+     const parent=S.units.filter(u=>u.role==="active");const pu=parent.length?parent[Math.floor(Math.random()*parent.length)]:null;
+     if(pu)unitHistory(pu,"我が子の入隊志願を、長が『今しばし待て』と諭してくれた。子の身を案じる親心を、深く汲んでくれたことに感謝した。");
+     apply({st:{order:1},mood:1,log:"長は幼い志願者を諭し、いま少し時を待つよう論した。子を案じる親兵たちは、その思慮深さに胸を撫で下ろしている。"});
+   }}},
+  ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
 /* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
