@@ -2543,6 +2543,7 @@ function selfStoryTalkLine(u){
   if(typeof militaryRankIndex==="function"&&militaryRankIndex(u)>=3){const rk=militaryRank(u);lines.push(`「${rk.name}の位を賜った身。その名に恥じぬよう、日々気を引き締めております」`);}
   if((u.titles||[]).length>=3)lines.push("「過分な称号をいくつも頂きましたが、驕らず、ただ務めを果たすのみです」");
   if(u.awakened)lines.push("「あの日、自分の中で何かが目覚めたのです。……この力の底は、まだ自分でも見えません」");
+  if(u.beast){const k=beastKind(u.beast.kind);if(k)lines.push(`「相棒の${k.nm}『${u.beast.nm}』ですか。……もう、こいつのいない遠征は考えられません。${k.lineDesc}んですよ」と、目尻を下げて語った。`);}
   return lines.length?lines[Math.floor(Math.random()*lines.length)]:null;
 }
 function talkToUnit(u){
@@ -2658,7 +2659,7 @@ function makeUnit(){
     trait:trait.key, traitTier:trait.tier, pw:trait.pw||0, gm:trait.gm, route:null, titles:[], founder:false, totalExpEarned:0, criticalSurvivalCount:0, uniqueJob:null, wasCaptain:false, lifespanVariance:rnd(0.82,1.22), stageTiming:rnd(0.82,1.22),
     skills:[], injured:0, captain:false,
     age:startAge, role:"active", retiredAskedStage:null,
-    bondWith:null, rivalWith:null, masterId:null, pupilId:null, joinDay:(S&&S.day)||1,
+    bondWith:null, rivalWith:null, masterId:null, pupilId:null, beast:null, joinDay:(S&&S.day)||1,
     history:[],
     awakened:false, awakenTitle:null,
     fatigue:0, favorite:false, birthDay:ri(1,AGE_YEAR_DAYS), skillCapBase:ri(1,10),
@@ -2939,6 +2940,11 @@ function removeUnitById(id,reason){
     S.mood=Math.max(0,(S.mood||0)-4);
     for(const o of S.units)if(o.id!==u.id)o.moral=Math.max(0,o.moral-4);
     chron(`長が目をかけていた${u.nm}の死は、隊に深い喪失感を残した。誰もがしばらく、その名を口にできなかった。`,"grave");
+  }
+  if(u.beast){ // 相棒獣は主を喪えば深く悼む。死なら墓の傍を離れず、それ以外(引退等)は主に添って野に去る(愛着の締めくくり)
+    const k=beastKind(u.beast.kind);const bn=u.beast.nm;
+    if(k){ if(reason==="death")chron(`${u.nm}の相棒${k.nm}「${bn}」は、主を喪ってなお墓の傍を離れず、いつまでも空へ向かって鳴いていたという。`,"grave");
+      else chron(`${u.nm}が名簿を離れるにあたり、相棒${k.nm}「${bn}」もまた、主の背を追って静かに去っていった。`,""); }
   }
   S.units=S.units.filter(x=>x.id!==id);
 }
@@ -3848,6 +3854,30 @@ const EARLY_GROWTH=[
    {label:"まだ早いと見送る",hint:"見送り",fx:{log:"旅籠の話は先送りになった。ネロは帳面に「後日」と書き加えた。"}},
   ]},
 ];
+/* ===== 相棒獣:迷宮で兵に懐いた幼き獣。一兵に生涯寄り添い、遠征で固有の恩恵をもたらす。
+   恩恵は能力値の水増しではなく、それぞれ別の"体験の軸"に効く ―― 銀狼=索敵(伴えば迷宮が自ずと
+   偵察済みに=備えの知)、蒼隼=漁り(踏破の折に見落とされた戦利品を持ち帰る=収集)、
+   霊猫=英気(遠征後の疲れが浅く、士気も上向く=手数の持続)。喪えば深く悼む(愛着×収集×迷宮の新機軸)。 ===== */
+const BEAST_KINDS=[
+  {key:"wolf",nm:"銀狼",boon:"scout",boonLabel:"索 敵",color:"#9fb4c9",
+   desc:"鼻が利き、伴えば迷宮の罠と地形を先んじて嗅ぎ分ける",lineDesc:"銀の毛並みの狼。夜目が利き、危険をいち早く察してくれる"},
+  {key:"hawk",nm:"蒼隼",boon:"forage",boonLabel:"漁 り",color:"#c9a86a",
+   desc:"眼が良く、踏破の折に見落とされた獲物を見つけ出す",lineDesc:"蒼い翼の隼。高みから、獲物も宝も見逃さない"},
+  {key:"cat",nm:"霊猫",boon:"vigor",boonLabel:"英 気",color:"#8fbf6f",
+   desc:"傍にあれば心安らぎ、遠征の疲れが浅く済む",lineDesc:"淡く光る毛並みの猫。傍にいるだけで、不思議と気が晴れる"},
+];
+const BEAST_NAMES=["フェン","ルーナ","シロ","クロ","ソラ","ハク","ミオ","レオ","コハク","ユキ","ナギ","トワ","アオ","ヒナ","モモ","ライ","テト","ノア"];
+function beastKind(key){return BEAST_KINDS.find(b=>b.key===key)||null;}
+function beastOf(u){return (u&&u.beast)?u.beast:null;}
+function beastKindOf(u){const b=beastOf(u);return b?beastKind(b.kind):null;}
+function assignBeast(u,kindKey){
+  const k=beastKind(kindKey)||BEAST_KINDS[Math.floor(Math.random()*BEAST_KINDS.length)];
+  const nm=BEAST_NAMES[Math.floor(Math.random()*BEAST_NAMES.length)];
+  u.beast={kind:k.key,nm,day:(S&&S.day)||1};
+  return u.beast;
+}
+function squadBeastHolder(squad,boon){return (squad||[]).find(u=>{const k=beastKindOf(u);return k&&k.boon===boon;})||null;}
+function squadHasBeastBoon(squad,boon){return !!squadBeastHolder(squad,boon);}
 /* ---------- レアイベント:通常より低頻度・高インパクト ---------- */
 const RANDOM_RARE=[
  {tag:"寄 進",title:"篤志家の寄進",
@@ -3857,6 +3887,22 @@ const RANDOM_RARE=[
    {label:"財貨を賜る",hint:"まとまった国庫の足し",fx:{call:()=>{const g=ri(90,150);apply({gold:g,log:`篤志家より財貨${g}が国庫に納められた。`,logCls:"big"});}}},
    {label:"武具を賜る",hint:"上質な装備が武具庫に加わる",fx:{call:()=>{const eq=rollEquipmentDrop(Math.random()<0.3?"epic":"rare");if(eq){const inst=addEquipment(eq.key);chron(`篤志家より、上質な武具「${equipInstName(inst)}」を賜った(${equipInstBonusText(inst)})。`,"big");}else{const g=ri(60,100);apply({gold:g});chron(`めぼしい武具はなかったが、代わりに財貨${g}を賜った。`,"");}}}},
    {label:"人材の紹介を賜る",hint:"見込みある志願者が加わる",fx:{call:()=>{S.volunteers=S.volunteers||[];if(S.volunteers.length>=8){const g=ri(60,100);apply({gold:g});chron(`志願所は既に一杯で、代わりに支度金${g}を賜った。`,"");return;}const v=makeVolunteer();v.hiddenPotential=Math.random()<0.5;v.comment="篤志家の紹介で、王国の門を叩いた人材。";S.volunteers.push(v);chron(`篤志家の紹介で、${v.unit.nm} ${v.unit.surname}が志願所に加わった。`,"big");}}},
+  ]},
+ {tag:"懐 柔",title:"迷宮に棲みつく幼き獣",
+  cond:()=>S.units.some(u=>u.role==="active"&&!u.beast&&!u.dungeonBusy),
+  body:"遠征から戻った兵の荷に、迷宮の奥で親とはぐれたらしい幼い獣が紛れ込んでいた。追い払おうとしても兵の足元にまとわりつき、離れようとしない。「陛下……この子、どうやら誰かにすっかり懐いてしまったようで」。つぶらな瞳が、こちらを見上げている。",
+  speaker:"セラ「情の移った獣は、生涯その主に添うと申します。迎え入れれば、遠征でよき相棒となりましょう」",
+  choices:[
+   {label:"兵のもとに迎え入れる",hint:"最も歴戦の兵に幼獣が懐く(固有の恩恵を持つ相棒に育つ)",fx:{call:()=>{
+     const cands=S.units.filter(u=>u.role==="active"&&!u.beast&&!u.dungeonBusy);
+     if(!cands.length){chron("迎え入れるはずの兵がいつの間にか出払っており、幼き獣は名残惜しげに迷宮の森へと帰っていった。","");return;}
+     cands.sort((a,b)=>((b.dungeonClearCount||0)-(a.dungeonClearCount||0))||(unitPower(b)-unitPower(a)));
+     const u=cands[0];
+     const b=assignBeast(u);const k=beastKind(b.kind);
+     unitHistory(u,`迷宮から連れ帰った幼き${k.nm}「${b.nm}」を相棒に迎えた。以後、遠征に付き従うだろう(${k.boonLabel})。`);
+     chron(`${fullName(u)}のもとに、迷宮で見つけた幼き${k.nm}「${b.nm}」が懐いた。${k.desc}という。これからの遠征、頼もしい相棒となるだろう(相棒獣・${k.boonLabel}の恩恵)。`,"big");
+   }}},
+   {label:"迷宮の森へ帰してやる",hint:"獣は野に還る(民心わずかに↑)",fx:{call:()=>{apply({mood:2});chron("幼き獣は、兵たちに見送られて迷宮の森へと帰っていった。野に生きるものは野へ――王の情けを、兵たちは静かに頷いて受け止めた。","");}}},
   ]},
  {tag:"天 変",title:"隕鉄の落下",
   body:"夜空を一条の光が裂き、轟音とともに何かが辺境の丘に落ちた。焼け焦げた地の底に、鈍く輝く見慣れぬ鉄塊が埋まっているという。星の鉄――そう囁く者もいる。",
@@ -9673,6 +9719,8 @@ function dispatchDungeon(dungeonId,manualIds,formationKey,delve,provision,tactic
   for(const u of debutants){u.sortied=true;unitHistory(u,`初めて迷宮の遠征に加わった。武者震いと高揚を胸に、隊列に続いた。`);}
   if(debutants.length&&Math.random()<0.5){const u=debutants[Math.floor(Math.random()*debutants.length)];chron(FIRST_SORTIE_LINES[Math.floor(Math.random()*FIRST_SORTIE_LINES.length)](fullName(u),dungeon.name),"");}
   recordSquadSortie(squad);
+  // 相棒獣・銀狼の索敵:狼を連れた兵が隊にいれば、その鋭い鼻が罠と地形を先んじて嗅ぎ分け、この迷宮は自ずと偵察済みとなる(斥候いらず=備えの知)
+  if(!dungeon.scouted){const w=squadBeastHolder(squad,"scout");if(w){dungeon.scouted=true;const bn=beastOf(w);chron(`${w.nm}の相棒${bn?`「${bn.nm}」`:"の銀狼"}が隊の先を駆け、「${dungeon.name}」の罠と地形を残らず嗅ぎ分けた。斥候を放つまでもなく、内部が見通せている(偵察済み)。`,"");}}
   dungeon.ethos=squadEthosOf(squad)||null; // この派遣で発動している小隊の隊是(表示用)
   dungeon.squadIds=squad.map(u=>u.id);
   dungeon.resolveDay=S.day+dungeon.duration;
@@ -9973,6 +10021,8 @@ function resolveDungeonRun(dungeonId){
       const squadItemFind=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).itemFind||0,(traitInfo(u.trait).itemFind)||0))):0; // 「漁りの目」(スキル)「物拾いの目」(特性)持ちを伴うと追加の品を拾う=収集支援ビルド(特性/スキル両対応)
       if(squadItemFind>0&&Math.random()<squadItemFind){const ex=rollItemDrop(dungeon.rarity.key);if(ex){addItem(ex.key);chron(`目ざとい兵が、転がっていた「${ex.name}」も拾い集めてきた。`,"");}}
       if(aimMods.loot>1.1&&Math.random()<(aimMods.loot-1)){const ex=rollItemDrop(dungeon.rarity.key);if(ex){addItem(ex.key);chron(`探索を主眼に据えた部隊は、隅々まで漁って「${ex.name}」も見つけ出した。`,"");}} // 探索重視:掘り出しの品を余分に持ち帰る
+      // 相棒獣・蒼隼の漁り:隼を連れた兵がいれば、その眼が見落とされた獲物を捉え、踏破の折に余分な戦利品を持ち帰る(収集の軸)
+      {const h=squadBeastHolder(squad,"forage");if(h&&Math.random()<0.6){const ex=rollItemDrop(dungeon.rarity.key);if(ex){addItem(ex.key);const bn=beastOf(h);chron(`${h.nm}の相棒${bn?`「${bn.nm}」`:"の蒼隼"}が、見落とされていた「${ex.name}」を目ざとく見つけ、咥えて戻ってきた。`,"");}}}
       let equipGained=null, equipInst=null;
       const squadLootLuck=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).lootLuck)||0,(skillEffects(u).lootLuck)||0))):0; // 「宝運」「財宝の嗅覚」(特性)や「宝探しの勘」(スキル)持ちを伴うと掘り出しが増える=編成に意味を持たせる収集レバー
       if(Math.random()<(crit?0.6:0.3)*aimMods.loot+squadLootLuck+((S.flags&&S.flags.grandWork==="forge")?0.1:0)+(seasonMods.equipBonus||0)){equipGained=rollEquipmentDrop(dungeon.rarity.key);if(equipGained){equipInst=addEquipment(equipGained.key);
@@ -10290,6 +10340,8 @@ function resolveDungeonRun(dungeonId){
     }
     if(eased)chron(`携えた兵站が生き、「${dungeon.name}」から戻った部隊の疲れと傷は、いくらか浅く済んだ。`,"");
   }
+  // 相棒獣・霊猫の英気:猫を連れた兵は、その傍らで心が安らぎ、遠征の疲れが浅く済んで士気も上向く(手数を保つ持続の軸)
+  {const c=squadBeastHolder(squad,"vigor");if(c&&S.units.some(x=>x.id===c.id)){const before=c.fatigue||0;c.fatigue=Math.max(0,before-ri(10,18));c.moral=Math.min(100,(c.moral||0)+2);const bn=beastOf(c);if(before>0)chron(`${c.nm}の相棒${bn?`「${bn.nm}」`:"の霊猫"}が寄り添い、遠征の疲れは浅く済んだ。心なしか、足取りも軽い。`,"");}}
   for(const u of squad){if(u&&u.vigor){u.vigor=false;u.restDays=0;}} // 英気充溢は、この一戦で発揮され消費される
   removeActiveDungeon(dungeonId);
   clamp();render();renderTroops();refreshOpenPanels();save();
@@ -13130,6 +13182,7 @@ function renderUnitDetail(uid){
         ${(u.scars||0)>0?`<span class="udet-chip" style="color:#c98f7a;border-color:#c98f7a" title="幾多の負傷を乗り越えて刻まれた歴戦の傷痕。傷を負いにくくなっている(傷痕${u.scars}=負傷率${Math.round((1-scarInjuryMult(u))*100)}%減)">歴戦の傷痕 ${"✚".repeat(Math.min(5,u.scars))}</span>`:""}
         ${avengeActive(u)?`<span class="udet-chip" style="color:#d98a6a;border-color:#d98a6a" title="喪った${u.avengeName||"戦友"}の弔いを胸に奮い立っている。この間、戦力が高まる(あと${Math.max(0,(u.avengeUntil||0)-S.day)}日)">弔い合戦 ⚔ あと${Math.max(0,(u.avengeUntil||0)-S.day)}日</span>`:""}
         ${u.vigor?`<span class="udet-chip" style="color:#8fbf6f;border-color:#8fbf6f" title="十分に休養して英気を養った状態。次の出撃で戦力が高まる(出撃で消費)">英気充溢</span>`:""}
+        ${(()=>{const k=beastKindOf(u);if(!k)return"";return `<span class="udet-chip" style="color:${k.color};border-color:${k.color}" title="迷宮で懐いた生涯の相棒。${k.desc}(遠征に付き従い、${k.boonLabel}の恩恵をもたらす)">相棒:${k.nm}「${u.beast.nm}」〔${k.boonLabel}〕</span>`;})()}
         ${(u.tourneyWins||0)>0?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)" title="御前試合で頂点に立った回数">御前試合 優勝${u.tourneyWins}回</span>`:""}
         ${(u.hardships||0)>=HARDENED_THRESHOLD?`<span class="udet-chip" style="color:#b89a6a;border-color:#b89a6a" title="幾多の敗北と辛酸を乗り越えた叩き上げの古兵。忠義と士気が篤い(乗り越えた敗北 ${u.hardships})">叩き上げ</span>`:(u.hardships||0)>0?`<span class="udet-chip" style="color:var(--dim);border-color:var(--dim)" title="迷宮での敗北を糧に成長している(あと${HARDENED_THRESHOLD-(u.hardships||0)}度の逆境で叩き上げに)">苦労人 ${u.hardships}/${HARDENED_THRESHOLD}</span>`:""}
         ${u.admires?(()=>{const h=S.units.find(x=>x.id===u.admires);return h?`<span class="udet-chip" style="color:#c9a0d0;border-color:#c9a0d0" title="${h.nm}に憧れ、その背中を追って人一倍伸びている">${h.nm}に憧れて</span>`:"";})():""}
