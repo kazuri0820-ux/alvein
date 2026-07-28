@@ -2673,6 +2673,8 @@ const TITLE_DB=[
  {key:"t_versatile",name:"六芸に通ず",desc:"腕力・体力・魔力・敏捷・知力・統率――その全てを高い水準で備えた、穴のない万能の兵。混沌の坩堝でこそ真価を発揮する",effect:"expMult",value:1.05},
  {key:"t_shogun",name:"将軍位",desc:"踏破と武功、長きの奉公を積み重ね、兵卒より昇りつめて軍の頂・将軍の位に至った、王国軍の柱",effect:"loyaltyGrow",value:0.16},
  {key:"t_firstblade",name:"王国第一の武人",desc:"ある時、現役の全兵の頂点に立ち、王国第一の武人と謳われた、当代随一の強者",effect:"moralGrow",value:0.12},
+ {key:"t_disciple",name:"師弟の絆",desc:"師、あるいは弟子との深い縁で結ばれ、技と心を受け継ぎ受け渡す間柄となった",effect:"loyaltyGrow",value:0.12},
+ {key:"t_specialist",name:"一芸の極み",desc:"一つの才を人並外れた高みまで磨き上げた、一点特化の達人。その一芸においては誰の追随も許さぬ",effect:"expMult",value:1.05},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -3435,6 +3437,8 @@ function checkDailyTitles(u){
   if(["str","vit","int","agi","wis","lead"].every(k=>(u[k]||0)>=40))grantTitle(u,"t_versatile"); // 六芸に通ず:全能力を高水準で備えた万能兵を讃える(混沌型で真価を発揮する育成の到達点)
   if(typeof militaryRankIndex==="function"&&militaryRankIndex(u)>=5)grantTitle(u,"t_shogun"); // 将軍位:奉公と武功を積み重ね軍の頂に昇りつめた到達を讃える(軍位システムの最高到達点に称号の報い)
   if(typeof kingdomFirstBladeId==="function"&&u.role==="active"&&u.id===kingdomFirstBladeId())grantTitle(u,"t_firstblade"); // 王国第一の武人:現役の頂点に立った証(育て上げた兵が筆頭を掴む到達を permanent に刻む)
+  if(u.masterId||u.pupilId)grantTitle(u,"t_disciple"); // 師弟の絆:一対一の師弟の縁を結んだ証(育成の人間関係=愛着に報いる)
+  if(["str","vit","int","agi","wis","lead"].some(k=>(u[k]||0)>=55))grantTitle(u,"t_specialist"); // 一芸の極み:単一能力を突出して伸ばした一点特化の達人を讃える(万能=六芸に通ず と対をなす育成の到達)
   checkDecorationCeremony(u);
   checkDreamFulfilled(u); // 個人的な夢の達成を見届ける
   // 献身の誓い:長のお気に入りに選ばれ、長く仕えて忠義を極めた兵が、揺るがぬ献身を誓う。
