@@ -2738,15 +2738,35 @@ function assignDream(u){
 }
 function checkDreamFulfilled(u){
   assignDream(u); // 未設定(旧セーブ)なら付与
+  // 旧セーブの既達者を新方式へ移行:叶えた夢を記録し、再び志を灯す猶予を持たせる
+  if(u.dreamDone&&!Array.isArray(u.dreamsFulfilled)){u.dreamsFulfilled=u.dream?[u.dream]:[];if(u.dreamRenewDay==null)u.dreamRenewDay=S.day+ri(40,80);}
+  // 新たな夢を抱く:かねての夢を叶えた兵も、しばしの後に、また新たな志を胸に灯すことがある(長く仕える英傑に personal な目標を絶やさない=夢の連なり)
+  if(u.dreamDone&&u.dreamRenewDay&&S.day>=u.dreamRenewDay){
+    const done=new Set(u.dreamsFulfilled||[]);
+    if(done.size>=UNIT_DREAMS.length){u.dreamRenewDay=null;} // あらゆる夢を叶えきった、望むもの無き境地
+    else{
+      const fresh=UNIT_DREAMS.filter(d=>!done.has(d.key)&&d.key!==u.dream).filter(d=>{let m=false;try{m=d.done(u);}catch(e){}return !m;}); // まだ満たさぬ(=これからの目標になる)夢のみ
+      if(fresh.length){
+        const nd=fresh[Math.floor(Math.random()*fresh.length)];
+        u.dream=nd.key;u.dreamDone=false;u.dreamRenewDay=null;
+        unitHistory(u,`一つの夢を叶えた先に、新たな志――「${nd.text}」を胸に灯した。`);
+        chron(`${fullName(u)}が、叶えた夢の先に、新たな志「${nd.text}」を抱いた。その歩みは、まだ止まらない。`,"");
+      }else{u.dreamRenewDay=S.day+ri(40,80);} // 今は新たな目標が見つからぬ。またしばしの後に
+    }
+  }
   if(!u.dream||u.dreamDone)return;
   const d=UNIT_DREAMS.find(x=>x.key===u.dream);
   if(!d)return;
   let met=false;try{met=d.done(u);}catch(e){}
   if(!met)return;
   u.dreamDone=true;
+  u.dreamsFulfilled=Array.isArray(u.dreamsFulfilled)?u.dreamsFulfilled:[];
+  if(!u.dreamsFulfilled.includes(u.dream))u.dreamsFulfilled.push(u.dream);
+  u.dreamRenewDay=S.day+ri(40,80); // しばし誇りを噛みしめた後、また新たな夢を灯すことがある
   u.moral=Math.min(100,(u.moral||0)+12);u.loyalty=Math.min(100,(u.loyalty||0)+8);
-  unitHistory(u,`かねての夢だった「${d.text}」を叶えた。`);
-  chron(`${fullName(u)}が、かねての夢だった「${d.text}」を叶えた。長年の願いが実を結び、その顔には静かな誇りが浮かんでいる。`,"big");
+  const cnt=u.dreamsFulfilled.length;
+  unitHistory(u,`かねての夢だった「${d.text}」を叶えた。${cnt>=2?`(叶えた夢 ${cnt}つ目)`:""}`);
+  chron(`${fullName(u)}が、かねての夢だった「${d.text}」を叶えた。長年の願いが実を結び、その顔には静かな誇りが浮かんでいる。${cnt>=3?`これで${cnt}つもの夢を叶えた、稀有な生き様だ。`:""}`,"big");
 }
 /* 夢の歩み:数で測れる夢について、達成条件までの現在地を返す([現在,目標,単位ラベル])。人物詳細で
    一人ひとりの"ひそかな夢"を見える目標に変え、どの兵を何に向けて育てるかの愛着ある指針を与える。 */
@@ -14492,13 +14512,16 @@ function renderUnitDetail(uid){
   // ── ひそかな夢(個々の兵の personal な目標を見える化) ──
   if(!isInstructor&&u.dream&&typeof UNIT_DREAMS!=="undefined"){
     const d=UNIT_DREAMS.find(x=>x.key===u.dream);
+    const fcnt=Array.isArray(u.dreamsFulfilled)?u.dreamsFulfilled.length:0;
+    const allDone=fcnt>=UNIT_DREAMS.length;
+    const fulfilledNote=fcnt>0?`<div style="font-size:10px;color:var(--gold2);margin-top:3px">これまで叶えた夢:<b>${fcnt}</b>個${allDone?" ／ あらゆる夢を叶えきった稀有な生き様":""}</div>`:"";
     if(d){
       if(u.dreamDone){
-        h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>ひそかな夢</h4><div class="ds" style="color:var(--gold)">✦ 「${d.text}」を叶えた。<span style="color:var(--dim);font-size:10.5px">かねての願いを成し遂げた誉れ(称号「夢を叶えし者」)。</span></div></div>`;
+        h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>ひそかな夢</h4><div class="ds" style="color:var(--gold)">✦ 「${d.text}」を叶えた。<span style="color:var(--dim);font-size:10.5px">${allDone?"望むもの無き境地に至った。":"やがて、また新たな志を胸に灯すかもしれない。"}</span>${fulfilledNote}</div></div>`;
       }else{
         const pr=(typeof dreamProgress==="function")?dreamProgress(u):null;
         const progStr=pr?` <span style="color:var(--gold2)">(${pr[2]} ${pr[0]}/${pr[1]})</span>`:"";
-        h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>ひそかな夢</h4><div class="ds">「${d.text}」${progStr}<div style="font-size:10.5px;color:var(--dim);margin-top:2px">叶えた時、この兵は大きな誇りと忠義を得る。育てる先にある、その者だけの personal な目標。</div></div></div>`;
+        h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>ひそかな夢</h4><div class="ds">${fcnt>0?"新たな志:":""}「${d.text}」${progStr}<div style="font-size:10.5px;color:var(--dim);margin-top:2px">叶えた時、この兵は大きな誇りと忠義を得る。育てる先にある、その者だけの personal な目標。</div>${fulfilledNote}</div></div>`;
       }
     }
   }
