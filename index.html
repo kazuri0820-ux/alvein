@@ -7087,6 +7087,7 @@ function rollRandomTurnEvent(){
   checkKingsReflection(); // 王の述懐:国の実情に即した、統べる者の独白を稀に綴る
   checkReignFeats(); // 治世の偉業:治世を貫く到達目標を達成した折、王国を挙げて祝い、恩賞を下す
   checkKingTitle(); // 王号:治世の色に応じて民が王をどう呼ぶかが定まり、色が移ろえば呼び名も変わる
+  applyKingTitleBoon(); // 王徳:現在の王号に宿る治世の恵みを日々わずかに国へ及ぼす
   if(S.units.length&&Math.random()<0.004){pushEvent("__old_equipment__");return;}
   if(S.units.length&&Math.random()<0.0035){pushEvent("__job_change_surprise__");return;}
   // 日常フレーバー(パラメータに影響しない、ログを賑やかにするためだけの小さな一言)は1日1回程度
@@ -10167,6 +10168,20 @@ function checkKingTitle(){
   S.kingTitlesSeen=S.kingTitlesSeen||{};
   if(!S.kingTitlesSeen[cur.t.key]){S.kingTitlesSeen[cur.t.key]=S.day;if(typeof recordAnnal==="function")recordAnnal(`民が陛下を〈${cur.t.name}〉と呼ぶようになった。`,"kingtitle_"+cur.t.key,true);}
 }
+/* ===== 王徳(王号に宿る治世の徳):これまで王号は"呼び名"だけで実利が無かった。どの王として歩むかに felt な
+   手応えを与えるため、現在の王号に応じた控えめな恒久の恵みを日々わずかに国へ及ぼす(既存の家宝/前哨/殿堂の
+   加護と同格のドリップ)。狙った王号へ治世を導く長期の自己表現に、初めて機構的な意味が生まれる。 ===== */
+const KING_TITLE_BOON={
+  conqueror:{label:"武威の治世",desc:"王の武名が全軍を鼓舞し、兵の士気が日々わずかに保たれる",day:()=>{for(const u of S.units)if(u.role==="active")u.moral=Math.min(100,(u.moral||0)+0.3);}},
+  sage:{label:"叡智の治世",desc:"学びを尊ぶ気風が、兵の英気を養い日々の疲れを癒す",day:()=>{for(const u of S.units)if(u.role==="active"&&(u.fatigue||0)>0)u.fatigue=Math.max(0,(u.fatigue||0)-0.5);}},
+  people:{label:"仁政の治世",desc:"民を慈しむ政が、日々わずかに民心を癒す",day:()=>{S.mood=Math.min(100,(S.mood||0)+0.3);}},
+  warlord:{label:"尚武の治世",desc:"軍を練る気風が、兵の心を引き締め、疲れを和らげる",day:()=>{for(const u of S.units)if(u.role==="active"){u.moral=Math.min(100,(u.moral||0)+0.15);if((u.fatigue||0)>0)u.fatigue=Math.max(0,(u.fatigue||0)-0.3);}}},
+  merchant:{label:"殖産の治世",desc:"商いを重んじる政が、経済に応じた財貨を日々国庫に積む",day:()=>{S.gold=(S.gold||0)+Math.max(1,Math.round((S.st.economy||0)*0.06));}},
+  hegemon:{label:"威徳の治世",desc:"大陸に轟く威信が、民に誇りと安寧を、兵に矜持をもたらす",day:()=>{S.mood=Math.min(100,(S.mood||0)+0.2);for(const u of S.units)if(u.role==="active")u.moral=Math.min(100,(u.moral||0)+0.1);}},
+  pioneer:{label:"開拓の治世",desc:"版図を拓く気風が、日々わずかに新たな民を呼び寄せる",day:()=>{S.pop=(S.pop||0)+Math.max(1,Math.round((S.pop||0)*0.0025));}},
+};
+function kingTitleBoon(){const k=S.kingTitle;return (k&&KING_TITLE_BOON[k])?KING_TITLE_BOON[k]:null;}
+function applyKingTitleBoon(){const b=kingTitleBoon();if(b&&typeof b.day==="function"){try{b.day();}catch(e){}}}
 function relicDef(key){return RELIC_DEFS.find(r=>r.key===key);}
 function grantRelicShards(n){S.relicShards=(S.relicShards||0)+n;}
 /* ===== 前哨拠点(ダンジョン×内政の新レバー):踏破した迷宮の跡地を、王国の前哨として確保できる。
@@ -13150,6 +13165,7 @@ function renderProjects(){
     let rup=null;for(const t of KING_TITLES){if(def&&t.key===def.key)continue;let sc=0;try{sc=t.score(S)||0;}catch(e){}if(!rup||sc>rup.score)rup={t,score:sc};}
     h+=`<div class="pcard" style="margin-bottom:10px;border-color:var(--gold2)"><div class="nm" style="color:var(--gold)"><i class="icon-project"></i>王号 <span style="color:var(--parch,#e8d9b5);font-size:13px">${def?`〈${def.name}〉`:"まだ定まらず"}</span></div>
       <div class="ds" style="margin:2px 0 4px;font-size:11px">${def?def.desc+"。":"治世がもう少し形をなせば、民は陛下を何某かの名で呼び始めるだろう。"}</div>
+      ${(()=>{const b=(typeof kingTitleBoon==="function")?kingTitleBoon():null;return b?`<div class="ds" style="font-size:10.5px;color:#8fbf6f;margin:0 0 4px">◇王徳「${b.label}」― ${b.desc}。`+(def?`〈${def.name}〉である限り、この恵みが続く。`:"")+`</div>`:"";})()}
       ${rup?`<div class="ds" style="font-size:10px;color:var(--dim)">次に近い呼び名:〈${rup.t.name}〉 ― 治世の色を寄せれば、この名で呼ばれることもある。</div>`:""}
     </div>`;
    }}
