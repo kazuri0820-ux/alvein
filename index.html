@@ -12843,6 +12843,18 @@ function renderProjects(){
    if(!avail.length&&!building.length&&!built.length&&!lockedByRank.length)h+=`<div class="ds" style="font-size:11px;color:var(--dim)">今は興せる普請がない。</div>`;
   }
   h+=`<div style="font-size:11px;color:var(--dim);margin:14px 0 6px;letter-spacing:.15em">── 施設 ──</div>`;
+  { // 施設の総産出:個々の産出は見えても総和が見えず、投資の実りが実感しづらかった。担当を置いた全施設の日々の産出を合算して一望に(内政の手応え)
+    const agg={};
+    for(const f of (S.facilities||[])){
+      if(!f.managerId)continue; const mgr=findAnyUnit(f.managerId); if(!mgr)continue;
+      const ft=FACILITY_TYPES.find(t=>t.key===f.typeKey); if(!ft)continue;
+      const amt=Math.round(ft.statFn(mgr)*FACILITY_PRODUCE_MULT*facilityLevelMult(f)*censorProductionMult());
+      if(amt>0)agg[ft.produce]=(agg[ft.produce]||0)+amt;
+    }
+    const order=["gold","food","mood","exp","heal","equip","skill"];
+    const parts=order.filter(k=>agg[k]).map(k=>`${FACILITY_PRODUCE_LABEL[k]||k}+${agg[k]}`);
+    if(parts.length)h+=`<div class="ds" style="font-size:10.5px;color:#a9c47a;margin-bottom:6px">担当を置いた施設の日々の産出(合計):${parts.join("・")}</div>`;
+  }
   for(const ft of FACILITY_TYPES){
     const built=S.facilities.find(f=>f.typeKey===ft.key);
     const ficon=ft.key==="market"?"icon-market":ft.key==="farm"?"icon-farm":"icon-project";
