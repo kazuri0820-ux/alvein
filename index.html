@@ -3196,7 +3196,7 @@ function checkAging(){
   const hallGrow=hallLegacyGrow()+(doctrineIs("people")?0.03:0)+((S.flags&&S.flags.heirloom==="oath")?0.05:0); // 殿堂の英霊の数＋「民の国」の国是＋家宝「誓いの円卓」に応じた、現役兵の忠誠へのわずかな後押し
   for(const u of [...S.units]){
     u.age+=1/AGE_YEAR_DAYS;
-    u.fatigue=Math.max(0,(u.fatigue||0)-((u.race==="dwarf"?12:8)+(traitInfo(u.trait).fatigueRecover||0)+(doctrineIs("vigor")?4:0)+veteranTemper(u))); // ドワーフは頑健で疲れの抜けが早い(種族の個性)。特性(不屈の体躯 等)や「健勇の国」の国是もさらに回復を早める。歴戦の古参は戦場慣れで疲れの抜けが早い(スキル分は後段で加算)
+    u.fatigue=Math.max(0,(u.fatigue||0)-((u.race==="dwarf"?12:8)+(traitInfo(u.trait).fatigueRecover||0)+(doctrineIs("vigor")?4:0)+veteranTemper(u)+(relicHas("drum")?3:0))); // ドワーフは頑健で疲れの抜けが早い(種族の個性)。特性(不屈の体躯 等)や「健勇の国」の国是もさらに回復を早める。歴戦の古参は戦場慣れで疲れの抜けが早い。遺物「不屈の軍鼓」で全軍の疲れがさらに早く抜ける(スキル分は後段で加算)
     // 英気を養う:出撃せず十分に休んだ兵は、みなぎる英気を蓄え、次の一戦で常より力を発揮する(休息=戦力への投資という新たな運用軸)
     if(u.dungeonBusy){u.restDays=0;}
     else if(u.role==="active"&&u.injured<=0&&!u.campUntil&&(u.fatigue||0)<=8){
@@ -9829,6 +9829,7 @@ const RELIC_DEFS=[
   {key:"valor",  name:"英雄の紋章", cost:12, desc:"軍全体の戦力が永続で高まる(部隊戦力+4%)。"},
   {key:"ward",   name:"不滅の護符", cost:12, desc:"迷宮での兵の戦没が永続で減る。"},
   {key:"compass",name:"探索者の羅針盤", cost:10, desc:"新たな迷宮を見出す機会が永続で増える。"},
+  {key:"drum",   name:"不屈の軍鼓", cost:11, desc:"軍全体の疲れの抜けが永続で早まる(連戦・周回に強くなる)。"},
 ];
 function relicHas(key){return !!(S.flags&&S.flags.relics&&S.flags.relics[key]);}
 /* ===== 治世の偉業(到達のやり込み軸):一周の治世を貫く、王国規模の到達目標を集めた挑戦帳。個々の称号(兵単位)や
@@ -12832,7 +12833,7 @@ function renderProjects(){
    if(alc[F.alchemy])boons.push(["錬金術の秘術",alc[F.alchemy]]);
    if(F.heroShrine)boons.push(["慰霊の社","英霊の見守りが、全兵の士気と忠義を日々支える"]);
    if(F.forbiddenLore)boons.push(["禁書の力","魔導を高める禁断の知。時に恵みを、時に禍いをもたらす(諸刃)"]);
-   if(F.relics){const rn={valor:"英雄の紋章 ― 部隊戦力+4%",ward:"不滅の護符 ― 迷宮での戦死率↓",compass:"探索者の羅針盤 ― 迷宮の発見機会↑"};for(const k in F.relics)if(F.relics[k]&&rn[k])boons.push(["遺物",rn[k]]);}
+   if(F.relics){const rn={valor:"英雄の紋章 ― 部隊戦力+4%",ward:"不滅の護符 ― 迷宮での戦死率↓",compass:"探索者の羅針盤 ― 迷宮の発見機会↑",drum:"不屈の軍鼓 ― 全軍の疲れの抜けが早い"};for(const k in F.relics)if(F.relics[k]&&rn[k])boons.push(["遺物",rn[k]]);}
    if(F.explorerRank>=1){const el=["","名うての探検家(発見機会↑)","熟練の探検家(発見・踏破経験↑)","大陸の踏破者(発見・踏破経験↑・断片↑)"];boons.push(["探検家の格",el[Math.min(3,F.explorerRank)]]);}
    const gw={finance:"王立金融府 ― 王室金庫の利率が倍・運用上限も広い",forge:"常設の大工房 ― 鍛冶費が2割安く、迷宮での武具の出土が増える",hall:"英霊廟 ― 殿堂の加護が厚く、兵の忠誠がより育つ"};
    if(gw[F.grandWork])boons.push(["大いなる普請",gw[F.grandWork]]);
