@@ -2712,6 +2712,12 @@ function effectiveTrainMult(u){
   const resist=traitInfo(u.trait).ageTrainResist||0;
   return 1-(1-st.trainMult)*(1-resist);
 }
+/* 歴戦度(育成の別軸=関係性にも攻略型戦術にもよらぬ成長):数多の迷宮を潜り抜けた古参は、戦場の労苦に
+   体が慣れ、日々の疲れの抜けが早くなる。長く前線に立ち続けた兵ほど連戦に耐える"歴戦の凄み"を宿す。
+   能力値の水増しではなく"回して使える持続力"という形で、やり込みと兵の熟成に確かに報いる新機軸。 */
+const VETERAN_TEMPER_CAP=6;      // 疲労回復の上乗せ上限(基本回復8に対し最大でほぼ倍)
+const VETERAN_TEMPER_PER=8;      // この踏破数ごとに歴戦度が一段上がる
+function veteranTemper(u){ return u?Math.min(VETERAN_TEMPER_CAP,Math.floor((u.dungeonClearCount||0)/VETERAN_TEMPER_PER)):0; }
 /* 職ごとの主軸・準主軸ステータス(戦力計算・レベルアップ成長の両方で参照) */
 const CLASS_STAT_PRIORITY={
  warrior:{main:"str",sub:"vit",light:"agi"},
@@ -3113,7 +3119,7 @@ function checkAging(){
   const hallGrow=hallLegacyGrow()+(doctrineIs("people")?0.03:0); // 殿堂の英霊の数＋「民の国」の国是に応じた、現役兵の忠誠へのわずかな後押し
   for(const u of [...S.units]){
     u.age+=1/AGE_YEAR_DAYS;
-    u.fatigue=Math.max(0,(u.fatigue||0)-((u.race==="dwarf"?12:8)+(traitInfo(u.trait).fatigueRecover||0)+(doctrineIs("vigor")?4:0))); // ドワーフは頑健で疲れの抜けが早い(種族の個性)。特性(不屈の体躯 等)や「健勇の国」の国是もさらに回復を早める(スキル分は後段で加算)
+    u.fatigue=Math.max(0,(u.fatigue||0)-((u.race==="dwarf"?12:8)+(traitInfo(u.trait).fatigueRecover||0)+(doctrineIs("vigor")?4:0)+veteranTemper(u))); // ドワーフは頑健で疲れの抜けが早い(種族の個性)。特性(不屈の体躯 等)や「健勇の国」の国是もさらに回復を早める。歴戦の古参は戦場慣れで疲れの抜けが早い(スキル分は後段で加算)
     // 英気を養う:出撃せず十分に休んだ兵は、みなぎる英気を蓄え、次の一戦で常より力を発揮する(休息=戦力への投資という新たな運用軸)
     if(u.dungeonBusy){u.restDays=0;}
     else if(u.role==="active"&&u.injured<=0&&!u.campUntil&&(u.fatigue||0)<=8){
@@ -13233,7 +13239,7 @@ function renderTroops(){
         ${(()=>{const t=unitSupportTags(u);return t.length?`<div class="usub" style="color:#8fbf6f;font-size:10px" title="この兵が部隊にもたらす支援効果"><span>支援 ${t.join("・")}</span></div>`:"";})()}
         <div class="ucard-condrow">
           <div class="ucard-condbox"><span class="ccb-lbl">調子</span><span class="ccb-val" style="color:${cond.color}">${cond.label}</span></div>
-          <div class="ucard-condbox"><span class="ccb-lbl">疲労</span><span class="ccb-val" style="color:#d9b56a">${Math.round(u.fatigue||0)}/100</span></div>
+          <div class="ucard-condbox" ${veteranTemper(u)>0?`title="歴戦の古参は戦場慣れで、日々の疲労回復が+${veteranTemper(u)}(通算踏破${u.dungeonClearCount||0}回)"`:""}><span class="ccb-lbl">疲労</span><span class="ccb-val" style="color:#d9b56a">${Math.round(u.fatigue||0)}/100${veteranTemper(u)>0?`<span style="color:#8fbf6f;font-size:9px"> 回復+${veteranTemper(u)}</span>`:""}</span></div>
         </div>
         <div class="ministat">${mini("str","腕",u.str+cardSkillEff.str)}${mini("vit","体",u.vit+cardSkillEff.vit)}${mini("int","魔",u.int+cardSkillEff.int)}${mini("agi","敏",u.agi+cardSkillEff.agi)}${mini("wis","知",u.wis+cardSkillEff.wis)}${mini("lead","統",u.lead+cardSkillEff.lead)}</div>
         <div class="uexp" title="次の昇進までの経験値"><i style="width:${Math.min(100,u.exp/need*100)}%"></i></div>
@@ -13331,6 +13337,7 @@ function renderUnitDetail(uid){
         ${(()=>{const k=beastKindOf(u);if(!k)return"";return `<span class="udet-chip" style="color:${k.color};border-color:${k.color}" title="迷宮で懐いた生涯の相棒。${k.desc}(遠征に付き従い、${k.boonLabel}の恩恵をもたらす)">相棒:${k.nm}「${u.beast.nm}」〔${k.boonLabel}〕</span>`;})()}
         ${(()=>{if(isInstructor)return"";if((S.day-(u.joinDay||1))<20)return"";if(!((u.loyalty||0)<55||(u.moral||0)<48))return"";return `<span class="udet-chip" style="color:#c98f9a;border-color:#c98f9a" title="長く仕えながら、忠義か士気に翳りがさしている。いずれ王への拝謁を願い出るやもしれぬ。労い・褒賞・叱咤のいずれかで応えれば、離れかけた心を繋ぎ止められる">心に憂いあり</span>`;})()}
         ${(()=>{const lg=(tr&&tr.loyaltyGrow)||0;if(lg>=0.3)return `<span class="udet-chip" style="color:#d8b45e;border-color:#d8b45e" title="生来、忠義が深まりやすく、めったに揺らがない質。長く仕えるほど頼れる忠臣となる">忠義篤し</span>`;if(lg<=-0.1)return `<span class="udet-chip" style="color:#c99a6a;border-color:#c99a6a" title="才は光るが気位が高く、忠誠を繋ぎ止めにくい質。お気に入り・結束の宴・拝謁で心を留めておきたい">気位高し</span>`;return "";})()}
+        ${(()=>{if(isInstructor)return"";const vt=veteranTemper(u);if(vt<=0)return"";return `<span class="udet-chip" style="color:#c9976a;border-color:#c9976a" title="数多の迷宮を潜り抜けた歴戦の古参。戦場の労苦に体が慣れ、日々の疲労の抜けが早い(通算踏破${u.dungeonClearCount||0}回／疲労回復+${vt})">歴戦 ✚${vt}</span>`;})()}
         ${(u.tourneyWins||0)>0?`<span class="udet-chip" style="color:var(--gold);border-color:var(--gold2)" title="御前試合で頂点に立った回数">御前試合 優勝${u.tourneyWins}回</span>`:""}
         ${(u.hardships||0)>=HARDENED_THRESHOLD?`<span class="udet-chip" style="color:#b89a6a;border-color:#b89a6a" title="幾多の敗北と辛酸を乗り越えた叩き上げの古兵。忠義と士気が篤い(乗り越えた敗北 ${u.hardships})">叩き上げ</span>`:(u.hardships||0)>0?`<span class="udet-chip" style="color:var(--dim);border-color:var(--dim)" title="迷宮での敗北を糧に成長している(あと${HARDENED_THRESHOLD-(u.hardships||0)}度の逆境で叩き上げに)">苦労人 ${u.hardships}/${HARDENED_THRESHOLD}</span>`:""}
         ${u.admires?(()=>{const h=S.units.find(x=>x.id===u.admires);return h?`<span class="udet-chip" style="color:#c9a0d0;border-color:#c9a0d0" title="${h.nm}に憧れ、その背中を追って人一倍伸びている">${h.nm}に憧れて</span>`:"";})():""}
