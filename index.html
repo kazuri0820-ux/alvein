@@ -9183,8 +9183,16 @@ function hireVolunteer(volId){
   S.units.push(v.unit);
   if(v.unit&&v.unit.great){S.flags=S.flags||{};S.flags.greatsHired=S.flags.greatsHired||{};S.flags.greatsHired[v.unit.great]=true;if(typeof checkGreatRelations==="function")checkGreatRelations();}
   S.volunteers.splice(idx,1);
-  unitHistory(v.unit,"志願書を通じて、アルヴェインの一員となった。");
-  chron(`${v.unit.nm} ${v.unit.surname}が志願書を経て正式に入団した。「よろしくお願いします」`,"big");
+  if(v.unit&&v.unit.great){ // 歴史に名を残す英傑の加入は、ただの入団とは訳が違う=万雷の歓呼で迎える
+    const fig=(typeof greatById==="function")?greatById(v.unit.great):null;
+    const title=v.unit.nickname||(fig&&fig.title)||"英傑";
+    const region=v.unit.greatRegion||(fig&&fig.region)||"";
+    unitHistory(v.unit,`――${region?region+"に":""}その名を刻む「${title}」が、この国に仕官した。歴史に名を残す英傑の名が、アルヴェインの名簿に連なっている。`);
+    chron(`――万雷の歓呼が城下を揺るがしている。かの「${title}」${v.unit.nm}が、ついにアルヴェインの旗の下に加わった。${region?`${region}にその名を轟かせた`:""}英傑の力が、王国の行く末を照らすことだろう。`,"big");
+  }else{
+    unitHistory(v.unit,"志願書を通じて、アルヴェインの一員となった。");
+    chron(`${v.unit.nm} ${v.unit.surname}が志願書を経て正式に入団した。「よろしくお願いします」`,"big");
+  }
   if(potentialBonus>0){
     unitHistory(v.unit,`入団早々、噂通りの並外れた素質を見せた(全ステータス+${potentialBonus})。`);
     chron(`――${v.unit.nm}は、噂通りの逸材だった。全ステータスが+${potentialBonus}された。`,"big");
