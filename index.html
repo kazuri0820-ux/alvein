@@ -14577,6 +14577,7 @@ function resolveLongExpedition(id){
   const jn=ri(3,4);
   for(let i=0;i<jn&&jpool.length;i++)journal.push(jpool.splice(Math.floor(Math.random()*jpool.length),1)[0]);
   let goldGain=0,itemGained=null,equipGained=null,dungeonFound=null,died=null,recruit=null;
+  let grew=[]; // 遠征で各兵が何段育ったか(帰還報告で成長を felt にする)
   const gainedItems=[],gainedEquips=[];
   const expBoon=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).expeditionBoon||0)):0; // 「遠征の達人」を伴うと、遠征の実入り(財貨・成長)が増す=遠征に特化した編成の新レバー
   const dest=expeditionDest(exp.dest); // 遠征の目的地:持ち帰る実りの偏りを決める
@@ -14586,11 +14587,13 @@ function resolveLongExpedition(id){
     apply({gold:goldGain,st:{economy:2+(dest.econ||0),diplomacy:2+(dest.dip||0)},mood:tier==="great"?4:2}); // 遠方との交易・見聞で経済と外交も伸び、名声が民心を高める。目的地で偏る
     if(dest.ren)grantRenown(dest.ren,`「${dest.name}」への遠征`); // 遺跡・辺境の遠征は王国の名声も高める
     if(dest.shard){S.relicShards=(S.relicShards||0)+dest.shard;} // 霊峰・遺跡は秘宝の断片を持ち帰る
+    const preLv={}; for(const u of squad)preLv[u.id]=u.lv||1; // 遠征前の練度を控え、帰還時の伸びを測る
     for(const u of squad){
       const g=Math.round((tier==="great"?ri(9,13):ri(6,9))*(exp.duration/10)*(1+avgLv/55)*(1+expBoon)*dest.e); // 長い野戦の日々で部隊は大きく成長して帰る。目的地で偏る
       u.exp+=g;processLevelUps(u);
       unitHistory(u,`「${dest.name}」への${exp.duration}日に及ぶ遠征を戦い抜き、ひと回り大きくなって帰還した。`);
     }
+    grew=squad.map(u=>({nm:u.nm,from:preLv[u.id],to:u.lv})).filter(x=>x.to>x.from).sort((a,b)=>(b.to-b.from)-(a.to-a.from)); // 育った兵を伸び幅の大きい順に
     const baseDrop=tier==="great"?ri(2,4):ri(1,2);
     const dropCount=Math.max(0,Math.round(baseDrop*dest.d)); // 戦利品は数も質も厚く(遠征ならではの実入り)。目的地で偏る
     for(let i=0;i<dropCount;i++){const it=rollItemDrop(tier==="great"?"epic":"rare");if(it){addItem(it.key);itemGained=it;gainedItems.push(it.name);}}
@@ -14625,7 +14628,7 @@ function resolveLongExpedition(id){
     chron(`遠征部隊が苦難の末に帰還した。${tier==="critical"?"多くの犠牲を払うこととなった。":"当初の見込みほどの成果は得られなかった。"}`,"grave");
   }
   const rIdx=longExpResultQueue.length;
-  longExpResultQueue.push({squad,tier,goldGain,itemGained,equipGained,dungeonFound,journal,died,recruit,gainedItems,gainedEquips,dest:dest.key});
+  longExpResultQueue.push({squad,tier,goldGain,itemGained,equipGained,dungeonFound,journal,died,recruit,gainedItems,gainedEquips,grew,dest:dest.key});
   pushEvent("__longexp_result__"+rIdx);
   clamp();render();renderTroops();refreshOpenPanels();save();
 }
@@ -14636,6 +14639,7 @@ function buildLongExpeditionResultEvent(idx){
   const rd=expeditionDest(r.dest);
   let body=`目的地:${rd.name}\n道中日誌:\n${r.journal.map(j=>"・"+j).join("\n")}\n\n結果:${tierLabel}\n獲得ゴールド:${r.goldGain}G`;
   if(r.tier==="great"||r.tier==="success"){const emph={trade:"交易路での商いは実り多く、財貨と外交が大きく潤った。",peak:"霊峰の探索で、上質な武具と秘宝の断片を数多く持ち帰った。",frontier:"辺境の絶え間ない実戦が、部隊を一回りも二回りも逞しく鍛え上げた。",ruins:"古の遺跡を巡り、新たな地の手がかりと王国の名声を持ち帰った。"}[r.dest]||"遠方との交易・見聞で、経済と外交も上向いた。";body+=`\n${emph}`;}
+  if(r.grew&&r.grew.length)body+=`\n部隊の成長:${r.grew.slice(0,5).map(x=>`${x.nm} Lv.${x.from}→${x.to}`).join("、")}`; // 長期遠征で兵がどれだけ育ったかを felt に(拘束の重さに見合う成長の可視化)
   if(r.gainedItems&&r.gainedItems.length)body+=`\n持ち帰ったアイテム:${r.gainedItems.map(n=>`「${n}」`).join("、")}`;
   if(r.gainedEquips&&r.gainedEquips.length)body+=`\n持ち帰った装備:${r.gainedEquips.map(n=>`「${n}」`).join("、")}`;
   if(r.recruit)body+=`\n道中で見出した${fullName(r.recruit)}が、隊に加わった。`;
