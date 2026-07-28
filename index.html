@@ -2941,6 +2941,7 @@ function unitPowerBreakdown(u){
     loyaltyMult:u.loyalty<25?0.85:1,
     condMult:u.injured>0?((INJURY_TIERS[u.injurySeverity]&&INJURY_TIERS[u.injurySeverity].pwMult)||0.5):conditionInfo(u).pwMult,
     avengeMult:avengeActive(u)?AVENGE_PW_MULT:1,
+    vigorMult:u.vigor?VIGOR_PW_MULT:1, // 英気充溢の戦力補正も内訳に含め、表示が実際の戦力と一致するように
   };
 }
 function rosterCap(){
@@ -14401,7 +14402,7 @@ function renderUnitDetail(uid){
         軽軸(${b.lightLabel})×0.10:${b.lightVal.toFixed(1)}<br>
         ジョブ補正:${b.jobBonus.toFixed(1)} ／ Lv補正:${b.lvBonus.toFixed(1)} ／ 統率補正:${b.leadBonus.toFixed(1)}<br>
         特性補正:${b.traitBonus.toFixed(1)}${b.captainBonus?` ／ 団長補正:${b.captainBonus.toFixed(1)}`:""}<br>
-        年齢係数×${b.ageMult.toFixed(2)}${b.loyaltyMult<1?` ／ 忠誠係数×${b.loyaltyMult}`:""} ／ 調子・負傷係数×${b.condMult.toFixed(2)}
+        年齢係数×${b.ageMult.toFixed(2)}${b.loyaltyMult<1?` ／ 忠誠係数×${b.loyaltyMult}`:""} ／ 調子・負傷係数×${b.condMult.toFixed(2)}${b.avengeMult>1?` ／ 弔い合戦係数×${b.avengeMult.toFixed(2)}`:""}${b.vigorMult>1?` ／ 英気係数×${b.vigorMult.toFixed(2)}`:""}
       </div>`;})()}</details>
     </div>`;
   }
