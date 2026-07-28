@@ -5949,6 +5949,28 @@ const RANDOM_CHOICE_EXTRA=[
    {label:"すぐに採掘して現金化する",hint:"国庫↑↑ 経済への影響は小",fx:{gold:ri(45,80),log:"鉱脈はすぐさま採掘され、金貨となって国庫に収められた。"}},
    {label:"時間をかけてじっくり開発する",hint:"経済↑(継続的な効果を見込む)",fx:{st:{economy:3},log:"鉱脈の開発は、時間をかけてじっくり進めることにした。将来への投資である。"}},
   ]},
+ /* ── 英傑を慕って人が集う(偉人が在籍していると手応えが増す・軽いA) ── */
+ {tag:"来 訪",title:"名を慕う入門志願",
+  body:"遠方から若者が一人、埃まみれの姿で門前に立っている。アルヴェインの武名を聞きつけ、ここで学びたいと願い出てきたのだという。",
+  choices:[
+   {label:"迎え入れ、下働きから学ばせる",hint:"武名↑ 民心↑",fx:{call:()=>{const g=(S.units||[]).find(u=>u.great&&u.role==="active");grantRenown(2,"名を慕う若者が門を叩いたこと");if(g){chron(`若者は「${g.nickname||fullName(g)}様の下で学びとうございます」と声を震わせていた。英傑の名は、遠く辺境にまで届いている。`,"big");}else{chron("若者は目を輝かせ、下働きから懸命に学び始めた。いつか一人前の兵になるだろう。","");}apply({mood:2});}}},
+   {label:"今は余裕がないと、丁重に断る",hint:"治安↑(引き締め)",fx:{st:{order:1},log:"若者は肩を落としつつも、深々と礼を述べて去っていった。門の守りは今日も静かである。"}},
+  ]},
+ /* ── 一兵卒への個別の情(愛着を育てる) ── */
+ {tag:"直 訴",title:"古参兵の願い",
+  body:"長く仕えてきた兵の一人が、思い詰めた面持ちで願い出てきた。故郷に残した家族に、しばしの暇と手当てを賜りたいのだという。",
+  choices:[
+   {label:"手当てを持たせ、暇を許す",hint:"国庫↓ その兵の忠誠と士気↑",fx:{gold:-30,call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length)return;const u=cands[Math.floor(Math.random()*cands.length)];u.moral=Math.min(100,(u.moral||0)+12);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+10);unitHistory(u,"故郷の家族の元へ暇を賜り、深く恩義を感じた。");chron(`${fullName(u)}は家族の元へ発ち、数日の後、以前にも増して忠実な面持ちで戻ってきた。`,"people");}}},
+   {label:"今は情勢が許さぬと諭す",hint:"治安↑ その兵の士気↓",fx:{st:{order:1},call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length)return;const u=cands[Math.floor(Math.random()*cands.length)];u.moral=Math.max(0,(u.moral||0)-6);unitHistory(u,"暇を願い出たが許されず、静かに務めへ戻った。");chron(`${fullName(u)}は唇を噛みしめたが、やがて務めへと静かに戻っていった。`,"people");}}},
+  ]},
+ /* ── 探索の誘い(装備入手の当たり外れ) ── */
+ {tag:"噂 話",title:"失われた軍旗の噂",
+  body:"古い戦の際に失われたという、名のある軍旗のありかを知る者が現れた。案内させれば、旗と共に埋もれた武具も掘り出せるかもしれないという。",
+  speaker:"ガレオン「眉唾やもしれませぬが……確かめる価値はありましょう」",
+  choices:[
+   {label:"兵を割いて探させる",hint:"上質な装備が手に入るかも",fx:{call:()=>{const eq=rollEquipmentDrop(Math.random()<0.25?"epic":"rare");if(eq){const inst=addEquipment(eq.key);chron(`古き軍旗と共に、埋もれていた名品「${equipInstName(inst)}」を掘り起こした(${equipInstBonusText(inst)})。`,"big");}else{const g=ri(40,70);apply({gold:g});chron(`軍旗は朽ちて久しかったが、副葬されていた財貨${g}を持ち帰った。`,"");}}}},
+   {label:"戯言と取り合わない",hint:"治安↑",fx:{st:{order:1},log:"長は噂を戯言と退けた。今は守りを固めるが肝要である。"}},
+  ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
 /* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
