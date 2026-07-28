@@ -6847,6 +6847,7 @@ function checkFixedDayEvents(){
     if(S.day<70)pool.push("__growth__");
     if(Math.random()<0.12)pool.push("__merchant_visit__","__merchant_visit__","__merchant_visit__");
     if(S.day>=45&&(S.neighbors||[]).some(n=>n&&!n.allied)&&Math.random()<0.10)pool.push("__defector__"); // 国が育ち諸国との縁が生まれた頃、非同盟国から亡命者が訪れる
+    if(typeof findDiscordPair==="function"&&findDiscordPair()&&Math.random()<0.35)pool.push("__discord_mediation__"); // 兵舎に確執がくすぶっている時、王に仲裁の機会が巡る
     pushEvent(pool[Math.floor(Math.random()*pool.length)]);
     fired=true;
   }
@@ -7733,6 +7734,7 @@ const EVENT_ID_EXACT={
   "__outbreak_deadline__":()=>buildOutbreakDeadlineResult(),
   "__merchant_visit__":()=>buildMerchantVisitEvent(),
   "__defector__":()=>buildDefectorEvent(),
+  "__discord_mediation__":()=>buildDiscordMediationEvent(),
   "__growth__":()=>pickFresh(EARLY_GROWTH),
   "__mission__":()=>buildMissionEvent(),
   "__old_equipment__":()=>buildOldEquipmentEvent(),
@@ -11969,6 +11971,39 @@ function buildDefectorEvent(){
       if(S.gold>=25)S.gold-=25;
       apply({mood:3,log:"亡命者に路銀を持たせ、そっと他国へ逃がした。どちらにも与せぬ王の情けは、民の間で静かな評判となった(民心↑)。"});
     }}},
+   ]};
+}
+// 確執の仲裁:兵舎にくすぶる不仲を、王がじきじきに裁く一幕(確執システムに能動的な手当てを与える)
+function findDiscordPair(){
+  const act=(S.units||[]).filter(u=>u&&u.role==="active"&&u.discordWith);
+  for(const u of act){const o=(S.units||[]).find(x=>x&&x.id===u.discordWith&&x.role==="active");if(o&&u.id<o.id)return [u,o];}
+  return null;
+}
+function buildDiscordMediationEvent(){
+  const pair=findDiscordPair();
+  if(!pair)return null;
+  const [a,c]=pair;
+  const dissolve=(msg,cls)=>{a.discordWith=null;c.discordWith=null;unitHistory(a,`王の仲裁により、${c.nm}との確執が解けた。`);unitHistory(c,`王の仲裁により、${a.nm}との確執が解けた。`);chron(msg,cls||"big");};
+  return {tag:"仲 裁",title:"兵舎のいさかい",
+   body:`兵舎で${a.nm}(${a.personality})と${c.nm}(${c.personality})が、また睨み合っているという。二人の確執は隊の風通しを悪くしており、放っておけば他の兵にも障りかねない。王として、どう裁くか。`,
+   speaker:`セラ「気性の違いは、正しさで割り切れるものではございませぬ。……なれど、捨て置けば隊が荒みまする」`,
+   choices:[
+    {label:"二人を呼び、じきじきに諭す",hint:"治安が高いほど和解しやすい ／ 失敗しても損はない",fx:{call:()=>{
+      const chance=0.45+Math.min(0.4,(S.st.order||0)*0.004); // 治安(統治の練度)が高いほど仲裁が実を結びやすい
+      if(Math.random()<chance){a.moral=Math.min(100,(a.moral||0)+4);c.moral=Math.min(100,(c.moral||0)+4);a.loyalty=Math.min(100,(a.loyalty||100)+5);c.loyalty=Math.min(100,(c.loyalty||100)+5);dissolve(`王の言葉は二人の胸に届いた。${a.nm}と${c.nm}は渋々ながら手を取り、長年の確執を水に流した(士気・忠義↑)。`,"big");}
+      else{a.moral=Math.max(0,(a.moral||0)-2);c.moral=Math.max(0,(c.moral||0)-2);chron(`${a.nm}と${c.nm}は王の前では頭を垂れたが、その確執までは解けなかったようだ。`,"sys");}
+      clamp();render();if(typeof renderTroops==="function"&&$("#panelTroops")&&$("#panelTroops").classList.contains("show"))renderTroops();save();
+    }}},
+    {label:"御前試合で雌雄を決させる",hint:"確執を好敵手へ転じる(競い合う関係に) ／ 勝者の士気↑",fx:{call:()=>{
+      const winner=(unitPower(a)+rnd(-10,10))>=(unitPower(c)+rnd(-10,10))?a:c;const loser=winner===a?c:a;
+      a.discordWith=null;c.discordWith=null;
+      if(!a.rivalWith&&!c.rivalWith){a.rivalWith=c.id;c.rivalWith=a.id;} // わだかまりを競い合う好敵手の関係へ昇華させる
+      winner.moral=Math.min(100,(winner.moral||0)+5);loser.moral=Math.max(0,(loser.moral||0)-1);
+      unitHistory(a,`御前試合で${c.nm}と刃を交え、互いの技量を認め合う仲となった。`);unitHistory(c,`御前試合で${a.nm}と刃を交え、互いの技量を認め合う仲となった。`);
+      chron(`御前試合の末、${winner.nm}が${loser.nm}を下した。だが幾合も打ち合ううち、二人の間には確執に代わって、互いを認め合う好敵手の火花が宿っていた。`,"big");
+      clamp();render();if(typeof renderTroops==="function"&&$("#panelTroops")&&$("#panelTroops").classList.contains("show"))renderTroops();save();
+    }}},
+    {label:"兵の間のことと、捨て置く",hint:"確執はそのまま(同陣で連携↓が残る)",fx:{call:()=>{chron(`王は兵舎のいさかいには立ち入らなかった。${a.nm}と${c.nm}の確執は、なおくすぶり続けている。`,"sys");}}},
    ]};
 }
 function neighborDaily(){
