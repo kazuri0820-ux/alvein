@@ -11773,6 +11773,27 @@ function allyNeighbor(idx){
   apply({st:{diplomacy:3},mood:3,log:`――${neighborName(nb.key)}と正式な同盟が結ばれた。${neighborAllyDesc(nb.key)}。両国の間に、末永い誼が約された。`,logCls:"big"});
   clamp();render();renderProjects();save();
 }
+/* 盟約の発動(外交の新レバー):同盟はこれまで"日々の恵み"を受け取るだけの受動的な絆だった。ここに、王が能動的に
+   盟友の助力を仰ぐ一手を加える。国難や好機に合わせ、援軍(軍事)・交易の便宜(国庫)・食糧支援(蔵)を burst で
+   引き出せる。ただし誼を一度使えば関係は和らぎ、しばらくは請えない――築いた関係を"いつ切るか"の駆け引きを生む。 */
+const ALLY_FAVOR_COOLDOWN=30; // 再び発動できるまでの日数
+const ALLY_FAVOR_RELCOST=12;  // 発動で消費する関係(和らぐ)
+const ALLY_FAVOR_RELNEED=65;  // 発動に要する最低関係(消費後も同盟破棄ラインを割らない)
+function allyFavorReady(nb){ return !!(nb&&nb.allied&&(nb.relation||0)>=ALLY_FAVOR_RELNEED&&(S.day-(nb.favorDay||-9999))>=ALLY_FAVOR_COOLDOWN); }
+function allyFavorLabel(key){ return ({draconis:"援軍を請う",veltis:"交易の便宜を請う",suria:"食糧支援を請う"})[key]||"盟約を発動する"; }
+function allyFavorHint(key){ return ({draconis:"精鋭の援軍が国境を固める(軍事↑治安↑)",veltis:"まとまった交易の便宜(国庫に大きな実入り)",suria:"蔵を満たす食糧支援"})[key]||"盟友の助力"; }
+function allyFavorCooldownLeft(nb){ return Math.max(0,ALLY_FAVOR_COOLDOWN-(S.day-(nb.favorDay||-9999))); }
+function invokeAllyFavor(idx){
+  ensureNeighbors();
+  const nb=S.neighbors[idx]; if(!nb||!allyFavorReady(nb))return;
+  nb.favorDay=S.day; nb.relation=Math.max(0,nb.relation-ALLY_FAVOR_RELCOST);
+  if(nb.key==="draconis"){apply({st:{military:3,order:2},mood:1,log:`竜嶺のドラコニアより精鋭の援軍が馳せ参じ、国境を固めた。頼れる盟友の武が、王国の守りを厚くしている(軍事+3 治安+2)。`,logCls:"big"});}
+  else if(nb.key==="veltis"){const g=ri(120,200);apply({gold:g,st:{economy:1},log:`ヴェルティス公国が特別の交易の便宜を計らい、国庫に${g}Gの実入りがもたらされた(経済+1)。`,logCls:"big"});}
+  else if(nb.key==="suria"){const f=ri(60,110);S.food=Math.min(999,(S.food||0)+f);apply({mood:1,log:`翠緑のスーリアより食糧支援の荷が届き、蔵が潤った(食糧+${f})。`,logCls:"big"});}
+  else {apply({mood:1,log:`${neighborName(nb.key)}が盟約に応え、王国を支えた。`,logCls:"big"});}
+  chron(`盟約を発動し、${neighborName(nb.key)}の助力を仰いだ。誼を一度使った分、関係はいくらか和らいだ(以後しばらくは請えない)。`,"");
+  clamp();render();renderProjects();save();
+}
 function ensureNeighbors(){ if(!S.neighbors||!S.neighbors.length){S.neighbors=NEIGHBOR_STATES.map(n=>({key:n.key,relation:ri(40,60)}));} }
 function neighborName(key){const n=NEIGHBOR_STATES.find(x=>x.key===key);return n?n.name:key;}
 function neighborFlavor(key){const n=NEIGHBOR_STATES.find(x=>x.key===key);return n?n.flavor:"";}
@@ -12248,6 +12269,7 @@ function renderProjects(){
    const fa=typeof festivalActive==="function"?festivalActive():null; if(fa){const ft=festivalType(fa.key);chips.push(["祝祭",`${ft.name}(残${fa.until-S.day}日)`,"#e0a870"]);}
    if(S.caravan)chips.push(["隊商",`${neighborName(S.caravan.key)}へ(残${Math.max(0,S.caravan.resolveDay-S.day)}日)`,"#c9a86a"]);
    if(S.envoy)chips.push(["使者",`${neighborName(S.envoy.key)}へ(残${Math.max(0,S.envoy.resolveDay-S.day)}日)`,"#c9a86a"]); // 親善の使者の出立中
+   {const rdy=(S.neighbors||[]).filter(n=>n&&n.allied&&(typeof allyFavorReady==="function")&&allyFavorReady(n));if(rdy.length)chips.push(["盟約",`${neighborName(rdy[0].key)}の助力を請える${rdy.length>1?`ほか${rdy.length-1}`:""}`,"#8fbf6f"]);} // 盟約の発動が可能な同盟国を一望に
    if(S.flags&&S.flags.traitorArc===1)chips.push(["内偵",`宮中の影を探索中(残${Math.max(0,(S.flags.traitorDay||S.day)-S.day)}日)`,"#b58fa0"]); // 内通者の疑い:内偵の帰結が近いことを概況に
    if(S.bounty)chips.push(["依頼",`請負中(残${Math.max(0,(S.bounty.deadline||S.day)-S.day)}日)`,"#8fbf6f"]); // 討伐依頼:請け負った契約の期限を概況に
    else if(S.bountyOffers&&S.bountyOffers.length)chips.push(["依頼",`掲示板に${S.bountyOffers.length}件`,"#c9a86a"]); // 未請負の依頼が掲示されていることを促す
@@ -12544,6 +12566,7 @@ function renderProjects(){
       <div class="uexp" style="margin-top:5px"><i style="width:${rel}%;background:linear-gradient(90deg,${col}99,${col})"></i></div>
       <button class="nb-gift-btn" data-i="${ni}" ${rel>=100?"disabled":""} style="margin-top:6px;width:100%;background:transparent;border:1px solid ${canGift?"var(--gold2)":"rgba(255,255,255,.15)"};color:${canGift?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canGift?"pointer":"default"}">${rel>=100?"関係は盤石":`贈り物を送り誼を深める(${cost}G)`}</button>
       ${nb.allied?"":`<button class="nb-ally-btn" data-i="${ni}" ${canAlly?"":"disabled"} style="margin-top:6px;width:100%;background:${canAlly?"rgba(201,162,75,.14)":"transparent"};border:1px solid ${canAlly?"var(--gold)":"rgba(255,255,255,.12)"};color:${canAlly?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${canAlly?"pointer":"default"}">${canAlly?`同盟を結ぶ（${neighborAllyDesc(nb.key)}）`:`同盟には関係${NEIGHBOR_ALLY_NEED}以上が要る`}</button>`}
+      ${nb.allied?(()=>{const rdy=allyFavorReady(nb);return `<button class="ally-favor-btn" data-i="${ni}" ${rdy?"":"disabled"} style="margin-top:6px;width:100%;background:${rdy?"rgba(201,162,75,.14)":"transparent"};border:1px solid ${rdy?"var(--gold)":"rgba(255,255,255,.12)"};color:${rdy?"var(--gold)":"var(--dim)"};border-radius:6px;padding:7px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:${rdy?"pointer":"default"}" title="盟約を発動し盟友の助力を仰ぐ。関係を${ALLY_FAVOR_RELCOST}消費し、以後${ALLY_FAVOR_COOLDOWN}日は請えない">${rdy?`◇ ${allyFavorLabel(nb.key)}（${allyFavorHint(nb.key)}）`:(nb.relation<ALLY_FAVOR_RELNEED?`盟約の発動には関係${ALLY_FAVOR_RELNEED}以上が要る`:`盟約は発動済み（あと${allyFavorCooldownLeft(nb)}日）`)}</button>`;})():""}
     </div>`;
   }
   // ── 隊商(交易遠征) ──
@@ -12585,6 +12608,7 @@ function renderProjects(){
   $("#prjList").querySelectorAll(".envoy-btn").forEach(b=>b.onclick=()=>{sendEnvoy(b.dataset.k);});
   $("#prjList").querySelectorAll(".nb-gift-btn").forEach(b=>b.onclick=()=>{giftNeighbor(+b.dataset.i);});
   $("#prjList").querySelectorAll(".nb-ally-btn").forEach(b=>b.onclick=()=>{allyNeighbor(+b.dataset.i);});
+  $("#prjList").querySelectorAll(".ally-favor-btn").forEach(b=>b.onclick=()=>{invokeAllyFavor(+b.dataset.i);});
   $("#prjList").querySelectorAll(".festival-btn").forEach(b=>b.onclick=()=>{holdFestival(b.dataset.k);});
   {const tb=$("#prjList").querySelector(".tourney-btn");if(tb)tb.onclick=()=>holdTournament();}
   $("#prjList").querySelectorAll(".tax-btn").forEach(b=>b.onclick=()=>{setTaxRate(b.dataset.k);});
