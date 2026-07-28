@@ -7660,6 +7660,8 @@ function turnTick(){
     const ended=dailyEconomySettle();
     if(ended)return;
     S.day++;S.turn=0;
+    // 国力の週次推移スナップショット:一週間ごとに現在値を記録し、国力画面で「今週どちらへ動いているか」を可視化する(施策の手応えを読めるように)
+    if(!S.stTrend||typeof S.stTrend.day!=="number"||(S.day-S.stTrend.day)>=7){S.stTrend={day:S.day,st:Object.assign({},S.st)};}
   }else{
     S.turn++;
   }
@@ -12841,7 +12843,14 @@ function renderStatsDetail(){
       const off=typeof MINISTER_OFFICES!=="undefined"?MINISTER_OFFICES.find(o=>o.boost===k):null;
       if(off){const m=ministerOf(off.key);extra+=`<div style="font-size:11px;color:${m?"var(--gold)":"var(--dim)"};margin-top:3px">${off.name}:${m?`${fullName(m)}が育成中(1日+${ministerContribution(off,m).toFixed(2)}前後)`:"空席(国政画面で任じられる)"}</div>`;}
     }
-    h+=`<div class="srow"><div class="sh"><div class="nm">${label}</div><div class="vl">${v} / 100 (${grade(v)})</div></div><div class="ef">${STAT_DESC[k]}${extra}</div><div class="bar"><i style="width:${v}%"></i></div></div>`;
+    let trend=""; // 今週の推移:一週間前の記録と比べ、施策が効いているかを一目で読めるように(手応えの可視化)
+    if(S.stTrend&&S.stTrend.st&&typeof S.stTrend.st[k]==="number"){
+      const dlt=v-Math.round(S.stTrend.st[k]);
+      if(dlt>=1)trend=`<span style="color:#8fbf6f;font-weight:700;margin-left:6px" title="今週ここまでの推移">▲+${dlt}</span>`;
+      else if(dlt<=-1)trend=`<span style="color:#d97a7a;font-weight:700;margin-left:6px" title="今週ここまでの推移">▼${dlt}</span>`;
+      else trend=`<span style="color:var(--dim);margin-left:6px" title="今週ここまでの推移">―</span>`;
+    }
+    h+=`<div class="srow"><div class="sh"><div class="nm">${label}</div><div class="vl">${v} / 100 (${grade(v)})${trend}</div></div><div class="ef">${STAT_DESC[k]}${extra}</div><div class="bar"><i style="width:${v}%"></i></div></div>`;
   }
   h+=`<div class="srow"><div class="sh"><div class="nm">国庫</div><div class="vl">${Math.round(S.gold)}</div></div><div class="ef">毎日 経済に応じた税収が入り、軍事維持費などが出ていく。マイナスが続くと民心が下がる。<span style="color:var(--dim)">／ 現在の税制:<b style="color:${taxLevel()==="heavy"?"#d99a6a":taxLevel()==="light"?"#8fbf6f":"#c9a86a"}">${taxInfo().label}</b>(徴税収入${Math.round(taxInfo().incomeMult*100)}%・国政画面で変更)</span></div></div>`;
   h+=`<div class="srow"><div class="sh"><div class="nm">食糧</div><div class="vl">${Math.round(S.food)}</div></div><div class="ef">農業に応じて増え、人口に応じて減る。尽きると民心が下がる。</div></div>`;
