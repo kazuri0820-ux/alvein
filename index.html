@@ -7569,6 +7569,7 @@ function dailyEconomySettle(){
   const upkeep=(2+S.st.military*0.12+unitUpkeep+(S.flags.dragonPact?3:0))*(1-Math.min(0.15,S.st.economy*0.0015))*(1-Math.min(0.12,S.st.diplomacy*0.0012))*(S.flags.statS_military?0.94:1)*(S.flags.statS_diplomacy?0.94:1); // 経済・外交(同盟網)が高いほど維持費が軽くなる。軍事/外交がSに達すると恒久的にさらに軽くなる
   const heirloomHorn=(S.flags&&S.flags.heirloom==="horn"); // 家宝「豊穣の角杯」:日々の国庫・食糧を永続で底上げ
   S.gold+=income-upkeep+(heirloomHorn?(3+S.st.economy*0.12):0);
+  S.lastBudget={inc:income+(heirloomHorn?(3+S.st.economy*0.12):0),up:upkeep,day:S.day}; // 前日の実収支を控え、国力画面で歳入歳出の内訳として見せる(内政の手応え)
   const seasonMult=currentSeason().foodMult; // 収穫期の巡り:秋は実り豊か、冬は端境で生産が細る
   S.food+=S.st.agriculture*0.7*noise*seasonMult-S.pop*0.085*(1-Math.min(0.3,S.st.agriculture*0.003))*(S.flags.statS_agriculture?0.95:1)*rationInfo().useMult+(heirloomHorn?4:0); // 農業が高いほど備蓄・分配も効率化し消費が抑えられる。農業Sで恒久的にさらに抑制。家宝「豊穣の角杯」で日々の実りが増す。食糧配給の方針(潤沢/倹約)で消費が増減する
   const growChance=(0.16+Math.max(0,(S.food-20)/700)+Math.max(0,(S.mood-45)/400)+Math.max(0,(S.st.agriculture-40)/900))*immigrationInfo().popMult; // 農業が豊かなほど人口増加率も上がる。移民政策(入植方針)でも人口の伸びが変わる
@@ -12980,7 +12981,16 @@ function renderStatsDetail(){
     }
     h+=`<div class="srow"><div class="sh"><div class="nm">${label}</div><div class="vl">${v} / 100 (${grade(v)})${trend}</div></div><div class="ef">${STAT_DESC[k]}${extra}</div><div class="bar"><i style="width:${v}%"></i></div></div>`;
   }
-  h+=`<div class="srow"><div class="sh"><div class="nm">国庫</div><div class="vl">${Math.round(S.gold)}</div></div><div class="ef">毎日 経済に応じた税収が入り、軍事維持費などが出ていく。マイナスが続くと民心が下がる。<span style="color:var(--dim)">／ 現在の税制:<b style="color:${taxLevel()==="heavy"?"#d99a6a":taxLevel()==="light"?"#8fbf6f":"#c9a86a"}">${taxInfo().label}</b>(徴税収入${Math.round(taxInfo().incomeMult*100)}%・国政画面で変更)</span></div></div>`;
+  { // 歳入歳出の内訳:正味の増減だけでは見えない「何で稼ぎ、何に出ているか」を前日の実収支で明かす(内政の手応え・国庫管理の導線)
+    let budgetLine="";
+    if(S.lastBudget&&typeof S.lastBudget.inc==="number"){
+      const inc=Math.round(S.lastBudget.inc),up=Math.round(S.lastBudget.up);
+      const fief=(S.units||[]).filter(u=>u&&u.fief&&u.role==="active").length; // 知行の禄(領地持ち一人につき+1/日)
+      const net=inc+fief-up;
+      budgetLine=`<div style="font-size:11px;color:var(--dim);margin-top:3px">前日の収支:<span style="color:#8fbf6f">税収+${inc}</span>${fief>0?` <span style="color:#d8b45e">所領+${fief}</span>`:""} <span style="color:#d99a6a">維持費-${up}</span> ＝ 差引 <b style="color:${net>=0?"#8fbf6f":"#d97a7a"}">${net>=0?"+":""}${net}</b>/日${net<0?"(赤字が続くと民心が下がる)":""}</div>`;
+    }
+    h+=`<div class="srow"><div class="sh"><div class="nm">国庫</div><div class="vl">${Math.round(S.gold)}</div></div><div class="ef">毎日 経済に応じた税収が入り、軍事維持費などが出ていく。マイナスが続くと民心が下がる。<span style="color:var(--dim)">／ 現在の税制:<b style="color:${taxLevel()==="heavy"?"#d99a6a":taxLevel()==="light"?"#8fbf6f":"#c9a86a"}">${taxInfo().label}</b>(徴税収入${Math.round(taxInfo().incomeMult*100)}%・国政画面で変更)</span>${budgetLine}</div></div>`;
+  }
   h+=`<div class="srow"><div class="sh"><div class="nm">食糧</div><div class="vl">${Math.round(S.food)}</div></div><div class="ef">農業に応じて増え、人口に応じて減る。尽きると民心が下がる。</div></div>`;
   h+=`<div class="srow"><div class="sh"><div class="nm">民心</div><div class="vl">${Math.round(S.mood)} / 100</div></div><div class="ef">0になると民の支持を失い、統治が終わる。治安・食糧・国庫の影響を受ける。70以上で兵士の忠誠がじわじわ高まり、30未満では逆に蝕まれていく。</div></div>`;
   $("#statList").innerHTML=h;
