@@ -12199,6 +12199,7 @@ function neighborDaily(){
     }
   }
   if(doctrineIs("alliance")){income*=1.3;food*=1.2;} // 「盟約の国」の国是:交易・同盟の恵みが増す
+  S.lastNeighborIncome=Math.round(income); // 諸国との交易収入を控え、歳入内訳に映す(外交の実りの可視化)
   if(income>0)S.gold+=income;
   if(food>0)S.food=Math.min(999,(S.food||0)+food);
 }
@@ -13193,8 +13194,9 @@ function renderStatsDetail(){
     if(S.lastBudget&&typeof S.lastBudget.inc==="number"){
       const inc=Math.round(S.lastBudget.inc),up=Math.round(S.lastBudget.up);
       const fief=(S.units||[]).filter(u=>u&&u.fief&&u.role==="active").length; // 知行の禄(領地持ち一人につき+1/日)
-      const net=inc+fief-up;
-      budgetLine=`<div style="font-size:11px;color:var(--dim);margin-top:3px">前日の収支:<span style="color:#8fbf6f">税収+${inc}</span>${fief>0?` <span style="color:#d8b45e">所領+${fief}</span>`:""} <span style="color:#d99a6a">維持費-${up}</span> ＝ 差引 <b style="color:${net>=0?"#8fbf6f":"#d97a7a"}">${net>=0?"+":""}${net}</b>/日${net<0?"(赤字が続くと民心が下がる)":""}</div>`;
+      const trade=Math.round(S.lastNeighborIncome||0); // 良好な隣国・同盟との交易収入(外交の実り)
+      const net=inc+fief+trade-up;
+      budgetLine=`<div style="font-size:11px;color:var(--dim);margin-top:3px">前日の収支:<span style="color:#8fbf6f">税収+${inc}</span>${fief>0?` <span style="color:#d8b45e">所領+${fief}</span>`:""}${trade>0?` <span style="color:#8fb0d0">交易+${trade}</span>`:""} <span style="color:#d99a6a">維持費-${up}</span> ＝ 差引 <b style="color:${net>=0?"#8fbf6f":"#d97a7a"}">${net>=0?"+":""}${net}</b>/日${net<0?"(赤字が続くと民心が下がる)":""}</div>`;
     }
     h+=`<div class="srow"><div class="sh"><div class="nm">国庫</div><div class="vl">${Math.round(S.gold)}</div></div><div class="ef">毎日 経済に応じた税収が入り、軍事維持費などが出ていく。マイナスが続くと民心が下がる。<span style="color:var(--dim)">／ 現在の税制:<b style="color:${taxLevel()==="heavy"?"#d99a6a":taxLevel()==="light"?"#8fbf6f":"#c9a86a"}">${taxInfo().label}</b>(徴税収入${Math.round(taxInfo().incomeMult*100)}%・国政画面で変更)</span>${budgetLine}</div></div>`;
   }
