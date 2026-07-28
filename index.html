@@ -12497,6 +12497,25 @@ function checkForbiddenOmen(){
 function renderProjects(){
   let h="";
   const focusLabels={military:"軍事",economy:"経済",agriculture:"農業",magic:"魔導",order:"治安",diplomacy:"外交"};
+  // ── 魔王軍の脅威(終盤の時計:玉座への道のりを可視化。何を満たせば最後の戦いへ挑めるかを明示する) ──
+  if(S.flags&&S.flags.demonNoticed&&!S.flags.demonLordDefeated){
+    const army=S.demonArmyLevel||0, cleared=S.dungeonsCleared||0, gens=S.demonGeneralsDefeated||0;
+    const unlocked=S.flags.demonLordDungeonUnlocked;
+    const daysSince=S.day-(S.flags.demonNoticedDay||S.day);
+    const escalated=S.flags.demonEscalated||daysSince>=120;
+    h+=`<div class="pcard" style="margin-bottom:10px;border-color:#8e2f2f;background:rgba(142,47,47,.08)"><div class="nm" style="color:#d97a7a"><i class="icon-dungeon"></i>魔王軍の脅威 <span style="font-size:11px;color:${escalated?"#d97a7a":"var(--dim)"}">${escalated?"侵攻 活発化":"侵攻 なお静か"}</span></div>`;
+    if(unlocked){
+      h+=`<div class="ds" style="font-size:11px;color:#e0be6f;margin-top:3px">「魔王の玉座」が出現している。数多の魔将を退けた今、最後の戦いに挑む時だ――ダンジョン画面から挑める。</div>`;
+    }else{
+      const row=(label,cur,need)=>{const ok=cur>=need;return `<div class="ds" style="font-size:11px;margin-top:2px;color:${ok?"#8fbf6f":"var(--dim)"}">${ok?"✓":"・"} ${label} <b>${Math.min(cur,need)}/${need}</b>${ok?" 達":""}</div>`;};
+      h+=`<div class="ds" style="font-size:10.5px;color:var(--dim);margin:2px 0 3px">魔王を討てば脅威は去る。その在り処(魔王の玉座)への道は、次の三つを満たした時に開く:</div>`;
+      h+=row("防衛練度(魔物の侵攻を凌いで高まる)",army,12);
+      h+=row("迷宮の踏破数",cleared,20);
+      h+=row("魔将の撃破数(節目に現れる魔将を討つ)",gens,2);
+      if(S.flags.demonThroneNear)h+=`<div class="ds" style="font-size:10.5px;color:#e0be6f;margin-top:3px">魔王の気配が日増しに濃くなっている。道が開くのは、もう間近だ。</div>`;
+    }
+    h+=`</div>`;
+  }
   // ── 王号(治世の色を映す呼び名) ──
   {const kt=(typeof kingTitleName==="function")?kingTitleName():null;const cur=(typeof currentKingTitle==="function")?currentKingTitle():null;
    if(kt||cur){const def=KING_TITLES.find(t=>t.key===S.kingTitle)||(cur&&cur.t);
