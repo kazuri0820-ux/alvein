@@ -3443,10 +3443,13 @@ function render(){
   const n=S.pendingEvents.length;
   const itemCount=(S.items||[]).reduce((a,i)=>a+i.count,0);
   $("#itemBadge").style.display=itemCount?"inline-block":"none";$("#itemBadge").textContent=itemCount;
-  const ap=S.projects.filter(p=>!p.done).length+(S.petition?1:0); // 未裁定の民の声も国政の要処理として報せる
+  const favReady=(typeof allyFavorReady==="function")?(S.neighbors||[]).filter(nb=>nb&&nb.allied&&allyFavorReady(nb)).length:0; // 発動できる盟約(同盟国の助力)も国政の好機として報せる
+  const ap=S.projects.filter(p=>!p.done).length+(S.petition?1:0)+favReady; // 未裁定の民の声・発動可の盟約も国政の要処理として報せる
   $("#prjBadge").style.display=ap?"inline-block":"none";$("#prjBadge").textContent=ap;
   const dgn=(S.availableDungeons||[]).length;
   $("#dgBadge").style.display=dgn?"inline-block":"none";$("#dgBadge").textContent=dgn;
+  const fleetUrgent=(S.availableDungeons||[]).some(d=>d&&d.fleeting&&!d.isFinal); // 時限の好機(去りゆく迷宮)は逃すと消える=脈打つ印で急を報せる
+  $("#dgBadge").classList.toggle("pulse",fleetUrgent);
   const voln=(S.volunteers||[]).length;
   $("#volBadge").style.display=voln?"inline-block":"none";$("#volBadge").textContent=voln;$("#volBadge").classList.toggle("pulse",voln>0);
  }catch(e){console.error("render() failed:",e);}
