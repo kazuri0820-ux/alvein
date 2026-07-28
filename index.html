@@ -1647,6 +1647,12 @@ const SKILL_DB=[
  {key:"nsk_pathfinder",name:"地の利を読む才",tier:"silver",desc:"地形と気配を読み、隠れた迷宮の入口を目ざとく見つけ出す。この者を先頭に立てて動くと、新たなダンジョンを見出す確率が高まる",dungeonFind:0.6,wis:5,agi:4},
  {key:"nsk_kingbane",name:"討王の心得",tier:"gold",desc:"格上の「王」を狩る間合いと呼吸を知り尽くす。この者を伴う部隊は、迷宮のボスを討ち取りやすくなる(特別報酬を掴みやすい)",bossBane:0.2,str:6,lead:4},
  {key:"nsk_expedition",name:"遠征の達人",tier:"gold",desc:"遠国の道と人と物流を知り尽くした旅の達人。この者を加えた遠征は、持ち帰る財貨も部隊の成長も一段と大きくなる",expeditionBoon:0.25,lead:6,wis:4},
+ // 効能系(複合):単一の効能では作れない"二つの持ち味を併せ持つ"型。掛け合わせが新たなビルドの妙を生む
+ {key:"nsk_luckstar",name:"宝を呼ぶ強運",tier:"gold",desc:"戦運も宝運も味方につける稀有な星の下に生まれた者。共に潜る部隊の踏破が大成功に転じやすく、掘り出しの実りも増える",fortuneRoll:10,lootLuck:0.18,wis:5},
+ {key:"nsk_grandmentor",name:"教導の名将",tier:"gold",desc:"戦場では背中で、学舎では言葉で次代を育て上げる稀代の教導者。同じ部隊の踏破経験を増やし、教官に据えれば一層の薫陶を垂れる",squadExpBonus:0.2,instructorMult:1.3,lead:6},
+ {key:"nsk_raider",name:"遊撃の名手",tier:"silver",desc:"神出鬼没の遊撃で敵の隙を突き、素早く実入りを掻っ攫う。この者を伴う遠征は所要が一日縮み、持ち帰る財貨も増える",marchDays:1,goldFind:0.16,agi:6},
+ {key:"nsk_ironmarcher",name:"鉄脚の遠征者",tier:"silver",desc:"己も隊も決して疲れさせぬ、鉄の脚と野営の采配。疲れの抜けが早く、同じ部隊で臨む遠征の疲労も軽く済む",fatigueRecover:4,campSupport:0.3,vit:6},
+ {key:"nsk_battlemedic",name:"歴戦の従軍医",tier:"silver",desc:"矢弾の下でも冷静に手当てを施し、自らも紙一重で危地を避ける。部隊の傷を軽くし、己もまた傷つきにくい",fieldMedic:0.5,injuryMult:0.78,wis:6},
  {key:"nsk_earnest",name:"忠勤の士",tier:"silver",desc:"実直な働きぶりで、長の信を静かに集める",lead:5,loyaltyGrow:0.2},
  {key:"nsk_highspirit",name:"旺盛なる士気",tier:"silver",desc:"陣中でも戦場でも、常に高い士気を絶やさず自ら奮い立たせる",moralGrow:0.3,vit:4},
  {key:"nsk_seasoned",name:"老練の身のこなし",tier:"silver",desc:"歳を重ねても衰えを寄せ付けぬ立ち回り",ageResist:0.5,vit:5},
@@ -2205,8 +2211,37 @@ function skillCap(u){
 /* アイテムによるスキル付与専用の重み(最上位の金クラスは対象外にする) */
 function itemSkillTierWeight(){return[["red",10],["gray",48],["blue",32],["silver",10]];}
 /* 一流(金)の技を会得した瞬間を讃える。金スキルは稀少なので、その到達を記憶に残る一場面として演出(スキル収集の見せ場) */
+/* 技の効き目を一言で(会得の手応え強化・可読性):能力値以外の"妙味"を持つ技は、何ができるようになるかを添える */
+function skillBoonSummary(sk){
+  if(!sk)return "";
+  const parts=[];
+  if(sk.deathMult&&sk.deathMult<1)parts.push("戦場で生き延びやすく");
+  if(sk.injuryMult&&sk.injuryMult<1)parts.push("傷を負いにくく");
+  if(sk.guardianSave)parts.push("戦友を庇い");
+  if(sk.fieldMedic)parts.push("隊の傷を癒し");
+  if(sk.fatigueRecover)parts.push("疲れの抜けが早く");
+  if(sk.campSupport)parts.push("遠征の疲労を和らげ");
+  if(sk.fortuneRoll)parts.push("踏破を大成功に導き");
+  if(sk.lootLuck)parts.push("掘り出しの実りを増やし");
+  if(sk.goldFind)parts.push("持ち帰る財貨を増やし");
+  if(sk.itemFind)parts.push("追加の品を拾い");
+  if(sk.squadExpBonus)parts.push("隊の成長を促し");
+  if(sk.marchDays)parts.push("遠征を早め");
+  if(sk.dungeonFind)parts.push("新たな迷宮を見出し");
+  if(sk.bossBane)parts.push("ボスを討ち取りやすくし");
+  if(sk.expeditionBoon)parts.push("遠征の実りを増やし");
+  if(sk.instructorMult&&sk.instructorMult>1)parts.push("教官として一層優れ");
+  if(sk.loyaltyGrow>0)parts.push("忠義が篤く");
+  if(sk.moralGrow>0)parts.push("士気が旺盛に");
+  if(sk.trainMult&&sk.trainMult>1)parts.push("成長が速く");
+  if(sk.expMult&&sk.expMult<1)parts.push("経験の吸収が早く");
+  return parts.length?parts.slice(0,2).join("、")+"なる":"";
+}
 function celebrateSkillGain(u,sk){
-  if(sk&&sk.tier==="gold")chron(`${fullName(u)}が一流の技「${sk.name}」を会得した。数多の兵の中でも、選ばれた者だけが辿り着く域だ。`,"big");
+  if(!sk)return;
+  const boon=skillBoonSummary(sk);
+  if(sk.tier==="gold")chron(`${fullName(u)}が一流の技「${sk.name}」を会得した。${boon?`これよりこの兵は${boon}――`:"数多の兵の中でも、"}選ばれた者だけが辿り着く域だ。`,"big");
+  else if(sk.tier==="silver"&&boon)chron(`${fullName(u)}が技「${sk.name}」を会得した。これより${boon}。`,"");
 }
 function trySkillUpItem(u){
   if(u.skills.length>=skillCap(u))return null;
