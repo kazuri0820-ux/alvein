@@ -7759,6 +7759,7 @@ function rollRandomTurnEvent(){
   checkObservatoryPortent(); // 星見の塔:折に触れ、星が吉兆を告げる
   checkKingsReflection(); // 王の述懐:国の実情に即した、統べる者の独白を稀に綴る
   checkReignFeats(); // 治世の偉業:治世を貫く到達目標を達成した折、王国を挙げて祝い、恩賞を下す
+  checkGrandCollections(); // 大収集の完成:全称号/全二つ名/全英傑を集めきった瞬間を一度きりの祝祭として刻む
   checkKingTitle(); // 王号:治世の色に応じて民が王をどう呼ぶかが定まり、色が移ろえば呼び名も変わる
   applyKingTitleBoon(); // 王徳:現在の王号に宿る治世の恵みを日々わずかに国へ及ぼす
   checkStageAdvance(); // 段階の到達:人口の節目を越え新たな時代を迎えた瞬間を国を挙げて祝う
@@ -11481,6 +11482,43 @@ function checkDungeonTypeFirstClear(dungeon,squad){
     S.flags.nearAllTypes=true;
     const remaining=DUNGEON_TYPES.filter(x=>!S.clearedTypes[x.key]);
     if(remaining.length===1)chron(`未踏の攻略型は、あとは「${remaining[0].label}」ただ一つ。全${total}種の制覇まで、いよいよ王手だ。`,"big");
+  }
+}
+/* 大収集の完成:全称号・全二つ名・全英傑という王国規模の大収集を達成した瞬間を、一度きりの祝祭として刻む。
+   静かな図鑑の"完了"表示に、殿堂の誉れにふさわしい到達の瞬間(祝祭の年代記＋威信＋恩賞)を与える=
+   長期のやり込み目標に、達成の手応えで報いる磨き込み。全型制覇の到達演出(allTypesCleared)と対をなす。 */
+function checkGrandCollections(){
+  if(typeof S==="undefined"||!S)return;
+  S.flags=S.flags||{};
+  if(!S.flags.allTitlesSeen&&typeof TITLE_DB!=="undefined"){
+    const seen=new Set(Object.keys(S.flags.titlesSeen||{}));
+    for(const u of (S.units||[]))for(const k of (u.titles||[]))seen.add(k);
+    if(seen.size>=TITLE_DB.length){
+      S.flags.allTitlesSeen=true;
+      if(typeof grantRenown==="function")grantRenown(4,"授けうる全ての称号を刻んだこと");
+      if(typeof apply==="function")apply({mood:10,gold:400});
+      chron(`――王国はこれまでに、授けうる${TITLE_DB.length}種すべての称号を兵たちに刻んできた。栄誉のことごとくを知る国、その歩みは殿堂の誉れそのものだ。`,"big");
+    }
+  }
+  if(!S.flags.allUniqueSeen&&typeof UNIQUE_JOBS!=="undefined"){
+    const seen=new Set(Object.keys(S.flags.uniqueJobsSeen||{}));
+    for(const u of (S.units||[]))if(u.uniqueJob)seen.add(u.uniqueJob);
+    if(seen.size>=UNIQUE_JOBS.length){
+      S.flags.allUniqueSeen=true;
+      if(typeof grantRenown==="function")grantRenown(5,"全ての唯一無二の二つ名を体現したこと");
+      if(typeof apply==="function")apply({mood:12,gold:500});
+      chron(`――この世に存在する${UNIQUE_JOBS.length}の唯一無二の二つ名、その全てをアルヴェインの兵が体現した。伝説を網羅せし王国、語り継がれるべき偉業である。`,"big");
+    }
+  }
+  if(!S.flags.allGreatsSeen&&typeof GREAT_FIGURES!=="undefined"){
+    const seen=Object.assign({},S.flags.greatsSeen||{},S.flags.greatsHired||{});
+    for(const u of (S.units||[]))if(u.great)seen[u.great]=true;
+    if(GREAT_FIGURES.every(g=>seen[g.id])){
+      S.flags.allGreatsSeen=true;
+      if(typeof grantRenown==="function")grantRenown(6,"全ての英傑と邂逅したこと");
+      if(typeof apply==="function")apply({mood:14,gold:700});
+      chron(`――歴史に名を刻む${GREAT_FIGURES.length}人の英傑、そのことごとくがアルヴェインの地に集い、あるいは相まみえた。英傑図鑑ここに完成、その偉業は千古に輝く。`,"big");
+    }
   }
 }
 /* 難度の初踏破:初めて【レア】【エピック】【レジェンド】級の迷宮を制した瞬間を、王国史の"格の一段"として刻む。
