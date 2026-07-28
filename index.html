@@ -754,6 +754,7 @@ header{
 .skchip.t-gray{background:#453626;color:#c3c8d2}
 .skchip.t-red{background:linear-gradient(135deg,#b04a4a,#7a2e2e);color:#fbe6e6}
 .skchip.t-unique{background:linear-gradient(120deg,#e8c874,#8fd0e8,#c98fe8,#e8c874);background-size:300% 100%;animation:uniqueflow 4s linear infinite;color:#1a1420;font-weight:800;box-shadow:0 0 10px rgba(var(--gold-rgb),.7)}
+.skchip.t-great{background:linear-gradient(135deg,#f0d27a,#c0392b,#7a2e2e);color:#fff3d0;font-weight:800;border:1px solid #f0d27a;box-shadow:0 0 10px rgba(var(--gold-rgb),.6),inset 0 0 8px rgba(240,210,122,.35)}
 .trchip.t-normal{background:#453626;color:#c3c8d2}
 .trchip.t-rare{background:linear-gradient(135deg,#6f96c9,#3f5a85);color:#eef3fa}
 .trchip.t-epic{background:linear-gradient(135deg,#c98fe8,#8a5ab0);color:#f5eaff;box-shadow:0 0 6px rgba(201,143,232,.5)}
@@ -2355,7 +2356,7 @@ function tryInheritInstructorSkill(u){
       if(u.skills.includes(key))continue;
       if(pool.some(p=>p.key===key))continue;
       const s=SKILL_DB.find(x=>x.key===key);
-      if(!s||s.tier==="unique")continue; // 固有技は継承させない
+      if(!s||s.tier==="unique"||s.tier==="great")continue; // 固有技は継承させない
       if(s.cls&&s.cls!==u.cls)continue;
       if(s.onlyCaptain&&!u.captain)continue;
       pool.push({key,ins,s});
@@ -2376,7 +2377,7 @@ function tryInheritMasterSkill(pupil,master){
   for(const key of (master.skills||[])){
     if(pupil.skills.includes(key))continue;
     const s=SKILL_DB.find(x=>x.key===key);
-    if(!s||s.tier==="unique")continue; // 固有技は継がせない
+    if(!s||s.tier==="unique"||s.tier==="great")continue; // 固有技は継がせない
     if(s.cls&&s.cls!==pupil.cls)continue; // 職に合わぬ技は伝わらない
     if(s.onlyCaptain&&!pupil.captain)continue;
     pool.push({key,s});
@@ -9023,6 +9024,65 @@ function makeVolunteer(){
   }
   return v;
 }
+const GREAT_FIGURES=[{"id":"g_nobunaga","nm":"織田信長","region":"日ノ本","cls":"warrior","tier":"legend","lv":[46,54],"title":"第六天魔王","trait":{"key":"gt_nobunaga","name":"天下布武","desc":"武を以て天下を布く、革新と苛烈の覇気。麾下の兵を一段と奮い立たせ、その武名は逸材を惹きつける","gm":1.6,"lead":14,"moralGrow":0.2,"injuryMult":0.7},"skill":{"key":"gsk_nobunaga","name":"第六天魔王","desc":"畏怖すら力に変える魔王の如き覇気。並外れた武と統率で戦場を支配する","tier":"great","str":22,"lead":16,"injuryMult":0.9},"flavor":"是非に及ばず――旧弊を焼き払い、天下統一へ最も近づいた革新者。"},{"id":"g_kenshin","nm":"上杉謙信","region":"日ノ本","cls":"warrior","tier":"legend","lv":[44,52],"title":"越後の龍","trait":{"key":"gt_kenshin","name":"毘沙門天の加護","desc":"軍神と崇められた武人の加護。戦場での武勇は比類なく、義のために剣を執る","gm":1.55,"str":16,"vit":10,"deathMult":0.6},"skill":{"key":"gsk_kenshin","name":"車懸りの陣","desc":"渦巻く如く敵陣を翻弄する秘伝の陣形。共に戦う部隊の連携を極限まで高める","tier":"great","lead":18,"str":12,"squadSynergy":0.07},"flavor":"義を重んじ、私欲のために兵を動かさなかった軍神。"},{"id":"g_shingen","nm":"武田信玄","region":"日ノ本","cls":"priest","tier":"legend","lv":[44,52],"title":"甲斐の虎","trait":{"key":"gt_shingen","name":"風林火山","desc":"疾きこと風の如く、動かざること山の如し。攻守自在の采配で全軍を統べる名将の器","gm":1.5,"lead":16,"vit":8,"squadSynergy":0.06},"skill":{"key":"gsk_shingen","name":"啄木鳥の戦法","desc":"敵を挟撃に追い込む老練の軍略。伴う部隊の踏破経験を大きく増やす","tier":"great","wis":16,"lead":12,"squadExpBonus":0.2},"flavor":"人は城、人は石垣――信を以て強国を築いた甲斐の虎。"},{"id":"g_yukimura","nm":"真田幸村","region":"日ノ本","cls":"warrior","tier":"epic","lv":[34,42],"title":"日ノ本一の兵","trait":{"key":"gt_yukimura","name":"真田の赤備え","desc":"燃える如き赤備えを率いた決死の猛将。劣勢でこそ牙を剥き、死地を恐れぬ","gm":1.4,"str":12,"agi":8,"deathMult":0.7},"skill":{"key":"gsk_yukimura","name":"決死の突撃","desc":"総大将の首だけを狙う捨て身の猛攻。凄まじい武で敵陣深く斬り込む","tier":"great","str":18,"agi":10,"injuryMult":1.1},"flavor":"日ノ本一の兵と敵将にすら讃えられた不屈の闘将。"},{"id":"g_musashi","nm":"宮本武蔵","region":"日ノ本","cls":"warrior","tier":"epic","lv":[34,42],"title":"二天一流","trait":{"key":"gt_musashi","name":"五輪の境地","desc":"生涯無敗と伝わる剣豪の悟り。間合いと呼吸を制し、いかなる敵も見切る","gm":1.42,"agi":12,"injuryMult":0.6},"skill":{"key":"gsk_musashi","name":"二刀の極み","desc":"二天一流、両手に得物を操る神速の剣技","tier":"great","str":16,"agi":14},"flavor":"六十余度の勝負に一度も敗れなかったと伝わる剣聖。"},{"id":"g_hanzo","nm":"服部半蔵","region":"日ノ本","cls":"hunter","tier":"epic","lv":[30,38],"title":"鬼の半蔵","trait":{"key":"gt_hanzo","name":"伊賀の統べ手","desc":"影の一党を束ねた忍の頭領。気配を殺し、地の利を知り尽くす","gm":1.36,"agi":12,"injuryMult":0.7},"skill":{"key":"gsk_hanzo","name":"影走り","desc":"闇に紛れて未知の地を駆ける隠密の技。新たな迷宮への隠し道を見出す","tier":"great","agi":14,"wis":8,"dungeonFind":0.35},"flavor":"主君を幾度も危地から救った、鬼と怖れられた忍。"},{"id":"g_tomoe","nm":"巴御前","region":"日ノ本","cls":"warrior","tier":"epic","lv":[30,38],"title":"戦の女神","trait":{"key":"gt_tomoe","name":"一騎当千の女丈夫","desc":"一人当千と謳われた女武者。強弓と剛力を兼ね備え、荒馬をも乗りこなす","gm":1.4,"str":14,"agi":8},"skill":{"key":"gsk_tomoe","name":"薙刀無双","desc":"薙刀を振るい敵を薙ぎ払う豪勇。群がる敵をものともせぬ","tier":"great","str":16,"vit":10},"flavor":"色白く髪長く、容顔まことに優れたりと伝わる無双の女武者。"},{"id":"g_koumei","nm":"諸葛亮","region":"漢土","cls":"mage","tier":"legend","lv":[42,50],"title":"臥龍","trait":{"key":"gt_koumei","name":"神算鬼謀","desc":"天下三分を描いた不世出の軍師。あらゆる知略で戦局を読み解く","gm":1.5,"int":14,"wis":16,"expMult":0.85},"skill":{"key":"gsk_koumei","name":"八陣図","desc":"天地風雲を写した神秘の陣。伏兵をもってしても崩せぬ布陣で全軍を守り導く","tier":"great","wis":20,"int":14,"squadSynergy":0.06},"flavor":"鞠躬尽力、死して後已む――知の化身と讃えられた丞相。"},{"id":"g_ryofu","nm":"呂布","region":"漢土","cls":"warrior","tier":"legend","lv":[44,52],"title":"飛将","trait":{"key":"gt_ryofu","name":"人中の呂布","desc":"人中に呂布あり、馬中に赤兎あり。史上最強と怖れられた無双の膂力、されど御し難し","gm":1.6,"str":20,"agi":10,"injuryMult":1.15},"skill":{"key":"gsk_ryofu","name":"方天画戟","desc":"愛戟を旋回させ一騎で万軍を蹴散らす、暴威の極み","tier":"great","str":26,"vit":12,"injuryMult":1.1},"flavor":"武においては並ぶ者なし。乱世を駆けた最強の猛将。"},{"id":"g_kanu","nm":"関羽","region":"漢土","cls":"warrior","tier":"epic","lv":[36,44],"title":"武聖","trait":{"key":"gt_kanu","name":"義の武神","desc":"後世に武神と祀られた忠義の勇将。一度結んだ義は死しても違えぬ","gm":1.44,"str":16,"lead":8,"loyaltyGrow":0.3},"skill":{"key":"gsk_kanu","name":"青龍偃月","desc":"青龍偃月刀の一閃、敵将の首を挙げる必殺の斬撃","tier":"great","str":20,"vit":10},"flavor":"忠義の化身として千年祀られ続ける、髭美しき武聖。"},{"id":"g_sousou","nm":"曹操","region":"漢土","cls":"priest","tier":"legend","lv":[42,50],"title":"乱世の姦雄","trait":{"key":"gt_sousou","name":"治世の能臣","desc":"治世の能臣、乱世の姦雄。人を見抜き才を惜しみなく用いる非凡な器量","gm":1.5,"lead":16,"wis":10,"instructorMult":1.4},"skill":{"key":"gsk_sousou","name":"唯才是挙","desc":"才ある者を身分を問わず登用する眼力。麾下の兵の成長を大きく早める","tier":"great","lead":18,"wis":12,"squadExpBonus":0.18},"flavor":"寧ろ我が人に負くとも――才を愛した非情の英雄。"},{"id":"g_alexander","nm":"アレクサンドロス","region":"西方","cls":"warrior","tier":"legend","lv":[44,52],"title":"大王","trait":{"key":"gt_alexander","name":"世界の果てへ","desc":"世界の果てを目指し東征した大王。先頭で剣を振るい、兵を陶酔させる求心力を持つ","gm":1.58,"str":14,"lead":14,"moralGrow":0.22},"skill":{"key":"gsk_alexander","name":"東征の覇気","desc":"未知の地平を切り拓く不屈の進撃。行軍を早め、部隊を鼓舞し続ける","tier":"great","str":16,"lead":14,"marchDays":1},"flavor":"未踏の地を求めて進み続けた、若き征服王。"},{"id":"g_caesar","nm":"カエサル","region":"西方","cls":"priest","tier":"legend","lv":[42,50],"title":"終身独裁官","trait":{"key":"gt_caesar","name":"賽は投げられた","desc":"渡河の決断で歴史を変えた稀代の将にして政治家。決断は速く、人心を掴んで離さない","gm":1.5,"lead":16,"wis":10,"loyaltyGrow":0.28},"skill":{"key":"gsk_caesar","name":"来た、見た、勝った","desc":"電光石火の用兵で戦を即決する。伴う遠征の日数を縮め、戦果を早く持ち帰る","tier":"great","lead":16,"wis":12,"marchDays":1},"flavor":"来た、見た、勝った――簡潔にして完璧を体現した独裁官。"},{"id":"g_napoleon","nm":"ナポレオン","region":"西方","cls":"priest","tier":"legend","lv":[42,50],"title":"皇帝","trait":{"key":"gt_napoleon","name":"余の辞書に不可能はない","desc":"砲兵から皇帝へ昇りつめた戦争の天才。集中と機動で数的不利すら覆す","gm":1.52,"lead":16,"int":8,"squadSynergy":0.06},"skill":{"key":"gsk_napoleon","name":"電撃の機動","desc":"軍を神速で集中させる革命的用兵。行軍を早め、部隊全体の連携を高める","tier":"great","lead":16,"agi":10,"marchDays":1},"flavor":"余の辞書に不可能の文字はない――時代を席巻した皇帝。"},{"id":"g_hannibal","nm":"ハンニバル","region":"西方","cls":"priest","tier":"epic","lv":[36,44],"title":"戦術の父","trait":{"key":"gt_hannibal","name":"アルプス越え","desc":"象を率いて険峰を越えた不屈の名将。逆境の行軍でこそ真価を発揮する","gm":1.42,"lead":12,"vit":8,"campSupport":0.3},"skill":{"key":"gsk_hannibal","name":"包囲殲滅","desc":"寡兵で大軍を呑み込む伝説の包囲戦術。共に戦う部隊の連携を高める","tier":"great","wis":16,"lead":12,"squadSynergy":0.06},"flavor":"カンナエの会戦で戦術の頂を示した、ローマの宿敵。"},{"id":"g_genghis","nm":"チンギス・ハン","region":"草原","cls":"archer","tier":"legend","lv":[44,52],"title":"蒼き狼","trait":{"key":"gt_genghis","name":"大草原の覇者","desc":"史上最大の版図を築いた騎馬の覇王。奪い、束ね、地平の果てまで駆ける","gm":1.56,"agi":14,"lead":12,"goldFind":0.2},"skill":{"key":"gsk_genghis","name":"騎射の嵐","desc":"疾駆しながら矢を降らせる草原の戦法。伴う迷宮踏破で持ち帰る財貨と拾い物が増える","tier":"great","agi":18,"lead":10,"lootLuck":0.18},"flavor":"一個の遊牧民から世界帝国を興した、蒼き狼の裔。"},{"id":"g_jeanne","nm":"ジャンヌ・ダルク","region":"西方","cls":"priest","tier":"epic","lv":[32,40],"title":"オルレアンの乙女","trait":{"key":"gt_jeanne","name":"神の御声","desc":"天の声に導かれ祖国を救った乙女。その旗の下、兵は恐れを忘れて奮い立つ","gm":1.4,"lead":10,"wis":8,"moralGrow":0.35},"skill":{"key":"gsk_jeanne","name":"聖旗の加護","desc":"翻る聖旗が味方を鼓舞し守る。部隊の士気を高め、傷を癒す加護をもたらす","tier":"great","lead":12,"wis":10,"fieldMedic":0.4},"flavor":"わずか十九年の生涯で祖国を救った、信仰の乙女。"},{"id":"g_leonidas","nm":"レオニダス","region":"西方","cls":"monk","tier":"epic","lv":[32,40],"title":"スパルタ王","trait":{"key":"gt_leonidas","name":"三百の楯","desc":"寡兵で大軍を阻んだ不屈の王。一歩も退かぬ鉄壁の守りで戦友を守り抜く","gm":1.4,"vit":16,"str":8,"injuryMult":0.55},"skill":{"key":"gsk_leonidas","name":"熱き門の守り","desc":"隘路を死守する不動の楯。死線に立つ戦友を我が身を挺して庇う","tier":"great","vit":18,"str":10,"guardianSave":0.45},"flavor":"テルモピュライに散った、三百の楯を率いた王。"},{"id":"g_archimedes","nm":"アルキメデス","region":"西方","cls":"mage","tier":"epic","lv":[30,38],"title":"知の巨人","trait":{"key":"gt_archimedes","name":"我に支点を与えよ","desc":"梃子と浮力を解き明かした古代最高の知性。工夫と発明で難局を覆す","gm":1.38,"int":16,"wis":10,"expMult":0.88},"skill":{"key":"gsk_archimedes","name":"天才の閃き","desc":"戦をも変える奇抜な発明。兵器と智慧で部隊の踏破を助ける","tier":"great","int":20,"wis":12,"squadExpBonus":0.15},"flavor":"我に支点を与えよ、さらば地球をも動かさん――不朽の天才。"},{"id":"g_davinci","nm":"レオナルド・ダ・ヴィンチ","region":"西方","cls":"mage","tier":"epic","lv":[30,38],"title":"万能の人","trait":{"key":"gt_davinci","name":"飽くなき探究","desc":"絵画も工学も解剖も究めた万能の天才。あらゆる分野に通じ、人を導く","gm":1.4,"int":14,"wis":12,"instructorMult":1.45},"skill":{"key":"gsk_davinci","name":"万能の才","desc":"森羅万象への飽くなき探究。麾下の兵に多くを教え、その才を引き出す","tier":"great","int":16,"wis":14,"squadExpBonus":0.16},"flavor":"手稿に未来を描き続けた、ルネサンスの万能人。"}];
+
+/* ===== 偉人(歴史上の英傑)システム ===== */
+// 各偉人の固有特性・固有スキルを、ランダム抽選には混ぜずに参照テーブルへ登録する。
+// traitInfo/skillEffects はキー照合なので TRAIT_ALL/SKILL_DB へ push すれば効能・表示が効く。
+// pickTrait は基本4プールのみ、スキル抽選(skillTierWeight等)は tier "great" を列挙しないため、通常兵には決して付かない。
+(function registerGreats(){
+  for(const g of GREAT_FIGURES){
+    if(!TRAIT_ALL.some(t=>t.key===g.trait.key))TRAIT_ALL.push(Object.assign({tier:g.tier},g.trait));
+    if(!SKILL_DB.some(s=>s.key===g.skill.key))SKILL_DB.push(g.skill);
+  }
+})();
+function greatById(id){return GREAT_FIGURES.find(g=>g.id===id)||null;}
+function greatIsTaken(id){
+  if((S.units||[]).some(u=>u.great===id))return true;
+  if(S.flags&&S.flags.greatsHired&&S.flags.greatsHired[id])return true;
+  if((S.volunteers||[]).some(v=>v.unit&&v.unit.great===id))return true;
+  return false;
+}
+function pickAvailableGreat(){
+  const avail=GREAT_FIGURES.filter(g=>!greatIsTaken(g.id));
+  return avail.length?avail[Math.floor(Math.random()*avail.length)]:null;
+}
+function makeGreatUnit(fig){
+  const u=makeUnit();
+  u.nm=fig.nm; u.surname=""; u.cls=fig.cls;
+  u.trait=fig.trait.key; u.traitTier=fig.tier;
+  const tr=traitInfo(u.trait);
+  if(tr){for(const k of["str","vit","int","agi","wis","lead"])u[k]+=tr[k]||0; u.pw=tr.pw||u.pw||0; u.gm=tr.gm||u.gm||1;}
+  const targetLv=ri(fig.lv[0],fig.lv[1]);
+  for(let i=1;i<targetLv;i++)u.exp+=i*10;
+  for(let c=0;c<4 && u.lv<targetLv;c++)processLevelUps(u,true); // processLevelUpsは1回30段までの安全弁があるため、高位の英傑は複数回回して史実の格まで引き上げる
+  if(!u.skills.includes(fig.skill.key)){
+    if((u.skills||[]).length>=skillCap(u))u.skillCapBase=Math.min(20,(u.skillCapBase||3)+1);
+    u.skills.push(fig.skill.key);
+  }
+  u.nickname=fig.title;
+  u.great=fig.id; u.greatRegion=fig.region;
+  u.moral=Math.min(100,(u.moral||0)+10); u.loyalty=Math.min(100,(u.loyalty||0)+8);
+  return u;
+}
+const GREAT_RANK={label:"偉",color:"#e8b45a",costMult:2.4};
+function makeGreatVolunteer(fig){
+  const u=makeGreatUnit(fig);
+  const cost=Math.round((recruitCost(u)||40)*2.4);
+  return {id:u.id,unit:u,postedDay:S.day,cost,rank:GREAT_RANK,hiddenPotential:false,
+    comment:`${fig.region}にその名を刻む「${fig.title}」。${fig.flavor||""}`, great:fig.id};
+}
+function maybeOfferGreatVolunteer(){
+  if((S.volunteers||[]).length>=8)return;
+  const rank=STAGES[S.stage].rank;
+  const chance=0.05+rank*0.012; // 国が大きくなるほど、名だたる英傑がわずかに志願しやすくなる
+  if(Math.random()>=chance)return;
+  const fig=pickAvailableGreat();
+  if(!fig)return;
+  S.volunteers=S.volunteers||[];
+  S.volunteers.push(makeGreatVolunteer(fig));
+  chron(`……城下がにわかにざわめいている。かの「${fig.title}」${fig.nm}が、この国への仕官を願い出たという。まさか、あの英傑が(志願書に名を連ねた)。`,"big");
+}
 function checkWeeklyVolunteers(){
   if(S.day-(S.lastVolunteerDay||-10)>=7){
     S.lastVolunteerDay=S.day;
@@ -9039,6 +9099,7 @@ function checkWeeklyVolunteers(){
     }
     if(newNames.length===1)chron(`${newNames[0].unit.nm} ${newNames[0].unit.surname}が志願書を出してきた。`,"big");
     else if(newNames.length>1)chron(`${newNames.map(v=>fullName(v.unit)).join("・")}が志願書を出してきた。`,"big");
+    maybeOfferGreatVolunteer();
   }
   S.volunteers=(S.volunteers||[]).filter(v=>{
     if(S.day-v.postedDay>=90){
@@ -9077,6 +9138,7 @@ function hireVolunteer(volId){
   let potentialBonus=null;
   if(v.hiddenPotential)potentialBonus=rollHiddenPotential(v.unit);
   S.units.push(v.unit);
+  if(v.unit&&v.unit.great){S.flags=S.flags||{};S.flags.greatsHired=S.flags.greatsHired||{};S.flags.greatsHired[v.unit.great]=true;}
   S.volunteers.splice(idx,1);
   unitHistory(v.unit,"志願書を通じて、アルヴェインの一員となった。");
   chron(`${v.unit.nm} ${v.unit.surname}が志願書を経て正式に入団した。「よろしくお願いします」`,"big");
