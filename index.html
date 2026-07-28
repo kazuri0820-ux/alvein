@@ -7487,7 +7487,7 @@ const CIVIC_WORKS=[
  {key:"watch", name:"物見の塔網",     cost:130, rate:1.7, req:1, desc:"隅々まで目が届く。治安が大きく上がる。",         fx:{st:{order:6}}, doneLog:"物見の塔が各所に立ち、夜番の目が谷の隅々まで届くようになった(治安↑↑)。"},
  {key:"temple",name:"施薬の神殿",     cost:170, rate:1.5, req:2, desc:"病と困窮に手を差し伸べる。民心が大きく上がる。", fx:{st:{order:2},mood:6}, doneLog:"施薬の神殿が開かれ、病める者・困窮する者に手が差し伸べられた(民心↑↑ 治安↑)。"},
  {key:"road",  name:"大街道の敷設",   cost:150, rate:1.6, req:2, desc:"人と物の行き来が増える。経済と外交が上がる。",   fx:{st:{economy:4,diplomacy:4}}, doneLog:"大街道が四方に伸び、旅人と商隊の行き来が目に見えて増えた(経済↑ 外交↑)。"},
- {key:"academy",name:"王立武芸館",    cost:190, rate:1.3, req:3, desc:"兵法と武芸を体系立てて授ける学び舎。以後、日々の訓練の実りが永続で高まる(訓練効果+15%)。", fx:{st:{military:2}}, doneLog:"王立武芸館が開かれ、兵法と武芸が体系立てて授けられるようになった。以後、兵たちの鍛錬の実りが一段と増す(訓練効果↑ 軍事↑)。"},
+ {key:"academy",name:"王立武芸館",    cost:190, rate:1.3, req:3, desc:"兵法と武芸を体系立てて授ける学び舎。以後、日々の訓練の実りが永続で高まる(訓練効果+15%)。", fx:{st:{military:2}}, ongoing:"訓練効果+15%", doneLog:"王立武芸館が開かれ、兵法と武芸が体系立てて授けられるようになった。以後、兵たちの鍛錬の実りが一段と増す(訓練効果↑ 軍事↑)。"},
 ];
 function civicWorkState(key){ const s=(S.flags&&S.flags["civic_"+key]); return s||"none"; } // none / building / built
 function civicWorkAvailable(w){ return civicWorkState(w.key)==="none" && STAGES[S.stage].rank>=(w.req||1); }
@@ -12774,7 +12774,7 @@ function renderProjects(){
    for(const w of building){const pr=S.projects.find(p=>p.id==="civic_"+w.key);const pct=pr?Math.round(pr.p):0;
      h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:5px"><div class="nm" style="font-size:12px"><i class="icon-project"></i>${w.name} <span style="color:var(--dim);font-size:10.5px">普請中 ${pct}%</span></div><div class="uexp" style="margin-top:6px"><i style="width:${pct}%"></i></div></div>`;
    }
-   if(built.length)h+=`<div class="ds" style="font-size:10.5px;color:var(--gold);margin-bottom:4px">成った普請:${built.map(w=>w.name).join("・")}</div>`;
+   if(built.length)h+=`<div class="ds" style="font-size:10.5px;color:var(--gold);margin-bottom:4px">成った普請:${built.map(w=>w.name+(w.ongoing?`<span style="color:#8fbf6f">〔${w.ongoing}〕</span>`:"")).join("・")}</div>`;
    if(lockedByRank.length)h+=`<div class="ds" style="font-size:10px;color:var(--dim)">国の格が上がれば、さらなる普請(${lockedByRank.map(w=>w.name).join("・")})も興せる。</div>`;
    if(!avail.length&&!building.length&&!built.length&&!lockedByRank.length)h+=`<div class="ds" style="font-size:11px;color:var(--dim)">今は興せる普請がない。</div>`;
   }
