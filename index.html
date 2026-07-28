@@ -6788,6 +6788,8 @@ function rollRandomTurnEvent(){
   if(S.units.length&&Math.random()<0.0035){pushEvent("__job_change_surprise__");return;}
   // 日常フレーバー(パラメータに影響しない、ログを賑やかにするためだけの小さな一言)は1日1回程度
   if(Math.random()<0.7){
+    // 兵舎の一幕:しばしば、汎用の町の情景ではなく、実在の兵とその関係・愛着を映す personal な一幕を綴る(演出の底上げ)
+    if(Math.random()<0.45){const v=barracksVignette();if(v&&v!==S._lastFlavor){chron(v,"");S._lastFlavor=v;return;}}
     const timeMatched=FLAVOR_ONLY.filter(f=>f.t===S.turn);
     const universal=FLAVOR_ONLY.filter(f=>f.t===undefined);
     const pool=Math.random()<0.4&&timeMatched.length?timeMatched:universal;
@@ -6833,6 +6835,37 @@ const FLAVOR_ONLY=[
  {t:2,choices:[{label:"",fx:{log:"静かな夜が谷を包んだ。遠くで梟が鳴いている。"}}]},
  {t:2,choices:[{label:"",fx:{log:"寝物語をせがむ子供の声が、開いた窓から漏れていた。"}}]},
 ];
+/* 兵舎の一幕(演出の底上げ):平時の何気ない一下りに、実在の兵とその関係・来歴・愛着を映す。世界が"話しかけた
+   時だけ"語る静けさを破り、王の目の届かぬ所でも兵たちが生きて日々を送っている手触りを添える。積み上げた絆・
+   相棒獣・銘の得物・夢・武勲といった一人ひとりの物語を、平時のログにそっと立ち上げる(パラメータには影響しない)。 */
+function barracksVignette(){
+  const active=(S.units||[]).filter(u=>u&&u.role==="active");
+  if(!active.length)return null;
+  const nm=u=>(typeof fullName==="function")?fullName(u):u.nm;
+  const cand=[];
+  for(const u of active){
+    if(u.bondWith){const p=findAnyUnit(u.bondWith);if(p&&u.id<p.id)cand.push(`${nm(u)}と${nm(p)}が、稽古のあとに水を酌み交わし、他愛のない軽口を叩き合っていた。背中を預け合う二人の笑い声が、兵舎に長く響いていた。`);}
+    if(u.pupilId){const p=findAnyUnit(u.pupilId);if(p)cand.push(`${nm(u)}が${nm(p)}に木剣の握りを直してやっていた。「筋はいい。あとは数を重ねるだけだ」――師の言葉に、弟子は幾度も頷いていた。`);}
+    if(u.rivalWith){const p=findAnyUnit(u.rivalWith);if(p&&u.id<p.id)cand.push(`${nm(u)}と${nm(p)}が、どちらが先に音を上げるか鍛錬の数を競い合っていた。互いに一歩も譲らぬその横顔は、どこか楽しげでもあった。`);}
+    const k=(typeof beastKindOf==="function")?beastKindOf(u):null;
+    if(k&&u.beast)cand.push(`${nm(u)}の相棒の${k.nm}「${u.beast.nm}」が、主の膝で丸くなって微睡んでいた。${nm(u)}は、その背をそっと撫でてやっていた。`);
+    const w=u.equipment&&u.equipment.weapon;
+    if(w&&w.mei)cand.push(`${nm(u)}が、相棒の得物「${w.mei}」の刃を丁寧に研いでいた。幾多の死線を共にした一振りを、まるで我が身の一部のように慈しんでいる。`);
+    if(u.dream&&!u.dreamDone){const d=(typeof UNIT_DREAMS!=="undefined")&&UNIT_DREAMS.find(x=>x.key===u.dream);if(d&&d.text)cand.push(`夜更けの兵舎で、${nm(u)}が一人黙々と剣を振っていた。「${d.text}」――その背には、まだ口にせぬ願いが宿っているようだった。`);}
+    if(u.sigFeat&&u.sigFeat.text)cand.push(`若手にせがまれ、${nm(u)}が昔語りをしていた。「${u.sigFeat.text}」――幾度も聞いた武勇伝に、それでも新兵たちは目を輝かせていた。`);
+    if(u.captain)cand.push(`朝の点呼で、${nm(u)}が兵たちをぐるりと見渡した。団長の落ち着いた一声で、隊列の空気がぴりりと引き締まった。`);
+    if((u.moral||0)>=85)cand.push(`${nm(u)}が、鼻歌まじりに武具の手入れをしていた。近頃はすこぶる調子が良いらしい。`);
+    else if((u.moral||0)<=35)cand.push(`${nm(u)}が、訓練場の隅で一人、物憂げに剣を眺めていた。何か胸に思うところがあるのかもしれない。`);
+    if((S.day-(u.joinDay||1))<=15)cand.push(`入隊まもない${nm(u)}が、古参の背を追って懸命に訓練に食らいついていた。その必死さに、周りの兵も目を細めていた。`);
+    if(u.admires){const h=findAnyUnit(u.admires);if(h)cand.push(`${nm(u)}が、憧れの${nm(h)}の太刀筋を物陰からじっと見つめ、そっと真似ていた。いつかあの背中に追いつくのだと、目に決意を宿して。`);}
+    if(u.lineage)cand.push(`${nm(u)}が、亡き${u.lineage}の形見を前に静かに手を合わせていた。血に受け継いだその名に恥じぬよう、と己に言い聞かせるように。`);
+    if(u.fief)cand.push(`${nm(u)}のもとに、賜った所領からの便りが届いていた。民の暮らしぶりを記した文を、噛みしめるように幾度も読み返していた。`);
+    if(u.awakened)cand.push(`${nm(u)}が、目覚めた己の力を確かめるように、誰もいない鍛錬場で静かに技を繰り返していた。その瞳の奥には、まだ底の見えぬ何かが揺れている。`);
+    if(u.devoted)cand.push(`${nm(u)}が、王旗の前で無言のまま片膝をついていた。捧げた忠誠に迷いはない――その背が、そう語っていた。`);
+  }
+  if(!cand.length)return null;
+  return cand[Math.floor(Math.random()*cand.length)];
+}
 /* ---------- 1日ぶんの経済・加齢・敗北判定(晩にまとめて処理) ---------- */
 /* 季節の祭り(約100日ごと):村に賑わいと温かみのリズムを与え、士気・民心を高める */
 const FESTIVAL_FLAVORS=[
