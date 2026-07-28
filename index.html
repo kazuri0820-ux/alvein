@@ -10747,6 +10747,12 @@ function resolveDungeonRun(dungeonId){
   {const c=squadBeastHolder(squad,"vigor");if(c&&S.units.some(x=>x.id===c.id)){const before=c.fatigue||0;c.fatigue=Math.max(0,before-ri(10,18));c.moral=Math.min(100,(c.moral||0)+2);const bn=beastOf(c);if(before>0)chron(`${c.nm}の相棒${bn?`「${bn.nm}」`:"の霊猫"}が寄り添い、遠征の疲れは浅く済んだ。心なしか、足取りも軽い。`,"");}}
   for(const u of squad){if(u&&u.vigor){u.vigor=false;u.restDays=0;}} // 英気充溢は、この一戦で発揮され消費される
   removeActiveDungeon(dungeonId);
+  // 退いた要因を診断:負け戦から"何を直せばよいか"を読み取れるように(手応え/次の一手の学び)。centerRollは全ての下駄込みの実力中央値=成功閾値105との距離で判定
+  if(tier==="fail"||tier==="critical_fail"){
+    if(centerRoll>=85)dungeon._failCause="戦力は僅かに及ばなかったが、運が向けば届く一戦だった。編成を変えずとも再挑戦の価値がある";
+    else if(centerRoll>=65)dungeon._failCause="戦力が目安にやや届いていなかった。もう少し鍛え、偵察や陣形で備えを厚くして臨もう";
+    else dungeon._failCause="戦力が目安を大きく下回っていた。兵を鍛え直すか、より易しい迷宮から挑むのが賢明だ";
+  }
   clamp();render();renderTroops();refreshOpenPanels();save();
   showDungeonResult(dungeon,tier,bossWin,memberLog,goldGained,itemGained,died,diedWasHallWorthy,dungeonFound);
 }
@@ -10972,6 +10978,7 @@ function showDungeonResult(dungeon,tier,bossWin,memberLog,goldGained,itemGained,
   const journal=dungeonJournal(dungeon);
   if(journal.length)h+=`<div class="ds" style="font-style:italic;color:var(--dim);font-size:11.5px;line-height:1.75;margin:0 0 8px">${journal.map(j=>"― "+j).join("<br>")}</div>`;
   h+=`<div style="font-size:20px;font-weight:800;color:${tierColor};margin-bottom:6px;font-family:'Shippori Mincho',serif">${tierLabel}</div>`;
+  if((tier==="fail"||tier==="critical_fail")&&dungeon._failCause)h+=`<div class="ds" style="font-size:11.5px;color:#d9b56a;margin-bottom:8px;padding:5px 8px;border-left:2px solid #d99a6a;background:rgba(217,154,106,.08)">退いた要因:${dungeon._failCause}</div>`;
   if((tier==="critical_success"||tier==="success"))h+=`<div style="font-size:13px;color:${bossWin?"var(--gold)":"var(--dim)"};margin-bottom:6px">ボス「${dungeon.bossName}」:${bossWin?"撃破":"取り逃がした"}</div>`;
   if(goldGained)h+=`<div style="font-size:13px;color:var(--gold);margin-bottom:10px">獲得:${goldGained}G</div>`;
   { // この一戦を彩った采配・力を一望に:積み上げた仕組み(主眼・一番槍・熟成・相棒獣・装備の霊験・歴戦…)が働いた手応えを、結果画面で felt にする(磨き込み)
