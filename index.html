@@ -14707,7 +14707,7 @@ function renderItemTargetSelect(){
   if(!list.length)h+=`<div class="udet-empty">対象となる兵がいない。</div>`;
   for(const u of list){
     h+=`<button class="item-target-pick" data-id="${u.id}" style="display:block;width:100%;text-align:left;background:transparent;border:1px solid rgba(201,162,75,.3);color:var(--parch);border-radius:6px;padding:10px;margin-bottom:6px;font-family:'Zen Old Mincho',serif;cursor:pointer">
-      ${fullName(u)} <span style="font-size:11px;color:var(--dim)">${JOB_TREES[u.cls].label}・Lv.${u.lv}・戦力${Math.round(unitPower(u))}・疲労${u.fatigue||0}</span><br>
+      ${fullName(u)} <span style="font-size:11px;color:var(--dim)">${JOB_TREES[u.cls].label}・Lv.${u.lv}・戦力${Math.round(unitPower(u))}・疲労${u.fatigue||0}${u.age?`・${Math.floor(u.age)}歳`:""}</span>${(u.injured||0)>0?`<span style="font-size:11px;color:#d97a7a">・療養中(残${u.injured}日)</span>`:""}<br>
       ${def.statKey?`<span style="font-size:11px;color:var(--dim)">現在の${STAT_LABEL_JA[def.statKey]||""}:${u[def.statKey]}${def.amount?` → ${u[def.statKey]+def.amount}`:""}</span>`:""}
     </button>`;
   }
