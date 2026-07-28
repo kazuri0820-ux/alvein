@@ -11872,7 +11872,7 @@ function changeJobCore(u,newCls,note){
     unitHistory(u,note||`${oldLabel}から${JOB_TREES[newCls].label}へ転職した。`);
   }
 }
-let jobChangeUIOpen=false, jobChangeConfirmCls=null, dismissConfirmId=null, bondPickForId=null, mentorPickForId=null;
+let jobChangeUIOpen=false, jobChangeConfirmCls=null, dismissConfirmId=null, bondPickForId=null, mentorPickForId=null, royalEpithetPickForId=null;
 /* ===== 縁結び(育成の新軸):組織的に戦友の絆を結ぶ。自然発生に任せず、財を投じて二人の兵を結び、
    部隊連携や宿縁の霊地に活きる絆を能動的に育てる。関係性システムを"作れる"レバーに変える新機軸 ===== */
 const BOND_ARRANGE_COST=70;
@@ -13966,7 +13966,37 @@ function renderTroopControls(){
     favBtn.onclick=()=>{troopFavOnly=!troopFavOnly;renderTroops();};
   }
 }
+/* ===== 王の下賜・二つ名(人心/愛着の新レバー):功成った臣に、王がじきじきに二つ名を贈る。縁結び(戦友)・
+   師弟・知行と同じ"この一人を確かに讃える"投資だが、こちらは能力ではなく"名"を授ける――王国じゅうが、王の贈った
+   名でその者を呼ぶようになる。愛着の極み(名付け)を能動的な儀礼として王に与え、贈られた名は職・特性由来の二つ名に
+   優先して掲げられ、忠義と誇りを厚くする(能力補正を持たぬ純粋な誉れ)。 ===== */
+const ROYAL_EPITHETS=["常勝の楯","王国の礎","不撓の刃","暁光の担い手","王土の護り手","千軍の胆","忠烈の士","戦塵の英傑","王国の誉れ","揺るがぬ大黒柱","辺境の守護星","民の盾","王の右腕","不滅の武名"];
+const ROYAL_EPITHET_COST=100;
+function royalEpithetEligible(u){
+  if(!u||u.role!=="active"||u.royalEpithet)return false;
+  return (u.dungeonClearCount||0)>=5 || (u.titles||[]).length>=2 || !!u.captain || !!u.uniqueJob || (typeof militaryRankIndex==="function"&&militaryRankIndex(u)>=3);
+}
+function royalEpithetCandidates(u){ // 名の選択肢はu.idから安定生成(再描画で並びが変わらない)
+  if(!u)return [];
+  const start=hashInt(String(u.id||u.nm||"x"),ROYAL_EPITHETS.length);
+  const out=[]; for(let i=0;i<3;i++)out.push(ROYAL_EPITHETS[(start+i)%ROYAL_EPITHETS.length]);
+  return out;
+}
+function bestowRoyalEpithet(uid,epithet){
+  const u=findAnyUnit(uid); if(!u||!royalEpithetEligible(u))return;
+  if(!ROYAL_EPITHETS.includes(epithet))return;
+  if(S.gold<ROYAL_EPITHET_COST){chron(`二つ名を贈る儀を催すには蓄えが足りない(${ROYAL_EPITHET_COST}G必要)。`,"");return;}
+  S.gold-=ROYAL_EPITHET_COST;
+  u.royalEpithet=epithet;
+  u.loyalty=Math.min(100,(u.loyalty||0)+12); u.moral=Math.min(100,(u.moral||0)+8);
+  royalEpithetPickForId=null;
+  unitHistory(u,`王よりじきじきに二つ名「${epithet}」を賜った。生涯の誉れとして、その名に恥じぬ働きを胸に誓った。`);
+  chron(`――王は${fullName(u)}に、二つ名「${epithet}」を下賜した。以後、王国じゅうがこの者をその名で呼ぶだろう。無上の誉れに、忠義と誇りは一段と篤い(忠誠↑ 士気↑)。`,"big");
+  if(typeof recordAnnal==="function")recordAnnal(`${fullName(u)}が、王より二つ名「${epithet}」を賜った。`,"epithet_"+u.id,true);
+  clamp();render();renderTroops();save();
+}
 function unitNickname(u){
+  if(u.royalEpithet)return u.royalEpithet; // 王がじきじきに贈った二つ名は、あらゆる二つ名に優先して掲げられる
   if(u.uniqueJob){
     const uj=UNIQUE_JOBS.find(j=>j.key===u.uniqueJob);
     if(uj)return uj.nickname;
@@ -14119,7 +14149,7 @@ function bindTroopListDelegation(){
   $("#troopList").addEventListener("click",e=>{
     const card=e.target.closest(".ucard[data-uid]");
     if(!card)return;
-    openUnitDetailId=card.dataset.uid;jobChangeUIOpen=false;jobChangeConfirmCls=null;bondPickForId=null;mentorPickForId=null;renderUnitDetail(card.dataset.uid);$("#panelUnitDetail").classList.add("show");
+    openUnitDetailId=card.dataset.uid;jobChangeUIOpen=false;jobChangeConfirmCls=null;bondPickForId=null;mentorPickForId=null;royalEpithetPickForId=null;renderUnitDetail(card.dataset.uid);$("#panelUnitDetail").classList.add("show");
   });
 }
 const AGE_FLAVOR={
@@ -14233,6 +14263,23 @@ function renderUnitDetail(uid){
     }
   }
 
+  // ── 王の下賜・二つ名(功成った臣に、王がじきじき名を贈る) ──
+  if(!isInstructor&&(royalEpithetEligible(u)||u.royalEpithet)){
+    if(u.royalEpithet){
+      h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>王の下賜・二つ名</h4><div class="ds"><span style="color:var(--gold);font-weight:700">「${u.royalEpithet}」</span> ― 王よりじきじきに賜った、生涯の誉れ。王国じゅうが、この名でこの者を呼ぶ。</div></div>`;
+    }else if(royalEpithetPickForId===u.id){
+      const cands=royalEpithetCandidates(u);
+      h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>王の下賜・二つ名 ― 贈る名を選ぶ</h4>
+        <div class="ds" style="margin-bottom:6px">${fullName(u)}に授ける二つ名を選ぶ(儀礼の費え${ROYAL_EPITHET_COST}G)。贈られた名は職や特性の二つ名に優先して掲げられ、忠義と誇りを厚くする(一度きり・能力は変わらぬ純粋な誉れ)。</div>`;
+      for(const ep of cands){
+        h+=`<button class="epithet-pick-btn" data-e="${ep}" ${S.gold>=ROYAL_EPITHET_COST?"":"disabled"} style="display:block;width:100%;text-align:left;background:transparent;border:1px solid ${S.gold>=ROYAL_EPITHET_COST?"var(--gold2)":"rgba(255,255,255,.12)"};color:${S.gold>=ROYAL_EPITHET_COST?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px 10px;margin-bottom:5px;font-family:'Shippori Mincho',serif;font-size:12.5px;cursor:pointer">「${ep}」</button>`;
+      }
+      h+=`<button class="epithet-cancel-btn" style="width:100%;background:transparent;border:1px solid var(--dim);color:var(--dim);border-radius:6px;padding:7px;margin-top:2px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">やめる</button></div>`;
+    }else{
+      h+=`<div class="udet-sec"><h4><i class="icon-laurel"></i>王の下賜・二つ名</h4><div class="ds" style="margin-bottom:6px">功成ったこの臣に、王がじきじきに二つ名を贈れる(儀礼の費え${ROYAL_EPITHET_COST}G)。贈った名は職や特性の二つ名に優先して掲げられ、忠義と誇りを厚くする(能力は変わらぬ、純粋な誉れ)。</div>
+        <button id="epithetBestowBtn" ${S.gold>=ROYAL_EPITHET_COST?"":"disabled"} style="width:100%;background:${S.gold>=ROYAL_EPITHET_COST?"rgba(201,162,75,.14)":"transparent"};border:1px solid ${S.gold>=ROYAL_EPITHET_COST?"var(--gold)":"rgba(255,255,255,.12)"};color:${S.gold>=ROYAL_EPITHET_COST?"var(--gold)":"var(--dim)"};border-radius:6px;padding:8px;font-family:'Shippori Mincho',serif;font-size:11.5px;cursor:pointer">${S.gold>=ROYAL_EPITHET_COST?`二つ名を贈る儀を催す(${ROYAL_EPITHET_COST}G)`:`蓄えが足りない(${ROYAL_EPITHET_COST}G必要)`}</button></div>`;
+    }
+  }
   // ── 研鑽の方針(成長フォーカス) ──
   if(!isInstructor&&u.role==="active"){
     const pr=statPriorityFor(u);
@@ -14535,6 +14582,9 @@ function renderUnitDetail(uid){
   {const mentorBtn=$("#mentorArrangeBtn");if(mentorBtn)mentorBtn.onclick=()=>{mentorPickForId=uid;renderUnitDetail(uid);};}
   $("#unitDetailBody").querySelectorAll(".mentor-pick-btn").forEach(b=>b.onclick=()=>{const su=findAnyUnit(uid);if(!su)return;if(mentorEligibleMaster(su))arrangeMentorship(uid,b.dataset.b);else arrangeMentorship(b.dataset.b,uid);renderUnitDetail(uid);refreshOpenPanels();});
   {const mentorCancel=$("#unitDetailBody").querySelector(".mentor-cancel-btn");if(mentorCancel)mentorCancel.onclick=()=>{mentorPickForId=null;renderUnitDetail(uid);};}
+  {const epBtn=$("#epithetBestowBtn");if(epBtn)epBtn.onclick=()=>{royalEpithetPickForId=uid;renderUnitDetail(uid);};}
+  $("#unitDetailBody").querySelectorAll(".epithet-pick-btn").forEach(b=>b.onclick=()=>{bestowRoyalEpithet(uid,b.dataset.e);renderUnitDetail(uid);refreshOpenPanels();});
+  {const epCancel=$("#unitDetailBody").querySelector(".epithet-cancel-btn");if(epCancel)epCancel.onclick=()=>{royalEpithetPickForId=null;renderUnitDetail(uid);};}
   const jcBtn=$("#btnJobChange");
   if(jcBtn)jcBtn.onclick=()=>{jobChangeUIOpen=!jobChangeUIOpen;jobChangeConfirmCls=null;renderUnitDetail(uid);};
   $("#unitDetailBody").querySelectorAll(".jc-pick-btn").forEach(b=>b.onclick=()=>{jobChangeConfirmCls=b.dataset.cls;renderUnitDetail(uid);});
