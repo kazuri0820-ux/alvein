@@ -3449,6 +3449,11 @@ function retireUnit(u,asInstructor){
   if(asInstructor){ u.role="instructor"; S.instructors.push(u); }
   const rich=retirementTribute(u,asInstructor); // 功ある古参には、遺した武功と縁に即した花道を
   if(!rich)chron(asInstructor?`${u.nm}が現役を退き、若手の指南役となった。その豊富な経験は、これからも村の力になる。`:`${u.nm}が静かに現役を退いた。「あとは若い者に任せる」と、穏やかな顔をしていた。`,"big");
+  // 血脈(勇退の道):名を成した兵が完全に現役を退いた時も、その血を継ぐ若者が志願に名乗りを上げることがある(死のみだったlegacyの連なりを、引退にも広げる)。教官は名簿に残り薫陶を続けるため対象外。
+  if(!asInstructor){
+    const notable=((u.titles||[]).length>=2)||isHallWorthy(u)||u.fief||(typeof militaryRankIndex==="function"&&militaryRankIndex(u)>=3);
+    if(notable&&Math.random()<0.35&&(S.volunteers||[]).length<8)spawnHeir(u,true);
+  }
 }
 
 function newState(){
@@ -11087,7 +11092,7 @@ function fallenLastWords(u){
 /* 血脈(育成の新軸):真に名を成した兵が世を去った時、その血を継ぐ者が志願所に名乗りを上げることがある。姓と、
    親の器量のわずかな受け継ぎ、そして高い忠義を携えて。長く育て上げた英傑への投資が"次代"へ受け継がれ、死や
    老いに一縷の希望と物語の連なりを与える=愛着とlegacyを世代を跨いで繋ぐ新レバー。 */
-function spawnHeir(parent){
+function spawnHeir(parent,retired){
   if(!parent)return;
   S.volunteers=S.volunteers||[];
   if(S.volunteers.length>=8)return; // 志願所が満杯なら、この機は流れる
@@ -11095,12 +11100,18 @@ function spawnHeir(parent){
   const pname=fullName(parent);
   if(parent.surname)v.unit.surname=parent.surname; // 姓を継ぐ
   for(const k of ["str","vit","int","agi","wis","lead"]){const inh=Math.min(6,Math.round((parent[k]||0)*0.12));if(inh>0)v.unit[k]=(v.unit[k]||0)+inh;} // 親の器量をわずかに受け継ぐ
-  v.unit.lineage=pname;
   v.unit.loyalty=Math.min(100,(v.unit.loyalty||50)+8); // 血筋の誇りゆえ、はじめから忠義が篤い
   v.hiddenPotential=true;
-  v.comment=`亡き${pname}の血を継ぐ者。遺志を胸に、王国に仕えたいと願い出た。`;
-  S.volunteers.push(v);
-  chron(`――${pname}の死の報に、その血を継ぐ者が名乗りを上げた。「あの人の遺志は、私が継ぎます」。志願所に${fullName(v.unit)}が加わった(血脈)。`,"big");
+  if(retired){ // 勇退の血脈:親は健在ゆえ、"形見(=死)"を含意する lineage は付けず、姓と器量、親を慕う志で継ぐ
+    v.comment=`勇退した${pname}の血を継ぐ者。その武勇伝を聞いて育ち、同じ旗の下で剣を執りたいと願い出た。`;
+    S.volunteers.push(v);
+    chron(`――勇退した${pname}の背を見て育った血縁が、志願所に名乗りを上げた。「あの人のように、この国を守りたいのです」。${fullName(v.unit)}が加わった(血脈)。`,"big");
+  }else{
+    v.unit.lineage=pname;
+    v.comment=`亡き${pname}の血を継ぐ者。遺志を胸に、王国に仕えたいと願い出た。`;
+    S.volunteers.push(v);
+    chron(`――${pname}の死の報に、その血を継ぐ者が名乗りを上げた。「あの人の遺志は、私が継ぎます」。志願所に${fullName(v.unit)}が加わった(血脈)。`,"big");
+  }
 }
 /* ===== 宿敵(Nemesis):討ち逃した強敵が"宿敵"として心に刻まれ、再戦の迷宮が現れる。討てば因縁の決着と特別報酬。
    失敗を「いつか討つ」未来の目標に変え、格上への挑戦に個人的な因縁の物語を宿す新機軸 ===== */
