@@ -7390,6 +7390,29 @@ function checkRivalVignette(){
   for(const u of [a,b]){u.moral=Math.min(100,(u.moral||0)+2);}
   chron(`――${a.nm}と${b.nm}が、互いを好敵手と認め合った。同じ道を征く二人は、これからは相手の背中を追って腕を磨き合うだろう(一方が成長すると、もう一方も負けじと伸びる)。`,"big");
 }
+/* 好敵手の到達(関係の昇華):長く競い合い、共に高みへ達した好敵手は、いつしか誰より互いを認め合う無二の間柄へ――
+   その火花が、生涯の戦友の絆へと昇華することがある。確執→和解→好敵手 という positive アークの、さらにその先。
+   永続の成長競争に"到達"の物語を与え、育て上げた好敵手ペアへの愛着に報いる(戦友を持たぬ同士のみ・長い共戦が要る)。 */
+function checkRivalCulmination(){
+  if(Math.random()>=0.015)return; // ごく稀に
+  const active=(S.units||[]).filter(u=>u&&u.role==="active"&&(u.injured||0)<=0);
+  const ripe=[];
+  for(const u of active){
+    if(!u.rivalWith||u.bondWith)continue;
+    const r=active.find(x=>x.id===u.rivalWith);
+    if(!r||r.bondWith||u.id>=r.id)continue;
+    if(Math.min(u.lv||1,r.lv||1)>=25 && Math.min(S.day-(u.joinDay||S.day),S.day-(r.joinDay||S.day))>=120)ripe.push([u,r]); // 共に高みへ達し、長く競い合った間柄のみ
+  }
+  if(!ripe.length)return;
+  const [a,b]=ripe[Math.floor(Math.random()*ripe.length)];
+  a.rivalWith=null;b.rivalWith=null;
+  a.bondWith=b.id;b.bondWith=a.id;
+  a.moral=Math.min(100,(a.moral||0)+6);b.moral=Math.min(100,(b.moral||0)+6);
+  a.loyalty=Math.min(100,(a.loyalty||0)+4);b.loyalty=Math.min(100,(b.loyalty||0)+4);
+  unitHistory(a,`長年競い合った好敵手${b.nm}と、いつしか誰より認め合う生涯の戦友となった。`);
+  unitHistory(b,`長年競い合った好敵手${a.nm}と、いつしか誰より認め合う生涯の戦友となった。`);
+  chron(`――幾年も高め合ってきた好敵手、${a.nm}と${b.nm}。その火花は、いつしか誰より互いを認め合う無二の絆へと昇華していた。二人はこの日、生涯の戦友の契りを交わした。`,"big");
+}
 /* 志を語る:兵がまだ叶えぬ己の夢を口にする一幕を稀に拾い上げる。個々の目標(UNIT_DREAMS)を年代記に
    立ち上げ、達成の日への期待と、その兵への愛着を静かに育てる(個人的な物語の演出)。 */
 const DREAM_VIGNETTES=[
@@ -7894,6 +7917,7 @@ function dailyEconomySettle(){
   checkAspiration(); // 憧憬:若手が英雄に憧れ、その背中を追って人一倍伸びる(一方向の関係性の育成軸)
   checkFameVignette(); // 功を立てた兵の武名が市井で語られる一幕
   checkRivalVignette(); // 同職の兵同士が競い合い、互いを高め合う一幕
+  checkRivalCulmination(); // 好敵手の到達:長く競い共に高みへ達した好敵手が、生涯の戦友の絆へと昇華する
   checkDreamVignette(); // 兵が己の夢(個人的な目標)を語る一幕
   checkHermitWisdom(); // 山の隠者が、ときおり兵に技を授けたり国に叡智をもたらす(庵を結んだ後のみ)
   checkSilkRoad(); // 絹の道:開通後、東方の隊商がときおり異国の珍品を届ける(継続する恵み)
