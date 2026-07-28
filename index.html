@@ -11328,6 +11328,12 @@ const UNIQUE_JOBS=[
   check:(u)=>(u.titles||[]).length>=3&&u.traitTier==="legend"},
  {key:"roving_hero",name:"遍歴の英傑",nickname:"遍歴の英傑",
   check:(u)=>(u.dungeonClearCount||0)>=8&&(u.leaderCount||0)>=10}, // 迷宮を潜り抜け、幾度も部隊を率いた――攻守いずれにも通じた歴戦の万能兵(遍歴の道)
+ {key:"beast_sovereign",name:"獣を統べる者",nickname:"獣を統べる英雄",
+  check:(u)=>!!u.beast}, // 迷宮の獣を生涯の相棒とし、共に頂へ登りつめた者(相棒獣の道)
+ {key:"war_demon",name:"歴戦の鬼神",nickname:"歴戦の鬼神",
+  check:(u)=>typeof veteranTemper==="function"&&typeof VETERAN_TEMPER_CAP!=="undefined"&&veteranTemper(u)>=VETERAN_TEMPER_CAP}, // 数え切れぬ迷宮を潜り抜け、戦場そのものに体を刻み込んだ不倒の古強者(歴戦の道)
+ {key:"named_blade",name:"名剣を執る者",nickname:"名だたる得物の主",
+  check:(u)=>!!(u.equipment&&u.equipment.weapon&&u.equipment.weapon.mei)}, // 幾多の死線を共にした相棒の得物に固有の銘を宿し、それを揮って頂に立つ者(武具の絆の道)
  {key:"army_keystone",name:"軍の要石",nickname:"軍の要石",
   check:(u)=>typeof unitSupportTags==="function"&&unitSupportTags(u).length>=3}, // 庇護・医療・兵站…幾つもの支援を一身に担い、部隊を陰で支え続ける屋台骨(支援の道)
  {key:"king_ender",name:"覇王を屠りし者",nickname:"覇王を屠りし者",
