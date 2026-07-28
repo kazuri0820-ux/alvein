@@ -9162,8 +9162,32 @@ const BOSS_TRAITS={
   mentorking:{label:"教導の王",color:"#9fc98f",desc:"戦いながら兵を導く不思議な王。討ち果たせば、その教えから部隊の皆が大きく成長する(経験値)"},
   beastlord:{label:"獣心の王",color:"#c98a5a",desc:"数多の獣を従える野生の王。討ち果たせば、懐いた獣の一匹が勲功第一の兵に生涯の相棒として付き従う(相棒獣)"},
   anthemking:{label:"凱歌の王",color:"#e0b060",desc:"戦場に凱歌を轟かせる王。討ち果たせば、その勝ち鬨が部隊の疲れを吹き飛ばし、意気軒昂として帰還させる(疲労回復・士気↑)"},
+  mason:{label:"石工の王",color:"#b9a07a",desc:"古の石工術を極めた不動の王。討ち果たせば、その秘伝が国の職人に宿り、手がけている普請(事業)が一気に捗る"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
+/* 「石工の王」の報酬:討伐で得た秘伝の石工術を国の普請へ注ぎ、進行中の事業を一気に前進させる(完成に達したものは
+   通常の完工処理と同じく fx を発火)。ダンジョン攻略の成果を内政の建設へ橋渡しする新しい報酬軸。事業が無い時は
+   石工の遺した財貨で報いる。 */
+function bossMasonReward(dungeon,squad,levelMult){
+  const active=(S.projects||[]).filter(p=>p&&!p.done);
+  if(active.length){
+    const completed=[],advanced=[];
+    for(const p of active){
+      p.p=Math.min(100,(p.p||0)+ri(28,42)); // 秘伝の石工術で工期が一気に進む
+      if(p.p>=100){p.p=100;p.done=true;if(typeof p.fx==="function")p.fx();completed.push(p.nm);}
+      else advanced.push(p.nm);
+    }
+    let msg="「石工の王」を討ち果たすと、その秘伝の石工術が国の職人たちに宿った。";
+    if(completed.length)msg+=`滞っていた${completed.map(n=>`「${n}」`).join("・")}が一気に成し遂げられ、`;
+    if(advanced.length)msg+=`${advanced.map(n=>`「${n}」`).join("・")}の普請も大きく捗った。`;
+    msg+="王国の普請は、見違えて前へ進んだ。";
+    chron(msg,"big");
+  }else{
+    const g=Math.round(ri(50,90)*((dungeon.rarity&&dungeon.rarity.mult)||1)*(levelMult||1));
+    apply({gold:g});
+    chron(`「石工の王」を討ち果たした。今は手がけている普請が無く、遺された石工道具の一式を財貨${g}に換えた。`,"");
+  }
+}
 /* ダンジョンの環境(異変):一部のダンジョンに宿る特性。挑む前に見え、危険と実入りの綾を変える(ダンジョンの個性) */
 const DUNGEON_CONDITIONS={
   richaura:{label:"豊穣の気",color:"#8fbf6f",desc:"満ちた気が糧となり、踏破で得る経験値が増える"},
@@ -10953,6 +10977,7 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="mentorking"){for(const u of squad){const g=Math.round(ri(16,26)*levelMult);u.exp+=g;processLevelUps(u);}chron(`「教導の王」を討ち果たした部隊は、その死闘のさなかに授けられた教えを胸に、見違えて成長した(部隊全員が大きく経験を積んだ)。`,"big");}
         else if(dungeon.bossTrait==="beastlord"){const mvp=squad.filter(u=>u&&S.units.some(x=>x.id===u.id)&&!u.beast&&u.role==="active").sort((a,b)=>unitPower(b)-unitPower(a))[0];if(mvp&&typeof assignBeast==="function"){const bt=assignBeast(mvp);const k=beastKind(bt.kind);unitHistory(mvp,`「獣心の王」を討った際、その眷属の幼き${k.nm}「${bt.nm}」が懐き、生涯の相棒となった。`);chron(`「獣心の王」を討ち果たすと、従えられていた獣の一匹が、勲功第一の${fullName(mvp)}に懐いた。幼き${k.nm}「${bt.nm}」が、これより生涯の相棒として付き従う(相棒獣・${k.boonLabel})。`,"big");}else{const g=Math.round(ri(40,70)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「獣心の王」を討ち果たした。相棒に迎えられる獣はいなかったが、その巣から財貨${g}を持ち帰った。`,"");}}
         else if(dungeon.bossTrait==="anthemking"){let n=0;for(const u of squad){if(u&&S.units.some(x=>x.id===u.id)&&u.role==="active"){u.fatigue=Math.max(0,(u.fatigue||0)-40);u.moral=Math.min(100,(u.moral||0)+6);n++;}}if(n)chron(`「凱歌の王」を討ち果たすと、鳴り響いた勝ち鬨が部隊${n}名の疲れを吹き飛ばした。皆、意気軒昂として――疲労を癒し、士気も高く帰還した(すぐにまた出撃できる)。`,"big");else{const g=Math.round(ri(30,60)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「凱歌の王」を討ち果たし、財貨${g}を得た。`,"");}}
+        else if(dungeon.bossTrait==="mason"){bossMasonReward(dungeon,squad,levelMult);}
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
