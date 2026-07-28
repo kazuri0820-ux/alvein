@@ -11781,6 +11781,29 @@ function retireVeteranLegacy(u){
   for(const y of young){y.moral=Math.min(100,y.moral+6);y.loyalty=Math.min(100,y.loyalty+4);}
   chron(`${u.nm}の歩んだ道は、若い兵たちの胸に確かに刻まれた。その背中が、次の世代を静かに奮い立たせている。`,"big");
 }
+/* 名誉の引退(愛着×采配):老いた/長く仕えた/功ある兵を、王の裁量で"名誉ある引退"へ送り出せる。解雇(民心-・
+   不名誉)しか無かった能動的な去り際に、尊厳ある選択肢を与える――花道・殿堂入り・血脈(勇退)・後進への鼓舞まで、
+   引退イベントと同じ厚い見送りを、こちらの意志で。惜しい古参を、戦場で喪う前に誇りとともに退かせる一手。 */
+function canHonorRetire(u){
+  if(!u||u.role!=="active"||u.captain)return false; // 団長は騎士団の要職。退く前に団長を解く作法に委ねる
+  const stage=(typeof ageStageOf==="function")?ageStageOf(u):null;
+  const aging=stage&&(stage.key==="old"||stage.key==="venerable");
+  const tenure=(S.day||0)-(u.joinDay||S.day||0);
+  const notable=((u.titles||[]).length>=2)||(typeof isHallWorthy==="function"&&isHallWorthy(u))||!!u.fief||(typeof militaryRankIndex==="function"&&militaryRankIndex(u)>=3)||(u.dungeonClearCount||0)>=8;
+  return !!(aging||tenure>=200||notable); // 老兵・長く仕えた者・功ある者にのみ、名誉の引退の道を(即戦力の新兵を安易に整理する道にはしない)
+}
+function honorRetireCost(u){ return 40; } // 送別の宴と年金のささやかな費え
+function honorRetire(uid){
+  const u=findAnyUnit(uid); if(!u||!canHonorRetire(u))return;
+  const cost=honorRetireCost(u);
+  if(S.gold<cost){chron(`${u.nm}の名誉の引退に添える餞(${cost}G)が、今は工面できない。`,"");return;}
+  S.gold-=cost;
+  if(typeof retireVeteranLegacy==="function")retireVeteranLegacy(u); // 武勲ある者は後進を鼓舞する
+  S.mood=Math.min(100,(S.mood||0)+2); // 忠臣を敬って見送る王国に、民は敬意を寄せる
+  chron(`王は${fullName(u)}に、名誉の引退を賜った。長年の忠勤をねぎらう温かな送別に、老兵の目は潤んでいたという。`,"big");
+  retireUnit(u,false); // 花道・殿堂入り・血脈(勇退の道)は retireUnit が担う
+  clamp();render();renderTroops();save();
+}
 function buildRetireEvent(uid){
   const u=S.units.find(x=>x.id===uid);
   if(!u)return null;
@@ -11997,7 +12020,7 @@ function changeJobCore(u,newCls,note){
     unitHistory(u,note||`${oldLabel}から${JOB_TREES[newCls].label}へ転職した。`);
   }
 }
-let jobChangeUIOpen=false, jobChangeConfirmCls=null, dismissConfirmId=null, bondPickForId=null, mentorPickForId=null, royalEpithetPickForId=null;
+let jobChangeUIOpen=false, jobChangeConfirmCls=null, dismissConfirmId=null, bondPickForId=null, mentorPickForId=null, royalEpithetPickForId=null, honorRetireConfirmId=null;
 /* ===== 縁結び(育成の新軸):組織的に戦友の絆を結ぶ。自然発生に任せず、財を投じて二人の兵を結び、
    部隊連携や宿縁の霊地に活きる絆を能動的に育てる。関係性システムを"作れる"レバーに変える新機軸 ===== */
 const BOND_ARRANGE_COST=70;
@@ -14281,7 +14304,7 @@ function bindTroopListDelegation(){
   $("#troopList").addEventListener("click",e=>{
     const card=e.target.closest(".ucard[data-uid]");
     if(!card)return;
-    openUnitDetailId=card.dataset.uid;jobChangeUIOpen=false;jobChangeConfirmCls=null;bondPickForId=null;mentorPickForId=null;royalEpithetPickForId=null;renderUnitDetail(card.dataset.uid);$("#panelUnitDetail").classList.add("show");
+    openUnitDetailId=card.dataset.uid;jobChangeUIOpen=false;jobChangeConfirmCls=null;bondPickForId=null;mentorPickForId=null;royalEpithetPickForId=null;honorRetireConfirmId=null;renderUnitDetail(card.dataset.uid);$("#panelUnitDetail").classList.add("show");
   });
 }
 const AGE_FLAVOR={
@@ -14664,6 +14687,17 @@ function renderUnitDetail(uid){
     const jc=churchJobChangeCost(u);
     h+=`<button id="btnJobChange" style="flex:1;min-width:120px;background:transparent;color:${S.gold>=jc?"var(--gold)":"var(--dim)"};border:1px solid ${S.gold>=jc?"var(--gold2)":"rgba(255,255,255,.15)"};border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:700;font-size:12px;cursor:pointer">教会で転職させる(費用${jc})</button>`;
     if(dismissConfirmId!==u.id)h+=`<button id="btnDismiss" style="flex:1;min-width:120px;background:transparent;color:#d97a7a;border:1px solid rgba(217,122,122,.5);border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:700;font-size:12px;cursor:pointer">解雇する(解雇金${dc}・民心-)</button>`;
+    if(canHonorRetire(u)&&honorRetireConfirmId!==u.id&&dismissConfirmId!==u.id)h+=`<button id="btnHonorRetire" style="flex:1;min-width:120px;background:transparent;color:var(--gold);border:1px solid var(--gold2);border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:700;font-size:12px;cursor:pointer" title="老兵・長く仕えた者・功ある者を、王の裁量で名誉ある引退へ。花道・殿堂入り・血脈・後進の鼓舞まで、引退イベントと同じ厚い見送りを賜る(解雇と違い民心は下がらず、むしろ敬意を得る)">名誉の引退を賜る(${honorRetireCost(u)}G)</button>`;
+    if(honorRetireConfirmId===u.id){
+      h+=`<div class="pcard" style="width:100%;border-color:var(--gold2);margin-top:4px">
+        <div class="nm" style="color:var(--gold)">${u.nm} ${u.surname||""}に名誉の引退を賜りますか?</div>
+        <div class="ds">この操作は取り消せません。第一線を退きますが、その功は殿堂に刻まれ、花道をもって見送られます(民心は下がりません)。惜しい古参を、戦場で喪う前に誇りとともに退かせる道です。</div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button id="honorRetireYes" style="flex:1;background:linear-gradient(180deg,#e0be6f,var(--gold));color:var(--ink);border:none;border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;font-weight:800;cursor:pointer">名誉の引退を賜る</button>
+          <button id="honorRetireNo" style="flex:1;background:transparent;border:1px solid var(--dim);color:var(--dim);border-radius:6px;padding:9px;font-family:'Shippori Mincho',serif;cursor:pointer">やめておく</button>
+        </div>
+      </div>`;
+    }
     if(jobChangeUIOpen&&!jobChangeConfirmCls){
       const others=Object.keys(JOB_TREES).filter(k=>k!==u.cls);
       h+=`<div style="width:100%;display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">`+
@@ -14723,6 +14757,9 @@ function renderUnitDetail(uid){
   if(dismissYes)dismissYes.onclick=()=>{dismissConfirmId=null;dismissUnit(u);$("#panelUnitDetail").classList.remove("show");};
   const dismissNo=$("#dismissConfirmNo");
   if(dismissNo)dismissNo.onclick=()=>{dismissConfirmId=null;renderUnitDetail(uid);};
+  {const hrBtn=$("#btnHonorRetire");if(hrBtn)hrBtn.onclick=()=>{honorRetireConfirmId=u.id;renderUnitDetail(uid);};}
+  {const hrYes=$("#honorRetireYes");if(hrYes)hrYes.onclick=()=>{honorRetireConfirmId=null;honorRetire(uid);$("#panelUnitDetail").classList.remove("show");};}
+  {const hrNo=$("#honorRetireNo");if(hrNo)hrNo.onclick=()=>{honorRetireConfirmId=null;renderUnitDetail(uid);};}
   $("#unitDetailBody").querySelectorAll(".focus-btn").forEach(b=>b.onclick=()=>{setFocusStat(uid,b.dataset.k);renderUnitDetail(uid);});
   {const tt=$("#btnTypeTrain");if(tt)tt.onclick=()=>{trainDungeonType(uid);};}
   $("#unitDetailBody").querySelectorAll(".study-btn").forEach(b=>b.onclick=()=>{sendToStudy(uid,b.dataset.d);$("#panelUnitDetail").classList.remove("show");});
