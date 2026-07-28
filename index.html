@@ -2573,6 +2573,9 @@ const SURNAME_POOL={
 function pickSurname(raceKey){const pool=SURNAME_POOL[raceKey]||SURNAME_POOL.human;return pool[Math.floor(Math.random()*pool.length)];}
 /* 性格(純粋フレーバー、機能効果なし) */
 const PERSONALITIES=["熱血","冷静","温厚","野心家","楽天家","慎重"];
+// 相容れぬ気性の組(確執が芽生えやすい相性。対称に定義)。熱血×冷静・野心家×温厚・楽天家×慎重を軸に据える
+const PERSONALITY_CLASH={"熱血":["冷静","慎重"],"冷静":["熱血","楽天家"],"野心家":["温厚"],"温厚":["野心家"],"楽天家":["慎重","冷静"],"慎重":["熱血","楽天家"]};
+function personalityClash(a,b){return (PERSONALITY_CLASH[a]||[]).includes(b);}
 const PERSONALITY_FRAG={
  熱血:["昔から血の気が多く、じっとしていられない性分だった。","何事にも真っ向からぶつかっていく気質だという。","一度火がつくと、誰にも止められないらしい。","負けん気の強さは、幼い頃から近所でも評判だった。"],
  冷静:["物事を落ち着いて見極める癖がある。","感情に流されることは滅多にないという。","どんな修羅場でも、顔色一つ変えないと評判だった。","静かに周りを観察するのが、昔からの癖らしい。"],
@@ -2731,7 +2734,7 @@ function makeUnit(){
     trait:trait.key, traitTier:trait.tier, pw:trait.pw||0, gm:trait.gm, route:null, titles:[], founder:false, totalExpEarned:0, criticalSurvivalCount:0, uniqueJob:null, wasCaptain:false, lifespanVariance:rnd(0.82,1.22), stageTiming:rnd(0.82,1.22),
     skills:[], injured:0, captain:false,
     age:startAge, role:"active", retiredAskedStage:null,
-    bondWith:null, rivalWith:null, masterId:null, pupilId:null, beast:null, joinDay:(S&&S.day)||1,
+    bondWith:null, rivalWith:null, discordWith:null, masterId:null, pupilId:null, beast:null, joinDay:(S&&S.day)||1,
     history:[],
     awakened:false, awakenTitle:null,
     fatigue:0, favorite:false, birthDay:ri(1,AGE_YEAR_DAYS), skillCapBase:ri(1,10),
@@ -3014,6 +3017,10 @@ function removeUnitById(id,reason){
     const rv=S.units.find(x=>x.id===u.rivalWith);
     if(rv){rv.rivalWith=null;rv.moral=Math.max(0,(rv.moral||0)-6);setAvenge(rv,u.nm);unitHistory(rv,`好敵手${u.nm}を失い、その分まで武を極めんと燃え上がった(弔い合戦)。`);chron(`${rv.nm}は、好敵手${u.nm}の死を胸に刻み、その想いを闘志に変えて戦場へ向かった。`,"grave");}
   }
+  if(u.discordWith){ // 確執の相手を失うと、遺恨は行き場をなくし、静かに消える
+    const dv=S.units.find(x=>x.id===u.discordWith);
+    if(dv){dv.discordWith=null;unitHistory(dv,`確執のあった${u.nm}が世を去り、行き場をなくした遺恨は、静かに胸の内で消えていった。`);}
+  }
   // 憧れの英雄を失った若手は、深く悼み、その遺志を胸に歩み出す
   for(const ad of S.units){ if(ad.id!==u.id&&ad.admires===u.id){ ad.admires=null; ad.moral=Math.max(0,(ad.moral||0)-5); unitHistory(ad,`憧れた英雄${u.nm}を失い、深い喪失に沈んだ。だがその背中を胸に刻み、あとを継ぐと誓った。`); chron(`${ad.nm}は、憧れの${u.nm}の死を誰よりも悼んだ。いつかあの人のように――その想いは、決意へと姿を変えていく。`,"grave"); } }
   if(u.masterId){const mst=S.units.find(x=>x.id===u.masterId);if(mst){mst.pupilId=null;mst.moral=Math.max(0,(mst.moral||0)-5);setAvenge(mst,u.nm);unitHistory(mst,`育てていた弟子${u.nm}を失い、その無念を晴らさんと刃を執った(弔い合戦)。`);}}
@@ -3278,6 +3285,23 @@ function checkAging(){
       chron(`${a.nm}と${b.nm}が、いつしか戦友と呼び合うようになっていた。`,"sys");
     }
   }
+  // 確執(不仲)の芽:相容れぬ気性の二人の間に、稀にわだかまりが生まれる(絆の負の対。同じ部隊に組むと連携に綻びが出るため、編成の判断軸になる)
+  if(S.units.length>=3&&Math.random()<0.012){
+    const cands=S.units.filter(u=>!u.discordWith&&u.role==="active"); // 既に確執を抱える者は除く(一人一つまで)
+    const pairs=[];
+    for(let i=0;i<cands.length;i++)for(let j=i+1;j<cands.length;j++){
+      const a=cands[i],b=cands[j];
+      if(personalityClash(a.personality,b.personality)&&a.bondWith!==b.id&&a.rivalWith!==b.id)pairs.push([a,b]); // 戦友・好敵手の間柄には確執を生まない(既にある縁を壊さない)
+    }
+    if(pairs.length){
+      const [a,b]=pairs[Math.floor(Math.random()*pairs.length)];
+      a.discordWith=b.id;b.discordWith=a.id;
+      a.moral=Math.max(0,a.moral-4);b.moral=Math.max(0,b.moral-4);
+      unitHistory(a,`${b.nm}とは、どうにもそりが合わない。顔を合わせるたび、火花が散る。`);
+      unitHistory(b,`${a.nm}とは、どうにもそりが合わない。顔を合わせるたび、火花が散る。`);
+      chron(`${a.nm}(${a.personality})と${b.nm}(${b.personality})の気性が噛み合わず、二人の間に確執が生まれてしまった。同じ部隊に組めば連携に響くだろう。`,"sys");
+    }
+  }
   // 師弟の縁(低確率):熟練の兵が、見込みある若手を弟子に取る。弟子は日々成長し、やがて独り立ちする
   if(S.units.length>=2&&Math.random()<0.015){
     const masters=S.units.filter(u=>u.role==="active"&&!u.pupilId&&!u.masterId&&(u.lv||1)>=15);
@@ -3324,6 +3348,11 @@ function retireUnit(u,asInstructor){
     const partner=S.units.find(x=>x.id===u.bondWith);
     if(partner){partner.bondWith=null;unitHistory(partner,`戦友${u.nm}の引退を見送った。`);}
     u.bondWith=null;
+  }
+  if(u.discordWith){ // 確執の相手が退けば、遺恨も自然と収まる
+    const dv=S.units.find(x=>x.id===u.discordWith);
+    if(dv){dv.discordWith=null;unitHistory(dv,`確執のあった${u.nm}が現役を退き、長年のわだかまりも自然と収まった。`);}
+    u.discordWith=null;
   }
   if(asInstructor){ u.role="instructor"; S.instructors.push(u); }
   const rich=retirementTribute(u,asInstructor); // 功ある古参には、遺した武功と縁に即した花道を
@@ -9515,6 +9544,10 @@ function squadSynergyMult(squad){
   let rivalPairs=0;
   for(const u of squad)if(u.rivalWith&&ids.has(u.rivalWith)&&u.id<u.rivalWith)rivalPairs++;
   const rivalBonus=rivalPairs*0.07;
+  // 確執の亀裂:同じ部隊に不仲のペアがいると連携に綻びが生じ、部隊の力がわずかに落ちる(絆・好敵手の負の対。苦楽を共にすれば和解して消える)
+  let discordPairs=0;
+  for(const u of squad)if(u.discordWith&&ids.has(u.discordWith)&&u.id<u.discordWith)discordPairs++;
+  const discordPenalty=discordPairs*0.06;
   // 獣人は群れで動くことを好む:同じ部隊に2人以上いると連携(群れの戦法)が上乗せされる(種族の個性)
   const beastCount=squad.filter(u=>u.race==="beastkin").length;
   const packBonus=beastCount>=2?Math.min(0.12,(beastCount-1)*0.05):0;
@@ -9526,7 +9559,7 @@ function squadSynergyMult(squad){
     const trS=(traitInfo(u.trait)||{}).squadSynergy; if(trS)tacticianBonus+=trS; // 「座持ちの才」等の特性も采配系と同様に連携を高める(特性/スキル両対応)
   }
   tacticianBonus=Math.min(0.12,tacticianBonus);
-  return Math.max(0.9,Math.min(1.45,1+sameRouteBonus-overlapPenalty+historyBonus+bondBonus+rivalBonus+packBonus+honorBonus+tacticianBonus));
+  return Math.max(0.9,Math.min(1.45,1+sameRouteBonus-overlapPenalty+historyBonus+bondBonus+rivalBonus-discordPenalty+packBonus+honorBonus+tacticianBonus));
 }
 // パーティの「質」を測る指標。人数を増やすだけで有利にならないよう平均戦力を基準にし、
 // 5人編成を基準にしたrequiredPowerとそのまま比較できるよう5倍して正規化する。
@@ -10148,6 +10181,30 @@ function medicAdjustWeights(w,squad){
   const shift=Math.min(w[2],0.5*m); // 重傷の確率を軽傷側へ移す
   return [w[0]+shift, w[1], Math.max(0,w[2]-shift)];
 }
+// 苦楽を共にした確執の解け:確執のある二人が同じ部隊で死地を越えると、わだかまりが解けて互いを認め合う。
+// 時にその和解は競い合う好敵手の契りへと昇華する(負の関係の救済アーク=編成の緊張に物語の報いを与える)
+function resolveDiscordOnClear(squad,dungeon){
+  if(!squad||squad.length<2)return;
+  const ids=new Set(squad.map(u=>u.id));
+  const done=new Set();
+  for(const u of squad){
+    if(!u.discordWith||!ids.has(u.discordWith)||done.has(u.id))continue;
+    const o=squad.find(x=>x.id===u.discordWith);
+    if(!o)continue;
+    done.add(u.id);done.add(o.id);
+    u.discordWith=null;o.discordWith=null;
+    u.moral=Math.min(100,(u.moral||0)+5);o.moral=Math.min(100,(o.moral||0)+5);
+    u.loyalty=Math.min(100,(u.loyalty||100)+4);o.loyalty=Math.min(100,(o.loyalty||100)+4);
+    unitHistory(u,`確執のあった${o.nm}と死地を共にし、わだかまりが解けて互いを認め合った。`);
+    unitHistory(o,`確執のあった${u.nm}と死地を共にし、わだかまりが解けて互いを認め合った。`);
+    if(!u.rivalWith&&!o.rivalWith&&Math.random()<0.5){ // 認め合いが好敵手の契りへ昇華することがある
+      u.rivalWith=o.id;o.rivalWith=u.id;
+      chron(`「${dungeon.name}」の死地を共に越えた${u.nm}と${o.nm}は、長年の確執を解き、いつしか認め合う好敵手となっていた。`,"big");
+    }else{
+      chron(`「${dungeon.name}」を共に踏破した${u.nm}と${o.nm}の間から、長年の確執が消えていた。`,"sys");
+    }
+  }
+}
 function resolveDungeonRun(dungeonId){
   const dungeon=(S.activeDungeons||[]).find(d=>d.id===dungeonId);
   if(!dungeon){return;}
@@ -10220,6 +10277,7 @@ function resolveDungeonRun(dungeonId){
         chron(`「${dungeon.name}」の宿縁の霊地を越えたが、縁を分かち合う組がおらず、その真価は引き出せなかった。`,"");
       }
     }
+    resolveDiscordOnClear(squad,dungeon); // 踏破を共にした確執の二人が和解する(負の関係の救済)
     if(bossWin){
       const crit=tier==="critical_success"; // 大成功はジャックポット扱い(強い部隊を組んだ手応えに報酬で応える)
       itemGained=rollItemDrop(dungeon.rarity.key);
@@ -13398,7 +13456,7 @@ function renderTroops(){
     const cc=CLASS_COLOR[u.cls];
     const j=jobFor(u.cls,u.lv,u.route);
     const cond=conditionInfo(u);
-    const statusIcons=(u.favorite?`<span class="uicon" title="お気に入り" style="color:var(--gold)">★</span>`:"")+(u.injured>0?`<span class="uicon" title="療養中">${ICON_INJURED}</span>`:"")+(()=>{const dt=unitDutyType(u);if(dt){const dn={guard:"警備駐屯中",trade:"交易護衛中",scout:"巡回偵察中"}[dt]||"駐屯中";return `<span class="uicon" title="${dn}(小隊の駐屯任務)" style="color:#8fb0d0">駐</span>`;}return u.envoyUntil?`<span class="uicon" title="親善の使者として出立中" style="color:#c9a86a">使</span>`:u.dungeonBusy?`<span class="uicon" title="ダンジョン探索中" style="color:#c98fe8">⛏</span>`:"";})()+(u.bondWith?`<span class="uicon" title="戦友あり">${ICON_BOND}</span>`:"")+(u.rivalWith?`<span class="uicon" title="好敵手あり(同陣で連携↑・互いに成長)" style="color:#d9a05e">⚔</span>`:"")+(u.masterId?`<span class="uicon" title="師のもとで修行中(日々成長)" style="color:#8fb0d0">弟</span>`:"")+(u.pupilId?`<span class="uicon" title="弟子を育成中" style="color:#8fb0d0">師</span>`:"")+(u.admires?(()=>{const h=S.units.find(x=>x.id===u.admires);return h?`<span class="uicon" title="${h.nm}に憧れ、その背中を追って伸びている" style="color:#c9a0d0">憧</span>`:"";})():"")+((u.loyalty||100)<25&&!u.injured?`<span class="uicon" title="忠誠が低く、戦力が15%落ちている(慰労・結束の宴・忠魂の霊地で立て直せる)" style="color:#d97a7a">⚑</span>`:"")+(u.dreamDone?`<span class="uicon" title="かねての夢を叶えた兵" style="color:var(--gold)">✦</span>`:"")+((u.typeMastery&&Object.keys(u.typeMastery).length)?`<span class="uicon" title="攻略型を極めた熟達の兵(${Object.keys(u.typeMastery).map(k=>dungeonTypeLabel(k)).join("・")})" style="color:#c9a86a">極</span>`:"")+((u.hardships||0)>=HARDENED_THRESHOLD?`<span class="uicon" title="幾多の敗北を乗り越えた叩き上げの古兵(忠義・士気が篤い)" style="color:#b89a6a">叩</span>`:"")+(u.vigor?`<span class="uicon" title="英気充溢:十分に休み、次の出撃で戦力が高まる" style="color:#8fbf6f">気</span>`:"")+(u.sigFeat?`<span class="uicon" title="語り草の武勲を持つ兵:${u.sigFeat.text}" style="color:#e0be6f">誉</span>`:"")+((Array.isArray(u.jobsWalked)&&u.jobsWalked.length>=2)?`<span class="uicon" title="万夫の器:幾つもの職の道を修め、覚えられる技の枠が広い(${u.jobsWalked.map(k=>(JOB_TREES[k]&&JOB_TREES[k].label)||k).join('→')})" style="color:#c9a86a">器</span>`:"")+(u.fief?`<span class="uicon" title="知行持ち:王より領地を賜った臣。忠義が揺るがず、所領からわずかな禄が国庫に入る" style="color:#d8b45e">領</span>`:"")+(u.lineage?`<span class="uicon" title="血脈:亡き${u.lineage}の血を継ぐ者。器量の一端と篤い忠義を受け継ぐ" style="color:#d8b45e">血</span>`:"");
+    const statusIcons=(u.favorite?`<span class="uicon" title="お気に入り" style="color:var(--gold)">★</span>`:"")+(u.injured>0?`<span class="uicon" title="療養中">${ICON_INJURED}</span>`:"")+(()=>{const dt=unitDutyType(u);if(dt){const dn={guard:"警備駐屯中",trade:"交易護衛中",scout:"巡回偵察中"}[dt]||"駐屯中";return `<span class="uicon" title="${dn}(小隊の駐屯任務)" style="color:#8fb0d0">駐</span>`;}return u.envoyUntil?`<span class="uicon" title="親善の使者として出立中" style="color:#c9a86a">使</span>`:u.dungeonBusy?`<span class="uicon" title="ダンジョン探索中" style="color:#c98fe8">⛏</span>`:"";})()+(u.bondWith?`<span class="uicon" title="戦友あり">${ICON_BOND}</span>`:"")+(u.rivalWith?`<span class="uicon" title="好敵手あり(同陣で連携↑・互いに成長)" style="color:#d9a05e">⚔</span>`:"")+(u.discordWith?`<span class="uicon" title="確執あり(同陣で連携↓・共に踏破すれば和解する)" style="color:#d97a7a">✗</span>`:"")+(u.masterId?`<span class="uicon" title="師のもとで修行中(日々成長)" style="color:#8fb0d0">弟</span>`:"")+(u.pupilId?`<span class="uicon" title="弟子を育成中" style="color:#8fb0d0">師</span>`:"")+(u.admires?(()=>{const h=S.units.find(x=>x.id===u.admires);return h?`<span class="uicon" title="${h.nm}に憧れ、その背中を追って伸びている" style="color:#c9a0d0">憧</span>`:"";})():"")+((u.loyalty||100)<25&&!u.injured?`<span class="uicon" title="忠誠が低く、戦力が15%落ちている(慰労・結束の宴・忠魂の霊地で立て直せる)" style="color:#d97a7a">⚑</span>`:"")+(u.dreamDone?`<span class="uicon" title="かねての夢を叶えた兵" style="color:var(--gold)">✦</span>`:"")+((u.typeMastery&&Object.keys(u.typeMastery).length)?`<span class="uicon" title="攻略型を極めた熟達の兵(${Object.keys(u.typeMastery).map(k=>dungeonTypeLabel(k)).join("・")})" style="color:#c9a86a">極</span>`:"")+((u.hardships||0)>=HARDENED_THRESHOLD?`<span class="uicon" title="幾多の敗北を乗り越えた叩き上げの古兵(忠義・士気が篤い)" style="color:#b89a6a">叩</span>`:"")+(u.vigor?`<span class="uicon" title="英気充溢:十分に休み、次の出撃で戦力が高まる" style="color:#8fbf6f">気</span>`:"")+(u.sigFeat?`<span class="uicon" title="語り草の武勲を持つ兵:${u.sigFeat.text}" style="color:#e0be6f">誉</span>`:"")+((Array.isArray(u.jobsWalked)&&u.jobsWalked.length>=2)?`<span class="uicon" title="万夫の器:幾つもの職の道を修め、覚えられる技の枠が広い(${u.jobsWalked.map(k=>(JOB_TREES[k]&&JOB_TREES[k].label)||k).join('→')})" style="color:#c9a86a">器</span>`:"")+(u.fief?`<span class="uicon" title="知行持ち:王より領地を賜った臣。忠義が揺るがず、所領からわずかな禄が国庫に入る" style="color:#d8b45e">領</span>`:"")+(u.lineage?`<span class="uicon" title="血脈:亡き${u.lineage}の血を継ぐ者。器量の一端と篤い忠義を受け継ぐ" style="color:#d8b45e">血</span>`:"");
     const reserveTag=(S.flags.knightOrder&&!isInRoster(u))?`<span class="reservetag">控え</span>`:"";
     const nick=nicknameSpan(u);
     const statmax=500;
@@ -13526,6 +13584,7 @@ function renderUnitDetail(uid){
         <span class="udet-chip">在籍${Math.max(0,S.day-(u.joinDay||1))}日</span>
         ${u.bondWith?`<span class="udet-chip">戦友あり</span>`:""}
         ${(()=>{if(!u.rivalWith)return"";const r=(S.units||[]).find(x=>x.id===u.rivalWith);return r?`<span class="udet-chip" style="color:#d9a05e;border-color:#d9a05e" title="同じ道を征く好敵手。互いに競い合い、一方が伸びればもう一方も負けじと成長する">好敵手:${r.nm}</span>`:"";})()}
+        ${(()=>{if(!u.discordWith)return"";const r=(S.units||[]).find(x=>x.id===u.discordWith);return r?`<span class="udet-chip" style="color:#d97a7a;border-color:#d97a7a" title="そりの合わぬ確執の相手。同じ部隊に組むと連携が乱れるが、共に死地を越えれば和解し、時に好敵手へと変わる">確執:${r.nm}</span>`:"";})()}
         ${(()=>{if(u.masterId){const m=(S.units||[]).find(x=>x.id===u.masterId);return m?`<span class="udet-chip" style="color:#8fb0d0;border-color:#8fb0d0" title="師の薫陶を受けて日々成長中。師のレベルに近づけば独り立ちする">師:${m.nm}</span>`:"";}if(u.pupilId){const pu=(S.units||[]).find(x=>x.id===u.pupilId);return pu?`<span class="udet-chip" style="color:#8fb0d0;border-color:#8fb0d0" title="弟子を育てている。一人前に育て上げれば師の誇りとなる">弟子:${pu.nm}</span>`:"";}return"";})()}
         ${!isInstructor&&u.route&&routeInfo(u.cls,u.route)&&routeInfo(u.cls,u.route).aff?`<span class="udet-chip" style="border-color:var(--gold2)" title="この路が得意とする攻略型。噛み合う迷宮で攻略適性が上がる">得意迷宮:${dungeonTypeLabel(routeInfo(u.cls,u.route).aff)}</span>`:""}
         ${(()=>{if(!u.typeMastery)return"";const ks=Object.keys(u.typeMastery);if(!ks.length)return"";return `<span class="udet-chip" style="color:#c9a86a;border-color:#c9a86a" title="踏破を重ねて経験で極めた得意型。攻略適性+10%(路の得意と重ねられる)">熟達:${ks.map(k=>dungeonTypeLabel(k)).join("・")}</span>`;})()}
@@ -14396,7 +14455,7 @@ function renderDungeonPanel(){
           <div class="pcard-portrait" style="background:radial-gradient(circle at 35% 30%, ${cc}, ${cc}88 70%, #1c2030)">${classpicHtml(u)}</div>
           <div style="flex:1;min-width:0">
             <div class="nm"><i class="cbicon ${picked?"on":"off"}"></i>${u.nm} ${u.surname||""} <span style="font-size:11px;color:var(--dim);font-weight:400">${JOB_TREES[u.cls].label}・Lv.${u.lv}</span></div>
-            <div class="ds">戦力${Math.round(unitPower(u))}${d.type?` ／ ${d.type.label}適性${Math.round(aff)}`:""}${d.type&&u.route&&(routeInfo(u.cls,u.route)||{}).aff===d.type.key?` <span style="color:var(--gold);font-weight:700" title="この兵の路が得意とする攻略型。攻略適性が上がる">★得意</span>`:""}${d.type&&u.typeMastery&&u.typeMastery[d.type.key]?` <span style="color:#c9a86a;font-weight:700" title="踏破を重ねて経験で極めた得意型。攻略適性+10%">★熟達</span>`:d.type&&u.typeClears&&u.typeClears[d.type.key]?` <span style="color:var(--dim);font-size:10px" title="あと${Math.max(0,TYPE_MASTERY_NEED-(u.typeClears[d.type.key]||0))}回の踏破でこの型を得意にする">熟達まで${Math.max(0,TYPE_MASTERY_NEED-(u.typeClears[d.type.key]||0))}</span>`:""}${(u.loyalty||100)<25?` <span style="color:#d97a7a;font-weight:700" title="忠誠が低く、戦力が15%落ちている">⚑忠誠低下</span>`:""}${(()=>{const t=unitSupportTags(u);return t.length?` <span style="color:#8fbf6f;font-size:10px" title="この兵が部隊にもたらす支援効果">【${t.join("・")}】</span>`:"";})()}${u.bondWith&&dgSelectedUnitIds.includes(u.bondWith)?` <span style="color:#d99ab0;font-weight:700" title="戦友が同じ部隊にいる。背中を預け合い、部隊の連携が高まる">◆戦友同陣</span>`:""}${(u.masterId&&dgSelectedUnitIds.includes(u.masterId))||(u.pupilId&&dgSelectedUnitIds.includes(u.pupilId))?` <span style="color:#8fb0d0;font-weight:700" title="師弟が同じ部隊にいる。共に勝てば、師の技を実戦で受け継ぐ一幕が生まれることがある">◆師弟同陣</span>`:""}${u.rivalWith&&dgSelectedUnitIds.includes(u.rivalWith)?` <span style="color:#d9a05e;font-weight:700" title="好敵手が同じ部隊にいる。互いに奮起して部隊の連携が高まる">◆好敵手同陣</span>`:u.rivalWith?` <span style="color:var(--dim);font-size:10px" title="この兵には好敵手がいる。同じ部隊に組むと連携が上がる">好敵手あり</span>`:""}</div>
+            <div class="ds">戦力${Math.round(unitPower(u))}${d.type?` ／ ${d.type.label}適性${Math.round(aff)}`:""}${d.type&&u.route&&(routeInfo(u.cls,u.route)||{}).aff===d.type.key?` <span style="color:var(--gold);font-weight:700" title="この兵の路が得意とする攻略型。攻略適性が上がる">★得意</span>`:""}${d.type&&u.typeMastery&&u.typeMastery[d.type.key]?` <span style="color:#c9a86a;font-weight:700" title="踏破を重ねて経験で極めた得意型。攻略適性+10%">★熟達</span>`:d.type&&u.typeClears&&u.typeClears[d.type.key]?` <span style="color:var(--dim);font-size:10px" title="あと${Math.max(0,TYPE_MASTERY_NEED-(u.typeClears[d.type.key]||0))}回の踏破でこの型を得意にする">熟達まで${Math.max(0,TYPE_MASTERY_NEED-(u.typeClears[d.type.key]||0))}</span>`:""}${(u.loyalty||100)<25?` <span style="color:#d97a7a;font-weight:700" title="忠誠が低く、戦力が15%落ちている">⚑忠誠低下</span>`:""}${(()=>{const t=unitSupportTags(u);return t.length?` <span style="color:#8fbf6f;font-size:10px" title="この兵が部隊にもたらす支援効果">【${t.join("・")}】</span>`:"";})()}${u.bondWith&&dgSelectedUnitIds.includes(u.bondWith)?` <span style="color:#d99ab0;font-weight:700" title="戦友が同じ部隊にいる。背中を預け合い、部隊の連携が高まる">◆戦友同陣</span>`:""}${(u.masterId&&dgSelectedUnitIds.includes(u.masterId))||(u.pupilId&&dgSelectedUnitIds.includes(u.pupilId))?` <span style="color:#8fb0d0;font-weight:700" title="師弟が同じ部隊にいる。共に勝てば、師の技を実戦で受け継ぐ一幕が生まれることがある">◆師弟同陣</span>`:""}${u.rivalWith&&dgSelectedUnitIds.includes(u.rivalWith)?` <span style="color:#d9a05e;font-weight:700" title="好敵手が同じ部隊にいる。互いに奮起して部隊の連携が高まる">◆好敵手同陣</span>`:u.rivalWith?` <span style="color:var(--dim);font-size:10px" title="この兵には好敵手がいる。同じ部隊に組むと連携が上がる">好敵手あり</span>`:""}${u.discordWith&&dgSelectedUnitIds.includes(u.discordWith)?` <span style="color:#d97a7a;font-weight:700" title="確執のある兵が同じ部隊にいる。連携が乱れ部隊の力が落ちる。だが共に踏破すれば和解する">▲確執同陣</span>`:u.discordWith?` <span style="color:var(--dim);font-size:10px" title="この兵には確執の相手がいる。同じ部隊に組むと連携が落ちる">確執あり</span>`:""}</div>
           </div>
         </div>
         <button class="dg-unit-detail" data-id="${u.id}" style="margin-top:6px;width:100%;background:transparent;border:1px solid rgba(201,162,75,.35);color:var(--dim);border-radius:6px;padding:6px;font-size:11.5px;font-family:'Zen Old Mincho',serif;cursor:pointer">能力の詳細を見る</button>
