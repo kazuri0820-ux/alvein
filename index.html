@@ -6817,6 +6817,7 @@ function checkFixedDayEvents(){
     const pool=["__recruit__","__random__","__rare__"];
     if(S.day<70)pool.push("__growth__");
     if(Math.random()<0.12)pool.push("__merchant_visit__","__merchant_visit__","__merchant_visit__");
+    if(S.day>=45&&(S.neighbors||[]).some(n=>n&&!n.allied)&&Math.random()<0.10)pool.push("__defector__"); // 国が育ち諸国との縁が生まれた頃、非同盟国から亡命者が訪れる
     pushEvent(pool[Math.floor(Math.random()*pool.length)]);
     fired=true;
   }
@@ -7700,6 +7701,7 @@ const EVENT_ID_EXACT={
   "__border_deadline__":()=>buildBorderDeadlineResult(),
   "__outbreak_deadline__":()=>buildOutbreakDeadlineResult(),
   "__merchant_visit__":()=>buildMerchantVisitEvent(),
+  "__defector__":()=>buildDefectorEvent(),
   "__growth__":()=>pickFresh(EARLY_GROWTH),
   "__mission__":()=>buildMissionEvent(),
   "__old_equipment__":()=>buildOldEquipmentEvent(),
@@ -11876,6 +11878,38 @@ function giftNeighbor(idx){
   apply({st:{diplomacy:1}});
   chron(`${neighborName(nb.key)}へ贈り物を送り、誼を深めた(関係↑)。`,"");
   clamp();render();renderProjects();save();
+}
+/* 亡命者の来訪(募兵×外交の再結合):隣国から腕利きの武人が離反し、庇護を求めて来る。召し抱えれば逸材を
+   得るがその隣国の心証は悪化し、送り返せば誼は深まるが縋る者を拒む痛み――"兵が欲しいか、誼を保つか"という
+   意味ある択一を、既存の志願所と近隣関係を噛み合わせて生む(新しい体験・戦略的ジレンマ)。 */
+function buildDefectorEvent(){
+  ensureNeighbors();
+  const cands=(S.neighbors||[]).filter(n=>n&&!n.allied); // 亡命は非同盟国から来やすい(盟約を無闇に壊さない)
+  const pool=cands.length?cands:(S.neighbors||[]);
+  if(!pool.length)return null;
+  const nb=pool[Math.floor(Math.random()*pool.length)];
+  const nbName=neighborName(nb.key);
+  return {tag:"亡 命",title:"亡命者の来訪",
+   body:`${nbName}を逃れてきたという、腕に覚えのある武人が、人目を忍んで城門を叩いた。「祖国には、もはや我が身の置き場がない。……どうか、貴国の旗の下に加えてはもらえぬか」。その眼には、祖国を捨てる切実な覚悟が宿っている。だが、離反者を匿った王国を、${nbName}が良く思うことはあるまい。`,
+   speaker:`セラ「逸材ではございましょう。……なれど、${nbName}との誼にひびが入るは、避けられますまい」`,
+   choices:[
+    {label:"亡命を認め、召し抱える",hint:`見込みある武人が志願所に ／ ${nbName}との関係↓`,fx:{call:()=>{
+      S.volunteers=S.volunteers||[];
+      if(S.volunteers.length>=8){apply({gold:ri(50,90)});chron("志願所は既に一杯で、亡命者は支度金を受け取り、いずこかへ去っていった。","");}
+      else{const v=makeVolunteer();v.hiddenPotential=Math.random()<0.6;v.comment=`${nbName}から亡命してきた武人。祖国を捨てる覚悟で、王国の門を叩いた。`;S.volunteers.push(v);chron(`${nbName}からの亡命者、${fullName(v.unit)}を召し抱えることにした。志願所に加わったが、${nbName}はこの離反者の受け入れを快く思っていない(関係↓)。`,"big");}
+      nb.relation=Math.max(0,(nb.relation||0)-ri(10,18));apply({st:{diplomacy:-1}});
+      if(nb.allied&&nb.relation<50){nb.allied=false;apply({mood:-2,log:`――${nbName}との同盟は、この一件で破棄された。`,logCls:"grave"});}
+      clamp();render();renderProjects();save();
+    }}},
+    {label:"送り返し、隣国との誼を選ぶ",hint:`${nbName}との関係↑ ／ 民心少し↓`,fx:{call:()=>{
+      nb.relation=Math.min(100,(nb.relation||0)+ri(8,14));apply({st:{diplomacy:1},mood:-2,log:`亡命者は${nbName}へ送り返された。誠意ある対応に${nbName}は謝意を示し、両国の誼は深まった。だが、縋る者を突き放した王の判断に、民の一部は複雑な面持ちを見せている(${nbName}との関係↑ 外交+1 民心少し↓)。`,logCls:"big"});
+      clamp();render();renderProjects();save();
+    }}},
+    {label:"路銀を持たせ、他国へ逃がす",hint:"角を立てず情けをかける(民心少し↑)",fx:{call:()=>{
+      if(S.gold>=25)S.gold-=25;
+      apply({mood:3,log:"亡命者に路銀を持たせ、そっと他国へ逃がした。どちらにも与せぬ王の情けは、民の間で静かな評判となった(民心↑)。"});
+    }}},
+   ]};
 }
 function neighborDaily(){
   ensureNeighbors();
