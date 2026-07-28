@@ -6081,6 +6081,27 @@ const RANDOM_CHOICE_EXTRA=[
    {label:"恩情をかけ、赦す",hint:"民心↑ 治安↓",fx:{mood:4,st:{order:-1},log:"長は恩情をかけ、罪人を赦した。王の慈悲に城下は沸いたが、法を軽んじたと眉をひそめる者もいる。"}},
    {label:"法の示しを重んじる",hint:"治安↑ 民心↓",fx:{st:{order:2},mood:-3,log:"長は法の示しを重んじ、嘆願を退けた。秩序は保たれたが、家族の涙に城下は沈んでいる。"}},
   ]},
+ /* ── 兵の人生の慶事(人間味・愛着) ── */
+ {tag:"祝 言",title:"兵の祝言",
+  body:"兵の一人が、想いを寄せた相手と祝言を挙げるという。ささやかにでも祝ってやれば、その喜びもひとしおであろう。",
+  choices:[
+   {label:"心ばかりの祝いを贈る",hint:"国庫を少し / その兵の忠誠と士気↑",fx:{gold:-15,call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+10);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+12);unitHistory(u,"長より祝言の祝いを賜り、生涯の忠を誓った。");chron(`${fullName(u)}の祝言に長から祝いが贈られた。生涯の伴侶を得た${u.nm}は、いっそう王国への忠を深めている。`,"people");}}},
+   {label:"言祝ぎの言葉を贈る",hint:"民心↑",fx:{mood:2,log:"長からの温かな言祝ぎに、祝言の席は笑いと涙に包まれた。めでたい話は、城下の評判にもなっている。"}},
+  ]},
+ /* ── 長い目の実り(忍耐と当座の板挟み) ── */
+ {tag:"開 墾",title:"果樹園の植樹",
+  body:"領内の空き地の使い道が議論されている。手間をかけて果樹園を育てるか、すぐに放牧地として使うか。",
+  choices:[
+   {label:"果樹園を育てる",hint:"国庫を割く / 農業が育つ(長い目の実り)",fx:{gold:-25,st:{agriculture:3},log:"空き地には果樹の苗が植えられた。実を結ぶまでには時を要するが、末永く王国の実りを支えるだろう。"}},
+   {label:"すぐに放牧地にする",hint:"食糧↑(当座の実入り)",fx:{food:ri(25,45),log:"空き地はただちに放牧地とされ、当座の食糧が蔵に加わった。"}},
+  ]},
+ /* ── 新参兵の晴れの一歩(新入りへの愛着) ── */
+ {tag:"初 陣",title:"新兵の初陣",
+  body:"入ったばかりの新兵が、初めての任務に胸を高鳴らせている。手近な任を与えて経験を積ませるか、いま少し鍛えてからにするか。",
+  choices:[
+   {label:"初陣の任を与える",hint:"若く未熟な兵が経験と自信を得る",fx:{call:()=>{const young=S.units.filter(u=>u.role==="active"&&(u.lv||1)<=6);const pool=young.length?young:S.units.filter(u=>u.role==="active");if(!pool.length)return;const u=pool[Math.floor(Math.random()*pool.length)];u.exp=(u.exp||0)+ri(12,22);processLevelUps(u);u.moral=Math.min(100,(u.moral||0)+7);unitHistory(u,"初陣を無事に果たし、一人前への一歩を踏み出した。");chron(`${fullName(u)}が初陣を立派に務め上げ、誇らしげに帰営した。皆がその成長を我がことのように喜んでいる。`,"big");}}},
+   {label:"いま少し鍛えさせる",hint:"軍事↑(堅実に備える)",fx:{st:{military:1},log:"新兵はもうしばらく鍛錬に励むことになった。焦らず地力を養うのも、また肝要である。"}},
+  ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
 /* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
