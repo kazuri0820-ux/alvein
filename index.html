@@ -3172,7 +3172,7 @@ function checkDecorationCeremony(u){
 }
 function checkAging(){
   const bless=priestBlessing();
-  const hallGrow=hallLegacyGrow()+(doctrineIs("people")?0.03:0); // 殿堂の英霊の数＋「民の国」の国是に応じた、現役兵の忠誠へのわずかな後押し
+  const hallGrow=hallLegacyGrow()+(doctrineIs("people")?0.03:0)+((S.flags&&S.flags.heirloom==="oath")?0.05:0); // 殿堂の英霊の数＋「民の国」の国是＋家宝「誓いの円卓」に応じた、現役兵の忠誠へのわずかな後押し
   for(const u of [...S.units]){
     u.age+=1/AGE_YEAR_DAYS;
     u.fatigue=Math.max(0,(u.fatigue||0)-((u.race==="dwarf"?12:8)+(traitInfo(u.trait).fatigueRecover||0)+(doctrineIs("vigor")?4:0)+veteranTemper(u))); // ドワーフは頑健で疲れの抜けが早い(種族の個性)。特性(不屈の体躯 等)や「健勇の国」の国是もさらに回復を早める。歴戦の古参は戦場慣れで疲れの抜けが早い(スキル分は後段で加算)
@@ -4815,6 +4815,7 @@ const RANDOM_RARE=[
    {label:"不滅の王旗を掲げる",hint:"以後、兵の戦死率が永続で下がる(守りの象徴)",fx:{call:()=>{S.flags=S.flags||{};S.flags.heirloom="banner";apply({st:{order:3,military:2},mood:2,log:"王家の家宝として、不滅の王旗が定められた。その旗の下、兵は決して見捨てられぬと知る。以後、戦場での戦死は目に見えて減るだろう(治安+3 軍事+2)。",logCls:"big"});}}},
    {label:"豊穣の角杯を受け継ぐ",hint:"以後、毎日の国庫・食糧が永続で潤う(繁栄の象徴)",fx:{call:()=>{S.flags=S.flags||{};S.flags.heirloom="horn";apply({st:{economy:3,agriculture:2},food:60,mood:2,log:"王家の家宝として、豊穣の角杯が受け継がれた。尽きぬ恵みの象徴のもと、以後は日々の国庫と蔵が永く潤う(経済+3 農業+2)。",logCls:"big"});}}},
    {label:"賢王の書架を建てる",hint:"以後、兵の踏破経験値が永続で増える(叡智の象徴)",fx:{call:()=>{S.flags=S.flags||{};S.flags.heirloom="archive";apply({st:{magic:3,diplomacy:2},mood:2,log:"王家の家宝として、賢王の書架が建てられた。歴代の知が集うその場所は、兵たちの学びを永く早める。以後、迷宮踏破で得る経験が増すだろう(魔導+3 外交+2)。",logCls:"big"});}}},
+   {label:"誓いの円卓を据える",hint:"以後、兵の忠誠が永続で育ちやすくなる(結束の象徴)",fx:{call:()=>{S.flags=S.flags||{};S.flags.heirloom="oath";for(const u of S.units)if(u.role==="active")u.loyalty=Math.min(100,(u.loyalty||0)+8);apply({st:{order:2,military:2},mood:2,log:"王家の家宝として、誓いの円卓が据えられた。王と兵が対等に轡を並べ忠誠を誓うその席のもと、育ちにくい忠義が以後は永く深まってゆく(治安+2 軍事+2 全兵の忠誠↑)。",logCls:"big"});}}},
   ]},
  {tag:"果たし合い",title:"道場破りの挑戦者",
   body:"腕に覚えのある武者が一人、城下の練兵場に乗り込んできた。「この国で一番強い者と、一手お手合わせ願いたい」。堂々たる面構え――ただ者ではなさそうだ。",
@@ -12706,7 +12707,7 @@ function renderProjects(){
   if(doctrineName()){const _de=doctrineEffectText();h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:10px"><div class="nm" style="color:var(--gold)">国是:${doctrineName()}</div><div class="ds">${(NATIONAL_DOCTRINES.find(d=>d.key===S.flags.doctrine)||{}).desc||""}</div>`+(_de?`<div class="ds" style="margin-top:5px;padding-top:5px;border-top:1px solid rgba(201,168,106,.22);font-size:10.5px"><span style="color:var(--gold2)">今も効いている恵み:</span> ${_de}</div>`:"")+`</div>`;}
   // ── 王国の恒久の力(積み上げた永続の恩恵を一望) ──
   {const F=S.flags||{};const boons=[];
-   const heir={banner:"不滅の王旗 ― 迷宮での戦死率が下がる",horn:"豊穣の角杯 ― 日々の国庫と食糧が潤う",archive:"賢王の書架 ― 迷宮踏破で得る経験が増える"};
+   const heir={banner:"不滅の王旗 ― 迷宮での戦死率が下がる",horn:"豊穣の角杯 ― 日々の国庫と食糧が潤う",archive:"賢王の書架 ― 迷宮踏破で得る経験が増える",oath:"誓いの円卓 ― 兵の忠誠が育ちやすくなる"};
    if(heir[F.heirloom])boons.push(["王家の家宝",heir[F.heirloom]]);
    const alc={midas:"黄金の変成 ― 売却・交易の実入りが増す",catalyst:"祝祭の触媒 ― 祝祭の恵みが長持ちする",elixir:"賢者の霊薬 ― 負傷兵が時折ひとりでに癒える"};
    if(alc[F.alchemy])boons.push(["錬金術の秘術",alc[F.alchemy]]);
@@ -14210,7 +14211,7 @@ function renderItemsPanel(){
     if(S.flags&&S.flags.eternalFlame)boons.push({icon:"※",c:"#e6794a",t:`永遠の炎`,d:"尽きることなく国を支え続ける不滅の炉が灯っている"});
     if(S.flags&&S.flags.forgeWorkshop)boons.push({icon:"⚒",c:"#c9a86a",t:`常設の鍛冶場`,d:"装備の鍛冶(強化)費用が永続で2割安くなっている"});
     if(S.flags&&S.flags.shopFavor)boons.push({icon:"⚖",c:"#8fbf6f",t:`行商人の馴染み`,d:"行商人の店の品数が増え、馴染み価格で買える"});
-    if(S.flags&&S.flags.heirloom){const hn={banner:["旗","#d0a0a0","王家の家宝・不滅の王旗:兵の戦死率が永続で下がっている"],horn:["杯","#d9c07a","王家の家宝・豊穣の角杯:日々の国庫と食糧が永続で潤っている"],archive:["書","#9fb0d0","王家の家宝・賢王の書架:迷宮踏破の経験値が永続で増えている"]}[S.flags.heirloom];if(hn)boons.push({icon:hn[0],c:hn[1],t:`王家の家宝`,d:hn[2]});}
+    if(S.flags&&S.flags.heirloom){const hn={banner:["旗","#d0a0a0","王家の家宝・不滅の王旗:兵の戦死率が永続で下がっている"],horn:["杯","#d9c07a","王家の家宝・豊穣の角杯:日々の国庫と食糧が永続で潤っている"],archive:["書","#9fb0d0","王家の家宝・賢王の書架:迷宮踏破の経験値が永続で増えている"],oath:["盟","#c9a0c0","王家の家宝・誓いの円卓:兵の忠誠が永続で育ちやすくなっている"]}[S.flags.heirloom];if(hn)boons.push({icon:hn[0],c:hn[1],t:`王家の家宝`,d:hn[2]});}
     if(S.flags&&S.flags.crownRelic)boons.push({icon:"♔",c:"#e8c874",t:`古の王冠`,d:"以後の税収が永続でわずかに上がっている"});
     if(S.flags&&S.flags.artisanGuild)boons.push({icon:"⚒",c:"#a9c47a",t:`熟練の職人団`,d:"すべての施設の産出が永続で増えている"});
     if(S.flags&&S.flags.resilienceBanner)boons.push({icon:"旗",c:"#d0a0a0",t:`不屈の軍旗`,d:"ダンジョンでの兵の戦没率が永続でわずかに下がっている"});
