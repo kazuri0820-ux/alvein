@@ -6417,6 +6417,42 @@ const RANDOM_CHOICE_EXTRA=[
    }}},
    {label:"民に自衛を促すにとどめる",hint:"国庫は痛まぬが 民心↓",fx:{mood:-3,st:{order:-1},log:"長は民に自衛を促すにとどめた。出費は抑えられたが、獣害に手を焼く辺境の民からは、不安と不満の声が上がっている。"}},
   ]},
+ /* ── 兵の素行(規律と情けの狭間) ── */
+ {tag:"素 行",title:"兵の悪癖",
+  body:"一人の兵が、非番のたびに深酒を過ごしているという。腕は確かなのだが、目に余れば示しがつかない。どう向き合うか。",
+  speaker:"ガレオン「腕の立つ者ほど、甘やかせば周りに緩みが伝染りましょう」",
+  choices:[
+   {label:"厳しく戒める",hint:"治安↑↑ / 本人の士気は少し下がる",fx:{call:()=>{
+     const act=S.units.filter(u=>u.role==="active");const u=act.length?act[Math.floor(Math.random()*act.length)]:null;
+     if(u){u.moral=Math.max(0,(u.moral||0)-3);unitHistory(u,"深酒の悪癖を長に厳しく戒められ、身を引き締めた。");}
+     apply({st:{order:2},log:"長は悪癖を厳しく戒めた。当人はしゅんとしつつも襟を正し、家中の風紀は引き締まった。"});
+   }}},
+   {label:"酒を断つのを手伝ってやる",hint:"本人の忠誠↑ 民心+1",fx:{call:()=>{
+     const act=S.units.filter(u=>u.role==="active");const u=act.length?act[Math.floor(Math.random()*act.length)]:null;
+     if(u){u.loyalty=Math.min(100,(u.loyalty||0)+8);u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,"悪癖を断つのを長がそっと手伝ってくれた。その情けに、深く恩を感じている。");chron(`――${u.nm}は長の情けある計らいで酒を断ち、見違えるように顔つきが引き締まった。`,"people");}
+     apply({mood:1,log:u?"":"兵の悪癖に、長は情けをもって向き合った。"});
+   }}},
+   {label:"腕が立つゆえ大目に見る",hint:"本人の士気↑ / 治安わずかに↓",fx:{call:()=>{
+     const act=S.units.filter(u=>u.role==="active");const u=act.length?act[Math.floor(Math.random()*act.length)]:null;
+     if(u){u.moral=Math.min(100,(u.moral||0)+5);unitHistory(u,"腕を買われ、多少の悪癖は大目に見てもらった。当人は上機嫌だが…。");}
+     apply({st:{order:-1},log:"長は腕を買って多少の悪癖に目をつぶった。当人は上機嫌だが、他の兵の間には少しの緩みも生まれている。"});
+   }}},
+  ]},
+ /* ── 武者修行(成長と一時の欠員のトレードオフ) ── */
+ {tag:"修 行",title:"兵の武者修行の願い",
+  body:"一人の兵が、しばし隊を離れて武者修行の旅に出たいと願い出た。見聞を広め、己の武を磨きたいのだという。どう計らうか。",
+  speaker:"フィオナ「旅は人を鍛えます。とはいえ、しばし戦力を欠くのも確か」",
+  choices:[
+   {label:"修行の旅に送り出す",hint:"しばし不在だが 本人が一回り成長して戻る",fx:{call:()=>{
+     const act=S.units.filter(u=>u.role==="active");const u=act.length?act[Math.floor(Math.random()*act.length)]:null;
+     if(u){const k=["str","vit","agi","wis"][Math.floor(Math.random()*4)];const inc=ri(2,4);u[k]=(u[k]||0)+inc;u.exp=(u.exp||0)+u.lv*8;u.moral=Math.min(100,(u.moral||0)+6);u.fatigue=Math.max(0,(u.fatigue||0)-ri(10,20));unitHistory(u,"武者修行の旅で見聞と武を磨き、一回り大きくなって隊に戻った。");chron(`――${u.nm}は武者修行の旅を終え、逞しさを増して帰ってきた(${USTAT_DEF[k].lbl}+${inc})。旅の話に、若い兵たちは目を輝かせている。`,"big");}else{apply({log:"旅立ちを願う兵は見当たらなかった。"});}
+   }}},
+   {label:"今は隊に留まってもらう",hint:"治安+1 / 本人の士気わずかに↓",fx:{call:()=>{
+     const act=S.units.filter(u=>u.role==="active");const u=act.length?act[Math.floor(Math.random()*act.length)]:null;
+     if(u){u.moral=Math.max(0,(u.moral||0)-2);unitHistory(u,"武者修行の願いは、今は時期尚早と諭された。悔しさを胸に、日々の鍛錬に打ち込むことにした。");}
+     apply({st:{order:1},log:"長は「修行は隊の務めの中でも積める」と諭し、旅立ちを見送った。折り目正しい導きに、当人も気を取り直したようだ。"});
+   }}},
+  ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
 /* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
