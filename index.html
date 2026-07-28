@@ -16551,6 +16551,10 @@ function renderHall(){
     const enc=GREAT_FIGURES.filter(g=>seenMap[g.id]);
     const gDone=enc.length, gAll=gDone>=gTotal;
     recHtml+=`<div class="ds">邂逅した英傑:<span style="color:${gAll?"var(--gold)":"#c9a86a"};font-weight:700">${gDone}/${gTotal}</span>${gAll?" ／ 全ての英傑を集めた":""}</div>`;
+    // 地域別の収集度:全体の到達度に加え、地域ごとの"あと何人で完成か"という中間目標を示す(収集のやり込みを深める磨き込み)
+    {const byReg={};for(const g of GREAT_FIGURES){const rg=g.region||"他";if(!byReg[rg])byReg[rg]={d:0,t:0};byReg[rg].t++;if(seenMap[g.id])byReg[rg].d++;}
+     const parts=Object.keys(byReg).sort((a,b)=>byReg[b].t-byReg[a].t).map(rg=>{const o=byReg[rg];const full=o.d>=o.t;return `<span style="color:${full?"var(--gold)":"#9c8a68"}">${rg} ${o.d}/${o.t}</span>`;}).join(" ／ ");
+     recHtml+=`<div class="ds" style="font-size:.84em;line-height:1.75;opacity:.95">地域別:${parts}</div>`;}
     if(gDone){
       const chips=enc.map(g=>{const isH=hired[g.id]||S.units.some(u=>u.great===g.id);return `<span class="greatchip${isH?" hired":""}" title="《${g.title}》${g.region}${isH?"／雇用した英傑":"／志願で出会った"}">${isH?"★":""}${g.nm}</span>`;}).join("");
       recHtml+=`<div class="greatcodex">${chips}</div>`;
