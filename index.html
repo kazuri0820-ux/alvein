@@ -14801,6 +14801,17 @@ function renderDungeonPanel(){
         <button class="dg-unit-detail" data-id="${u.id}" style="margin-top:6px;width:100%;background:transparent;border:1px solid rgba(201,162,75,.35);color:var(--dim);border-radius:6px;padding:6px;font-size:11.5px;font-family:'Zen Old Mincho',serif;cursor:pointer">能力の詳細を見る</button>
       </div>`;
     }
+    // 派遣できない兵を、理由とともに控えとして一望に。精鋭がリストに現れない時「なぜ出せないのか(療養/疲労/出払い)」が一目で分かり、
+    // 今出すか・傷が癒えるまで待つか・他の兵で凌ぐかの采配がつく(派遣画面の手応え/可読性の磨き込み)。
+    {const eligIds=new Set(eligible.map(u=>u.id));
+     const bench=(S.units||[]).filter(u=>u&&!eligIds.has(u.id));
+     if(bench.length){
+       const benchReason=(u)=>u.injured>0?"療養中":u.dungeonBusy?"探索中":u.campUntil?"特訓中":(u.fatigue||0)>=70?"疲労":"休養";
+       bench.sort((a,b)=>unitPower(b)-unitPower(a)); // 頼れる兵ほど上に=「あの精鋭がなぜ出せないか」を優先して示す
+       const shown=bench.slice(0,6).map(u=>`${u.nm}(${benchReason(u)})`).join("・");
+       h+=`<div class="ds" style="font-size:10.5px;color:var(--dim);margin:2px 0 4px;padding:5px 8px;border:1px dashed rgba(201,162,75,.28);border-radius:6px">派遣できない兵 ${bench.length}名:${shown}${bench.length>6?` 他${bench.length-6}名`:""}<span style="color:rgba(201,162,75,.55)"> ／ 傷が癒え・疲れが抜ければ再び出せる</span></div>`;
+     }
+    }
     // 陣形の選択:攻略成否・負傷・所要日数のトレードオフを一手加える戦術レイヤー(新機軸)
     {const cur=FORMATIONS[dgFormation]?dgFormation:"balanced";
      h+=`<div style="margin-top:10px"><div style="font-size:11px;color:var(--dim);margin-bottom:5px">陣形を選ぶ</div>
