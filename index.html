@@ -2852,7 +2852,8 @@ function effectiveTrainMult(u){
   const st=ageStageOf(u);
   const resist=traitInfo(u.trait).ageTrainResist||0;
   const academy=(S.flags&&S.flags.civic_academy==="built")?1.15:1; // 王立武芸館(勅令普請)が成ると、体系立った兵法教育で日々の鍛錬が永続で捗る
-  return (1-(1-st.trainMult)*(1-resist))*academy;
+  const codex=(typeof relicHas==="function"&&relicHas("warcodex"))?1.12:1; // 遺物「武神の兵書」:全軍の訓練成長が永続で高まる
+  return (1-(1-st.trainMult)*(1-resist))*academy*codex;
 }
 /* 歴戦度(育成の別軸=関係性にも攻略型戦術にもよらぬ成長):数多の迷宮を潜り抜けた古参は、戦場の労苦に
    体が慣れ、日々の疲れの抜けが早くなる。長く前線に立ち続けた兵ほど連戦に耐える"歴戦の凄み"を宿す。
@@ -10148,6 +10149,7 @@ const RELIC_DEFS=[
   {key:"ward",   name:"不滅の護符", cost:12, desc:"迷宮での兵の戦没が永続で減る。"},
   {key:"compass",name:"探索者の羅針盤", cost:10, desc:"新たな迷宮を見出す機会が永続で増える。"},
   {key:"drum",   name:"不屈の軍鼓", cost:11, desc:"軍全体の疲れの抜けが永続で早まる(連戦・周回に強くなる)。"},
+  {key:"warcodex",name:"武神の兵書", cost:11, desc:"失われた武神の兵書。全軍の日々の鍛錬がより実を結び、訓練での成長が永続で高まる。"},
 ];
 function relicHas(key){return !!(S.flags&&S.flags.relics&&S.flags.relics[key]);}
 /* ===== 治世の偉業(到達のやり込み軸):一周の治世を貫く、王国規模の到達目標を集めた挑戦帳。個々の称号(兵単位)や
