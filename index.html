@@ -10008,17 +10008,21 @@ function battleMentorSpotlight(squad,foeLabel){
    士気が篤くなる)。勝利だけでなく敗北にも育成の意味を与え、負け戦を乗り越えた兵への愛着と、諦めずに
    使い続ける値打ちを生む。傷痕(負傷耐性)とは別軸の、心の不屈を育てる新機軸。 ===== */
 const HARDENED_THRESHOLD=6; // この数だけ敗北を乗り越えると「叩き上げ」となる
-function recordHardship(squad,dungeonName){
+function recordHardship(squad,dungeonName,memberLog){
   for(const u of (squad||[])){
     if(!u||!S.units.some(x=>x.id===u.id))continue; // 生還者のみ(戦没者は除外)
     if(u.role&&u.role!=="active")continue;
     u.hardships=(u.hardships||0)+1;
-    if(Math.random()<0.4){const g=ri(4,9);u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeonName}」での手痛い敗北から、多くを学び取った。`);} // 敗北を糧に(学びの経験)
-    if(u.hardships===HARDENED_THRESHOLD){ // 苦杯を重ねた末の到達:一度きりの覚醒
+    let gained=0;
+    if(Math.random()<0.4){const g=ri(4,9);gained=g;u.exp+=g;processLevelUps(u);unitHistory(u,`「${dungeonName}」での手痛い敗北から、多くを学び取った。`);} // 敗北を糧に(学びの経験)
+    const reached=(u.hardships===HARDENED_THRESHOLD);
+    if(reached){ // 苦杯を重ねた末の到達:一度きりの覚醒
       u.loyalty=Math.min(100,(u.loyalty||0)+6);u.moral=Math.min(100,(u.moral||0)+5);
       unitHistory(u,`幾度もの苦杯を乗り越え、何があっても折れぬ叩き上げの兵となった。`);
       chron(`――${fullName(u)}は、幾多の敗北と辛酸を舐めながら、決して膝を屈しなかった。いまやその不屈は隊の誰もが認める。叩き上げの古兵となった忠義と士気は、一段と篤い。`,"big");
     }
+    // 敗北も"糧"であることを結果に映す:苦杯の積み重ね(叩き上げへの歩み)と学びの経験を、負け戦の手応えとして見せる(報酬設計)
+    if(memberLog){const rec=memberLog.find(l=>l&&l.u&&l.u.id===u.id);if(rec){const parts=[];if(gained>0)parts.push(`敗北から学ぶ 経験+${gained}`);if(reached)parts.push("叩き上げに到達");else parts.push(`苦杯 ${u.hardships}/${HARDENED_THRESHOLD}`);rec.note+=" ／ "+parts.join("・");if(gained>0)rec.gain=(rec.gain||0)+gained;}}
   }
 }
 /* 撤退の一幕(敗北の演出):勝ち戦を彩る凱旋・番狂わせに比べ、負け戦は「撤退した」の一行で流れがちだった。
@@ -10467,7 +10471,7 @@ function resolveDungeonRun(dungeonId){
     apply({mood:-2});
     chron(`「${dungeon.name}」への挑戦は失敗に終わった。部隊は撤退した。`,"grave");
     defeatVignette(squad,dungeon,false); // 撤退の一幕:敗走にも絆・献身の物語を添える
-    recordHardship(squad,dungeon.name); // 叩き上げ:敗北を生き延びた兵が経験から学ぶ
+    recordHardship(squad,dungeon.name,memberLog); // 叩き上げ:敗北を生き延びた兵が経験から学ぶ
   }else{ // critical_fail
     const deathChance=Math.min(0.55,level/110)*(1-Math.min(0.55,S.st.order*0.0055))*(S.flags.statS_order?0.92:1)*(S.flags.resilienceBanner?0.82:1)*(S.flags.heirloom==="banner"?0.82:1)*(alliedWith("draconis")?0.85:1)*(festivalIs("remembrance")?0.85:1)*(relicHas("ward")?0.88:1)*(squadEthos==="bulwark"?0.85:1)*(S.flags.dragonRaised?0.85:1)*(dungeon.decoy?0.7:1)*(dungeon.tactic==="retreat"?0:1); // 陽動(別動隊)が敵の目を引きつければ、本隊の戦没も減る。秘策「撤収の備え」なら、この一戦では兵を死なせない。治安が高いほど戦没率が下がる。治安Sで恒久的にさらに下がる。不屈の軍旗/家宝「不滅の王旗」でさらに戦没が減る。竜嶺のドラコニアとの軍事同盟(援軍の約定)でも戦没が減る。慰霊祭の開催中も戦没が減る。遺物「不滅の護符」でも戦没が減る。育て上げた竜が空から戦場を見守れば、戦没はさらに減る
     const hurtOnes=[...squad].sort(()=>Math.random()-.5).slice(0,Math.max(1,Math.round(squad.length*0.6)));
@@ -10521,7 +10525,7 @@ function resolveDungeonRun(dungeonId){
       chron(`――「${dungeon.name}」は大失敗に終わった。命からがらの撤退となった。`,"grave");
       defeatVignette(squad,dungeon,true); // 撤退の一幕(壊滅寸前):献身の物語で命拾いを彩る
     }
-    recordHardship(squad,dungeon.name); // 叩き上げ:大失敗を生き延びた兵が経験から学ぶ(戦没者は除外)
+    recordHardship(squad,dungeon.name,memberLog); // 叩き上げ:大失敗を生き延びた兵が経験から学ぶ(戦没者は除外)
   }
   if(bossWin){ // 連続踏破の快進撃:完全踏破を連ねるほど勢いが年代記に刻まれる
     S.winStreak=(S.winStreak||0)+1;
