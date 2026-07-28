@@ -7612,6 +7612,12 @@ const KING_REFLECTIONS={
  solitude:[
   "政務の合間、王はふと羽ペンを置いた。「王とは、孤独なものだと誰かが言った。……だが、これほど多くの者に支えられて、何が孤独か」。",
   "静かな午後、王は執務室の椅子に深く身を預けた。「今日も、国はまわっている。当たり前のようでいて、それがどれほど得難いことか」。",
+  "窓を打つ雨の音に、王はしばし筆を止めた。「急いては事を仕損じる、か。……たまには、こうして国の呼吸に耳を澄ますのも悪くない」。",
+ ],
+ soldiers:[
+  "訓練場から響く木剣の音に、王はふと目を細めた。「あの者たちは、余の一言で死地へも赴く。……その信を、決して安く扱うまい」。",
+  "名簿に並ぶ古参の名を、王は指でなぞった。「入隊の日の、あの頼りない顔を覚えている。よくぞ、ここまで。皆、余の誇りだ」。",
+  "夜の見回りの松明を城壁から眺め、王は静かに呟いた。「余が眠る間も、あの者たちが国を守っている。……ならば余は、あの者たちの帰る場所を守ろう」。",
  ],
 };
 function kingReflectionCategory(){
@@ -7622,6 +7628,8 @@ function kingReflectionCategory(){
   if((typeof renownTierIndex==="function"&&renownTierIndex()>=3)||(typeof fervorActive==="function"&&fervorActive()))return "triumph";
   if((S.mood||0)>75&&(S.gold||0)>300)return "prosperity";
   if((S.day||0)/AGE_YEAR_DAYS>=8)return "reign";
+  // 長く仕えた古参や殿堂の英霊を抱える王は、時に軍を想う独白へ(兵と王の絆を映す演出の軸)
+  if(((S.units||[]).some(u=>u&&(S.day-(u.joinDay||S.day))>=150)||(S.hallOfFame||[]).length>=2)&&Math.random()<0.5)return "soldiers";
   return "solitude";
 }
 function checkKingsReflection(){
