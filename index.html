@@ -11237,6 +11237,11 @@ function resolveDemonDefense(){
         if(item){addItem(item.key);itemMsg=`戦利品として「${item.name}」を持ち帰った。`;}
       }
       chron(`魔物の侵攻を退けた。防衛の練度が上がった(魔王軍対応Lv.${S.demonArmyLevel})。${itemMsg}`,"big");
+      // 終盤の恒常戦にも、時に一人ひとりの奮戦の一幕を灯す。魔将戦だけの見せ場だった演出を日常の防衛にも軽く波及させ、
+      // 頻繁に起きる侵攻を"ただ数値が動くだけ"にしない(既存のスポットライト機構を再結合=愛着と手応え)。各演出は自己確率で稀に出る。
+      battleBondSpotlight(squad,"魔物の侵攻"); // 戦友の連携で侵攻を切り抜ける一幕
+      battleFavoriteSpotlight(squad,"魔物の侵攻"); // 推しの兵の奮戦の一幕
+      if(leader&&Math.random()<0.12){leader.moral=Math.min(100,(leader.moral||0)+2);unitHistory(leader,"魔物の侵攻を先陣で食い止め、村を守り抜いた。");chron(`${leader.nm}は先陣で魔物の群れを食い止め、村人たちを守り抜いた。その奮戦は、しばし村で語り草となった。`,"");} // 先陣を任された兵に、稀に守り抜いた誉れの一幕
     }
     tryUnlockDemonLordDungeon();
   }else{
