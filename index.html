@@ -2712,6 +2712,7 @@ const TITLE_DB=[
  {key:"t_specialist",name:"一芸の極み",desc:"一つの才を人並外れた高みまで磨き上げた、一点特化の達人。その一芸においては誰の追随も許さぬ",effect:"expMult",value:1.05},
  {key:"t_typeadept",name:"型を極めし者",desc:"二つ以上の攻略の型を知り尽くし、いかなる迷宮にも応じてみせる練達の踏破者",effect:"expMult",value:1.06},
  {key:"t_typemaster",name:"万流の踏破者",desc:"四つ以上の攻略の型を極め尽くした、あらゆる迷宮を我が庭とする万流の達人",effect:"injuryMult",value:0.88},
+ {key:"t_pathmaster",name:"道を究めし者",desc:"若き日に選んだ専心の道を、迷わず歩み抜いて英雄の格に至った者。その一途な研鑽が、揺るがぬ自負となって兵を支える",effect:"moralGrow",value:0.12},
 ];
 const TITLE_EFFECT_LABEL={loyaltyGrow:"忠誠成長",moralGrow:"士気成長",injuryMult:"怪我率",expMult:"経験値効率"};
 /* 誉れ高き称号:偉業の証となる特別な称号。並の称号が静かに授かるのに対し、これらは王国を挙げて
@@ -3477,6 +3478,7 @@ function checkDailyTitles(u){
   if(u.masterId||u.pupilId)grantTitle(u,"t_disciple"); // 師弟の絆:一対一の師弟の縁を結んだ証(育成の人間関係=愛着に報いる)
   if(["str","vit","int","agi","wis","lead"].some(k=>(u[k]||0)>=55))grantTitle(u,"t_specialist"); // 一芸の極み:単一能力を突出して伸ばした一点特化の達人を讃える(万能=六芸に通ず と対をなす育成の到達)
   if(u.typeMastery){const _tm=Object.keys(u.typeMastery).length; if(_tm>=2)grantTitle(u,"t_typeadept"); if(_tm>=4)grantTitle(u,"t_typemaster");} // 型を極めし者/万流の踏破者:複数のダンジョン型を得意化した攻略のやり込みを讃える(型別熟達の長期目標に到達点を用意)
+  if(u.route&&typeof jobFor==="function"&&jobFor(u.cls,u.lv,u.route).key==="hero")grantTitle(u,"t_pathmaster"); // 道を究めし者:選んだ専門ルートを英雄格まで極めた、ビルド選択の一途な投資に到達点を用意(単なる高Lvとは別に"道を選び抜いた"証)
   checkDecorationCeremony(u);
   checkDreamFulfilled(u); // 個人的な夢の達成を見届ける
   // 献身の誓い:長のお気に入りに選ばれ、長く仕えて忠義を極めた兵が、揺るがぬ献身を誓う。
