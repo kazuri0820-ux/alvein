@@ -13062,6 +13062,8 @@ function renderProjects(){
      h+=`<div class="pcard" style="border-color:var(--gold2);margin-bottom:5px"><div class="nm" style="font-size:12px"><i class="icon-project"></i>${w.name} <span style="color:var(--dim);font-size:10.5px">普請中 ${pct}%</span></div><div class="uexp" style="margin-top:6px"><i style="width:${pct}%"></i></div></div>`;
    }
    if(built.length)h+=`<div class="ds" style="font-size:10.5px;color:var(--gold);margin-bottom:4px">成った普請:${built.map(w=>w.name+(w.ongoing?`<span style="color:#8fbf6f">〔${w.ongoing}〕</span>`:"")).join("・")}</div>`;
+   // 大いなる普請(国に一つだけ許される大事業)も、成れば永続の礎。その名と効き目を勅令普請と並べて一望に(治世最大の投資の可視化)
+   if(S.flags&&S.flags.grandWork){const gw={finance:["王立金融府","金庫の利率と上限が永続で拡大"],forge:["大工房","装備の入手・鍛冶が永続で捗る"],hall:["英霊廟","殿堂の加護が永続で厚く、兵の忠誠が育つ"]}[S.flags.grandWork];if(gw)h+=`<div class="ds" style="font-size:10.5px;color:#e0be6f;margin-bottom:4px">大いなる普請:<b>${gw[0]}</b><span style="color:#8fbf6f">〔${gw[1]}〕</span></div>`;}
    if(lockedByRank.length)h+=`<div class="ds" style="font-size:10px;color:var(--dim)">国の格が上がれば、さらなる普請(${lockedByRank.map(w=>w.name).join("・")})も興せる。</div>`;
    if(!avail.length&&!building.length&&!built.length&&!lockedByRank.length)h+=`<div class="ds" style="font-size:11px;color:var(--dim)">今は興せる普請がない。</div>`;
   }
