@@ -6748,6 +6748,7 @@ function rollRandomTurnEvent(){
   // ミッションとは無関係に、ふとした噂話からダンジョンが見つかることもある
   if(S.day>10&&Math.random()<0.012)checkDungeonDiscovery(1.0);
   checkFleetingDungeons(); // 時限の好機:主が移り去った迷宮を探索先から消す
+  checkFesteringDungeons(); // 熟成の迷宮:捨て置かれた迷宮が日々肥え太る(手強さも実りも増す)
   checkObservatoryPortent(); // 星見の塔:折に触れ、星が吉兆を告げる
   checkKingsReflection(); // 王の述懐:国の実情に即した、統べる者の独白を稀に綴る
   checkReignFeats(); // 治世の偉業:治世を貫く到達目標を達成した折、王国を挙げて祝い、恩賞を下す
@@ -8783,6 +8784,33 @@ function checkFleetingDungeons(){
     }
   }
 }
+/* 熟成の迷宮(ダンジョンの新ギミック):討たずに捨て置かれた迷宮は、日を追うごとに主が力を蓄え、
+   手強さも実りも増してゆく。時限の好機とは真逆に「今すぐ堅実に叩くか、危険を承知で肥え太らせて
+   大物を狙うか」という戦略層の時間の駆け引きを持ち込む(討伐計画に緩急を与える新レバー)。 */
+const FESTER_CAP=4;
+function markFestering(d){
+  if(!d||d.isFinal||d.isNemesis||d.protected||d.fleeting)return;
+  d.festers=true; d.festerLv=0; d.festerReward=0; d.festerDay=S.day;
+}
+function festerTick(d){ // 一日分、迷宮が肥え太る(手強さと実りが増す)
+  if(!d||!d.festers||d.isFinal||(d.festerLv||0)>=FESTER_CAP)return false;
+  d.festerLv=(d.festerLv||0)+1;
+  d.requiredPower=Math.round((d.requiredPower||100)*1.07);
+  if(d.bossPower)d.bossPower=Math.round(d.bossPower*1.08);
+  d.festerReward=(d.festerReward||0)+0.14;
+  return true;
+}
+function checkFesteringDungeons(){
+  const list=S.availableDungeons||[];
+  for(const d of list){
+    if(!d||!d.festers||d.isFinal||d.fleeting)continue;
+    if((d.festerLv||0)>=FESTER_CAP)continue;
+    if(festerTick(d)){
+      if(d.festerLv===1)chron(`討ち手のないまま捨て置かれた「${d.name}」で、主が力を蓄え始めた。日を追うごとに手強さを増すが、その分、討ち果たした時の実りも肥えてゆく(熟成の迷宮)。`,"");
+      else if(d.festerLv===FESTER_CAP)chron(`「${d.name}」の主は、もはや底知れぬまでに力を蓄えきった。討つは至難、されど討てば莫大な実りが待つ(熟成・極)。`,"big");
+    }
+  }
+}
 function checkDungeonDiscovery(rewardMult,discoverer){
   // 「地の利を読む才」を持つ発見者を伴うと、ダンジョンを見出す確率が高まる=探索特化の編成に意味を持たせる新レバー
   const finder=discoverer?Math.max(0,(skillEffects(discoverer).dungeonFind||0),(traitInfo(discoverer.trait).dungeonFind)||0):0;
@@ -8792,6 +8820,7 @@ function checkDungeonDiscovery(rewardMult,discoverer){
     // 討伐依頼(型指定)が出ている時は、時おり発見が依頼の型に噛み合う=依頼を達成できるダンジョンに巡り会える公平性(磨き込み)
     if(S.bounty&&S.bounty.kind==="type"&&Math.random()<0.4){const bt=DUNGEON_TYPES.find(t=>t.key===S.bounty.target);if(bt)d.type=bt;}
     const fleet=Math.random()<0.22; if(fleet)markFleeting(d); // 稀に"時限の好機"として現れる
+    else if(Math.random()<0.18)markFestering(d); // 好機でなければ稀に"熟成の迷宮"として現れる(捨て置けば肥え太る)
     S.availableDungeons=S.availableDungeons||[];
     S.availableDungeons.push(d);
     if(S.availableDungeons.length>5){
@@ -10029,7 +10058,7 @@ function resolveDungeonRun(dungeonId){
     bossWin=squadPower*(tier==="critical_success"?1.3:1.0)*(1+squadBane)>=dungeon.bossPower*rnd(0.8,1.2);
     const squadTeach=squad.length?Math.max(0,...squad.map(u=>Math.max(skillEffects(u).squadExpBonus||0,(traitInfo(u.trait).squadExpBonus)||0))):0; // 「歴戦の教え」(スキル)「生来の兄貴分」(特性)持ちがいると部隊全員の踏破経験値が増える=育成支援ビルド
     const seasonMods=(typeof seasonDungeonMods==="function")?seasonDungeonMods():{expBonus:0,goldMult:1,equipBonus:0,restHeal:0}; // 季節の兆し:夏は経験、秋は財貨、冬は得物、春は癒えに効く
-    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach)*(1+streakBonus)*(1+heirloomExp)*(1+festExp)*(1+ethosReward)*(1+explorerExp)*(1+(seasonMods.expBonus||0))*aimMods.exp*(u.id===dungeon.vanguardId?1.5:1));u.exp+=g;processLevelUps(u);if(u.id===dungeon.vanguardId){u.fatigue=Math.min(100,(u.fatigue||0)+ri(6,12));unitHistory(u,`「${dungeon.name}」で一番槍を務め上げ、人一倍の武功を挙げた。`);}else unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:u.id===dungeon.vanguardId?"踏破・一番槍":"踏破"});}
+    for(const u of squad){const g=Math.round((tier==="critical_success"?ri(18,28):ri(9,16))*levelMult*rarityRewardMult*magicExpBonus*condExpMult*(1+squadTeach)*(1+streakBonus)*(1+heirloomExp)*(1+festExp)*(1+ethosReward)*(1+explorerExp)*(1+(seasonMods.expBonus||0))*aimMods.exp*(1+(dungeon.festerReward||0))*(u.id===dungeon.vanguardId?1.5:1));u.exp+=g;processLevelUps(u);if(u.id===dungeon.vanguardId){u.fatigue=Math.min(100,(u.fatigue||0)+ri(6,12));unitHistory(u,`「${dungeon.name}」で一番槍を務め上げ、人一倍の武功を挙げた。`);}else unitHistory(u,`「${dungeon.name}」を踏破した。`);memberLog.push({u,gain:g,note:u.id===dungeon.vanguardId?"踏破・一番槍":"踏破"});}
     if(cond==="richaura")chron(`「${dungeon.name}」に満ちた豊穣の気が兵たちの糧となり、いつも以上の経験を持ち帰った。`,"");
     if(cond==="cursed"){ // 呪詛の澱み: 兵を疲れさせるが、呪物の財貨が眠る
       for(const u of squad)u.fatigue=Math.min(100,(u.fatigue||0)+ri(10,20));
@@ -10095,7 +10124,7 @@ function resolveDungeonRun(dungeonId){
         }
       }
       const squadGoldFind=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).goldFind)||0,skillEffects(u).goldFind||0))):0; // 「山師の目」(スキル)「生来の商才」(特性)持ちを伴うと持ち帰る財貨が増える=金策ビルドの編成レバー
-      goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1)*(1+squadGoldFind)*(1+streakBonus)*(1+ethosReward)*(seasonMods.goldMult||1)*aimMods.gold);
+      goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1)*(1+squadGoldFind)*(1+streakBonus)*(1+ethosReward)*(seasonMods.goldMult||1)*aimMods.gold*(1+(dungeon.festerReward||0)));
       apply({gold:goldGained,mood:crit?4:2});
       if(seasonMods.restHeal>0){for(const u of squad){if(u){u.fatigue=Math.max(0,(u.fatigue||0)-8);if(u.injured>0){u.injured=Math.max(0,u.injured-1);if(u.injured<=0)u.injurySeverity=null;}}}} // 芽吹きの春:遠征帰りの兵の疲れと傷の癒えが早い
       chron(crit
@@ -14213,7 +14242,7 @@ function renderDungeonPanel(){
       const est=estimateDungeonSuccess(d);
       const rateColor=est.pct>=60?"#8fbf6f":est.pct>=35?"#d9b56a":"#d97a7a";
       h+=`<div class="pcard" style="${c?`border-color:${c};box-shadow:0 0 10px ${c}55`:""}">
-        <div class="nm" style="${c?`color:${c}`:""}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${d.beastLair?`<span style="color:#c98a5a;font-weight:800" title="辺境を荒らす巨獣の棲家。討ち果たせば威信・稀なる戦利・討伐者の称号">【巨獣】</span>`:""}${d.fleeting?`<span style="color:#e08a5e;font-weight:800" title="時限の好機:主は数日で去る。討てば厚い褒賞、逃せば消える">【好機・残${Math.max(0,(d.expireDay||S.day)-S.day)}日】</span>`:""}${bossTraitTag(d)}${bountyTag(d)}${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<span style="color:${DUNGEON_CONDITIONS[d.condition].color};font-weight:800">〔${DUNGEON_CONDITIONS[d.condition].label}〕</span>`:""}${d.isNemesis?`<span style="color:#d97a7a;font-weight:800" title="かつて討ち逃した宿敵。討てば因縁の決着と特別報酬">〔宿敵〕</span>`:""}${d.name}</div>
+        <div class="nm" style="${c?`color:${c}`:""}"><i class="icon-dungeon"></i>${d.rarity.label?`【${d.rarity.label}】`:""}${d.treasureVault?`<span style="color:#e8c874;font-weight:800">【財宝の間】</span>`:""}${d.beastLair?`<span style="color:#c98a5a;font-weight:800" title="辺境を荒らす巨獣の棲家。討ち果たせば威信・稀なる戦利・討伐者の称号">【巨獣】</span>`:""}${d.fleeting?`<span style="color:#e08a5e;font-weight:800" title="時限の好機:主は数日で去る。討てば厚い褒賞、逃せば消える">【好機・残${Math.max(0,(d.expireDay||S.day)-S.day)}日】</span>`:""}${d.festers?((d.festerLv||0)>0?`<span style="color:#a76fc9;font-weight:800" title="熟成の迷宮:討たずに置くほど主が力を蓄え、手強さも実りも増す。討てば熟成分だけ実り(経験・財貨)が上乗せされる">【熟成Lv.${d.festerLv}・実り+${Math.round((d.festerReward||0)*100)}%】</span>`:`<span style="color:#a76fc9;font-weight:800" title="熟成の迷宮:討たずに置くほど主が力を蓄え、手強さも実りも増してゆく。今なら手頃、待てば大物">【熟成の兆し】</span>`):""}${bossTraitTag(d)}${bountyTag(d)}${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<span style="color:${DUNGEON_CONDITIONS[d.condition].color};font-weight:800">〔${DUNGEON_CONDITIONS[d.condition].label}〕</span>`:""}${d.isNemesis?`<span style="color:#d97a7a;font-weight:800" title="かつて討ち逃した宿敵。討てば因縁の決着と特別報酬">〔宿敵〕</span>`:""}${d.name}</div>
         <div class="ds">${d.type?`<span style="color:${d.type.color};font-weight:700">${d.type.label}</span>${(()=>{const h=dungeonTypeStatHint(d.type);return h?`<span style="color:var(--dim);font-size:10px">(${h}向き)</span>`:"";})()} ／ `:""}推奨レベル目安:${d.level} ／ 目安戦力:${d.requiredPower} ／ 所要日数:${d.duration}日</div>
         ${d.condition&&DUNGEON_CONDITIONS[d.condition]?`<div class="ds" style="color:${DUNGEON_CONDITIONS[d.condition].color};font-size:11px">環境:${DUNGEON_CONDITIONS[d.condition].desc}</div>`:""}
         ${d.bossTrait&&BOSS_TRAITS[d.bossTrait]?`<div class="ds" style="color:${BOSS_TRAITS[d.bossTrait].color};font-size:11px">主:${BOSS_TRAITS[d.bossTrait].desc}</div>`:""}
