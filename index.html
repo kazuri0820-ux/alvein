@@ -6930,6 +6930,7 @@ function checkFixedDayEvents(){
     if(S.day<70)pool.push("__growth__");
     if(Math.random()<0.12)pool.push("__merchant_visit__","__merchant_visit__","__merchant_visit__");
     if(S.day>=45&&(S.neighbors||[]).some(n=>n&&!n.allied)&&Math.random()<0.10)pool.push("__defector__"); // 国が育ち諸国との縁が生まれた頃、非同盟国から亡命者が訪れる
+    if((S.neighbors||[]).some(n=>n&&n.allied)&&Math.random()<0.10)pool.push("__ally_request__"); // 同盟を結んでいると、時に盟友が窮地に助けを求めてくる(盟約は双方向)
     if(typeof findDiscordPair==="function"&&findDiscordPair()&&Math.random()<0.35)pool.push("__discord_mediation__"); // 兵舎に確執がくすぶっている時、王に仲裁の機会が巡る
     pushEvent(pool[Math.floor(Math.random()*pool.length)]);
     fired=true;
@@ -7875,6 +7876,7 @@ const EVENT_ID_EXACT={
   "__outbreak_deadline__":()=>buildOutbreakDeadlineResult(),
   "__merchant_visit__":()=>buildMerchantVisitEvent(),
   "__defector__":()=>buildDefectorEvent(),
+  "__ally_request__":()=>buildAllyRequestEvent(),
   "__discord_mediation__":()=>buildDiscordMediationEvent(),
   "__growth__":()=>pickFresh(EARLY_GROWTH),
   "__mission__":()=>buildMissionEvent(),
@@ -12193,6 +12195,50 @@ function buildDefectorEvent(){
       apply({mood:3,log:"亡命者に路銀を持たせ、そっと他国へ逃がした。どちらにも与せぬ王の情けは、民の間で静かな評判となった(民心↑)。"});
     }}},
    ]};
+}
+/* 盟友の求め(外交の再結合:同盟を双方向の関係にする):同盟を結んだ隣国が、その国柄に応じた窮地に陥り、盟邦の
+   よしみを頼って助力を求めてくる。これまで同盟は"結べば一方的に恩恵を得る"ものだったが、時に応える側にも回ることで、
+   盟約が生きた関係になる。惜しみなく助ければ絆と王国の義(威信・民心)が育ち、断れば関係が冷える――義理と自国の
+   内情を天秤にかける、新しい外交の選択(既存の近隣関係・威信・資源を噛み合わせた再結合)。 */
+function buildAllyRequestEvent(){
+  ensureNeighbors();
+  const allies=(S.neighbors||[]).filter(n=>n&&n.allied);
+  if(!allies.length)return null;
+  const nb=allies[Math.floor(Math.random()*allies.length)];
+  const nbName=neighborName(nb.key);
+  // 盟友の窮状は、その国柄に応じて異なる(軍事のドラコニア=脅威、交易のヴェルティス=財政、農のスーリア=凶作)
+  const crises={
+    draconis:{res:"gold",body:"辺境を魔物の群れに脅かされ、援兵を募る費えに窮している",generous:[120,180],modest:[60,90]},
+    veltis:{res:"gold",body:"交易路を塞がれて財政が逼迫し、当座の融通を求めている",generous:[120,180],modest:[60,90]},
+    suria:{res:"food",body:"長雨の凶作に見舞われ、飢える民のための食糧の融通を求めている",generous:[80,130],modest:[40,60]},
+  };
+  const c=crises[nb.key]||{res:"gold",body:"思わぬ窮地に陥り、盟邦としての助力を求めている",generous:[120,180],modest:[60,90]};
+  const resLbl=c.res==="food"?"食糧":"財貨";
+  const gen=ri(c.generous[0],c.generous[1]),mod=ri(c.modest[0],c.modest[1]);
+  const have=()=>c.res==="food"?(S.food||0):(S.gold||0);
+  const spend=(amt)=>{if(c.res==="food")S.food=Math.max(0,(S.food||0)-amt);else S.gold=Math.max(0,(S.gold||0)-amt);};
+  const choices=[
+    {label:`惜しみなく助ける(${resLbl}${gen})`,hint:`盟友の窮地を救う ／ 関係↑↑ 威信↑ 民心↑`,fx:{call:()=>{
+      if(have()<gen){const g=Math.min(have(),mod);if(g>0)spend(g);nb.relation=Math.min(100,(nb.relation||0)+ri(3,6));chron(`惜しみなく助けたかったが、${resLbl}が足りず十分な援助は叶わなかった。せめてもと僅かを送り、${nbName}は事情を汲んでくれた。`,"");}
+      else{spend(gen);nb.relation=Math.min(100,(nb.relation||0)+ri(12,18));apply({st:{diplomacy:2},mood:3});if(typeof grantRenown==="function")grantRenown(2,`${nbName}への義に厚い援助`);chron(`王は盟友${nbName}の窮地に、惜しみなく${resLbl}${gen}を送った。${nbName}は深く恩義を感じ、両国の絆はいっそう固くなった。義に厚いアルヴェインの名は大陸に響き、民もその王を誇りに思っている(関係↑↑ 外交+2 威信↑ 民心↑)。`,"big");}
+      clamp();render();renderProjects();save();
+    }}},
+    {label:`程々に助ける(${resLbl}${mod})`,hint:`無理のない範囲で ／ 関係↑`,fx:{call:()=>{
+      if(have()<mod){chron(`${resLbl}の蓄えが乏しく、此度の援助は見送らざるを得なかった。`,"");}
+      else{spend(mod);nb.relation=Math.min(100,(nb.relation||0)+ri(5,9));apply({mood:1});chron(`王は無理のない範囲で${nbName}に${resLbl}${mod}を融通した。${nbName}はその心遣いに礼を述べた(関係↑)。`,"");}
+      clamp();render();renderProjects();save();
+    }}},
+    {label:"丁重に断る",hint:`自国を優先 ／ ${nbName}との関係↓`,fx:{call:()=>{
+      nb.relation=Math.max(0,(nb.relation||0)-ri(8,14));apply({mood:-1,st:{diplomacy:-1}});
+      const strain=(typeof NEIGHBOR_ALLY_NEED!=="undefined"&&nb.relation<NEIGHBOR_ALLY_NEED-25)?`${nbName}との同盟には、隙間風が吹き始めている。`:"";
+      chron(`王は自国の内情を優先し、${nbName}の求めを丁重に断った。${nbName}は落胆を隠さず、盟邦としての信は幾らか揺らいだ(関係↓ 外交-1)。${strain}`,"grave");
+      clamp();render();renderProjects();save();
+    }}},
+  ];
+  return {tag:"盟 邦",title:"盟友の求め",
+    body:`同盟を結ぶ${nbName}より、火急の使者が参じた。「盟邦のよしみを頼み、伏してお願い申す」――聞けば、${c.body}という。盟邦の求めに、王はどう応えるか。`,
+    speaker:`ガレオン「盟友の窮地にございます。応えれば絆は深まり、王国の義もまた示されましょう。……なれど、無理は禁物にございます」`,
+    choices};
 }
 // 確執の仲裁:兵舎にくすぶる不仲を、王がじきじきに裁く一幕(確執システムに能動的な手当てを与える)
 function findDiscordPair(){
