@@ -6140,6 +6140,27 @@ const RANDOM_CHOICE_EXTRA=[
    {label:"関所を設け、通行料を取る",hint:"経済↑ 民心↓",fx:{st:{economy:2},mood:-3,log:"街道に関所が設けられ、通行料が国庫を潤し始めた。だが行き交う商人たちの間には、不満の声もくすぶっている。"}},
    {label:"街道は自由に通らせる",hint:"民心↑ 外交↑",fx:{mood:2,st:{diplomacy:1},log:"街道は誰もが自由に通れるままとされた。この寛容な計らいは、遠方の商人たちにも好意的に伝わっている。"}},
   ]},
+ /* ── 英傑の薫陶(偉人在籍で一層映える・軽いA) ── */
+ {tag:"教 練",title:"英傑の教練",
+  body:"名だたる兵の一人が、若い者たちに己の技を伝えたいと申し出た。皆で稽古をつけてもらえば、得るものも大きかろう。",
+  choices:[
+   {label:"教練を任せる",hint:"兵が経験を得る(英傑が在籍していれば一層)",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const great=act.find(u=>u.great);let pupils=act.filter(u=>!u.great);if(!pupils.length)pupils=act.slice();const n=Math.min(3,pupils.length);for(let i=0;i<n;i++){const idx=Math.floor(Math.random()*pupils.length);const u=pupils.splice(idx,1)[0];u.exp=(u.exp||0)+ri(10,18);processLevelUps(u);u.moral=Math.min(100,(u.moral||0)+3);}if(great){unitHistory(great,"若い兵たちに己の技を伝え、次代を育てた。");chron(`${great.nickname||fullName(great)}じきじきの教練を受け、若い兵たちが見違えるほど腕を上げた。英傑の薫陶は、何物にも代えがたい。`,"big");}else{chron("古参兵の教練を受け、若い兵たちが揃って腕を上げた。","big");}}}},
+   {label:"今は各々の鍛錬に任せる",hint:"軍事↑",fx:{st:{military:1},log:"教練は見送られ、兵たちは各々の鍛錬に励んだ。"}},
+  ]},
+ /* ── 一兵卒の難儀を救う(忠と情の選択) ── */
+ {tag:"難 儀",title:"兵の借金",
+  body:"兵の一人が、故郷に残した家の借財に苦しんでいるという。長が肩代わりしてやるか、自らの才覚で返させるか。",
+  choices:[
+   {label:"借財を肩代わりしてやる",hint:"国庫↓ その兵の忠誠が大きく↑",fx:{gold:-35,call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+15);u.moral=Math.min(100,(u.moral||0)+6);unitHistory(u,"長に借財を肩代わりしてもらい、生涯の恩義に感じ入った。");chron(`${fullName(u)}の借財は長が肩代わりした。深く恩義に感じた${u.nm}は、命を賭してでも報いると心に誓っている。`,"people");}}},
+   {label:"自らの才覚で返させる",hint:"治安↑ その兵は苦労する",fx:{st:{order:1},call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length)return;const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.max(0,(u.moral||0)-4);unitHistory(u,"借財は自らの才覚で返すよう言い渡され、歯を食いしばって働いた。");chron(`${fullName(u)}は自らの才覚で借財を返すよう言い渡された。苦労はするが、これも武人の甲斐性というものである。`,"");}}},
+  ]},
+ /* ── 武功を後世に刻む(誉れの投資) ── */
+ {tag:"建 立",title:"凱旋の記念碑",
+  body:"これまでの武功を後の世に伝えるべく、記念碑を建ててはどうかという声が上がっている。費えはかかるが、王国の誉れとなろう。",
+  choices:[
+   {label:"立派な記念碑を建てる",hint:"国庫↓ 武名↑ 民心↑",fx:{gold:-45,mood:3,call:()=>{if(typeof grantRenown==="function")grantRenown(2,"武功を刻む記念碑の建立");chron("城下の広場に、これまでの武功を刻んだ立派な記念碑が建てられた。訪れる者はその偉業を仰ぎ、王国の誉れは長く語り継がれるだろう。","big");}}},
+   {label:"質素な石碑に留める",hint:"民心が少し上がる",fx:{mood:2,log:"記念碑は質素な石碑に留められた。それでも、刻まれた武功に足を止める民は少なくない。"}},
+  ]},
 ];
 /* ── 再訪イベント(登場するたびに内容が育っていく) ── */
 /* 行商人の品揃え:付き合いが深まる(来訪を重ねる)ほど、品数も質も上がる。
