@@ -16653,10 +16653,12 @@ function processLevelUps(u,silent,noRival){
         }
       }
     }
-    // 成長の節目:昇格以外で区切りのレベル(10/20/30)に達したら、控えめに年代記へ刻む(成長実感)
-    if(!silent&&oldTier===newJob.key&&(u.lv===10||u.lv===20||u.lv===30)&&(u.lvMilestone||0)<u.lv){
+    // 成長の節目:昇格以外で区切りのレベル(10〜50)に達したら、控えめに年代記へ刻む(成長実感)。
+    // 40以降=深く育て上げた兵の到達として、より重い一節と僅かな士気の昂ぶりを添える(長期育成の実感を最後まで途切れさせない)
+    if(!silent&&oldTier===newJob.key&&u.lv%10===0&&u.lv<=50&&(u.lvMilestone||0)<u.lv){
       u.lvMilestone=u.lv;
-      chron(`${fullName(u)}がレベル${u.lv}に到達した。日々の研鑽が、確かな力になっている。`,"sys");
+      if(u.lv>=40){u.moral=Math.min(100,(u.moral||0)+2);chron(`${fullName(u)}がレベル${u.lv}の高みに達した。積み重ねた研鑽が、並の兵とは一線を画す力となっている。`,"sys");}
+      else chron(`${fullName(u)}がレベル${u.lv}に到達した。日々の研鑽が、確かな力になっている。`,"sys");
     }
   }
   // 好敵手の競争:相手が先んじてレベルを上げると、負けじと励んで追い上げる(競争が双方の成長を押し上げる新機軸)
