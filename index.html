@@ -7623,6 +7623,14 @@ const RANDOM_CHOICE=[
    {label:"兵法の稽古として奨励する",hint:"治安↑ 盤上に長けた兵の知力↑",fx:{st:{order:1},call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"盤を囲む兵もおらず、この話は流れた。"});return;}const u=act.slice().sort((a,b)=>(((b.wis||0)+(b.int||0))-((a.wis||0)+(a.int||0))))[0];const inc=ri(1,3);u.wis=(u.wis||0)+inc;u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,"盤上の兵棋に没頭し、戦の理を読む目を養った。");chron(`${fullName(u)}は盤上の兵棋にのめり込み、幾手も先を読む力を磨いた。知力が+${inc}。その眼差しは、いつしか実戦の駆け引きをも見据えている。`,"people");}}},
    {label:"遊びは程々に、鍛錬を優先させる",hint:"軍事↑(実地の鍛錬)",fx:{st:{military:1},mood:1,log:"盤上の遊戯は程々にと、兵たちは再び稽古場へ戻った。机上より実地――その堅実さが、陣容を確かに鍛えている。"}},
   ]},
+ /* ── 敗戦を糧とする兵(逆境からの成長か心の支えか) ── */
+ {tag:"雪 辱",title:"敗戦を糧とする兵",
+  body:"先の戦で苦い敗北を喫した兵の一人が、その悔しさを胸に、幾度もあの日を反芻しているという。共に敗因を検分して糧とさせるか、まずは温かく慰めて前を向かせるか。",
+  speaker:"ガレオン「敗北を恐れる兵は伸びませぬ。敗北から学ぶ兵こそ、真に強くなりましょう」",
+  choices:[
+   {label:"共に敗因を検分し、糧とさせる",hint:"治安↑ その兵の知力↑(雪辱を糧に成長)",fx:{st:{order:1},call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"検分すべき兵がおらず、この話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];const inc=ri(1,3);u.wis=(u.wis||0)+inc;u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,"苦い敗北を一つひとつ検分し、雪辱を糧に一回り成長した。");chron(`${fullName(u)}は長と共に敗因をつぶさに検分し、同じ轍を踏むまいと心に刻んだ。知力が+${inc}。悔しさは、確かな糧へと変わっている。`,"people");}}},
+   {label:"温かく慰め、前を向かせる",hint:"その兵の士気と忠誠↑",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"慰めるべき兵もおらず、話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+8);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+6);unitHistory(u,"長の温かな言葉に救われ、うなだれた顔を再び前へ上げた。");chron(`長は${fullName(u)}の肩を叩き、「一度の負けが兵を決めるのではない」と励ました。うつむいていた兵の目に、再び光が戻っている。`,"people");}}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
