@@ -7690,6 +7690,14 @@ const RANDOM_CHOICE=[
    {label:"時を作り、皆に便りを書かせる",hint:"全兵の士気↑ 民心↑(心が休まる)",fx:{mood:1,call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"便りを書く兵がおらず、この話は流れた。"});return;}for(const u of act)u.moral=Math.min(100,(u.moral||0)+ri(2,4));const u=act[Math.floor(Math.random()*act.length)];u.fatigue=Math.max(0,(u.fatigue||0)-ri(3,6));unitHistory(u,"つかの間の休息に故郷へ便りを書き、家族を思って心を休めた。");chron("兵たちは思い思いに筆をとり、遠い故郷の家族へ便りをしたためた。胸の内を綴り終えた顔はどこか晴れやかで、明日への力が静かに満ちている。","big");}}},
    {label:"気を緩めず、備えを優先させる",hint:"軍事↑(油断なき備え)",fx:{st:{military:1},log:"長は「便りは戦の後に」と備えを優先させた。名残惜しげながらも、兵たちは黙々と武具の手入れに戻っている。"}},
   ]},
+ /* ── 先駆けを志願する兵(意気に報い英気を燃やすか力を蓄えさせるか) ── */
+ {tag:"先 駆",title:"先駆けを志願する兵",
+  body:"血気盛んな兵の一人が、床に膝をつき「次の戦、なにとぞ我に先駆けの大役を」と願い出た。その燃える意気に報いて先駆けを任せるか、はやる心を鎮め、いまは力を蓄えさせるか。",
+  speaker:"ガレオン「はやる者の背を押すも将の器、逸る者を抑えるも将の器にございます」",
+  choices:[
+   {label:"先駆けを任せ、意気に報いる",hint:"その兵に英気充溢(次の出撃で戦力↑)・士気と忠誠↑",fx:{call:()=>{const c=S.units.filter(u=>u.role==="active"&&!u.injured);if(!c.length){apply({log:"先駆けを願う兵はおらず、この話は流れた。"});return;}const u=c.slice().sort((a,b)=>((b.moral||0)-(a.moral||0)))[0];u.vigor=true;u.restDays=0;u.moral=Math.min(100,(u.moral||0)+8);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+6);unitHistory(u,"みずから先駆けを願い出て許され、次の戦へ英気を燃やした。");chron(`${fullName(u)}に先駆けの大役が許された。全身に英気を漲らせたその面持ちは、次の出撃で人一倍の力を振るうだろう。`,"people");}}},
+   {label:"はやる心を鎮め、力を蓄えさせる",hint:"治安↑(逸りを抑え備えを固める)",fx:{st:{order:1},call:()=>{const c=S.units.filter(u=>u.role==="active"&&!u.injured);if(!c.length){apply({log:"逸る兵もおらず、話は流れた。"});return;}const u=c[Math.floor(Math.random()*c.length)];u.moral=Math.min(100,(u.moral||0)+2);unitHistory(u,"はやる心を長に諭され、いまは力を蓄えることに専念した。");chron(`長は${fullName(u)}の逸る心を静かに諭した。蓄えた力は、いざという時に爆ぜるだろう。`,"");}}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
