@@ -8437,6 +8437,10 @@ function townVignette(){
   if(mil>=65)cand.push("城壁の上を巡る兵たちの姿に、城下の民は頼もしげな眼差しを送っていた。「あの守りがある限りは」と、誰もが口にする。");
   if((S.winStreak||0)>=3)cand.push("酒場は、連戦連勝の武勲譚で持ちきりだった。兵たちの名が、掲げられる杯とともに幾度も響いている。");
   if((S.hallOfFame||[]).length>=3)cand.push("広場の隅で、吟遊詩人が殿堂に名を刻んだ英傑たちの物語を歌っていた。子供らが目を輝かせて聞き入っている。");
+  const greatU=(S.units||[]).find(u=>u&&u.role==="active"&&u.great); // 仕官した英傑が城下に在ることを民の情景に映す(英傑登用の手応え・国の誇り)
+  if(greatU)cand.push(`市の広場では、名だたる英傑「${(typeof fullName==="function")?fullName(greatU):greatU.nm}」の姿を一目見ようと人だかりができていた。伝説がこの国に生きている――それだけで、民は誇らしげだ。`);
+  if(typeof renownTierIndex==="function"&&renownTierIndex()>=3)cand.push("旅の商人や吟遊詩人が、他国で聞いたというアルヴェインの武名を城下で語っていた。「あの小さな谷の国が、今や大陸に轟く名だ」と、民は誇らしげに耳を傾けている。"); // 名声(武名)の高まりを城下の噂に映す
+  if((S.kingsFelledTotal||0)>=20)cand.push("酒場では、幾多の「王」を討ち取った兵たちの武勇伝が語り草になっていた。討ち果たした強敵の名を、皆が指折り数えては杯を上げている。"); // 討王の積み重ねを城下の武勇伝に映す
   const season=(typeof currentSeason==="function")?currentSeason():null;
   if(season){const sl={spring:"城下の軒先に若葉が芽吹き、子らが土手で花を摘んでいた。春の日差しが、谷を柔らかく照らしている。",summer:"照りつける陽の下、城下の井戸には水を汲む列ができていた。木陰では老人たちが将棋盤を囲んでいる。",autumn:"実りの季、城下の市には色とりどりの作物が並び、値の駆け引きの声が賑やかに飛び交っていた。",winter:"底冷えする城下、家々の窓から漏れる灯りと煙が、身を寄せ合う暮らしの温もりを伝えていた。"}[season.key];if(sl)cand.push(sl);}
   cand.push("城下では今日も、変わらぬ営みが淡々と続いていた。パン屋の煙、鍛冶の音、子らの駆ける足音――それらが織りなす日常こそ、王国の礎だ。");
