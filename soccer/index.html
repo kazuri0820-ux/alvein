@@ -322,7 +322,8 @@ function awardMatchXP(res,homeC,awayC){
   });
   if(oppScore===0)state.cs=(state.cs||0)+1;   // クリーンシート集計
   // コンディション: 全員+30回復、先発は-40消耗（差引: 先発 純-10 / 控え +30）
-  sq.forEach((p,i)=>{let c=condOf(p.id)+30; if(state.lineup.includes(i))c-=40; setCond(p.id,c);});
+  const recov=30+perkLv('fitness')*6;   // フィジオで回復量UP
+  sq.forEach((p,i)=>{let c=condOf(p.id)+recov; if(state.lineup.includes(i))c-=40; setCond(p.id,c);});
   // 調子(フォーム)更新: 得点/アシストで上昇・敗戦で下降・控えは中立へ。性格で振れ幅が変化
   sq.forEach((p,i)=>{
     const started=state.lineup.includes(i); let d=0;
@@ -435,7 +436,11 @@ const MGR_PERKS=[
   {id:'defenseCoach',name:'守備規律',   icon:'🛡', max:5, desc:'試合の守備力 +1/Lv'},
   {id:'academy',     name:'育成環境',   icon:'📈', max:5, desc:'トレーニング獲得XP +15%/Lv'},
   {id:'motivator',   name:'モチベーター',icon:'🔥', max:5, desc:'試合で選手が得るXP +10%/Lv'},
+  {id:'subMaster',   name:'交代術',     icon:'🔄', max:2, desc:'試合の交代枠 +1/Lv'},
+  {id:'fitness',     name:'フィジオ',   icon:'🩹', max:3, desc:'試合後のコンディション回復 +6/Lv'},
+  {id:'financier',   name:'経営手腕',   icon:'💰', max:3, desc:'シーズン賞金 +10%/Lv'},
 ];
+function respecPerks(){const m=mgr();let refund=0;Object.values(m.perks).forEach(v=>refund+=v);m.points+=refund;m.perks={};save();return refund;}
 function mgr(){if(!state.mgr)state.mgr={lvl:1,xp:0,points:0,perks:{}};if(!state.mgr.perks)state.mgr.perks={};return state.mgr;}
 function mgrXpNeed(lvl){return 150+(lvl-1)*80;}
 function perkLv(id){return mgr().perks[id]||0;}
@@ -860,6 +865,7 @@ function bindCommon(){
   document.querySelectorAll('[data-rank]').forEach(b=>b.onclick=()=>{rankSort=b.dataset.rank;render();});
   document.querySelectorAll('[data-drill]').forEach(b=>b.onclick=()=>{state.trainFocus=b.dataset.drill;save();render();});
   document.querySelectorAll('[data-perk]').forEach(b=>b.onclick=()=>{investPerk(b.dataset.perk);render();});
+  const rs=$('#respec'); if(rs)rs.onclick=()=>{respecPerks();render();};
   document.querySelectorAll('[data-player]').forEach(b=>b.onclick=()=>{selPlayer=b.dataset.player;go('player');});
   document.querySelectorAll('[data-ev]').forEach(b=>b.onclick=()=>resolveEvent(+b.dataset.ev));
   const ec=$('#evtClose'); if(ec)ec.onclick=()=>{evtMsg=null;render();};
@@ -1114,7 +1120,8 @@ function viewManager(){
     <div class="bar" style="margin:12px 0" title="XP ${m.xp}/${mgrXpNeed(m.lvl)}"><i style="width:${pct}%"></i></div>
     <p class="muted" style="font-size:12px">試合結果でXP獲得（勝利+50 / 引分+25 / 敗北+10、得点×5）。レベルアップでパークポイントを獲得。</p></div>
     <div class="card"><h2>采配パーク</h2>${perks}
-    ${m.points>0?'<p style="color:var(--gold);font-size:12px;margin-top:10px">💡 未使用のパークポイントがあります。＋で強化してください。</p>':''}</div>`;
+    ${m.points>0?'<p style="color:var(--gold);font-size:12px;margin-top:10px">💡 未使用のパークポイントがあります。＋で強化してください。</p>':''}
+    <div class="row" style="margin-top:10px"><button class="btn sec" id="respec" style="padding:5px 12px;font-size:12px">🔁 パークを振り直す（全ポイント返還）</button></div></div>`;
 }
 
 function viewTraining(){
@@ -1280,7 +1287,7 @@ function startMatch(){
      rival,derby:rival?derbyName(state.clubId,opp.id):null,
      min:0,hs:0,as:0,log:[],scorers:[],assists:[],
      st:{home:{sh:0,sot:0},away:{sh:0,sot:0}},
-     myL:isHome?homeL:awayL,subsLeft:3,talkMult:1,subOut:null,
+     myL:isHome?homeL:awayL,subsLeft:3+perkLv('subMaster'),talkMult:1,subOut:null,
      momentum:50,keyLeft:3,halftimeDone:false,decision:null,over:false,fast:false,flashId:null};
   current='match'; setNav(); renderMatch();
   matchTimer=setTimeout(matchTick,700);
@@ -1589,7 +1596,7 @@ function nextSeason(){
   checkQuests();            // シーズン終了時点の目標（優勝など）を判定してから
   const mvp=seasonMVP(); if(mvp)gainXP(mvp,300);   // シーズンMVP報酬（リセット前に付与）
   const pos=standings().findIndex(x=>x.c.id===state.clubId)+1;   // 成績に応じた賞金
-  state.cash=(state.cash||0)+Math.round((pos===1?120:pos<=3?80:pos<=6?50:30)*diff().prize);
+  state.cash=(state.cash||0)+Math.round((pos===1?120:pos<=3?80:pos<=6?50:30)*diff().prize*(1+perkLv('financier')*0.1));
   const signed=new Set((state.signings||[]).map(p=>p.name));      // 市場を毎季リフレッシュ（獲得済みは除外）
   state.market=MARKET_RAW.filter(a=>!signed.has(a[0])).map(makeMarketPlayer);
   state.season++; state.round=0;
