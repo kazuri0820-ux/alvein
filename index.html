@@ -10819,6 +10819,16 @@ const ITEMS=[
    unitHistory(u,"歴戦の徽章を授かり、数多の戦を生き抜く身となった。");
    grantTitle(u,"t_hardened");
  }},
+ {key:"mei_chisel",name:"銘刻みの鏨",rarity:"rare",desc:"選んだ兵の得物に固有の銘を刻む。名を得た一振りは、主が斃れても受け継がれる生涯の相棒となる(銘なき得物を装備した兵に。武具の絆の収集を後押し)。",needsTarget:true,effect:(targetId)=>{
+   const u=findAnyUnit(targetId);if(!u)return;
+   const w=u.equipment&&u.equipment.weapon;
+   if(!w){chron(`${u.nm}は得物を装備しておらず、銘を刻めなかった。`,"");return;}
+   if(w.mei){chron(`${u.nm}の得物には既に銘「${w.mei}」が刻まれている。`,"");return;}
+   const mei=assignWeaponMei(w);
+   if(typeof grantTitle==="function")grantTitle(u,"t_bladenamed");
+   unitHistory(u,`長より賜った鏨で、相棒の得物に「${mei}」の銘を刻んだ。`);
+   chron(`${fullName(u)}の得物に、固有の銘「${mei}」が刻まれた。幾多の死線を共にした一振りが、名を持つ生涯の相棒となった。`,"big");
+ }},
  {key:"intensive_drill",name:"特訓の書",rarity:"rare",desc:"選んだ兵を集中的に鍛える。経験値が大きく伸び、稀に技を会得する(疲労が溜まる)。",needsTarget:true,effect:(targetId)=>{
    const u=findAnyUnit(targetId);if(!u)return;
    const before=u.lv;
