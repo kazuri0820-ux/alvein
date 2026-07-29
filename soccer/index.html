@@ -703,6 +703,24 @@ function standings(){
   return CLUBS.map(c=>({c,...state.table[c.id]}))
     .sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf||a.c.name.localeCompare(b.c.name));
 }
+// シーズンMVP（自チーム・3試合以上で平均点最高）
+function seasonMVP(){
+  const sq=squadOf(state.clubId).filter(p=>state.pstats&&state.pstats[p.id]&&state.pstats[p.id].apps>=3);
+  if(!sq.length)return null;
+  return sq.slice().sort((a,b)=>avgRating(b.id)-avgRating(a.id))[0].id;
+}
+// シーズン・ベストイレブン（自チーム・平均点で4-3-3を構成）
+function seasonBestXI(){
+  const sq=squadOf(state.clubId).filter(p=>state.pstats&&state.pstats[p.id]&&state.pstats[p.id].apps>0);
+  const slots=['GK','DEF','DEF','DEF','DEF','MID','MID','MID','ATT','ATT','ATT'];
+  const pool=sq.slice().sort((a,b)=>avgRating(b.id)-avgRating(a.id));
+  const used=new Set(), xi=[];
+  for(const g of slots){
+    const pick=pool.find(p=>p.grp===g&&!used.has(p.id))||pool.find(p=>!used.has(p.id));
+    if(pick){used.add(pick.id);xi.push(pick.id);}
+  }
+  return xi;
+}
 // クラブの直近成績（新しい順に最大n件のW/D/L）
 function recentForm(clubId,n){
   const res=[];
@@ -871,9 +889,16 @@ function viewDashboard(){
       <div class="row"><button class="btn" id="toMatch">戦術を決めて試合へ →</button></div></div>`;
   }else{
     const champ=st[0];
+    const mvpId=seasonMVP(); const bxi=seasonBestXI();
+    let awards='';
+    if(mvpId){const mp=PLAYERS[mvpId];awards+=`<div style="margin:10px 0 4px"><div style="color:var(--gold);font-weight:700">👑 シーズンMVP</div>
+      <div class="stats-line"><b>${mp.name}</b><span>平均点 ${avgRating(mvpId).toFixed(2)}（報酬 経験値+300）</span></div></div>`;}
+    if(bxi.length){awards+=`<div style="margin:4px 0"><div style="color:var(--accent2);font-weight:700;font-size:13px">⭐ ベストイレブン</div>
+      <div style="font-size:12px;line-height:1.9">${bxi.map(id=>`${PLAYERS[id].name}<span class="muted">(${avgRating(id).toFixed(1)})</span>`).join(' ・ ')}</div></div>`;}
     matchBox=`<div class="card champ"><div class="t">🏆 シーズン${state.season} 終了</div>
       <p style="margin:8px 0">優勝: <b style="color:${champ.c.color}">${champ.c.name}</b>（勝点${champ.pts}）</p>
       <p class="muted">あなたの最終順位: ${pos}位</p>
+      ${awards}
       <div class="row" style="justify-content:center;margin-top:12px"><button class="btn" id="nextSeason">次のシーズンを始める →</button></div></div>`;
   }
   setTimeout(()=>{const b=$('#nextSeason');if(b)b.onclick=nextSeason;},0);
@@ -1521,6 +1546,7 @@ function viewRanking(){
 
 function nextSeason(){
   checkQuests();            // シーズン終了時点の目標（優勝など）を判定してから
+  const mvp=seasonMVP(); if(mvp)gainXP(mvp,300);   // シーズンMVP報酬（リセット前に付与）
   const pos=standings().findIndex(x=>x.c.id===state.clubId)+1;   // 成績に応じた賞金
   state.cash=(state.cash||0)+(pos===1?120:pos<=3?80:pos<=6?50:30);
   const signed=new Set((state.signings||[]).map(p=>p.name));      // 市場を毎季リフレッシュ（獲得済みは除外）
