@@ -647,6 +647,15 @@ function standings(){
   return CLUBS.map(c=>({c,...state.table[c.id]}))
     .sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf||a.c.name.localeCompare(b.c.name));
 }
+// クラブの直近成績（新しい順に最大n件のW/D/L）
+function recentForm(clubId,n){
+  const res=[];
+  for(let r=state.round-1;r>=0&&res.length<(n||5);r--){
+    const m=state.fixtures[r].find(x=>x.h===clubId||x.a===clubId);
+    if(m&&m.played){const gf=m.h===clubId?m.hs:m.as, ga=m.h===clubId?m.as:m.hs; res.push(gf>ga?'W':gf<ga?'L':'D');}
+  }
+  return res.reverse();
+}
 
 /* ---------- 7. 状態 & セーブ ---------- */
 const SAVE_KEY='gaffer_save_v1';
@@ -1035,7 +1044,30 @@ function viewTactics(){
   const s=strength(club,state.lineup,state.tactics);
   const xiAbils=state.lineup.map(i=>eff(sq[i])).flatMap(p=>abilitiesOf(p).map(a=>({a,name:p.name})));
   const abilLine=xiAbils.length?xiAbils.map(x=>`<span title="${x.name}: ${x.a.name}">${x.a.icon}</span>`).join(' '):'<span class="muted">なし</span>';
-  return `<div class="card"><h2>戦術</h2>
+  // 試合前プレビュー
+  let previewCard='';
+  const pm=playerMatchOfRound(state.round);
+  if(pm){
+    const oppId=pm.h===state.clubId?pm.a:pm.h; const opp=clubById(oppId); const isHome=pm.h===state.clubId;
+    const rf=recentForm(oppId,5);
+    const rfHtml=rf.length?rf.map(x=>`<span style="color:${x==='W'?'var(--accent)':x==='L'?'var(--danger)':'var(--muted)'};font-weight:700">${x}</span>`).join(' '):'<span class="muted">開幕前</span>';
+    const kp=squadOf(oppId).slice().sort((a,b)=>b.ov-a.ov)[0];
+    const rival=isRivalOpp(oppId);
+    const tired=state.lineup.filter(i=>condOf(sq[i].id)<40).map(i=>sq[i].name);
+    const slump=state.lineup.filter(i=>formOf(sq[i].id)<=-1).map(i=>sq[i].name);
+    let warn='';
+    if(tired.length)warn+=`<div style="color:var(--danger);font-size:12px">⚠️ 疲労気味: ${tired.join('、')}</div>`;
+    if(slump.length)warn+=`<div style="color:var(--warn);font-size:12px">📉 不調: ${slump.join('、')}</div>`;
+    if(!warn)warn=`<div style="color:var(--accent);font-size:12px">✅ 先発のコンディション良好</div>`;
+    previewCard=`<div class="card"${rival?' style="border-color:var(--gold)"':''}>
+      <h2>対戦プレビュー ${rival?`<span style="color:var(--gold)">🔥 ${derbyName(pm.h,pm.a)}</span>`:''}</h2>
+      <div class="stats-line"><span>相手</span><b><span class="badge" style="background:${opp.color}"></span>${opp.name}（${isHome?'ホーム':'アウェイ'}）</b></div>
+      <div class="stats-line"><span>相手総合力</span><b>${clubRating(opp)}${aiFactor()>1?` <span class="muted" style="font-weight:400;font-size:11px">+${Math.round((aiFactor()-1)*100)}%</span>`:''}</b></div>
+      <div class="stats-line"><span>相手の最近5戦</span><b>${rfHtml}</b></div>
+      <div class="stats-line"><span>要注意選手</span><b>${kp.name} <span class="muted" style="font-weight:400">(${kp.ov})</span></b></div>
+      <div style="margin-top:8px">${warn}</div></div>`;
+  }
+  return previewCard+`<div class="card"><h2>戦術</h2>
     <div class="row" style="align-items:center;margin-bottom:6px">
       <label class="muted">フォーメーション</label>${sel('formation',state.tactics.formation,Object.keys(FORMATIONS).map(f=>[f,f]))}
       <label class="muted">スタイル</label>${sel('style',state.tactics.style,[['attack','攻撃的'],['balanced','バランス'],['defend','守備的']])}
