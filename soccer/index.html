@@ -247,13 +247,14 @@ function squadOf(id){
   if(state&&id===state.clubId&&state.signings&&state.signings.length)return base.concat(state.signings);
   return base;
 }
-function playerPrice(p){ // 市場価格（M）: OVRと伸びしろで算出
+function playerPrice(p){ // 市場価格（M）: OVRと伸びしろで算出（売却/オファーの基準）
   const pot=potentialOf(p);
   return Math.max(5,Math.round((p.ov-58)*2.5+(pot-p.ov)*2));
 }
+function buyPrice(p){return Math.max(4,Math.round(playerPrice(p)*(1-facLv('scout')*0.06)));} // スカウト網で割引
 function buyPlayer(mid){
   const i=(state.market||[]).findIndex(p=>p.id===mid); if(i<0)return {ok:false,msg:'その選手はいません'};
-  const p=state.market[i]; const price=playerPrice(p);
+  const p=state.market[i]; const price=buyPrice(p);
   if((state.cash||0)<price)return {ok:false,msg:`資金不足（${price}M 必要 / 所持 ${state.cash||0}M）`};
   state.cash-=price; state.market.splice(i,1); state.signings.push(p); PLAYERS[p.id]=p; save();
   return {ok:true,msg:`🎉 ${p.name} を獲得！（-${price}M / 残り ${state.cash}M）スカッドに加入`};
@@ -452,6 +453,8 @@ const FACILITIES=[
   {id:'medical', icon:'🏥',name:'メディカル施設',      max:3,desc:'試合後のコンディション回復 +6/Lv'},
   {id:'youth',   icon:'🎓',name:'ユースアカデミー',    max:3,desc:'トレーニング獲得XP +15%/Lv'},
   {id:'stadium', icon:'🏟️',name:'スタジアム',          max:3,desc:'シーズン賞金 +10%/Lv'},
+  {id:'scout',   icon:'🔭',name:'スカウト網',          max:3,desc:'移籍の獲得価格 -6%/Lv'},
+  {id:'commercial',icon:'🎪',name:'ファンショップ',    max:3,desc:'勝利ごとに +5M/Lv の収入'},
 ];
 function facLv(id){return (state.facilities&&state.facilities[id])||0;}
 function facCost(id){const d=FACILITIES.find(f=>f.id===id);const lv=facLv(id);return lv>=d.max?null:80*(lv+1);}
@@ -613,9 +616,9 @@ const EVENTS=[
  {id:'scout',when:()=>(state.market||[]).length>0,
   pick:()=>{const m=state.market||[];return m.length?m[Math.floor(rnd()*m.length)].id:null;},
   title:'🔍 スカウトの発見',
-  text:p=>p?`スカウトが逸材 ${p.name}（OVR${p.ov}）を発掘！特別価格 ${Math.round(playerPrice(p)*0.7)}M で獲得できる。`:'掘り出し物は見つからなかった',
+  text:p=>p?`スカウトが逸材 ${p.name}（OVR${p.ov}）を発掘！特別価格 ${Math.round(buyPrice(p)*0.7)}M で獲得できる。`:'掘り出し物は見つからなかった',
   choices:[
-   {label:'獲得する',run:(p,pid)=>{if(!p)return '';const price=Math.round(playerPrice(p)*0.7);if((state.cash||0)<price)return `資金が足りない…（${price}M 必要 / 所持 ${state.cash||0}M）`;const i=(state.market||[]).findIndex(x=>x.id===pid);if(i>=0)state.market.splice(i,1);state.cash-=price;state.signings.push(p);PLAYERS[p.id]=p;return `${p.name} を特別価格で獲得！（-${price}M / 資金 ${state.cash}M）`;}},
+   {label:'獲得する',run:(p,pid)=>{if(!p)return '';const price=Math.round(buyPrice(p)*0.7);if((state.cash||0)<price)return `資金が足りない…（${price}M 必要 / 所持 ${state.cash||0}M）`;const i=(state.market||[]).findIndex(x=>x.id===pid);if(i>=0)state.market.splice(i,1);state.cash-=price;state.signings.push(p);PLAYERS[p.id]=p;return `${p.name} を特別価格で獲得！（-${price}M / 資金 ${state.cash}M）`;}},
    {label:'見送る',run:p=>`今回は見送った`},
   ]},
 ];
@@ -860,12 +863,13 @@ function newGame(clubId,difficulty){
   const dk=DIFFS[difficulty]?difficulty:'normal';
   state={season:1,round:0,clubId,difficulty:dk,fixtures:fx,table:emptyTable(),
     tactics:{formation:'4-3-3',style:'balanced',press:'mid',line:'mid'},
-    lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho',
+    lineup:[],history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho',
     mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60,pendingEvent:null,form:{},
     cash:DIFFS[dk].cash,signings:[],market:MARKET_RAW.map(makeMarketPlayer),
     eventQueue:[],winStreak:0,lossStreak:0,pstats:{},history:{seasons:[]},
     career:{matches:0,wins:0,gf:0,titles:0,bestStreak:0},achievements:{},legend:{},seenTutorial:false,
-    facilities:{training:0,medical:0,youth:0,stadium:0}};
+    facilities:{training:0,medical:0,youth:0,stadium:0,scout:0,commercial:0}};
+  state.lineup=bestXI(club,'4-3-3');   // 新stateに対して先発を選定（旧stateを参照しない）
   save();
 }
 
@@ -1260,7 +1264,7 @@ function viewFacilities(){
 function viewTransfer(){
   const market=(state.market||[]).slice().sort((a,b)=>b.ov-a.ov);
   const rows=market.map(p=>{
-    const price=playerPrice(p); const pot=potentialOf(p); const per=personaOf(p.id);
+    const price=buyPrice(p); const pot=potentialOf(p); const per=personaOf(p.id);
     const can=(state.cash||0)>=price;
     return `<tr><td class="name">${p.name} <span title="${per.name}">${per.icon}</span></td>
       <td><span class="pos ${p.grp}">${p.pos}</span></td><td class="ov">${p.ov}</td>
@@ -1599,6 +1603,7 @@ function finishMatch(){
   else if(lose){state.lossStreak=(state.lossStreak||0)+1;state.winStreak=0;}
   else {state.winStreak=0;state.lossStreak=0;}
   const c=car(); c.matches++; if(win)c.wins++; c.gf+=my; c.bestStreak=Math.max(c.bestStreak||0,state.winStreak||0); // 通算記録
+  if(win)state.cash=(state.cash||0)+facLv('commercial')*5;   // ファンショップの勝利ボーナス
   const before=morale();
   chMorale(win?8:lose?-8:2);                         // 通常の士気変動
   if(win){const sq=squadOf(state.clubId); if(state.lineup.some(i=>personaOf(sq[i].id).id==='mood'))chMorale(2);} // ムードメーカー
