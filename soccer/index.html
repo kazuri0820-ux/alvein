@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>フットボール監督 - Gaffer</title>
+<style>
+  :root{
+    --bg:#0d1117; --bg2:#161b22; --bg3:#1c2530; --line:#2b3441;
+    --txt:#e6edf3; --muted:#9aa7b4; --accent:#3fb950; --accent2:#2f81f7;
+    --warn:#e3b341; --danger:#f85149; --gold:#e3b341;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:-apple-system,"Segoe UI",Roboto,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;font-size:14px;line-height:1.6}
+  #app{max-width:960px;margin:0 auto;padding:0 12px 60px}
+  header{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,var(--bg2),rgba(22,27,34,.92));backdrop-filter:blur(6px);border-bottom:1px solid var(--line);margin:0 -12px 16px;padding:10px 14px}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .brand h1{font-size:18px;letter-spacing:.5px}
+  .brand .pill{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:2px 8px;border-radius:999px}
+  nav{display:flex;gap:6px;flex-wrap:wrap}
+  nav button{background:var(--bg3);color:var(--muted);border:1px solid var(--line);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px}
+  nav button:hover{color:var(--txt)}
+  nav button.active{background:var(--accent);color:#04260f;border-color:var(--accent);font-weight:600}
+  .card{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  .card h2{font-size:15px;margin-bottom:12px;color:var(--txt);display:flex;align-items:center;gap:8px}
+  .muted{color:var(--muted)}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .btn{background:var(--accent);color:#04260f;border:none;padding:10px 18px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer}
+  .btn:hover{filter:brightness(1.08)}
+  .btn.sec{background:var(--bg3);color:var(--txt);border:1px solid var(--line)}
+  .btn.blue{background:var(--accent2);color:#fff}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  select{background:var(--bg3);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:7px 8px;text-align:center;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:500;font-size:12px}
+  td.name,th.name{text-align:left}
+  tr.me{background:rgba(63,185,80,.10)}
+  .badge{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin-right:6px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+  .club-card{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:16px;cursor:pointer;transition:.15s}
+  .club-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .club-card .cn{font-size:16px;font-weight:600;margin-bottom:4px}
+  .stat-bars .sb{display:flex;align-items:center;gap:8px;margin:6px 0}
+  .stat-bars .sb span{width:34px;color:var(--muted);font-size:12px}
+  .bar{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+  .pos{display:inline-block;min-width:34px;text-align:center;font-size:11px;font-weight:600;padding:2px 4px;border-radius:5px;background:var(--bg3);color:var(--muted)}
+  .pos.GK{color:#e3b341}.pos.DEF{color:#58a6ff}.pos.MID{color:#3fb950}.pos.ATT{color:#f85149}
+  .ov{font-weight:700;font-variant-numeric:tabular-nums}
+  .scoreboard{text-align:center;padding:18px 0}
+  .scoreboard .teams{display:flex;justify-content:center;align-items:center;gap:20px}
+  .scoreboard .tn{flex:1;font-size:16px;font-weight:600}
+  .scoreboard .sc{font-size:40px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:2px}
+  .scoreboard .clock{color:var(--muted);font-size:13px;margin-top:4px}
+  .commentary{max-height:320px;overflow-y:auto;margin-top:8px}
+  .ev{padding:6px 10px;border-left:3px solid var(--line);margin:4px 0;background:var(--bg3);border-radius:0 8px 8px 0;font-size:13px;animation:fade .3s}
+  .ev .m{color:var(--muted);font-variant-numeric:tabular-nums;margin-right:8px}
+  .ev.goal{border-color:var(--accent);background:rgba(63,185,80,.12);font-weight:600}
+  .ev.chance{border-color:var(--warn)}
+  .ev.card{border-color:var(--danger)}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+  .stats-line{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding:3px 0;border-bottom:1px solid var(--line)}
+  .stats-line b{color:var(--txt)}
+  .lineup-slot{display:flex;align-items:center;gap:8px;margin:5px 0}
+  .lineup-slot .pos{flex-shrink:0}
+  .lineup-slot select{flex:1}
+  .kpi{display:flex;gap:16px;flex-wrap:wrap}
+  .kpi .k{background:var(--bg3);border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:90px}
+  .kpi .k .v{font-size:20px;font-weight:700}
+  .kpi .k .l{font-size:11px;color:var(--muted)}
+  .champ{text-align:center;padding:20px;background:radial-gradient(circle at 50% 0,rgba(227,179,65,.18),transparent 70%)}
+  .champ .t{font-size:22px;font-weight:800;color:var(--gold)}
+  a.gh{color:var(--muted);font-size:11px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <h1>⚽ フットボール監督</h1>
+      <span class="pill">Gaffer</span>
+      <span class="pill" id="seasonPill" style="margin-left:auto"></span>
+    </div>
+    <nav id="nav"></nav>
+  </header>
+  <div id="screen"></div>
+</div>
+
+<script>
+/* ============================================================
+   フットボール監督 (Gaffer) — 監督/GM マネジメントシミュレーション
+   単一ファイル / サーバー不要 / localStorage セーブ
+   ============================================================ */
+
+/* ---------- 1. データ（実在クラブ・選手 : 個人利用） ---------- */
+// 選手: [名前, ポジション, PAC, SHO, PAS, DRI, DEF, PHY]
+const CLUBS_RAW = [
+ {id:'mci',name:'Manchester City',short:'MCI',color:'#6CABDD',squad:[
+  ['Ederson','GK',85,25,84,70,86,82],['Rúben Dias','CB',68,45,75,72,87,85],['Josko Gvardiol','CB',80,50,74,76,84,83],
+  ['Nathan Aké','CB',75,45,72,74,82,80],['Manuel Akanji','CB',78,42,76,75,83,80],['Kyle Walker','RB',90,50,72,75,80,83],
+  ['Rico Lewis','RB',80,55,78,80,74,70],['Rodri','CDM',66,72,85,80,85,84],['Kevin De Bruyne','CAM',72,86,93,86,64,74],
+  ['Bernardo Silva','CM',78,78,86,89,72,66],['Mateo Kovacic','CM',74,72,83,84,74,76],['Phil Foden','CAM',82,84,84,88,58,66],
+  ['Jérémy Doku','LW',95,74,74,90,40,68],['Savinho','RW',88,76,78,87,42,64],['Erling Haaland','ST',89,94,68,80,45,88]]},
+ {id:'rma',name:'Real Madrid',short:'RMA',color:'#FEBE10',squad:[
+  ['Thibaut Courtois','GK',86,25,80,72,88,86],['Antonio Rüdiger','CB',82,55,74,72,86,86],['Éder Militão','CB',86,50,74,76,85,84],
+  ['David Alaba','CB',78,60,82,78,82,78],['Dani Carvajal','RB',80,60,80,80,82,78],['Ferland Mendy','LB',86,45,74,78,82,80],
+  ['Aurélien Tchouaméni','CDM',74,68,82,78,84,85],['Federico Valverde','CM',88,82,85,84,80,86],['Jude Bellingham','CAM',82,86,86,88,74,84],
+  ['Luka Modric','CM',72,76,89,86,72,66],['Eduardo Camavinga','CM',82,66,82,85,80,80],['Vinícius Júnior','LW',95,86,80,92,42,72],
+  ['Rodrygo','RW',90,84,82,88,44,70],['Kylian Mbappé','ST',97,92,80,92,40,80],['Brahim Díaz','CAM',86,78,82,88,50,62]]},
+ {id:'ars',name:'Arsenal',short:'ARS',color:'#EF0107',squad:[
+  ['David Raya','GK',82,28,84,74,85,80],['William Saliba','CB',82,45,78,78,87,85],['Gabriel Magalhães','CB',76,55,72,72,86,86],
+  ['Ben White','RB',75,50,78,76,82,78],['Jurriën Timber','RB',80,50,78,80,82,78],['Riccardo Calafiori','LB',78,55,78,80,82,82],
+  ['Declan Rice','CDM',82,74,82,82,85,87],['Martin Ødegaard','CAM',76,82,90,88,66,66],['Mikel Merino','CM',72,76,82,78,78,84],
+  ['Thomas Partey','CDM',76,72,82,80,82,84],['Bukayo Saka','RW',86,86,84,90,58,74],['Gabriel Martinelli','LW',92,80,76,86,50,74],
+  ['Leandro Trossard','LW',82,82,82,86,52,64],['Gabriel Jesus','ST',84,82,80,86,52,74],['Kai Havertz','ST',82,82,80,82,64,84]]},
+ {id:'liv',name:'Liverpool',short:'LIV',color:'#C8102E',squad:[
+  ['Alisson','GK',86,25,84,74,88,84],['Virgil van Dijk','CB',80,60,80,76,89,88],['Ibrahima Konaté','CB',84,45,74,74,84,86],
+  ['Trent Alexander-Arnold','RB',78,78,90,82,74,70],['Andrew Robertson','LB',84,62,82,80,80,78],['Ryan Gravenberch','CDM',82,72,82,84,78,82],
+  ['Alexis Mac Allister','CM',74,80,86,84,76,76],['Dominik Szoboszlai','CM',84,82,84,84,70,80],['Curtis Jones','CM',78,74,82,84,70,74],
+  ['Mohamed Salah','RW',89,90,82,90,52,76],['Luis Díaz','LW',90,82,78,88,48,72],['Cody Gakpo','LW',82,82,80,84,52,80],
+  ['Darwin Núñez','ST',92,84,72,80,44,86],['Diogo Jota','ST',82,84,78,84,52,74],['Wataru Endo','CDM',72,66,78,74,80,82]]},
+ {id:'bay',name:'Bayern München',short:'BAY',color:'#DC052D',squad:[
+  ['Manuel Neuer','GK',82,30,86,78,86,84],['Dayot Upamecano','CB',84,48,74,76,84,86],['Kim Min-jae','CB',82,45,74,74,85,86],
+  ['Alphonso Davies','LB',96,60,78,86,76,80],['Joshua Kimmich','RB',72,74,88,80,82,78],['Konrad Laimer','CM',86,68,80,80,78,82],
+  ['Leon Goretzka','CM',78,78,82,80,76,86],['Jamal Musiala','CAM',84,84,84,92,58,68],['João Palhinha','CDM',70,68,78,74,84,86],
+  ['Serge Gnabry','RW',86,82,80,84,52,74],['Leroy Sané','RW',90,84,80,86,48,72],['Kingsley Coman','LW',90,80,78,88,50,72],
+  ['Michael Olise','RW',82,82,84,88,54,66],['Harry Kane','ST',72,92,84,82,52,84],['Thomas Müller','CAM',70,80,84,80,60,68]]},
+ {id:'psg',name:'Paris Saint-Germain',short:'PSG',color:'#004170',squad:[
+  ['Gianluigi Donnarumma','GK',82,28,80,74,88,88],['Marquinhos','CB',82,50,80,80,86,82],['Willian Pacho','CB',80,45,74,74,84,84],
+  ['Achraf Hakimi','RB',94,72,80,86,74,78],['Nuno Mendes','LB',90,60,78,84,80,80],['Vitinha','CM',80,78,86,86,74,72],
+  ['Warren Zaïre-Emery','CM',82,72,82,84,78,78],['João Neves','CM',80,72,82,84,78,74],['Fabián Ruiz','CM',72,78,86,82,74,80],
+  ['Ousmane Dembélé','RW',92,82,80,90,48,68],['Bradley Barcola','LW',92,80,78,86,46,70],['Khvicha Kvaratskhelia','LW',88,82,80,91,46,74],
+  ['Désiré Doué','CAM',86,80,82,88,52,70],['Gonçalo Ramos','ST',80,84,74,80,44,82],['Marco Asensio','CAM',80,84,84,84,50,68]]},
+ {id:'bar',name:'FC Barcelona',short:'BAR',color:'#A50044',squad:[
+  ['Marc-André ter Stegen','GK',84,30,86,76,86,82],['Ronald Araújo','CB',86,48,72,74,85,88],['Pau Cubarsí','CB',76,45,80,78,84,80],
+  ['Íñigo Martínez','CB',68,50,78,74,84,82],['Jules Koundé','RB',86,55,78,80,84,80],['Alejandro Balde','LB',92,55,76,84,78,74],
+  ['Frenkie de Jong','CM',82,74,88,88,78,80],['Pedri','CM',78,78,88,88,70,66],['Gavi','CM',82,74,84,84,74,74],
+  ['Ilkay Gündogan','CM',68,80,86,84,70,68],['Robert Lewandowski','ST',78,92,78,82,44,82],['Raphinha','LW',88,84,82,86,54,72],
+  ['Lamine Yamal','RW',86,84,84,92,48,62],['Ferran Torres','ST',86,80,78,82,50,72],['Dani Olmo','CAM',80,82,84,86,58,68]]},
+ {id:'int',name:'Inter',short:'INT',color:'#0068A8',squad:[
+  ['Yann Sommer','GK',80,30,82,76,85,78],['Alessandro Bastoni','CB',78,50,80,78,85,82],['Francesco Acerbi','CB',66,48,76,68,84,80],
+  ['Benjamin Pavard','CB',76,52,76,74,83,82],['Denzel Dumfries','RB',88,66,74,80,76,86],['Federico Dimarco','LB',82,72,84,82,78,74],
+  ['Nicolò Barella','CM',84,78,84,86,78,82],['Hakan Çalhanoglu','CDM',68,82,88,82,74,74],['Henrikh Mkhitaryan','CM',74,76,84,82,70,72],
+  ['Piotr Zielinski','CM',72,78,85,84,68,72],['Lautaro Martínez','ST',86,88,78,86,52,82],['Marcus Thuram','ST',86,82,76,84,48,86],
+  ['Davide Frattesi','CM',82,78,80,82,72,78],['Mehdi Taremi','ST',74,80,78,80,48,80],['Marko Arnautovic','ST',68,78,76,78,46,82]]},
+];
+
+/* ---------- 2. 選手/クラブ整形 ---------- */
+function groupOf(pos){
+  if(pos==='GK')return 'GK';
+  if(['CB','LB','RB','LWB','RWB'].includes(pos))return 'DEF';
+  if(['CDM','CM','CAM','LM','RM','DM'].includes(pos))return 'MID';
+  return 'ATT';
+}
+function overall(p){
+  const{pac,sho,pas,dri,def,phy,grp}=p;
+  if(grp==='GK')return Math.round(def*.5+phy*.2+pac*.2+pas*.1);
+  if(grp==='DEF')return Math.round(def*.40+phy*.25+pac*.15+pas*.10+dri*.05+sho*.05);
+  if(grp==='MID')return Math.round(pas*.30+dri*.25+def*.15+phy*.10+sho*.10+pac*.10);
+  return Math.round(sho*.35+dri*.25+pac*.20+pas*.10+phy*.05+def*.05); // ATT
+}
+const CLUBS = CLUBS_RAW.map(c=>({
+  id:c.id,name:c.name,short:c.short,color:c.color,
+  squad:c.squad.map((a,i)=>{
+    const p={id:c.id+i,name:a[0],pos:a[1],pac:a[2],sho:a[3],pas:a[4],dri:a[5],def:a[6],phy:a[7]};
+    p.grp=groupOf(p.pos); p.ov=overall(p); return p;
+  })
+}));
+const clubById=id=>CLUBS.find(c=>c.id===id);
+function clubRating(c){ // 平均トップ11
+  const s=c.squad.slice().sort((a,b)=>b.ov-a.ov).slice(0,11);
+  return Math.round(s.reduce((t,p)=>t+p.ov,0)/s.length);
+}
+
+/* ---------- 3. フォーメーション & ベストXI ---------- */
+const FORMATIONS={
+  '4-3-3':['GK','DEF','DEF','DEF','DEF','MID','MID','MID','ATT','ATT','ATT'],
+  '4-4-2':['GK','DEF','DEF','DEF','DEF','MID','MID','MID','MID','ATT','ATT'],
+  '4-2-3-1':['GK','DEF','DEF','DEF','DEF','MID','MID','MID','MID','MID','ATT'],
+  '3-5-2':['GK','DEF','DEF','DEF','MID','MID','MID','MID','MID','ATT','ATT'],
+};
+function bestXI(club,formation){
+  const slots=FORMATIONS[formation];
+  const pool=club.squad.slice().sort((a,b)=>b.ov-a.ov);
+  const used=new Set(), xi=[];
+  for(const g of slots){
+    let pick=pool.find(p=>p.grp===g&&!used.has(p.id));
+    if(!pick)pick=pool.find(p=>!used.has(p.id));
+    used.add(pick.id); xi.push(club.squad.indexOf(pick));
+  }
+  return xi;
+}
+
+/* ---------- 4. チーム力算出 ---------- */
+function mean(a){return a.length?a.reduce((t,x)=>t+x,0)/a.length:55;}
+function strength(club,lineup,tac){
+  const xi=lineup.map(i=>club.squad[i]);
+  const gkp=xi.find(p=>p.grp==='GK');
+  const gk=gkp?gkp.ov:58;
+  const defs=xi.filter(p=>p.grp==='DEF').map(p=>p.ov);
+  const mids=xi.filter(p=>p.grp==='MID').map(p=>p.ov);
+  const atts=xi.filter(p=>p.grp==='ATT').map(p=>p.ov);
+  let att=mean(atts)*.6+mean(mids)*.3+mean(defs)*.1;
+  let mid=mean(mids)*.6+mean(atts)*.2+mean(defs)*.2;
+  let def=mean(defs)*.6+gk*.25+mean(mids)*.15;
+  if(tac.style==='attack'){att*=1.10;def*=0.93;}
+  else if(tac.style==='defend'){att*=0.92;def*=1.10;}
+  if(tac.press==='high'){mid*=1.05;def*=0.97;}
+  else if(tac.press==='low'){mid*=0.97;def*=1.03;}
+  if(tac.line==='high'){att*=1.04;def*=0.96;}
+  else if(tac.line==='low'){att*=0.97;def*=1.04;}
+  return{att,mid,def,gk};
+}
+
+/* ---------- 5. 試合エンジン ---------- */
+function rnd(){return Math.random();}
+function pickScorer(club,lineup){
+  const xi=lineup.map(i=>club.squad[i]).filter(p=>p.grp!=='GK');
+  const weighted=[];
+  xi.forEach(p=>{
+    let w=p.sho*(p.grp==='ATT'?3:p.grp==='MID'?1.4:0.4);
+    weighted.push({p,w});
+  });
+  const tot=weighted.reduce((t,x)=>t+x.w,0);
+  let r=rnd()*tot;
+  for(const x of weighted){r-=x.w;if(r<=0)return x.p.name;}
+  return xi[0].name;
+}
+const GOAL_TXT=['ゴォォル！','ネットが揺れた！','決めた！','見事なフィニッシュ！','こじ開けた！'];
+const MISS_TXT=['惜しい！枠の外','ポストを直撃！','GK好セーブ！','決定機を逃す','クロスバー！'];
+function simulate(homeC,homeL,homeT,awayC,awayL,awayT,withEvents){
+  const H=strength(homeC,homeL,homeT), A=strength(awayC,awayL,awayT);
+  H.att*=1.06; H.def*=1.03; // ホームアドバンテージ
+  let possH=H.mid/(H.mid+A.mid); possH=Math.max(.35,Math.min(.65,possH));
+  const st={home:{sh:0,sot:0},away:{sh:0,sot:0}};
+  let hs=0,as=0; const events=[];
+  const yc={home:0,away:0};
+  for(let m=1;m<=90;m++){
+    if(rnd()<0.30){
+      const isH=rnd()<possH;
+      const atkC=isH?homeC:awayC, atkL=isH?homeL:awayL;
+      const atk=isH?H:A, dfn=isH?A:H; const side=isH?'home':'away';
+      const q=atk.att/(atk.att+dfn.def); // 0.35〜0.65
+      st[side].sh++;
+      const onT=rnd()<0.32+q*0.35;
+      if(onT){
+        st[side].sot++;
+        let gp=(q-0.24)*1.15*(1-dfn.gk/300);
+        gp=Math.max(.03,Math.min(.60,gp));
+        if(rnd()<gp){
+          if(side==='home')hs++;else as++;
+          const scorer=pickScorer(atkC,atkL);
+          if(withEvents)events.push({m,type:'goal',team:side,text:`⚽ ${scorer}！ ${GOAL_TXT[Math.floor(rnd()*GOAL_TXT.length)]} (${atkC.short})`});
+        }else if(withEvents&&rnd()<0.5){
+          events.push({m,type:'chance',team:side,text:`${atkC.short} ${MISS_TXT[Math.floor(rnd()*MISS_TXT.length)]}`});
+        }
+      }
+    }
+    if(withEvents&&rnd()<0.012){
+      const side=rnd()<0.5?'home':'away'; const c=side==='home'?homeC:awayC;
+      yc[side]++; events.push({m,type:'card',team:side,text:`🟨 ${c.short} イエローカード`});
+    }
+  }
+  return{hs,as,possH,stats:st,events};
+}
+
+/* ---------- 6. リーグ日程 ---------- */
+function genFixtures(ids){
+  const arr=ids.slice(); const n=arr.length; const first=[];
+  for(let r=0;r<n-1;r++){
+    const pairs=[];
+    for(let i=0;i<n/2;i++){
+      let h=arr[i],a=arr[n-1-i];
+      if(r%2===1)[h,a]=[a,h];
+      pairs.push({h,a,played:false,hs:null,as:null});
+    }
+    first.push(pairs);
+    arr.splice(1,0,arr.pop());
+  }
+  const second=first.map(rd=>rd.map(m=>({h:m.a,a:m.h,played:false,hs:null,as:null})));
+  return first.concat(second);
+}
+function emptyTable(){const t={};CLUBS.forEach(c=>t[c.id]={p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0});return t;}
+function standings(){
+  return CLUBS.map(c=>({c,...state.table[c.id]}))
+    .sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf||a.c.name.localeCompare(b.c.name));
+}
+
+/* ---------- 7. 状態 & セーブ ---------- */
+const SAVE_KEY='gaffer_save_v1';
+let state=null;
+function save(){localStorage.setItem(SAVE_KEY,JSON.stringify(state));}
+function load(){try{const s=localStorage.getItem(SAVE_KEY);return s?JSON.parse(s):null;}catch(e){return null;}}
+function newGame(clubId){
+  const fx=genFixtures(CLUBS.map(c=>c.id));
+  const club=clubById(clubId);
+  state={season:1,round:0,clubId,fixtures:fx,table:emptyTable(),
+    tactics:{formation:'4-3-3',style:'balanced',press:'mid',line:'mid'},
+    lineup:bestXI(club,'4-3-3'),history:[]};
+  save();
+}
+
+/* ---------- 8. 試合進行 ---------- */
+function playerMatchOfRound(r){
+  const rd=state.fixtures[r]; if(!rd)return null;
+  return rd.find(m=>m.h===state.clubId||m.a===state.clubId);
+}
+function finalizeRound(r,playerResult){
+  const rd=state.fixtures[r];
+  rd.forEach(m=>{
+    if(m.played)return;
+    let hs,as;
+    if(playerResult&&(m.h===state.clubId||m.a===state.clubId)){hs=playerResult.hs;as=playerResult.as;}
+    else{
+      const hc=clubById(m.h),ac=clubById(m.a);
+      const res=simulate(hc,bestXI(hc,'4-3-3'),{style:'balanced',press:'mid',line:'mid'},
+                         ac,bestXI(ac,'4-3-3'),{style:'balanced',press:'mid',line:'mid'},false);
+      hs=res.hs;as=res.as;
+    }
+    m.hs=hs;m.as=as;m.played=true;
+    const th=state.table[m.h],ta=state.table[m.a];
+    th.p++;ta.p++;th.gf+=hs;th.ga+=as;ta.gf+=as;ta.ga+=hs;
+    if(hs>as){th.w++;ta.l++;th.pts+=3;}else if(hs<as){ta.w++;th.l++;ta.pts+=3;}
+    else{th.d++;ta.d++;th.pts++;ta.pts++;}
+  });
+  state.round++;
+  save();
+}
+
+/* ---------- 9. 描画 ---------- */
+const $=s=>document.querySelector(s);
+let current='dashboard';
+function setNav(){
+  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['tactics','戦術'],['standings','順位表'],['fixtures','日程']];
+  $('#nav').innerHTML=items.map(([k,l])=>`<button data-s="${k}" class="${k===current?'active':''}">${l}</button>`).join('');
+  $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.s));
+  $('#seasonPill').textContent=state?`シーズン ${state.season} ・ 第${Math.min(state.round+1,14)}節`:'';
+}
+function go(s){current=s;render();}
+function render(){
+  if(!state){renderClubSelect();return;}
+  setNav();
+  const el=$('#screen');
+  if(current==='dashboard')el.innerHTML=viewDashboard();
+  else if(current==='squad')el.innerHTML=viewSquad();
+  else if(current==='tactics'){el.innerHTML=viewTactics();bindTactics();}
+  else if(current==='standings')el.innerHTML=viewStandings();
+  else if(current==='fixtures')el.innerHTML=viewFixtures();
+  bindCommon();
+}
+function bindCommon(){
+  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+  const kb=$('#toMatch'); if(kb)kb.onclick=()=>go('tactics');
+}
+
+function renderClubSelect(){
+  $('#nav').innerHTML=''; $('#seasonPill').textContent='';
+  const cards=CLUBS.map(c=>{
+    const r=clubRating(c);
+    return `<div class="club-card" data-club="${c.id}">
+      <div class="cn"><span class="badge" style="background:${c.color}"></span>${c.name}</div>
+      <div class="muted" style="font-size:12px">総合力 <span class="ov" style="color:var(--accent)">${r}</span> ・ ${c.squad.length}名</div>
+    </div>`;
+  }).join('');
+  $('#screen').innerHTML=`<div class="card">
+     <h2>クラブを選択</h2>
+     <p class="muted" style="margin-bottom:14px">率いるクラブを選んでください。1シーズン全14節のリーグ戦を戦います。</p>
+     <div class="grid">${cards}</div>
+   </div>`;
+  document.querySelectorAll('[data-club]').forEach(el=>el.onclick=()=>{newGame(el.dataset.club);go('dashboard');});
+}
+
+function statBars(s){
+  const bar=(l,v)=>`<div class="sb"><span>${l}</span><div class="bar"><i style="width:${Math.min(100,v)}%"></i></div><b style="width:28px">${Math.round(v)}</b></div>`;
+  return `<div class="stat-bars">${bar('攻撃',s.att)}${bar('中盤',s.mid)}${bar('守備',s.def)}</div>`;
+}
+function viewDashboard(){
+  const club=clubById(state.clubId);
+  const st=standings(); const pos=st.findIndex(x=>x.c.id===state.clubId)+1;
+  const rec=state.table[state.clubId];
+  const m=playerMatchOfRound(state.round);
+  const s=strength(club,state.lineup,state.tactics);
+  let matchBox;
+  if(m){
+    const home=clubById(m.h),away=clubById(m.a);
+    matchBox=`<div class="card"><h2>⚔️ 第${state.round+1}節</h2>
+      <div class="scoreboard"><div class="teams">
+        <div class="tn"><span class="badge" style="background:${home.color}"></span>${home.name}${m.h===state.clubId?' 🏠':''}</div>
+        <div class="sc muted" style="font-size:22px">VS</div>
+        <div class="tn"><span class="badge" style="background:${away.color}"></span>${away.name}${m.a===state.clubId?' 🏠':''}</div>
+      </div></div>
+      <div class="row"><button class="btn" id="toMatch">戦術を決めて試合へ →</button></div></div>`;
+  }else{
+    const champ=st[0];
+    matchBox=`<div class="card champ"><div class="t">🏆 シーズン${state.season} 終了</div>
+      <p style="margin:8px 0">優勝: <b style="color:${champ.c.color}">${champ.c.name}</b>（勝点${champ.pts}）</p>
+      <p class="muted">あなたの最終順位: ${pos}位</p>
+      <div class="row" style="justify-content:center;margin-top:12px"><button class="btn" id="nextSeason">次のシーズンを始める →</button></div></div>`;
+  }
+  setTimeout(()=>{const b=$('#nextSeason');if(b)b.onclick=nextSeason;},0);
+  return `<div class="card">
+      <h2><span class="badge" style="background:${club.color}"></span>${club.name}</h2>
+      <div class="kpi">
+        <div class="k"><div class="v">${pos}位</div><div class="l">現在順位</div></div>
+        <div class="k"><div class="v">${rec.pts}</div><div class="l">勝点</div></div>
+        <div class="k"><div class="v">${rec.w}-${rec.d}-${rec.l}</div><div class="l">勝分敗</div></div>
+        <div class="k"><div class="v">${rec.gf}:${rec.ga}</div><div class="l">得失点</div></div>
+      </div>
+    </div>
+    <div class="card"><h2>チーム力（現在の戦術）</h2>${statBars(s)}
+      <p class="muted" style="font-size:12px;margin-top:8px">フォーメーション ${state.tactics.formation}・${styleLabel(state.tactics.style)}</p></div>
+    ${matchBox}`;
+}
+function styleLabel(s){return{attack:'攻撃的',balanced:'バランス',defend:'守備的'}[s];}
+
+function viewSquad(){
+  const club=clubById(state.clubId);
+  const rows=club.squad.slice().sort((a,b)=>b.ov-a.ov).map(p=>{
+    const inXI=state.lineup.includes(club.squad.indexOf(p));
+    return `<tr class="${inXI?'me':''}"><td class="name">${inXI?'● ':''}${p.name}</td>
+      <td><span class="pos ${p.grp}">${p.pos}</span></td><td class="ov">${p.ov}</td>
+      <td>${p.pac}</td><td>${p.sho}</td><td>${p.pas}</td><td>${p.dri}</td><td>${p.def}</td><td>${p.phy}</td></tr>`;
+  }).join('');
+  return `<div class="card"><h2>スカッド <span class="muted" style="font-weight:400;font-size:12px">（● = 先発）</span></h2>
+    <div style="overflow-x:auto"><table>
+    <tr><th class="name">選手</th><th>POS</th><th>OVR</th><th>PAC</th><th>SHO</th><th>PAS</th><th>DRI</th><th>DEF</th><th>PHY</th></tr>
+    ${rows}</table></div></div>`;
+}
+
+function viewTactics(){
+  const club=clubById(state.clubId);
+  const slots=FORMATIONS[state.tactics.formation];
+  const sel=(id,val,opts)=>`<select id="${id}">${opts.map(o=>`<option value="${o[0]}" ${o[0]===val?'selected':''}>${o[1]}</option>`).join('')}</select>`;
+  const lineupHtml=slots.map((g,idx)=>{
+    const usedElse=state.lineup.filter((_,i)=>i!==idx);
+    const opts=club.squad.map((p,pi)=>({p,pi})).filter(x=>x.p.grp===g&&!usedElse.includes(x.pi)).sort((a,b)=>b.p.ov-a.p.ov);
+    const cur=state.lineup[idx];
+    return `<div class="lineup-slot"><span class="pos ${g}">${g}</span>
+      <select data-slot="${idx}">${opts.map(x=>`<option value="${x.pi}" ${x.pi===cur?'selected':''}>${x.p.name} (${x.p.ov})</option>`).join('')}</select></div>`;
+  }).join('');
+  const s=strength(club,state.lineup,state.tactics);
+  return `<div class="card"><h2>戦術</h2>
+    <div class="row" style="align-items:center;margin-bottom:6px">
+      <label class="muted">フォーメーション</label>${sel('formation',state.tactics.formation,Object.keys(FORMATIONS).map(f=>[f,f]))}
+      <label class="muted">スタイル</label>${sel('style',state.tactics.style,[['attack','攻撃的'],['balanced','バランス'],['defend','守備的']])}
+    </div>
+    <div class="row" style="align-items:center">
+      <label class="muted">プレス</label>${sel('press',state.tactics.press,[['high','ハイプレス'],['mid','標準'],['low','リトリート']])}
+      <label class="muted">ライン</label>${sel('line',state.tactics.line,[['high','ハイライン'],['mid','標準'],['low','低め']])}
+    </div>
+    </div>
+    <div class="card"><h2>チーム力プレビュー</h2>${statBars(s)}</div>
+    <div class="card"><h2>先発11人</h2>${lineupHtml}
+      <p class="muted" style="font-size:12px;margin-top:6px">各枠のプルダウンで入れ替え可能</p></div>
+    <div class="card"><div class="row">
+      <button class="btn sec" data-go="dashboard">← 戻る</button>
+      ${playerMatchOfRound(state.round)?'<button class="btn" id="kickoff">キックオフ ⚽</button>':''}
+    </div></div>`;
+}
+function bindTactics(){
+  ['formation','style','press','line'].forEach(id=>{
+    const e=$('#'+id); if(!e)return;
+    e.onchange=()=>{
+      state.tactics[id]=e.value;
+      if(id==='formation')state.lineup=bestXI(clubById(state.clubId),e.value);
+      save(); render();
+    };
+  });
+  document.querySelectorAll('[data-slot]').forEach(sl=>{
+    sl.onchange=()=>{
+      const idx=+sl.dataset.slot, val=+sl.value;
+      const other=state.lineup.indexOf(val);
+      if(other>=0&&other!==idx)state.lineup[other]=state.lineup[idx];
+      state.lineup[idx]=val; save(); render();
+    };
+  });
+  const k=$('#kickoff'); if(k)k.onclick=startMatch;
+}
+
+/* 試合演出 */
+let matchTimers=[];
+function startMatch(){
+  const m=playerMatchOfRound(state.round);
+  const club=clubById(state.clubId);
+  const isHome=m.h===state.clubId;
+  const oppId=isHome?m.a:m.h; const opp=clubById(oppId);
+  const homeC=isHome?club:opp, awayC=isHome?opp:club;
+  const homeL=isHome?state.lineup:bestXI(opp,'4-3-3');
+  const awayL=isHome?bestXI(opp,'4-3-3'):state.lineup;
+  const homeT=isHome?state.tactics:{style:'balanced',press:'mid',line:'mid'};
+  const awayT=isHome?{style:'balanced',press:'mid',line:'mid'}:state.tactics;
+  const res=simulate(homeC,homeL,homeT,awayC,awayL,awayT,true);
+  showMatch(homeC,awayC,res);
+}
+function showMatch(homeC,awayC,res){
+  current='match'; setNav();
+  $('#screen').innerHTML=`<div class="card">
+    <div class="scoreboard">
+      <div class="teams">
+        <div class="tn"><span class="badge" style="background:${homeC.color}"></span>${homeC.name}</div>
+        <div><div class="sc" id="scDisp">0 - 0</div><div class="clock" id="clk">キックオフ</div></div>
+        <div class="tn"><span class="badge" style="background:${awayC.color}"></span>${awayC.name}</div>
+      </div>
+    </div>
+    <div class="commentary" id="comm"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn sec" id="skip">スキップ ⏩</button>
+      <button class="btn" id="fin" disabled>結果を確定 →</button>
+    </div>
+  </div>`;
+  let dh=0,da=0; const evs=res.events; let delay=300;
+  const comm=$('#comm');
+  matchTimers.forEach(clearTimeout); matchTimers=[];
+  const paint=e=>{
+    const div=document.createElement('div');
+    div.className='ev '+e.type;
+    div.innerHTML=`<span class="m">${e.m}'</span>${e.text}`;
+    comm.appendChild(div); comm.scrollTop=comm.scrollHeight;
+    if(e.type==='goal'){if(e.team==='home')dh++;else da++;$('#scDisp').textContent=`${dh} - ${da}`;}
+    $('#clk').textContent=e.m+"'";
+  };
+  const finish=()=>{
+    $('#scDisp').textContent=`${res.hs} - ${res.as}`; $('#clk').textContent='試合終了';
+    $('#fin').disabled=false;
+    $('#fin').onclick=()=>{
+      const pm=playerMatchOfRound(state.round);
+      const pr={hs:res.hs,as:res.as};
+      finalizeRound(state.round,pr);
+      showResult(homeC,awayC,res);
+    };
+  };
+  if(evs.length===0){finish();}
+  evs.forEach((e,i)=>{
+    const t=setTimeout(()=>{paint(e);if(i===evs.length-1)finish();},delay);
+    matchTimers.push(t);
+    delay+=e.type==='goal'?1000:e.type==='chance'?550:420;
+  });
+  $('#skip').onclick=()=>{
+    matchTimers.forEach(clearTimeout);
+    comm.innerHTML=''; dh=0;da=0;
+    evs.forEach(paint); finish();
+  };
+}
+function showResult(homeC,awayC,res){
+  current='match'; setNav();
+  const poss=Math.round(res.possH*100);
+  const line=(l,h,a)=>`<div class="stats-line"><b>${h}</b><span>${l}</span><b>${a}</b></div>`;
+  const rd=state.fixtures[state.round-1];
+  const involved=[homeC.id,awayC.id];
+  const others=rd.filter(m=>!(involved.includes(m.h)&&involved.includes(m.a)))
+    .map(m=>{const h=clubById(m.h),a=clubById(m.a);return `<div class="stats-line"><span>${h.short}</span><b>${m.hs} - ${m.as}</b><span>${a.short}</span></div>`;}).join('');
+  $('#screen').innerHTML=`<div class="card">
+    <h2>試合結果</h2>
+    <div class="scoreboard"><div class="teams">
+      <div class="tn"><span class="badge" style="background:${homeC.color}"></span>${homeC.name}</div>
+      <div class="sc">${res.hs} - ${res.as}</div>
+      <div class="tn"><span class="badge" style="background:${awayC.color}"></span>${awayC.name}</div>
+    </div></div>
+    ${line('ボール支配率',poss+'%',(100-poss)+'%')}
+    ${line('シュート',res.stats.home.sh,res.stats.away.sh)}
+    ${line('枠内',res.stats.home.sot,res.stats.away.sot)}
+    </div>
+    <div class="card"><h2>他会場の結果</h2>${others||'<span class="muted">なし</span>'}</div>
+    <div class="card"><div class="row">
+      <button class="btn" data-go="dashboard">続ける →</button>
+      <button class="btn sec" data-go="standings">順位表を見る</button>
+    </div></div>`;
+  bindCommon();
+}
+
+function viewStandings(){
+  const st=standings();
+  const rows=st.map((x,i)=>`<tr class="${x.c.id===state.clubId?'me':''}">
+    <td>${i+1}</td><td class="name"><span class="badge" style="background:${x.c.color}"></span>${x.c.name}</td>
+    <td>${x.p}</td><td>${x.w}</td><td>${x.d}</td><td>${x.l}</td>
+    <td>${x.gf}</td><td>${x.ga}</td><td>${x.gf-x.ga>0?'+':''}${x.gf-x.ga}</td><td><b>${x.pts}</b></td></tr>`).join('');
+  return `<div class="card"><h2>順位表</h2><div style="overflow-x:auto"><table>
+    <tr><th>#</th><th class="name">クラブ</th><th>試</th><th>勝</th><th>分</th><th>敗</th><th>得</th><th>失</th><th>差</th><th>点</th></tr>
+    ${rows}</table></div></div>`;
+}
+
+function viewFixtures(){
+  const blocks=state.fixtures.map((rd,ri)=>{
+    const mine=rd.find(m=>m.h===state.clubId||m.a===state.clubId);
+    const rows=rd.map(m=>{
+      const h=clubById(m.h),a=clubById(m.a);
+      const meRow=m.h===state.clubId||m.a===state.clubId;
+      const score=m.played?`<b>${m.hs} - ${m.as}</b>`:'<span class="muted">- : -</span>';
+      return `<div class="stats-line ${meRow?'':''}" style="${meRow?'background:rgba(63,185,80,.08)':''}">
+        <span style="flex:1;text-align:right">${h.short}</span>
+        <b style="min-width:70px;text-align:center">${score}</b>
+        <span style="flex:1;text-align:left">${a.short}</span></div>`;
+    }).join('');
+    const cls=ri===state.round?' style="border-color:var(--accent)"':'';
+    return `<div class="card"${cls}><h2>第${ri+1}節 ${ri===state.round?'<span class="muted" style="font-size:11px">(次節)</span>':''}</h2>${rows}</div>`;
+  }).join('');
+  return blocks;
+}
+
+function nextSeason(){
+  state.season++; state.round=0;
+  state.fixtures=genFixtures(CLUBS.map(c=>c.id));
+  state.table=emptyTable();
+  save(); go('dashboard');
+}
+
+/* ---------- 10. 起動 ---------- */
+state=load();
+render();
+</script>
+</body>
+</html>
