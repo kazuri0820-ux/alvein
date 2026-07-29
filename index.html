@@ -7683,6 +7683,13 @@ const RANDOM_CHOICE=[
    {label:"必ず生きて還れと励まし、突き返す",hint:"その兵の士気↑↑ 忠誠↑(生きる望み)",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"遺書を託す兵がおらず、この話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+10);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);unitHistory(u,"「必ず生きて還れ」との長の言葉に遺書を懐へ仕舞い、生きる望みを胸に刃を執った。");chron(`長は${fullName(u)}の遺書を静かに突き返し、「必ず生きて還れ」と力強く肩を叩いた。死を覚悟した目に、再び生への光が宿っている。`,"people");}}},
    {label:"その覚悟を尊び、厳かに預かる",hint:"治安↑ その兵の忠誠↑(武人の覚悟)",fx:{st:{order:1},call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"覚悟を尊ぶべき兵もおらず、話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,"遺書を長に厳かに託し、その覚悟を認められて心を定めた。");chron(`長は${fullName(u)}の遺書を両手で厳かに受け取り、その覚悟に深く頷いた。後顧の憂いを断った兵は、澄み切った覚悟で戦場へ向かう。`,"people");}}},
   ]},
+ /* ── 故郷へ便りを書く(心を休めるか備えを優先するか) ── */
+ {tag:"便 り",title:"故郷へ便りを書く兵たち",
+  body:"戦のあいまのつかの間の休息、兵たちは筆をとって、遠い故郷の家族へ便りをしたためたいと願っているという。ゆっくり時を作って皆に書かせるか、気を緩めず備えを優先させるか。",
+  choices:[
+   {label:"時を作り、皆に便りを書かせる",hint:"全兵の士気↑ 民心↑(心が休まる)",fx:{mood:1,call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"便りを書く兵がおらず、この話は流れた。"});return;}for(const u of act)u.moral=Math.min(100,(u.moral||0)+ri(2,4));const u=act[Math.floor(Math.random()*act.length)];u.fatigue=Math.max(0,(u.fatigue||0)-ri(3,6));unitHistory(u,"つかの間の休息に故郷へ便りを書き、家族を思って心を休めた。");chron("兵たちは思い思いに筆をとり、遠い故郷の家族へ便りをしたためた。胸の内を綴り終えた顔はどこか晴れやかで、明日への力が静かに満ちている。","big");}}},
+   {label:"気を緩めず、備えを優先させる",hint:"軍事↑(油断なき備え)",fx:{st:{military:1},log:"長は「便りは戦の後に」と備えを優先させた。名残惜しげながらも、兵たちは黙々と武具の手入れに戻っている。"}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
