@@ -11048,6 +11048,20 @@ const ITEMS=[
    if(S.availableDungeons.length>5){const dropIdx=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(dropIdx>=0)S.availableDungeons.splice(dropIdx,1);}
    chron(`宝の古地図を読み解くと、【${d.rarity.label}】「${d.name}」の在り処が浮かび上がった。腕利きを送り込む好機だ。`,"big");
  }},
+ {key:"scout_writ",name:"物見の下知",rarity:"rare",desc:"斥候を放ち、いまだ制したことのない攻略型の迷宮の在り処を一つ暴く(全て制覇済みなら通常の型を一つ)。攻略型の踏破コレクションと熟達を能動的に手繰る一手(宝の古地図が『格』の軸なら、これは『型』の軸)。",effect:()=>{
+   if(typeof DUNGEON_TYPES==="undefined"||!DUNGEON_TYPES.length||typeof generateDungeon!=="function"){const g=ri(60,100);apply({gold:g});chron(`放つべき斥候の当てもなく、下知は支度金${g}に代わった。`,"");return;}
+   const cleared=S.clearedTypes||{};
+   const unconquered=DUNGEON_TYPES.filter(t=>!cleared[t.key]);
+   const pool=unconquered.length?unconquered:DUNGEON_TYPES;
+   const type=pool[Math.floor(Math.random()*pool.length)];
+   const nd=generateDungeon(); nd.type=type;
+   nd.protected=true;
+   S.availableDungeons=S.availableDungeons||[];
+   S.availableDungeons.push(nd);
+   if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}
+   chron(`物見の下知が発せられ、斥候が${unconquered.length?"いまだ制したことのない":""}「${type.label}」の迷宮${nd.rarity&&nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」への道を照らし出した(討伐の一覧に加わった)。`,"big");
+   if(typeof render==="function")render();if(typeof refreshOpenPanels==="function")refreshOpenPanels();
+ }},
  {key:"fester_incense",name:"熟成を促す香",rarity:"rare",desc:"未踏の迷宮ひとつの主を香で眠りへ誘い、力を蓄えさせる。手強さは増すが、討ち果たした時の実り(財貨・経験)も大きく肥える。強き部隊で大物を仕留める算段のある時に(熟成の迷宮を能動的に作る戦略の一手)。",effect:()=>{
    const CAP=(typeof FESTER_CAP!=="undefined")?FESTER_CAP:4;
    const list=(S.availableDungeons||[]).filter(d=>d&&!d.isFinal&&!d.isNemesis&&!d.protected&&!d.fleeting&&(d.festerLv||0)<CAP);
