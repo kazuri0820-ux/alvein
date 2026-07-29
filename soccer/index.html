@@ -339,6 +339,59 @@ function checkQuests(){
   return done;
 }
 
+/* ---------- RPG: ストーリー / ナラティブイベント ---------- */
+function chMorale(d){state.morale=Math.max(0,Math.min(100,morale()+d));}
+function topPlayer(){const c=clubById(state.clubId);let b=c.squad[0];c.squad.forEach(p=>{if(eff(p).ov>eff(b).ov)b=p;});return b.id;}
+function youthPlayer(){const c=clubById(state.clubId);let b=c.squad[0],g=-1;c.squad.forEach(p=>{const gap=potentialOf(p)-eff(p).ov;if(gap>g){g=gap;b=p;}});return b.id;}
+const EVENTS=[
+ {id:'transfer',pick:topPlayer,title:'📨 移籍のうわさ',
+  text:p=>`${p.name} に強豪クラブからオファーが届いた。本人の心も揺れているようだ。`,
+  choices:[
+   {label:'主力として全幅の信頼を伝える',run:p=>{gainXP(p.id,150);chMorale(5);return `${p.name} は奮起した！（経験値+150 / 士気+5）`;}},
+   {label:'待遇改善を約束して慰留する',run:p=>{chMorale(8);state.tp=Math.max(0,(state.tp||0)-1);return `交渉に時間を割いた。チームは安堵（士気+8 / TP-1）`;}},
+   {label:'クラブの規律を優先する',run:p=>{chMorale(-4);return `${p.name} は不満げだが規律は保たれた（士気-4）`;}},
+  ]},
+ {id:'clash',pick:null,title:'💢 ロッカールームの不和',
+  text:_=>`練習中に選手同士が衝突した。更衣室の空気がピリついている。`,
+  choices:[
+   {label:'全員でミーティングして解決',run:_=>{chMorale(6);state.tp=Math.max(0,(state.tp||0)-1);return `わだかまりは解けた（士気+6 / TP-1）`;}},
+   {label:'ピッチで結果を出せと発破',run:_=>{chMorale(3);return `選手は闘志を燃やした（士気+3）`;}},
+   {label:'放っておく',run:_=>{chMorale(-5);return `溝は残ったままだ（士気-5）`;}},
+  ]},
+ {id:'youth',pick:youthPlayer,title:'🌱 若手の台頭',
+  text:p=>`若手の ${p.name} が練習で目覚ましい動きを見せている。`,
+  choices:[
+   {label:'思い切って起用を約束する',run:p=>{gainXP(p.id,200);chMorale(3);return `${p.name} は期待に燃えている（経験値+200 / 士気+3）`;}},
+   {label:'焦らずじっくり育てる',run:p=>{gainXP(p.id,100);setCond(p.id,100);return `${p.name} を丁寧にケア（経験値+100 / 体力全回復）`;}},
+   {label:'まだ実戦は早い',run:p=>{chMorale(-2);return `${p.name} は少し肩を落とした（士気-2）`;}},
+  ]},
+ {id:'press',pick:null,title:'🎤 記者会見',
+  text:_=>`記者から今季の目標を問われた。なんと答える？`,
+  choices:[
+   {label:'「優勝を狙う」と宣言する',run:_=>{chMorale(10);return `ファンは沸き、選手も奮い立った（士気+10）`;}},
+   {label:'「一戦必勝で臨む」と語る',run:_=>{chMorale(4);return `堅実な姿勢が好感を呼んだ（士気+4）`;}},
+   {label:'「ノーコメント」で通す',run:_=>{gainMgrXP(60);return `余計な波風は立てなかった（監督XP+60）`;}},
+  ]},
+ {id:'sponsor',pick:null,title:'🤝 朗報',
+  text:_=>`スポンサーからボーナスが支給された。使い道は？`,
+  choices:[
+   {label:'選手に還元する',run:_=>{chMorale(8);return `選手は大喜び（士気+8）`;}},
+   {label:'育成施設に投資する',run:_=>{state.tp=(state.tp||0)+1;return `今節のトレーニング機会が増えた（TP+1）`;}},
+   {label:'自己研鑽に充てる',run:_=>{gainMgrXP(120);return `監督としての引き出しが増えた（監督XP+120）`;}},
+  ]},
+ {id:'veteran',pick:null,title:'🧓 ベテランの助言',
+  text:_=>`ベテラン選手が戦術について進言してきた。`,
+  choices:[
+   {label:'謙虚に受け入れる',run:_=>{gainMgrXP(120);chMorale(3);return `新たな視点を得た（監督XP+120 / 士気+3）`;}},
+   {label:'自分の哲学を貫く',run:_=>{chMorale(5);return `ブレない姿勢がチームを引き締めた（士気+5）`;}},
+  ]},
+];
+function eventById(id){return EVENTS.find(e=>e.id===id);}
+function maybeRollEvent(){
+  if(state.round>=14)return;
+  if(rnd()<0.5){const ev=EVENTS[Math.floor(rnd()*EVENTS.length)];state.pendingEvent={id:ev.id,pid:ev.pick?ev.pick():null};}
+}
+
 /* ---------- 3. フォーメーション & ベストXI ---------- */
 const FORMATIONS={
   '4-3-3':['GK','DEF','DEF','DEF','DEF','MID','MID','MID','ATT','ATT','ATT'],
@@ -485,7 +538,7 @@ function newGame(clubId){
   state={season:1,round:0,clubId,fixtures:fx,table:emptyTable(),
     tactics:{formation:'4-3-3',style:'balanced',press:'mid',line:'mid'},
     lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho',
-    mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60};
+    mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60,pendingEvent:null};
   save();
 }
 
@@ -529,6 +582,13 @@ function finalizeRound(r,playerResult){
 const $=s=>document.querySelector(s);
 let current='dashboard';
 let selPlayer=null;   // 選手詳細で表示中の選手id
+let evtMsg=null;      // 直近のイベント結果テキスト（一時表示）
+function resolveEvent(idx){
+  const pe=state.pendingEvent; if(!pe)return;
+  const ev=eventById(pe.id); const p=pe.pid?PLAYERS[pe.pid]:null;
+  evtMsg=ev.choices[idx].run(p);
+  state.pendingEvent=null; save(); render();
+}
 function setNav(){
   const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['manager','監督'],['quests','クエスト'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['fixtures','日程']];
   $('#nav').innerHTML=items.map(([k,l])=>`<button data-s="${k}" class="${k===current?'active':''}">${l}</button>`).join('');
@@ -558,6 +618,8 @@ function bindCommon(){
   document.querySelectorAll('[data-drill]').forEach(b=>b.onclick=()=>{state.trainFocus=b.dataset.drill;save();render();});
   document.querySelectorAll('[data-perk]').forEach(b=>b.onclick=()=>{investPerk(b.dataset.perk);render();});
   document.querySelectorAll('[data-player]').forEach(b=>b.onclick=()=>{selPlayer=b.dataset.player;go('player');});
+  document.querySelectorAll('[data-ev]').forEach(b=>b.onclick=()=>resolveEvent(+b.dataset.ev));
+  const ec=$('#evtClose'); if(ec)ec.onclick=()=>{evtMsg=null;render();};
   document.querySelectorAll('[data-train]').forEach(b=>b.onclick=()=>{
     const cur=state.trainFocus||'sho';
     const p=PLAYERS[b.dataset.train]; const name=p?p.name:'';
@@ -620,7 +682,17 @@ function viewDashboard(){
       <div class="row" style="justify-content:center;margin-top:12px"><button class="btn" id="nextSeason">次のシーズンを始める →</button></div></div>`;
   }
   setTimeout(()=>{const b=$('#nextSeason');if(b)b.onclick=nextSeason;},0);
-  return `<div class="card">
+  let eventCard='';
+  if(state.pendingEvent){
+    const ev=eventById(state.pendingEvent.id); const pid=state.pendingEvent.pid; const p=pid?PLAYERS[pid]:null;
+    eventCard=`<div class="card decision"><h2>${ev.title}</h2>
+      ${p?`<div class="row" style="align-items:center;gap:10px;margin-bottom:8px">${avatar(p.name,club.color,40)}<div><b>${p.name}</b> <span class="pos ${eff(p).grp}">${p.pos}</span></div></div>`:''}
+      <p style="margin-bottom:12px">${ev.text(p)}</p>
+      <div style="display:flex;flex-direction:column;gap:8px">${ev.choices.map((c,i)=>`<button class="btn sec" data-ev="${i}" style="text-align:left">${c.label}</button>`).join('')}</div></div>`;
+  }else if(evtMsg){
+    eventCard=`<div class="card"><h2>📖 出来事</h2><p style="margin-bottom:12px">${evtMsg}</p><button class="btn" id="evtClose">なるほど →</button></div>`;
+  }
+  return eventCard+`<div class="card">
       <h2><span class="badge" style="background:${club.color}"></span>${club.name}</h2>
       <div class="kpi">
         <div class="k"><div class="v">${pos}位</div><div class="l">現在順位</div></div>
@@ -947,6 +1019,7 @@ function finishMatch(){
   finalizeRound(state.round,{hs:res.hs,as:res.as,scorers:res.scorers,assists:res.assists});
   const xpres=awardMatchXP(res,M.homeC,M.awayC);
   const quests=checkQuests();
+  maybeRollEvent();
   showResult(M.homeC,M.awayC,res,xpres,quests,{before,after:state.morale});
 }
 function renderMatch(){
