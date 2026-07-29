@@ -10188,6 +10188,23 @@ function checkGreatCodexMilestone(){
     }
   }
 }
+/* 英傑登用の里程標:英傑と「邂逅」する図鑑(=遭遇の軸)とは別に、実際に召し抱えた英傑の数が節目に達した折、
+   その顕彰を国を挙げて祝う。歴史的英傑を家臣に迎えるのは遭遇よりも遥かに難しい――王国の器そのものを示す
+   到達目標(=登用の軸)として、収集とは異なるやりがいを灯す。 */
+function checkGreatHireMilestone(){
+  if(typeof S==="undefined"||!S)return;
+  S.flags=S.flags||{};
+  const hired=Object.keys(S.flags.greatsHired||{}).length;
+  S.flags.greatHireMiles=S.flags.greatHireMiles||{};
+  for(const t of [{n:5,rn:2,mood:5,gold:150},{n:15,rn:3,mood:7,gold:300},{n:30,rn:4,mood:10,gold:500},{n:50,rn:5,mood:12,gold:800}]){
+    if(hired>=t.n&&!S.flags.greatHireMiles[t.n]){
+      S.flags.greatHireMiles[t.n]=S.day;
+      if(typeof grantRenown==="function")grantRenown(t.rn,`名だたる英傑${t.n}柱を家臣に迎えたこと`);
+      if(typeof apply==="function")apply({mood:t.mood,gold:t.gold});
+      chron(`――アルヴェインの旗の下に集いし英傑、ついに${t.n}柱を数えた。歴史に名を刻む者たちが自ら膝を折り、この国のために剣を執る――それは一朝一夕には成し得ぬ、王国の器そのものの証である。`,"big");
+    }
+  }
+}
 /* 称号図鑑の収集里程標:授与された称号の種類が節目(20/40/60/80)に達した折、収集の歩みを国を挙げて
    言祝ぐ。全種を集めきる"大収集"の前に、途中の到達感=やりがいの中間報酬を灯す(英傑図鑑の里程標と対をなす)。 */
 function checkTitleCodexMilestone(){
@@ -10305,6 +10322,7 @@ function hireVolunteer(volId){
     unitHistory(v.unit,`――${region?region+"に":""}その名を刻む「${title}」が、この国に仕官した。歴史に名を残す英傑の名が、アルヴェインの名簿に連なっている。`);
     const _hiredDone=Object.keys((S.flags&&S.flags.greatsHired)||{}).length, _greatTotal=(typeof GREAT_FIGURES!=="undefined")?GREAT_FIGURES.length:0;
     chron(`――万雷の歓呼が城下を揺るがしている。かの「${title}」${v.unit.nm}が、ついにアルヴェインの旗の下に加わった。${region?`${region}にその名を轟かせた`:""}英傑の力が、王国の行く末を照らすことだろう。${_greatTotal?`(召し抱えし英傑 ${_hiredDone}/${_greatTotal})`:""}`,"big");
+    if(typeof checkGreatHireMilestone==="function")checkGreatHireMilestone(); // 英傑登用の里程標:召し抱えた英傑の数が節目に達したら国を挙げて祝う
   }else{
     unitHistory(v.unit,"志願書を通じて、アルヴェインの一員となった。");
     chron(`${v.unit.nm} ${v.unit.surname}が志願書を経て正式に入団した。「よろしくお願いします」`,"big");
