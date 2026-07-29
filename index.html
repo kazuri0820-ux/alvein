@@ -7661,6 +7661,13 @@ const RANDOM_CHOICE=[
    {label:"惜しまず、新しい一振りを打たせる",hint:"国庫↓ その兵の士気と忠誠↑",fx:{gold:-20,call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"得物を欲する兵がおらず、この話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+8);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);unitHistory(u,"長の計らいで新たな得物を賜り、その心遣いに深く報いんと誓った。");chron(`${fullName(u)}の手に、長の計らいで新たな一振りが渡された。折れた相棒への惜別を胸に、兵は新しい刃を固く握りしめている。`,"people");}}},
    {label:"本人の望むまま、古い刃を打ち直させる",hint:"その兵の武具への愛着が深まる",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"得物を惜しむ兵もおらず、話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+4);unitHistory(u,"折れた相棒の刃を自ら鍛冶場で打ち直し、いっそう手に馴染ませた。");chron(`${fullName(u)}は折れた得物を捨てず、幾晩もかけて自ら打ち直した。傷を負ってなお共にある一振りへの想いは、いよいよ深い。`,"");}}},
   ]},
+ /* ── 遠国から来た兵(多様さを認めるか規律で束ねるか) ── */
+ {tag:"馴 染",title:"遠国から来た兵",
+  body:"遠い異郷から流れてきた兵の一人が、その訛りや見慣れぬ風習を古参にからかわれ、隅で肩を落としているという。出自の違いを皆で面白がって認め合わせるか、隊は一つと厳しく諭すか。",
+  choices:[
+   {label:"違いを面白がり、皆で認め合わせる",hint:"全兵の士気↑ 民心↑(多様さは強さ)",fx:{mood:1,call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.moral=Math.min(100,(u.moral||0)+ri(2,3));const out=act[Math.floor(Math.random()*act.length)];if(out){if(out.loyalty!=null)out.loyalty=Math.min(100,out.loyalty+5);unitHistory(out,"異郷の出自を戦友たちに面白がられ、笑いのうちに隊の一員として受け入れられた。");}chron("異郷の兵の珍しい訛りや風習は、やがて陣中の笑いの種となり、そして誇りとなった。異なる出自の者が肩を並べる隊は、いっそう懐深く、強い。","big");}}},
+   {label:"隊は一つと厳しく諭す",hint:"治安↑(規律で束ねる)",fx:{st:{order:1},log:"長は「陣中に生国の別なし」と厳しく諭した。私語は収まり、兵たちは一つの隊として黙々と務めに戻っている。"}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
