@@ -7504,6 +7504,23 @@ const RANDOM_CHOICE=[
    {label:"手柄の兵に厚く報いる",hint:"その兵の忠誠・士気↑↑ / 国庫の実入りは控えめ",fx:{gold:ri(15,30),call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length){chron("報いるべき当の兵はおらず、財宝は国庫に納められた。","");return;}const u=cands[Math.floor(Math.random()*cands.length)];if(u.loyalty!=null)u.loyalty=Math.min(100,(u.loyalty||0)+12);u.moral=Math.min(100,(u.moral||0)+12);unitHistory(u,"持ち帰った財宝の功を厚く報いられ、大いに面目を施した。");chron(`${fullName(u)}は持ち帰った財宝の功を厚く報いられた。手柄が正しく報われることを知り、兵の忠義はいっそう篤くなった。`,"people");}}},
    {label:"国庫に納め、皆で分かち合う",hint:"国庫↑↑ 全兵の士気が少し上がる",fx:{gold:ri(55,95),call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.moral=Math.min(100,(u.moral||0)+3);chron("財宝は国庫に納められ、皆で分かち合われた。公平な裁きに、兵たちは静かに頷いている。","people");}}},
   ]},
+ /* ── 威信を賭けた代表戦(個の武で国運を決する・意味ある選択) ── */
+ {tag:"決 闘",title:"国境の一騎打ち",
+  body:"隣国との国境紛争を、無用な流血を避けて代表者同士の一騎打ちで決しようという申し出があった。我が最強の兵を立てて臨むか、話し合いで穏便に収めるか。",
+  speaker:"ガレオン「勝てば領地も面目も。なれど、負ければ……代償は小さくありませぬ」",
+  choices:[
+   {label:"我が最強の兵を立てて臨む",hint:"勝てば外交・治安↑ 兵は武名を上げる / 負ければ代償も",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){chron("だが立てるべき兵が、今はいなかった。話し合いで穏便に収めるほかない。","");apply({st:{order:1}});return;}const u=[...act].sort((a,b)=>unitPower(b)-unitPower(a))[0];u.fatigue=Math.min(100,(u.fatigue||0)+ri(6,12));if(Math.random()<0.62){apply({st:{diplomacy:3,order:1},mood:3});u.moral=Math.min(100,(u.moral||0)+10);if(typeof grantRenown==="function")grantRenown(3,"国境の一騎打ちでの勝利");unitHistory(u,"国運を賭けた一騎打ちを制し、王国に領地と面目をもたらした。");chron(`${fullName(u)}が国境の一騎打ちを制した。無血で境界の争いに決着がつき、その武名は両国に轟いている。`,"big");}else{apply({st:{diplomacy:-2}});u.moral=Math.max(0,(u.moral||0)-5);unitHistory(u,"国運を賭けた一騎打ちに惜しくも敗れた。この雪辱を胸に刻んだ。");chron(`${fullName(u)}は国境の一騎打ちに惜しくも敗れた。境界の一部を譲る仕儀となったが、兵はこの雪辱を胸に刻んでいる。`,"people");}}}},
+   {label:"遺恨を残さぬよう、話し合いで譲歩する",hint:"国庫↓(譲歩の代償) / 治安↑(火種を消す)",fx:{gold:-45,st:{order:1},log:"長は一騎打ちを避け、話し合いによる譲歩で国境の火種を消した。実入りは減ったが、いらぬ流血は避けられた。"}},
+  ]},
+ /* ── 捕虜の身代金(利と情と警戒の三択) ── */
+ {tag:"交 渉",title:"捕らえた敵将の身代金",
+  body:"先の戦で捕らえた敵将の縁者から、多額の身代金と引き換えに解放してほしいと申し出があった。金を取るか、恩を売るか、あるいは切り札として留め置くか。",
+  speaker:"フィオナ「金も、恩も、備えも……どれも捨てがたい取引ですわね」",
+  choices:[
+   {label:"身代金を受け取り、解き放つ",hint:"国庫↑↑",fx:{gold:ri(70,130),log:"敵将は身代金と引き換えに解き放たれた。まとまった財貨が国庫を潤している。"}},
+   {label:"恩を売り、無償で解き放つ",hint:"外交↑↑ 民心↑(度量を示す)",fx:{st:{diplomacy:3},mood:3,log:"敵将は無償で解き放たれた。その度量は敵国にも伝わり、王国の名は寛容の器として高まっている。"}},
+   {label:"切り札として、なお留め置く",hint:"治安↑ / 外交はわずかに冷える",fx:{st:{order:2,diplomacy:-1},log:"敵将は交渉の切り札として、なお手元に留め置かれた。備えは固まったが、敵国は落ち着かぬ様子である。"}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
