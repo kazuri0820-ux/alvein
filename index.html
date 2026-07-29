@@ -10614,6 +10614,7 @@ const BOSS_TRAITS={
   anthemking:{label:"凱歌の王",color:"#e0b060",desc:"戦場に凱歌を轟かせる王。討ち果たせば、その勝ち鬨が部隊の疲れを吹き飛ばし、意気軒昂として帰還させる(疲労回復・士気↑)"},
   mason:{label:"石工の王",color:"#b9a07a",desc:"古の石工術を極めた不動の王。討ち果たせば、その秘伝が国の職人に宿り、手がけている普請(事業)が一気に捗る"},
   matchmaker:{label:"縁結びの王",color:"#e0a0b8",desc:"戦場に不思議な縁を手繰り寄せる王。討ち果たせば、その死闘を背中合わせに凌ぎきった二人の兵の間に、生涯の戦友の絆が芽生える"},
+  meismith:{label:"銘工の王",color:"#c0a878",desc:"武具に魂を宿す古の名工の王。討ち果たせば、勲功第一の兵の得物に固有の銘が刻まれ、名を持つ生涯の相棒となる"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
 /* 「石工の王」の報酬:討伐で得た秘伝の石工術を国の普請へ注ぎ、進行中の事業を一気に前進させる(完成に達したものは
@@ -12713,6 +12714,22 @@ function resolveDungeonRun(dungeonId){
           }else{
             const g=Math.round(ri(45,85)*dungeon.rarity.mult*levelMult);apply({gold:g});
             chron(`「縁結びの王」を討ち果たした。此度の隊はすでに固い絆で結ばれた者ばかりゆえ、代わりに王の蓄えていた財貨${g}を持ち帰った。`,"");
+          }
+        }
+        else if(dungeon.bossTrait==="meismith"){ // 銘工の王:勲功第一の兵の得物に銘を刻む(武具の絆=愛着システムに繋がる新しい報酬軸)
+          const cands=squad.filter(u=>u&&u.role==="active"&&S.units.some(x=>x.id===u.id)&&u.equipment&&u.equipment.weapon&&!u.equipment.weapon.mei);
+          if(cands.length){
+            const mvp=cands.sort((a,b)=>unitPower(b)-unitPower(a))[0];
+            const mei=(typeof assignWeaponMei==="function")?assignWeaponMei(mvp.equipment.weapon):null;
+            if(mei){
+              if(typeof grantTitle==="function")grantTitle(mvp,"t_bladenamed");
+              if(typeof unitHistory==="function")unitHistory(mvp,`「銘工の王」を討った際、その魂宿す技が相棒の得物に「${mei}」の銘を刻んだ。`);
+              chron(`「銘工の王」を討ち果たすと、その武具に魂を宿す技が、勲功第一の${fullName(mvp)}の得物に固有の銘「${mei}」を刻み込んだ。幾多の死線を共にした一振りが、名を持つ生涯の相棒となった。`,"big");
+            }
+          }else{
+            const eq=(typeof rollEquipmentDrop==="function")?rollEquipmentDrop(dungeon.rarity.key):null;
+            if(eq){addEquipment(eq.key);chron(`「銘工の王」を討ち果たした。銘を刻むべき得物は無かったが、王が遺した名品「${eq.name}」を手に入れた。`,"big");}
+            else{const g=Math.round(ri(45,85)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「銘工の王」を討ち果たし、財貨${g}を得た。`,"");}
           }
         }
       }
