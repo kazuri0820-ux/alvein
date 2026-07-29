@@ -9898,8 +9898,12 @@ function maybeOfferGreatVolunteer(){
   if(!fig)return;
   S.volunteers=S.volunteers||[];
   S.volunteers.push(makeGreatVolunteer(fig));
-  S.flags=S.flags||{}; S.flags.greatsSeen=S.flags.greatsSeen||{}; S.flags.greatsSeen[fig.id]=true; // 志願プールで出会った=英傑図鑑に記録
-  chron(`……城下がにわかにざわめいている。かの「${fig.title}」${fig.nm}が、この国への仕官を願い出たという。まさか、あの英傑が(志願書に名を連ねた)。`,"big");
+  S.flags=S.flags||{}; S.flags.greatsSeen=S.flags.greatsSeen||{};
+  const greatWasNew=!S.flags.greatsSeen[fig.id]&&!((S.flags.greatsHired||{})[fig.id]); // まだ図鑑に無い=初めて出会う英傑か
+  S.flags.greatsSeen[fig.id]=true; // 志願プールで出会った=英傑図鑑に記録
+  // 初めて出会う英傑には、全英傑コレクションの到達度を添えて記録する(ユーザーが愛でる英傑収集に、進捗の見える手応えを与える)
+  const _gDone=Object.keys(Object.assign({},S.flags.greatsSeen,S.flags.greatsHired||{})).length, _gTotal=GREAT_FIGURES.length;
+  chron(`……城下がにわかにざわめいている。かの「${fig.title}」${fig.nm}が、この国への仕官を願い出たという。まさか、あの英傑が(志願書に名を連ねた)。${greatWasNew?`――英傑図鑑にまた一人、その名が刻まれた(${_gDone}/${_gTotal})。`:""}`,"big");
 }
 function checkWeeklyVolunteers(){
   if(S.day-(S.lastVolunteerDay||-10)>=7){
