@@ -11063,6 +11063,15 @@ const ITEMS=[
    chron(`長の計らいで、${fullName(u)}と${fullName(o)}は果たし状を交わし、互いを好敵手と認め合った。同じ道を征く二人は、これからは相手の背中を追って腕を磨き合う(同陣で連携↑・一方が伸びればもう一方も負けじと成長)。`,"big");
    render();refreshOpenPanels();
  }},
+ {key:"bard_summons",name:"語り部の招聘状",rarity:"rare",desc:"高名な吟遊詩人を招き、選んだ兵の武勇と歩みを一編の詩に結ばせる。その者の生涯に『語り草』が刻まれ、国中に語り継がれるようになる(まだ大きな語り草を持たぬ兵に。運任せだった語り草をプレイヤーが手ずから贈り、兵の物語を彩る愛着の一手)。",needsTarget:true,effect:(targetId)=>{
+   const u=findAnyUnit(targetId);if(!u){chron("語り部が詩に詠むべき相手が見当たらなかった。","");return;}
+   if(u.sigFeat&&(u.sigFeat.weight||0)>=3){chron(`${fullName(u)}には既に語り継がれる武勇伝があり、招聘状は静かに仕舞われた。`,"");return;}
+   if(typeof recordSigFeat==="function")recordSigFeat(u,`${u.nm}の武勇と歩みが招かれた吟遊詩人の詩に結ばれ、国中の語り草となった`,3);
+   if(typeof grantRenown==="function")grantRenown(1,`${fullName(u)}の武勇伝が詩に謳われたこと`);
+   if(typeof unitHistory==="function")unitHistory(u,"招かれた吟遊詩人により、その武勇と歩みが一編の詩に結ばれ、語り草となった。");
+   chron(`招かれた高名な吟遊詩人が、${fullName(u)}の武勇と歩みを美しい詩に結んだ。その物語は、これから国中で長く語り継がれていくだろう。`,"big");
+   render();refreshOpenPanels();
+ }},
  {key:"treasure_map",name:"宝の古地図",rarity:"rare",desc:"レア以上のダンジョンの在り処が一つ判明する。",effect:()=>{
    const d=generateDungeon();
    if(d.rarity.key==="common"){
