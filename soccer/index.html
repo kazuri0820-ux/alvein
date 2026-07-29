@@ -221,6 +221,21 @@ function teamAvgLevel(){
   return (lv.reduce((t,x)=>t+x,0)/lv.length).toFixed(1);
 }
 
+/* ---------- RPG: 特殊能力（アビリティ） ---------- */
+// 実効能力値のしきい値で解放（＝レベルアップで新たに開花しうる）。試合のチーム力に補正。
+const ABILITIES=[
+  {id:'speed',   name:'スピードスター', icon:'⚡', test:e=>e.pac>=90&&e.grp!=='GK',                 b:{att:.8,mid:.2,def:0}},
+  {id:'clinical',name:'決定力',        icon:'🎯', test:e=>e.sho>=88&&e.grp!=='GK',                 b:{att:1.0,mid:0,def:0}},
+  {id:'playmaker',name:'キラーパス',    icon:'🅿', test:e=>e.pas>=86&&e.grp!=='GK',                 b:{att:.3,mid:.9,def:0}},
+  {id:'dribbler',name:'ドリブル王',     icon:'🌀', test:e=>e.dri>=88&&e.grp!=='GK',                 b:{att:.6,mid:.5,def:0}},
+  {id:'wall',    name:'鉄壁',          icon:'🛡', test:e=>e.def>=86&&e.grp!=='ATT'&&e.grp!=='GK',  b:{att:0,mid:.2,def:1.0}},
+  {id:'power',   name:'フィジカル',      icon:'💪', test:e=>e.phy>=87,                              b:{att:.2,mid:.3,def:.4}},
+  {id:'maestro', name:'司令塔',         icon:'🎼', test:e=>e.pas>=84&&e.dri>=84&&e.grp==='MID',    b:{att:.4,mid:.8,def:.2}},
+  {id:'keeper',  name:'守護神',         icon:'🧤', test:e=>e.grp==='GK'&&e.def>=86,                b:{att:0,mid:0,def:1.2}},
+  {id:'star',    name:'スーパースター',  icon:'⭐', test:e=>e.ov>=90,                               b:{att:.6,mid:.6,def:.6}},
+];
+function abilitiesOf(e){return ABILITIES.filter(a=>a.test(e));}
+
 /* ---------- 3. フォーメーション & ベストXI ---------- */
 const FORMATIONS={
   '4-3-3':['GK','DEF','DEF','DEF','DEF','MID','MID','MID','ATT','ATT','ATT'],
@@ -252,6 +267,8 @@ function strength(club,lineup,tac){
   let att=mean(atts)*.6+mean(mids)*.3+mean(defs)*.1;
   let mid=mean(mids)*.6+mean(atts)*.2+mean(defs)*.2;
   let def=mean(defs)*.6+gk*.25+mean(mids)*.15;
+  // 特殊能力ボーナス
+  xi.forEach(p=>abilitiesOf(p).forEach(a=>{att+=a.b.att;mid+=a.b.mid;def+=a.b.def;}));
   if(tac.style==='attack'){att*=1.10;def*=0.93;}
   else if(tac.style==='defend'){att*=0.92;def*=1.10;}
   if(tac.press==='high'){mid*=1.05;def*=0.97;}
@@ -494,7 +511,8 @@ function viewSquad(){
     const idx=club.squad.findIndex(x=>x.id===p.id);
     const inXI=state.lineup.includes(idx);
     const g=prog(p.id); const pct=Math.round(g.xp/xpNeed(g.lvl)*100);
-    return `<tr class="${inXI?'me':''}"><td class="name">${inXI?'● ':''}${p.name}</td>
+    const abils=abilitiesOf(p).map(a=>`<span title="${a.name}" style="cursor:help">${a.icon}</span>`).join('');
+    return `<tr class="${inXI?'me':''}"><td class="name">${inXI?'● ':''}${p.name} <span style="font-size:12px">${abils}</span></td>
       <td><span class="pos ${p.grp}">${p.pos}</span></td>
       <td><b style="color:var(--accent2)">${p.lvl||1}</b></td>
       <td class="ov">${p.ov}</td>
@@ -504,7 +522,8 @@ function viewSquad(){
   return `<div class="card"><h2>スカッド <span class="muted" style="font-weight:400;font-size:12px">（● = 先発 ・ Lv=レベル ・ 右端=次Lvまでの経験値）</span></h2>
     <div style="overflow-x:auto"><table>
     <tr><th class="name">選手</th><th>POS</th><th>Lv</th><th>OVR</th><th>PAC</th><th>SHO</th><th>PAS</th><th>DRI</th><th>DEF</th><th>PHY</th><th>XP</th></tr>
-    ${rows}</table></div></div>`;
+    ${rows}</table></div>
+    <p class="muted" style="font-size:11px;margin-top:8px">特性: ${ABILITIES.map(a=>a.icon+a.name).join(' ・ ')}</p></div>`;
 }
 
 function viewTactics(){
@@ -519,6 +538,8 @@ function viewTactics(){
       <select data-slot="${idx}">${opts.map(x=>{const e=eff(x.p);return `<option value="${x.pi}" ${x.pi===cur?'selected':''}>${x.p.name} (Lv${e.lvl||1}・${e.ov})</option>`;}).join('')}</select></div>`;
   }).join('');
   const s=strength(club,state.lineup,state.tactics);
+  const xiAbils=state.lineup.map(i=>eff(club.squad[i])).flatMap(p=>abilitiesOf(p).map(a=>({a,name:p.name})));
+  const abilLine=xiAbils.length?xiAbils.map(x=>`<span title="${x.name}: ${x.a.name}">${x.a.icon}</span>`).join(' '):'<span class="muted">なし</span>';
   return `<div class="card"><h2>戦術</h2>
     <div class="row" style="align-items:center;margin-bottom:6px">
       <label class="muted">フォーメーション</label>${sel('formation',state.tactics.formation,Object.keys(FORMATIONS).map(f=>[f,f]))}
@@ -529,7 +550,8 @@ function viewTactics(){
       <label class="muted">ライン</label>${sel('line',state.tactics.line,[['high','ハイライン'],['mid','標準'],['low','低め']])}
     </div>
     </div>
-    <div class="card"><h2>チーム力プレビュー</h2>${statBars(s)}</div>
+    <div class="card"><h2>チーム力プレビュー</h2>${statBars(s)}
+      <p class="muted" style="font-size:12px;margin-top:8px">先発の特性: <span style="font-size:14px">${abilLine}</span></p></div>
     <div class="card"><h2>先発11人</h2>${lineupHtml}
       <p class="muted" style="font-size:12px;margin-top:6px">各枠のプルダウンで入れ替え可能</p></div>
     <div class="card"><div class="row">
