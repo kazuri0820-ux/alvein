@@ -439,6 +439,7 @@ const MGR_PERKS=[
   {id:'subMaster',   name:'交代術',     icon:'🔄', max:2, desc:'試合の交代枠 +1/Lv'},
   {id:'fitness',     name:'フィジオ',   icon:'🩹', max:3, desc:'試合後のコンディション回復 +6/Lv'},
   {id:'financier',   name:'経営手腕',   icon:'💰', max:3, desc:'シーズン賞金 +10%/Lv'},
+  {id:'inspire',     name:'監督の檄',   icon:'📣', max:3, desc:'試合中1回発動：勢い＋戦力UP＋体力回復（効果Lv比例）'},
 ];
 function respecPerks(){const m=mgr();let refund=0;Object.values(m.perks).forEach(v=>refund+=v);m.points+=refund;m.perks={};save();return refund;}
 function mgr(){if(!state.mgr)state.mgr={lvl:1,xp:0,points:0,perks:{}};if(!state.mgr.perks)state.mgr.perks={};return state.mgr;}
@@ -1287,7 +1288,7 @@ function startMatch(){
      rival,derby:rival?derbyName(state.clubId,opp.id):null,
      min:0,hs:0,as:0,log:[],scorers:[],assists:[],
      st:{home:{sh:0,sot:0},away:{sh:0,sot:0}},
-     myL:isHome?homeL:awayL,subsLeft:3+perkLv('subMaster'),talkMult:1,subOut:null,
+     myL:isHome?homeL:awayL,subsLeft:3+perkLv('subMaster'),boostLeft:perkLv('inspire')>0?1:0,talkMult:1,subOut:null,
      momentum:50,keyLeft:3,halftimeDone:false,decision:null,over:false,fast:false,flashId:null};
   current='match'; setNav(); renderMatch();
   matchTimer=setTimeout(matchTick,700);
@@ -1387,6 +1388,17 @@ function performSub(inIdx){
   M.decision=null; M.subOut=null;
   renderMatch(); matchTimer=setTimeout(matchTick,600);
 }
+function activateInspire(){
+  if(!M||M.over||(M.boostLeft||0)<=0)return;
+  M.boostLeft--; const lv=perkLv('inspire')||1;
+  mom(8+lv*4);                              // 勢いを引き寄せる
+  M.talkMult*=(1+0.03*lv);                  // 戦力UP（試合中持続）
+  const sq=squadOf(state.clubId);
+  M.myL.forEach(ix=>{const p=sq[ix];if(p)setCond(p.id,condOf(p.id)+8*lv);}); // 体力回復
+  recompPStr(); save();
+  pushLog('big','📣 監督の檄！ チームが息を吹き返した（勢い＋・戦力UP・体力回復）');
+  renderMatch();                            // 進行ループは継続中のため新規スケジュールは不要
+}
 function finishMatch(){
   if(matchTimer)clearTimeout(matchTimer);
   M.over=true;
@@ -1463,7 +1475,8 @@ function renderMatch(){
   }else if(!M.over){
     panel=`<div class="row" style="margin-top:10px">
       <button class="btn sec" id="skip">最後まで観る ⏩</button>
-      ${M.subsLeft>0?`<button class="btn blue" id="subBtn">🔄 交代 (${M.subsLeft})</button>`:''}</div>`;
+      ${M.subsLeft>0?`<button class="btn blue" id="subBtn">🔄 交代 (${M.subsLeft})</button>`:''}
+      ${M.boostLeft>0?`<button class="btn" id="inspireBtn" style="background:var(--gold);color:#000">📣 檄</button>`:''}</div>`;
   }
   $('#screen').innerHTML=`<div class="card">
     ${M.rival?`<div style="text-align:center;color:var(--gold);font-weight:800;font-size:14px;margin-bottom:6px">🔥 ${M.derby} 🔥</div>`:''}
@@ -1482,6 +1495,7 @@ function renderMatch(){
   document.querySelectorAll('[data-tt]').forEach(b=>b.onclick=()=>teamTalk(b.dataset.tt));
   const sk=$('#skip'); if(sk)sk.onclick=()=>{M.keyLeft=0;M.halftimeDone=true;M.fast=true;};
   const sb=$('#subBtn'); if(sb)sb.onclick=()=>{M.decision={type:'sub'};M.subOut=null;renderMatch();};
+  const ib=$('#inspireBtn'); if(ib)ib.onclick=activateInspire;
   const sc=$('#subCancel'); if(sc)sc.onclick=()=>{if(M.subOut!==null){M.subOut=null;renderMatch();}else{M.decision=null;renderMatch();matchTimer=setTimeout(matchTick,300);}};
   document.querySelectorAll('[data-subout]').forEach(b=>b.onclick=()=>{M.subOut=+b.dataset.subout;renderMatch();});
   document.querySelectorAll('[data-subin]').forEach(b=>b.onclick=()=>performSub(+b.dataset.subin));
