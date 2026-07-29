@@ -7599,6 +7599,14 @@ const RANDOM_CHOICE=[
    {label:"書記に付け、読み書きを学ばせる",hint:"治安↑ その兵の知力と忠誠↑",fx:{st:{order:1},call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"学びを志す兵が見当たらず、この話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];const inc=ri(2,4);u.wis=(u.wis||0)+inc;if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);u.moral=Math.min(100,(u.moral||0)+4);unitHistory(u,"書記に付いて文字を覚え、剣のほかに知る喜びを得た。");chron(`${fullName(u)}は夜ごと書記のもとに通い、たどたどしくも文字を綴れるようになった。知力が+${inc}。新たな世界を知った兵の目は、以前より澄んでいる。`,"people");}}},
    {label:"今は武を磨くべしと諭す",hint:"その兵の疲労回復・武を志す",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"諭すべき兵もおらず、話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];u.fatigue=Math.max(0,(u.fatigue||0)-ri(8,14));u.moral=Math.min(100,(u.moral||0)+2);unitHistory(u,"まずは武を極めよとの言葉を胸に、いっそう鍛錬に励んだ。");chron(`${fullName(u)}は「文字はいつでも学べる。今は剣を」との言葉に深く頷き、稽古に打ち込んだ。その一途さもまた、得難い才である。`,"");}}},
   ]},
+ /* ── 兵の巡礼願い(信仰による心の成長と愛着) ── */
+ {tag:"祈 り",title:"兵の巡礼願い",
+  body:"信心篤い兵の一人が、意を決して願い出た。「一度、聖地へ巡礼に赴きとうございます。心を鎮め、あらためてこの剣を捧げる覚悟を固めたく」。しばし送り出すか、今は側にと留めるか。",
+  speaker:"ガレオン「信心は兵の芯を強うするもの。損にはなりますまい」",
+  choices:[
+   {label:"聖地への巡礼を許す",hint:"兵糧を少し / その兵の忠誠と士気↑(信心篤ければ知力も)",fx:{food:-6,call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"送り出すべき兵がおらず、この話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+8);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);let extra="";if(u.cls==="priest"||u.cls==="monk"){const inc=ri(1,3);u.wis=(u.wis||0)+inc;extra=` 聖地で祈りを重ね、知力が+${inc}。`;}unitHistory(u,"聖地への巡礼を許され、心新たにこの剣を捧げる覚悟を固めた。");chron(`${fullName(u)}は聖地へ巡礼の旅に出て、澄んだ面持ちで帰還した。${extra}芯の定まったその姿に、戦友たちも背筋を正している。`,"people");}}},
+   {label:"今は側にと留める",hint:"治安↑ その兵は職務に励む",fx:{st:{order:1},call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"留めるべき兵もおらず、話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+2);unitHistory(u,"巡礼は後日にと胸に納め、今なすべき職務に静かに励んだ。");chron(`${fullName(u)}は「巡礼はいつでも叶う。今は民のために」と願いを胸に納め、職務に励んだ。その慎ましさもまた信仰の一つの形である。`,"");}}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
