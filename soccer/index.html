@@ -744,22 +744,30 @@ function standings(){
 /* ---------- RPG: 通算記録 & 実績 ---------- */
 function car(){if(!state.career)state.career={matches:0,wins:0,gf:0,titles:0,bestStreak:0};return state.career;}
 const ACHIEVEMENTS=[
-  {id:'debut',   icon:'👔',name:'監督デビュー',desc:'1試合を戦う',        check:()=>car().matches>=1},
-  {id:'win1',    icon:'✅',name:'初勝利',      desc:'初めて勝利する',      check:()=>car().wins>=1},
-  {id:'streak5', icon:'🔥',name:'5連勝',       desc:'5連勝を達成',        check:()=>(car().bestStreak||0)>=5},
-  {id:'title1',  icon:'🏆',name:'初タイトル',  desc:'リーグ優勝',          check:()=>car().titles>=1},
-  {id:'title3',  icon:'👑',name:'常勝軍団',    desc:'通算3回優勝',        check:()=>car().titles>=3},
-  {id:'gf100',   icon:'🎯',name:'得点マシン',  desc:'通算100得点',        check:()=>car().gf>=100},
-  {id:'rich',    icon:'💰',name:'大富豪',      desc:'資金500Mに到達',      check:()=>(state.cash||0)>=500},
-  {id:'galactico',icon:'🌍',name:'銀河系軍団', desc:'選手を5人獲得',       check:()=>(state.signings||[]).length>=5},
-  {id:'star20',  icon:'⭐',name:'スター製造',  desc:'選手をLv20に育てる',  check:()=>maxSquadLevel()>=20},
-  {id:'mgr10',   icon:'🎖️',name:'名将の風格',  desc:'監督Lv10に到達',      check:()=>mgr().lvl>=10},
-  {id:'derby3',  icon:'⚔️',name:'ダービーキング',desc:'ダービーで通算3勝', check:()=>(state.rivalWins||0)>=3},
+  {id:'debut',   icon:'👔',name:'監督デビュー',desc:'1試合を戦う',        reward:{cash:10},          check:()=>car().matches>=1},
+  {id:'win1',    icon:'✅',name:'初勝利',      desc:'初めて勝利する',      reward:{cash:15},          check:()=>car().wins>=1},
+  {id:'streak5', icon:'🔥',name:'5連勝',       desc:'5連勝を達成',        reward:{points:1},         check:()=>(car().bestStreak||0)>=5},
+  {id:'title1',  icon:'🏆',name:'初タイトル',  desc:'リーグ優勝',          reward:{cash:60,points:1}, check:()=>car().titles>=1},
+  {id:'title3',  icon:'👑',name:'常勝軍団',    desc:'通算3回優勝',        reward:{points:2},         check:()=>car().titles>=3},
+  {id:'gf100',   icon:'🎯',name:'得点マシン',  desc:'通算100得点',        reward:{cash:40},          check:()=>car().gf>=100},
+  {id:'rich',    icon:'💰',name:'大富豪',      desc:'資金500Mに到達',      reward:{mgrXp:100},        check:()=>(state.cash||0)>=500},
+  {id:'galactico',icon:'🌍',name:'銀河系軍団', desc:'選手を5人獲得',       reward:{cash:30},          check:()=>(state.signings||[]).length>=5},
+  {id:'star20',  icon:'⭐',name:'スター製造',  desc:'選手をLv20に育てる',  reward:{points:1},         check:()=>maxSquadLevel()>=20},
+  {id:'mgr10',   icon:'🎖️',name:'名将の風格',  desc:'監督Lv10に到達',      reward:{points:2},         check:()=>mgr().lvl>=10},
+  {id:'derby3',  icon:'⚔️',name:'ダービーキング',desc:'ダービーで通算3勝', reward:{cash:40},          check:()=>(state.rivalWins||0)>=3},
 ];
+function rewardText(r){r=r||{};const p=[];if(r.cash)p.push('資金+'+r.cash+'M');if(r.mgrXp)p.push('監督XP+'+r.mgrXp);if(r.points)p.push('パーク+'+r.points);return p.join(' / ')||'—';}
 function checkAchievements(){
   if(!state.achievements)state.achievements={};
   const got=[];
-  ACHIEVEMENTS.forEach(a=>{if(!state.achievements[a.id]&&a.check()){state.achievements[a.id]=true;got.push(a);}});
+  ACHIEVEMENTS.forEach(a=>{if(!state.achievements[a.id]&&a.check()){
+    state.achievements[a.id]=true;
+    const r=a.reward||{};
+    if(r.cash)state.cash=(state.cash||0)+r.cash;
+    if(r.mgrXp)gainMgrXP(r.mgrXp);
+    if(r.points)mgr().points+=r.points;
+    got.push(a);
+  }});
   if(got.length)save();
   return got;
 }
@@ -1087,7 +1095,7 @@ function viewAchievements(){
   const rows=ACHIEVEMENTS.map(a=>{
     const un=!!state.achievements[a.id];
     return `<div class="stats-line" style="opacity:${un?1:0.5}">
-      <span style="flex:1;text-align:left"><span style="font-size:16px">${un?a.icon:'🔒'}</span> <b>${a.name}</b> <span class="muted" style="font-size:11px">${a.desc}</span></span>
+      <span style="flex:1;text-align:left"><span style="font-size:16px">${un?a.icon:'🔒'}</span> <b>${a.name}</b> <span class="muted" style="font-size:11px">${a.desc} ・ 報酬 ${rewardText(a.reward)}</span></span>
       <span style="color:${un?'var(--accent)':'var(--muted)'};font-size:12px">${un?'解除':'未達成'}</span></div>`;
   }).join('');
   return `<div class="card"><h2>実績 <span class="muted" style="font-weight:400;font-size:12px">${got}/${ACHIEVEMENTS.length}</span></h2>
@@ -1574,7 +1582,7 @@ function showResult(homeC,awayC,res,xpres,quests,mor,rivalBox,achs){
   const poss=Math.round(res.possH*100);
   const mi=moraleInfo();
   const rBox=rivalBox?`<div class="card decision"><h2>⚔️ ダービー</h2><p>${rivalBox}</p></div>`:'';
-  const achBox=(achs&&achs.length)?`<div class="card"><h2>🏅 実績解除！</h2>${achs.map(a=>`<div class="stats-line"><b>${a.icon} ${a.name}</b><span class="muted">${a.desc}</span></div>`).join('')}</div>`:'';
+  const achBox=(achs&&achs.length)?`<div class="card"><h2>🏅 実績解除！</h2>${achs.map(a=>`<div class="stats-line"><b>${a.icon} ${a.name}</b><span>報酬 ${rewardText(a.reward)}</span></div>`).join('')}</div>`:'';
   const morBox=mor?`<div class="card"><h2>チーム士気</h2><div class="stats-line"><span>試合前 ${mor.before}</span><b style="color:${mi.c}">${mi.e} ${mor.after} ${mi.l}</b></div></div>`:'';
   const ups=(xpres&&xpres.players)||[];
   const upBox=(ups.length)?`<div class="card"><h2>⬆️ レベルアップ</h2>${ups.map(u=>`<div class="stats-line"><b>${u.name}</b><span>Lv.${u.lvl} に上昇！</span></div>`).join('')}</div>`:'';
