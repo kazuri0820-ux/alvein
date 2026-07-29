@@ -7639,6 +7639,14 @@ const RANDOM_CHOICE=[
    {label:"家紋を許し、末代までの誉れとする",hint:"民心↑ 功なる兵の忠誠と士気↑(生涯の誇り)",fx:{mood:1,call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"家紋を許すべき兵がおらず、この話は流れた。"});return;}const u=act.slice().sort((a,b)=>((b.lv||0)-(a.lv||0)))[0];if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+10);u.moral=Math.min(100,(u.moral||0)+6);unitHistory(u,"長より独自の家紋を帯びることを許され、一家の誉れを背負う身となった。");chron(`${fullName(u)}に独自の家紋が許された。掲げた紋を仰ぐその面持ちには、末代までの誉れを担う静かな誇りが宿っている。`,"people");}}},
    {label:"質実を旨とし、いまは武功で語らせる",hint:"治安↑(質実剛健)",fx:{st:{order:1},log:"華美な誉れは後日にと、長は質実を旨とした。飾らぬその姿勢が、かえって兵たちの信を厚くしている。"}},
   ]},
+ /* ── 傷を押して出撃を願う兵(武人の意気か身を惜しむ情けか) ── */
+ {tag:"武 勇",title:"傷を押して出撃を願う兵",
+  body:"療養中の兵の一人が、包帯も痛々しいまま「次の戦にはぜひ我をお加えください」と願い出た。その意気を汲んで出撃を許すか、傷が癒えるまでは断じて休ませるか。",
+  speaker:"ガレオン「はやる気持ちは武人の証。なれど、将たる者は兵の身を惜しむものにございます」",
+  choices:[
+   {label:"意気に感じ、出撃を許す",hint:"その兵の士気と忠誠↑↑ だが無理が祟り疲労も",fx:{call:()=>{const c=S.units.filter(u=>u.injured>0);if(!c.length){apply({log:"出撃を願う手負いの兵はおらず、この話は流れた。"});return;}const u=c[Math.floor(Math.random()*c.length)];u.moral=Math.min(100,(u.moral||0)+10);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);u.fatigue=Math.min(100,(u.fatigue||0)+ri(8,15));unitHistory(u,"傷を押して出撃を願い、その武人の意気を長に認められた。");chron(`${fullName(u)}は傷を押して戦場に立つことを許された。その武人の意気に、戦友たちも胸を熱くしている。無理を押した体に疲れは残るが、士気はいや増すばかりだ。`,"people");}}},
+   {label:"傷が癒えるまで休ませる",hint:"治安↑ その兵の傷の治りが早まる",fx:{st:{order:1},call:()=>{const c=S.units.filter(u=>u.injured>0);if(!c.length){apply({log:"休ませるべき手負いの兵はおらず、この話は流れた。"});return;}const u=c[Math.floor(Math.random()*c.length)];u.injured=Math.max(0,(u.injured||0)-ri(1,2));u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,"はやる心を長に諭され、傷を癒すことに専念した。");chron(`長は${fullName(u)}の逸る心を諭し、まず傷を癒すよう命じた。手厚い養生で治りは早まり、兵もその気遣いに深く頷いている。`,"people");}}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
