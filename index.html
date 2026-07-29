@@ -7569,6 +7569,21 @@ const RANDOM_CHOICE=[
    {label:"大局を見て、無礼を呑む",hint:"外交↑(和を保つ) / 兵の面目はわずかに沈む",fx:{st:{diplomacy:2},call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.moral=Math.max(0,(u.moral||0)-2);chron("長は無礼を大局のために呑み込み、和を保った。両国の関係は保たれたが、屈辱を見た兵たちの面目は、いささか沈んでいる。","people");}}},
    {label:"毅然と叱責し、国の威を示す",hint:"治安↑ 民心↑(誇りを示す) / 外交は冷える",fx:{st:{order:2,diplomacy:-2},mood:2,log:"長は使者を毅然と叱責し、国の威を示した。城下は溜飲を下げたが、面目を潰された隣国との間には、しこりが残った。"}},
   ]},
+ /* ── 城下の治安(捕物の手立て・意味ある選択) ── */
+ {tag:"捕 物",title:"辻斬りの噂",
+  body:"夜な夜な城下に辻斬りが出るとの噂が広まり、民は日暮れを恐れて表を歩かぬ。腕利きの兵に密かに探索させるか、夜警を厚くして力ずくで押さえるか。",
+  speaker:"ガレオン「民の安寧は治世の要。早々に片をつけねばなりませぬ」",
+  choices:[
+   {label:"腕利きの兵に密かに探索させ、捕らえる",hint:"治安↑ その兵が手柄を上げ武名↑",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({st:{order:1},log:"探索に出せる兵がおらず、夜警を厚くして辻斬りは自然と鳴りを潜めた。"});return;}const u=[...act].sort((a,b)=>((b.agi+b.wis)||0)-((a.agi+a.wis)||0))[0];u.moral=Math.min(100,(u.moral||0)+8);if(typeof grantRenown==="function")grantRenown(2,"辻斬りの捕縛");unitHistory(u,"城下を騒がせた辻斬りを、闇夜に張り込んで見事に捕らえた。");apply({st:{order:2},mood:2});chron(`${fullName(u)}が闇夜に張り込み、辻斬りを取り押さえた。城下に安堵が広がり、その手柄は語り草となっている。`,"people");}}},
+   {label:"夜警を厚くして力ずくで押さえる",hint:"国庫↓ 治安↑(手堅く)",fx:{gold:-25,st:{order:2},log:"夜警が大幅に増やされ、辻斬りは早々に鳴りを潜めた。費えはかさんだが、城下には夜の安寧が戻っている。"}},
+  ]},
+ /* ── 名馬の商い(実利の判断) ── */
+ {tag:"商 い",title:"献上された名馬",
+  body:"馬商人が、見事な体躯の軍馬を一頭連れて訪れた。相応の値は張るが、これを軍に迎えれば騎馬の力が増そうという。買い上げるか、見送るか。",
+  choices:[
+   {label:"買い上げ、軍馬に迎える",hint:"国庫↓ 軍事↑",fx:{gold:-40,st:{military:3},log:"見事な軍馬が買い上げられ、騎馬隊に迎えられた。国庫は軽くなったが、軍の機動と威容は一段と増している。"}},
+   {label:"値が張りすぎると、丁重に見送る",hint:"国庫を守る",fx:{log:"長は名馬を惜しみつつも、値が張りすぎると丁重に見送った。馬商人は残念そうに、次の街へと去っていった。"}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
