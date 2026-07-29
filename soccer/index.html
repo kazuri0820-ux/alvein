@@ -162,6 +162,31 @@ const CLUBS_RAW = [
   ['Nicolò Barella','CM',84,78,84,86,78,82],['Hakan Çalhanoglu','CDM',68,82,88,82,74,74],['Henrikh Mkhitaryan','CM',74,76,84,82,70,72],
   ['Piotr Zielinski','CM',72,78,85,84,68,72],['Lautaro Martínez','ST',86,88,78,86,52,82],['Marcus Thuram','ST',86,82,76,84,48,86],
   ['Davide Frattesi','CM',82,78,80,82,72,78],['Mehdi Taremi','ST',74,80,78,80,48,80],['Marko Arnautovic','ST',68,78,76,78,46,82]]},
+ // --- 中堅〜下位クラブ（格上に挑む/昇格ストーリー用・全体的に能力控えめ） ---
+ {id:'avl',name:'Aston Villa',short:'AVL',color:'#95BFE5',squad:[
+  ['Emiliano Martínez','GK',82,25,78,72,84,82],['Ezri Konsa','CB',80,45,72,74,82,80],['Pau Torres','CB',72,48,78,74,82,80],
+  ['Lucas Digne','LB',80,55,80,76,78,74],['Matty Cash','RB',84,55,72,76,78,80],['Amadou Onana','CDM',78,66,76,78,80,86],
+  ['Youri Tielemans','CM',70,76,84,80,72,74],['John McGinn','CM',78,76,80,80,76,80],['Morgan Rogers','CAM',82,76,80,84,60,78],
+  ['Leon Bailey','RW',90,80,76,86,50,72],['Ollie Watkins','ST',90,84,74,82,45,80],['Jhon Durán','ST',86,84,68,78,42,84],
+  ['Jacob Ramsey','CM',82,74,78,80,66,72]]},
+ {id:'sev',name:'Sevilla',short:'SEV',color:'#D91A21',squad:[
+  ['Ørjan Nyland','GK',78,25,74,70,80,80],['Loïc Badé','CB',84,42,70,72,82,84],['Kike Salas','CB',74,45,70,72,78,78],
+  ['Adrià Pedrosa','LB',80,50,74,76,74,72],['Juanlu Sánchez','RB',84,55,74,80,72,72],['Djibril Sow','CDM',76,66,78,76,78,80],
+  ['Nemanja Gudelj','CM',66,66,78,72,76,78],['Saúl Ñíguez','CM',72,74,80,78,74,78],['Dodi Lukebakio','RW',86,80,76,84,50,72],
+  ['Isaac Romero','ST',82,78,68,76,44,80],['Chidera Ejuke','LW',88,74,72,84,44,66],['Jesús Navas','RB',80,66,80,78,70,64],
+  ['Lucien Agoumé','CM',76,66,78,78,74,78]]},
+ {id:'wol',name:'Wolverhampton',short:'WOL',color:'#FDB913',squad:[
+  ['José Sá','GK',80,25,76,72,82,80],['Craig Dawson','CB',60,45,68,62,80,82],['Toti Gomes','CB',78,45,70,72,78,80],
+  ['Rayan Aït-Nouri','LB',88,55,76,82,76,74],['Nélson Semedo','RB',86,55,74,80,76,76],['João Gomes','CDM',82,68,78,80,80,82],
+  ['Mario Lemina','CM',78,72,78,78,78,84],['Jean-Ricner Bellegarde','CM',82,74,80,82,68,74],['Pablo Sarabia','CAM',72,80,82,82,58,64],
+  ['Matheus Cunha','ST',86,84,80,86,52,80],['Jørgen Strand Larsen','ST',80,80,70,76,44,84],['Hwang Hee-chan','LW',88,78,74,80,52,74],
+  ['Tommy Doyle','CM',72,70,78,76,72,72]]},
+ {id:'fey',name:'Feyenoord',short:'FEY',color:'#E30613',squad:[
+  ['Timon Wellenreuther','GK',78,25,74,70,79,80],['Dávid Hancko','CB',82,55,78,78,82,82],['Gijs Smal','LB',80,55,74,76,74,74],
+  ['Bart Nieuwkoop','RB',80,50,72,74,74,78],['Thomas Beelen','CB',74,45,70,72,78,80],['Quinten Timber','CM',82,74,82,84,74,78],
+  ['Ramiz Zerrouki','CDM',76,66,78,78,78,80],['Calvin Stengs','CAM',76,78,84,84,58,66],['Igor Paixão','LW',88,78,78,86,50,70],
+  ['Ayase Ueda','ST',84,80,70,76,46,80],['Luka Ivanušec','RW',82,74,78,82,56,70],['In-beom Hwang','CM',72,76,82,80,70,72],
+  ['Antoni Milambo','CM',80,72,80,82,66,70]]},
 ];
 
 /* ---------- 2. 選手/クラブ整形 ---------- */
@@ -475,11 +500,11 @@ function investPerk(id){const m=mgr();const d=MGR_PERKS.find(p=>p.id===id);if(!d
 /* ---------- RPG: クエスト（シーズン目標） ---------- */
 function maxSquadLevel(){return Math.max(...squadOf(state.clubId).map(p=>prog(p.id).lvl));}
 const QUESTS=[
-  {id:'win8', name:'連戦連勝',  icon:'🏅', desc:'シーズンで7勝する',       target:7,  progress:()=>state.table[state.clubId].w,  reward:{mgrXp:120,points:1}},
-  {id:'gf28', name:'得点マシン', icon:'⚽', desc:'チーム通算25得点',        target:25, progress:()=>state.table[state.clubId].gf, reward:{mgrXp:120}},
-  {id:'cs5',  name:'鉄壁の守り', icon:'🧱', desc:'クリーンシート4回',        target:4,  progress:()=>state.cs||0,                 reward:{mgrXp:100}},
+  {id:'win8', name:'連戦連勝',  icon:'🏅', desc:'シーズンで11勝する',      target:11, progress:()=>state.table[state.clubId].w,  reward:{mgrXp:120,points:1}},
+  {id:'gf28', name:'得点マシン', icon:'⚽', desc:'チーム通算40得点',        target:40, progress:()=>state.table[state.clubId].gf, reward:{mgrXp:120}},
+  {id:'cs5',  name:'鉄壁の守り', icon:'🧱', desc:'クリーンシート6回',        target:6,  progress:()=>state.cs||0,                 reward:{mgrXp:100}},
   {id:'lv8',  name:'新星育成',  icon:'🌟', desc:'選手を最高Lv8まで育てる',  target:8,  progress:()=>maxSquadLevel(),             reward:{mgrXp:100,points:1}},
-  {id:'title',name:'リーグ制覇', icon:'🏆', desc:'リーグ優勝',              target:1,  progress:()=>(state.round>=14&&standings()[0].c.id===state.clubId)?1:0, reward:{mgrXp:250,points:2}},
+  {id:'title',name:'リーグ制覇', icon:'🏆', desc:'リーグ優勝',              target:1,  progress:()=>(state.round>=state.fixtures.length&&standings()[0].c.id===state.clubId)?1:0, reward:{mgrXp:250,points:2}},
 ];
 function checkQuests(){
   if(!state.quests)state.quests={};
@@ -597,7 +622,7 @@ const EVENTS=[
 function eventById(id){return EVENTS.find(e=>e.id===id);}
 function queueEvent(id,pid){if(!state.eventQueue)state.eventQueue=[];state.eventQueue.push({id,pid:pid||null});}
 function maybeRollEvent(){
-  if(state.round>=14)return;
+  if(state.round>=state.fixtures.length)return;
   if(state.eventQueue&&state.eventQueue.length){state.pendingEvent=state.eventQueue.shift();return;} // 連鎖イベント優先
   if(rnd()<0.5){
     const pool=EVENTS.filter(e=>!e.chainOnly&&(!e.when||e.when()));
@@ -899,7 +924,7 @@ function setNav(){
   const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['transfer','移籍'],['facilities','施設'],['manager','監督'],['quests','クエスト'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['history','クラブ史'],['achievements','実績'],['fixtures','日程']];
   $('#nav').innerHTML=items.map(([k,l])=>`<button data-s="${k}" class="${k===current?'active':''}">${l}</button>`).join('');
   $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.s));
-  $('#seasonPill').textContent=state?`シーズン ${state.season} ・ 第${Math.min(state.round+1,14)}節 ・ ${diff().name}`:'';
+  $('#seasonPill').textContent=state?`シーズン ${state.season} ・ 第${Math.min(state.round+1,state.fixtures.length)}節 ・ ${diff().name}`:'';
 }
 function go(s){restartArmed=false;current=s;render();}
 function render(){
@@ -972,7 +997,7 @@ function renderClubSelect(){
    </div>
    <div class="card">
      <h2>クラブを選択</h2>
-     <p class="muted" style="margin-bottom:14px">率いるクラブを選んでください。1シーズン全14節のリーグ戦を戦います。</p>
+     <p class="muted" style="margin-bottom:14px">率いるクラブを選んでください。全12クラブ・1シーズン全22節のリーグ戦を戦います。強豪から中堅まで、格上への挑戦も。</p>
      <div class="grid">${cards}</div>
    </div>`;
   document.querySelectorAll('[data-diff]').forEach(el=>el.onclick=()=>{selDiff=el.dataset.diff;renderClubSelect();});
