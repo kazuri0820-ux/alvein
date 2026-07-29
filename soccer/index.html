@@ -322,7 +322,7 @@ function awardMatchXP(res,homeC,awayC){
   });
   if(oppScore===0)state.cs=(state.cs||0)+1;   // クリーンシート集計
   // コンディション: 全員+30回復、先発は-40消耗（差引: 先発 純-10 / 控え +30）
-  const recov=30+perkLv('fitness')*6;   // フィジオで回復量UP
+  const recov=30+perkLv('fitness')*6+facLv('medical')*6;   // フィジオ＋メディカル施設で回復量UP
   sq.forEach((p,i)=>{let c=condOf(p.id)+recov; if(state.lineup.includes(i))c-=40; setCond(p.id,c);});
   // 調子(フォーム)更新: 得点/アシストで上昇・敗戦で下降・控えは中立へ。性格で振れ幅が変化
   sq.forEach((p,i)=>{
@@ -414,8 +414,25 @@ const ABILITIES=[
 function abilitiesOf(e){return ABILITIES.filter(a=>a.test(e));}
 
 /* ---------- RPG: 育成トレーニング ---------- */
-const TP_MAX=3;                           // 1節あたりのトレーニングポイント
+const TP_MAX=3;                           // 1節あたりのトレーニングポイント（基本）
 const DRILLS=[['sho','シュート'],['pas','パス'],['def','守備'],['phy','フィジカル'],['pac','スピード'],['dri','ドリブル']];
+/* クラブ施設（資金で永続強化する経営レイヤー） */
+const FACILITIES=[
+  {id:'training',icon:'🏋️',name:'トレーニングセンター',max:3,desc:'トレーニングポイント +1/Lv'},
+  {id:'medical', icon:'🏥',name:'メディカル施設',      max:3,desc:'試合後のコンディション回復 +6/Lv'},
+  {id:'youth',   icon:'🎓',name:'ユースアカデミー',    max:3,desc:'トレーニング獲得XP +15%/Lv'},
+  {id:'stadium', icon:'🏟️',name:'スタジアム',          max:3,desc:'シーズン賞金 +10%/Lv'},
+];
+function facLv(id){return (state.facilities&&state.facilities[id])||0;}
+function facCost(id){const d=FACILITIES.find(f=>f.id===id);const lv=facLv(id);return lv>=d.max?null:80*(lv+1);}
+function tpMax(){return TP_MAX+facLv('training');}
+function upgradeFacility(id){
+  const d=FACILITIES.find(f=>f.id===id); if(!d)return{ok:false,msg:'?'};
+  const lv=facLv(id); if(lv>=d.max)return{ok:false,msg:'最大レベルです'};
+  const cost=facCost(id); if((state.cash||0)<cost)return{ok:false,msg:`資金不足（${cost}M 必要 / 所持 ${state.cash||0}M）`};
+  if(!state.facilities)state.facilities={}; state.facilities[id]=lv+1; state.cash-=cost; save();
+  return{ok:true,msg:`🏗️ ${d.name} をLv${lv+1}に強化（-${cost}M / 資金 ${state.cash}M）`};
+}
 function trainPlayer(id,stat){
   if(!state.tp||state.tp<=0)return null;   // TP切れ
   state.tp--;
@@ -423,7 +440,7 @@ function trainPlayer(id,stat){
   const capped=p&&eff(p).ov>=potentialOf(p);
   if(!capped)g.add[stat]=(g.add[stat]||0)+1; // ポテンシャル未到達なら狙った能力+1
   setCond(id,condOf(id)-8);                   // 練習で少し疲労
-  let tmul=1+perkLv('academy')*0.15; if(personaOf(id).id==='worker')tmul*=1.5; // 努力家は練習XP+50%
+  let tmul=1+perkLv('academy')*0.15+facLv('youth')*0.15; if(personaOf(id).id==='worker')tmul*=1.5; // 育成環境＋ユース＋努力家
   const ups=gainXP(id,Math.round(70*tmul)); // 育成環境パーク等でXP増（到達後もXPは入る）
   save();
   return {ups,capped};                     // レベルアップ数・ポテンシャル到達か
@@ -815,7 +832,8 @@ function newGame(clubId,difficulty){
     mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60,pendingEvent:null,form:{},
     cash:DIFFS[dk].cash,signings:[],market:MARKET_RAW.map(makeMarketPlayer),
     eventQueue:[],winStreak:0,lossStreak:0,pstats:{},history:{seasons:[]},
-    career:{matches:0,wins:0,gf:0,titles:0,bestStreak:0},achievements:{},legend:{},seenTutorial:false};
+    career:{matches:0,wins:0,gf:0,titles:0,bestStreak:0},achievements:{},legend:{},seenTutorial:false,
+    facilities:{training:0,medical:0,youth:0,stadium:0}};
   save();
 }
 
@@ -854,7 +872,7 @@ function finalizeRound(r,playerResult){
     else{th.d++;ta.d++;th.pts++;ta.pts++;}
   });
   state.round++;
-  state.tp=TP_MAX;   // 新しい節でトレーニングポイント回復
+  state.tp=tpMax();   // 新しい節でトレーニングポイント回復（施設で上限UP）
   save();
 }
 
@@ -871,7 +889,7 @@ function resolveEvent(idx){
   state.pendingEvent=null; save(); render();
 }
 function setNav(){
-  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['transfer','移籍'],['manager','監督'],['quests','クエスト'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['history','クラブ史'],['achievements','実績'],['fixtures','日程']];
+  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['transfer','移籍'],['facilities','施設'],['manager','監督'],['quests','クエスト'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['history','クラブ史'],['achievements','実績'],['fixtures','日程']];
   $('#nav').innerHTML=items.map(([k,l])=>`<button data-s="${k}" class="${k===current?'active':''}">${l}</button>`).join('');
   $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.s));
   $('#seasonPill').textContent=state?`シーズン ${state.season} ・ 第${Math.min(state.round+1,14)}節 ・ ${diff().name}`:'';
@@ -886,6 +904,7 @@ function render(){
   else if(current==='training')el.innerHTML=viewTraining();
   else if(current==='manager')el.innerHTML=viewManager();
   else if(current==='transfer')el.innerHTML=viewTransfer();
+  else if(current==='facilities')el.innerHTML=viewFacilities();
   else if(current==='quests'){checkQuests();el.innerHTML=viewQuests();}
   else if(current==='history')el.innerHTML=viewHistory();
   else if(current==='achievements')el.innerHTML=viewAchievements();
@@ -909,6 +928,7 @@ function bindCommon(){
   const tk=$('#tutOK'); if(tk)tk.onclick=()=>{state.seenTutorial=true;save();render();};
   const ts=$('#tutShow'); if(ts)ts.onclick=()=>{state.seenTutorial=false;render();};
   document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const r=buyPlayer(b.dataset.buy);render();const m=$('#buyMsg');if(m)m.innerHTML=`<span style="color:${r.ok?'var(--accent)':'var(--danger)'}">${r.msg}</span>`;});
+  document.querySelectorAll('[data-fac]').forEach(b=>b.onclick=()=>{const r=upgradeFacility(b.dataset.fac);render();const m=$('#facMsg');if(m)m.innerHTML=`<span style="color:${r.ok?'var(--accent)':'var(--danger)'}">${r.msg}</span>`;});
   document.querySelectorAll('[data-sell]').forEach(b=>b.onclick=()=>{const r=sellPlayer(b.dataset.sell);render();const m=$('#buyMsg');if(m)m.innerHTML=`<span style="color:${r.ok?'var(--warn)':'var(--danger)'}">${r.msg}</span>`;});
   document.querySelectorAll('[data-train]').forEach(b=>b.onclick=()=>{
     const cur=state.trainFocus||'sho';
@@ -1189,6 +1209,22 @@ function viewQuests(){
     ${rows}`;
 }
 
+function viewFacilities(){
+  const rows=FACILITIES.map(f=>{
+    const lv=facLv(f.id); const maxed=lv>=f.max; const cost=facCost(f.id);
+    const dots='●'.repeat(lv)+'○'.repeat(f.max-lv);
+    const can=!maxed&&(state.cash||0)>=cost;
+    return `<div class="stats-line" style="align-items:center">
+      <span style="flex:1;text-align:left">${f.icon} <b>${f.name}</b> <span class="muted" style="font-size:11px">${f.desc}</span></span>
+      <span style="color:var(--accent);letter-spacing:1px;margin:0 8px">${dots}</span>
+      <button class="btn ${can?'':'sec'}" data-fac="${f.id}" ${can?'':'disabled'} style="padding:3px 10px;font-size:12px">${maxed?'MAX':cost+'M'}</button></div>`;
+  }).join('');
+  return `<div class="card"><h2>クラブ施設 <span class="muted" style="font-weight:400;font-size:12px">・ 資金 <b style="color:var(--gold)">${state.cash||0}M</b></span></h2>
+    <p class="muted" style="font-size:12px;margin-bottom:8px">資金を投資して施設を強化。効果は永続的にチームを底上げします（レベルアップするほど費用増）。</p>
+    <div id="facMsg" style="font-size:13px;min-height:18px;margin-bottom:6px"></div>
+    ${rows}</div>`;
+}
+
 function viewTransfer(){
   const market=(state.market||[]).slice().sort((a,b)=>b.ov-a.ov);
   const rows=market.map(p=>{
@@ -1251,7 +1287,7 @@ function viewTraining(){
       <td class="ov" style="color:var(--warn)">${p[cur]}</td>
       <td><button class="btn" data-train="${p.id}" ${state.tp>0?'':'disabled'} style="padding:4px 12px;font-size:12px">鍛える</button></td></tr>`;
   }).join('');
-  return `<div class="card"><h2>育成トレーニング <span class="muted" style="font-weight:400;font-size:12px">（残りTP: <b style="color:${state.tp>0?'var(--accent)':'var(--danger)'}">${state.tp||0}</b>/${TP_MAX}・次節で回復）</span></h2>
+  return `<div class="card"><h2>育成トレーニング <span class="muted" style="font-weight:400;font-size:12px">（残りTP: <b style="color:${state.tp>0?'var(--accent)':'var(--danger)'}">${state.tp||0}</b>/${tpMax()}・次節で回復）</span></h2>
     <p class="muted" style="font-size:12px;margin-bottom:10px">メニューを選んで選手を鍛えると、その能力が <b>+1</b>・さらに <b>経験値+70</b>（TPを1消費）。レベルが上がれば新たな特性が開花することも。</p>
     <div class="row" style="margin-bottom:10px">${drillBtns}</div>
     <div style="overflow-x:auto"><table>
@@ -1743,7 +1779,7 @@ function nextSeason(){
   state.history.seasons.push({season:state.season,pos,champ:pos===1,
     mvp:mvp?{name:PLAYERS[mvp].name,rating:avgRating(mvp)}:null,
     topScorer:myTop?{name:myTop.name,goals:myTop.goals}:null});
-  state.cash=(state.cash||0)+Math.round((pos===1?120:pos<=3?80:pos<=6?50:30)*diff().prize*(1+perkLv('financier')*0.1));
+  state.cash=(state.cash||0)+Math.round((pos===1?120:pos<=3?80:pos<=6?50:30)*diff().prize*(1+perkLv('financier')*0.1+facLv('stadium')*0.1));
   const signed=new Set((state.signings||[]).map(p=>p.name));      // 市場を毎季リフレッシュ（獲得済みは除外）
   state.market=MARKET_RAW.filter(a=>!signed.has(a[0])).map(makeMarketPlayer);
   state.season++; state.round=0;
@@ -1782,6 +1818,7 @@ if(state&&!state.career)state.career={matches:0,wins:0,gf:0,titles:0,bestStreak:
 if(state&&!state.achievements)state.achievements={};
 if(state&&!state.legend)state.legend={};
 if(state&&state.seenTutorial===undefined)state.seenTutorial=true;   // 既存セーブは案内済み扱い
+if(state&&!state.facilities)state.facilities={training:0,medical:0,youth:0,stadium:0};
 registerSignings();
 render();
 </script>
