@@ -2678,6 +2678,7 @@ const TITLE_DB=[
  {key:"t_morale90",name:"士気の要",desc:"高い士気を長く保ち続けている",effect:"moralGrow",value:0.15},
  {key:"t_favorite",name:"愛され者",desc:"長のお気に入りに選ばれている",effect:"moralGrow",value:0.1},
  {key:"t_bonded",name:"絆の証",desc:"戦友との絆を結んでいる",effect:"loyaltyGrow",value:0.1},
+ {key:"t_goodrival",name:"切磋琢磨",desc:"互いに高め合う好敵手を得た兵。競い合いが日々の研鑽を鋭くする",effect:"moralGrow",value:0.1},
  {key:"t_pureroute",name:"生粋の道",desc:"転職を経ずに一つの道を極めた",effect:"expMult",value:1.06},
  {key:"t_scarred5",name:"幾多の傷跡",desc:"負傷を5回経験している",effect:"injuryMult",value:0.87},
  {key:"t_unscathed",name:"無傷の英雄",desc:"一度も負傷せず英雄格に到達した",effect:"injuryMult",value:0.8},
@@ -3460,6 +3461,7 @@ function checkDailyTitles(u){
   if(u.moral>=90)grantTitle(u,"t_morale90");
   if(u.favorite)grantTitle(u,"t_favorite");
   if(u.bondWith){grantTitle(u,"t_bonded");if((u.criticalSurvivalCount||0)>=1)grantTitle(u,"t_guardian");}
+  if(u.rivalWith)grantTitle(u,"t_goodrival"); // 好敵手を得た兵の証(絆=t_bondedと対をなす関係コレクション軸。同陣で連携が上がる好敵手関係に到達点を用意)
   const effLifespan=race?race.lifespan*((traitInfo(u.trait).lifespanMult)||1)*(u.lifespanVariance||1):999;
   if(race&&u.age>=effLifespan)grantTitle(u,"t_longlife");
   if((stage.key==="old"||stage.key==="venerable")&&!u.retired)grantTitle(u,"t_evergreen");
