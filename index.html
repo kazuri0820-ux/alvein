@@ -13326,6 +13326,8 @@ const UNIQUE_JOBS=[
   check:(u)=>(u.skills||[]).includes("nsk_tactician")&&S.units.every(o=>o.id===u.id||((o.wis+skillEffects(o).wis)+(o.lead+skillEffects(o).lead))<=((u.wis+skillEffects(u).wis)+(u.lead+skillEffects(u).lead)))}, // 軍配の心得を極め、知略と采配で全軍を導く支援の頂(軍師の道)
  {key:"myriad_arts",name:"万芸の達人",nickname:"万芸の達人",
   check:(u)=>(u.skills||[]).length>=8&&S.units.every(o=>o.id===u.id||(o.skills||[]).length<=(u.skills||[]).length)}, // 最も多くの技を修めた、あらゆる戦場に応じる万芸の達人(技を極める道)
+ {key:"myriad_paths",name:"万道を征く者",nickname:"万道を征く者",
+  check:(u)=>(typeof jobsWalkedCount==="function"?jobsWalkedCount(u):((u.jobsWalked||[]).length||1))>=4}, // 四つ以上の職の道を歩み修め、あらゆる流派を我がものとした遍歴の達人(転職を重ねて多流派を修める道)。特定の達成ゆえ汎用判定より優先
  {key:"sworn_hero",name:"無二の盟友",nickname:"無二の盟友",
   check:(u)=>!!u.bondWith&&(u.loyalty||0)>=90&&(S.day-(u.joinDay||S.day))>=200}, // 戦友と背を預け合い、長く忠義を貫いた者(絆の道)
  {key:"fated_rival",name:"宿命の好敵手",nickname:"宿命の好敵手",
