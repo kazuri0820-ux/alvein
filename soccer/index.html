@@ -224,8 +224,8 @@ function pickScorer(club,lineup){
   });
   const tot=weighted.reduce((t,x)=>t+x.w,0);
   let r=rnd()*tot;
-  for(const x of weighted){r-=x.w;if(r<=0)return x.p.name;}
-  return xi[0].name;
+  for(const x of weighted){r-=x.w;if(r<=0)return x.p;}
+  return xi[0];
 }
 const GOAL_TXT=['ゴォォル！','ネットが揺れた！','決めた！','見事なフィニッシュ！','こじ開けた！'];
 const MISS_TXT=['惜しい！枠の外','ポストを直撃！','GK好セーブ！','決定機を逃す','クロスバー！'];
@@ -234,7 +234,7 @@ function simulate(homeC,homeL,homeT,awayC,awayL,awayT,withEvents){
   H.att*=1.06; H.def*=1.03; // ホームアドバンテージ
   let possH=H.mid/(H.mid+A.mid); possH=Math.max(.35,Math.min(.65,possH));
   const st={home:{sh:0,sot:0},away:{sh:0,sot:0}};
-  let hs=0,as=0; const events=[];
+  let hs=0,as=0; const events=[]; const scorers=[];
   const yc={home:0,away:0};
   for(let m=1;m<=90;m++){
     if(rnd()<0.30){
@@ -251,7 +251,8 @@ function simulate(homeC,homeL,homeT,awayC,awayL,awayT,withEvents){
         if(rnd()<gp){
           if(side==='home')hs++;else as++;
           const scorer=pickScorer(atkC,atkL);
-          if(withEvents)events.push({m,type:'goal',team:side,text:`⚽ ${scorer}！ ${GOAL_TXT[Math.floor(rnd()*GOAL_TXT.length)]} (${atkC.short})`});
+          scorers.push({side,id:scorer.id,name:scorer.name,clubId:atkC.id});
+          if(withEvents)events.push({m,type:'goal',team:side,text:`⚽ ${scorer.name}！ ${GOAL_TXT[Math.floor(rnd()*GOAL_TXT.length)]} (${atkC.short})`});
         }else if(withEvents&&rnd()<0.5){
           events.push({m,type:'chance',team:side,text:`${atkC.short} ${MISS_TXT[Math.floor(rnd()*MISS_TXT.length)]}`});
         }
@@ -262,7 +263,7 @@ function simulate(homeC,homeL,homeT,awayC,awayL,awayT,withEvents){
       yc[side]++; events.push({m,type:'card',team:side,text:`🟨 ${c.short} イエローカード`});
     }
   }
-  return{hs,as,possH,stats:st,events};
+  return{hs,as,possH,stats:st,events,scorers};
 }
 
 /* ---------- 6. リーグ日程 ---------- */
@@ -297,7 +298,7 @@ function newGame(clubId){
   const club=clubById(clubId);
   state={season:1,round:0,clubId,fixtures:fx,table:emptyTable(),
     tactics:{formation:'4-3-3',style:'balanced',press:'mid',line:'mid'},
-    lineup:bestXI(club,'4-3-3'),history:[]};
+    lineup:bestXI(club,'4-3-3'),history:[],scorers:{}};
   save();
 }
 
@@ -306,17 +307,24 @@ function playerMatchOfRound(r){
   const rd=state.fixtures[r]; if(!rd)return null;
   return rd.find(m=>m.h===state.clubId||m.a===state.clubId);
 }
+function addGoals(scorers){
+  if(!state.scorers)state.scorers={};
+  (scorers||[]).forEach(s=>{
+    if(!state.scorers[s.id])state.scorers[s.id]={name:s.name,clubId:s.clubId,goals:0};
+    state.scorers[s.id].goals++;
+  });
+}
 function finalizeRound(r,playerResult){
   const rd=state.fixtures[r];
   rd.forEach(m=>{
     if(m.played)return;
     let hs,as;
-    if(playerResult&&(m.h===state.clubId||m.a===state.clubId)){hs=playerResult.hs;as=playerResult.as;}
+    if(playerResult&&(m.h===state.clubId||m.a===state.clubId)){hs=playerResult.hs;as=playerResult.as;addGoals(playerResult.scorers);}
     else{
       const hc=clubById(m.h),ac=clubById(m.a);
       const res=simulate(hc,bestXI(hc,'4-3-3'),{style:'balanced',press:'mid',line:'mid'},
                          ac,bestXI(ac,'4-3-3'),{style:'balanced',press:'mid',line:'mid'},false);
-      hs=res.hs;as=res.as;
+      hs=res.hs;as=res.as;addGoals(res.scorers);
     }
     m.hs=hs;m.as=as;m.played=true;
     const th=state.table[m.h],ta=state.table[m.a];
@@ -332,7 +340,7 @@ function finalizeRound(r,playerResult){
 const $=s=>document.querySelector(s);
 let current='dashboard';
 function setNav(){
-  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['tactics','戦術'],['standings','順位表'],['fixtures','日程']];
+  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['tactics','戦術'],['standings','順位表'],['ranking','得点王'],['fixtures','日程']];
   $('#nav').innerHTML=items.map(([k,l])=>`<button data-s="${k}" class="${k===current?'active':''}">${l}</button>`).join('');
   $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.s));
   $('#seasonPill').textContent=state?`シーズン ${state.season} ・ 第${Math.min(state.round+1,14)}節`:'';
@@ -346,6 +354,7 @@ function render(){
   else if(current==='squad')el.innerHTML=viewSquad();
   else if(current==='tactics'){el.innerHTML=viewTactics();bindTactics();}
   else if(current==='standings')el.innerHTML=viewStandings();
+  else if(current==='ranking')el.innerHTML=viewRanking();
   else if(current==='fixtures')el.innerHTML=viewFixtures();
   bindCommon();
 }
@@ -524,9 +533,7 @@ function showMatch(homeC,awayC,res){
     $('#scDisp').textContent=`${res.hs} - ${res.as}`; $('#clk').textContent='試合終了';
     $('#fin').disabled=false;
     $('#fin').onclick=()=>{
-      const pm=playerMatchOfRound(state.round);
-      const pr={hs:res.hs,as:res.as};
-      finalizeRound(state.round,pr);
+      finalizeRound(state.round,{hs:res.hs,as:res.as,scorers:res.scorers});
       showResult(homeC,awayC,res);
     };
   };
@@ -598,15 +605,33 @@ function viewFixtures(){
   return blocks;
 }
 
+function viewRanking(){
+  const arr=Object.values(state.scorers||{}).sort((a,b)=>b.goals-a.goals).slice(0,20);
+  if(arr.length===0)return `<div class="card"><h2>得点ランキング</h2><p class="muted">まだ得点がありません。試合を進めましょう。</p></div>`;
+  const rows=arr.map((s,i)=>{
+    const c=clubById(s.clubId);
+    return `<tr class="${s.clubId===state.clubId?'me':''}"><td>${i+1}</td>
+      <td class="name">${s.name}</td>
+      <td class="name"><span class="badge" style="background:${c.color}"></span>${c.short}</td>
+      <td><b>${s.goals}</b></td></tr>`;
+  }).join('');
+  return `<div class="card"><h2>得点ランキング <span class="muted" style="font-weight:400;font-size:12px">（シーズン${state.season}）</span></h2>
+    <div style="overflow-x:auto"><table>
+    <tr><th>#</th><th class="name">選手</th><th class="name">クラブ</th><th>得点</th></tr>
+    ${rows}</table></div></div>`;
+}
+
 function nextSeason(){
   state.season++; state.round=0;
   state.fixtures=genFixtures(CLUBS.map(c=>c.id));
   state.table=emptyTable();
+  state.scorers={};
   save(); go('dashboard');
 }
 
 /* ---------- 10. 起動 ---------- */
 state=load();
+if(state&&!state.scorers)state.scorers={};
 render();
 </script>
 </body>
