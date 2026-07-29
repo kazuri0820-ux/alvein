@@ -876,7 +876,7 @@ function setNav(){
   $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.s));
   $('#seasonPill').textContent=state?`シーズン ${state.season} ・ 第${Math.min(state.round+1,14)}節 ・ ${diff().name}`:'';
 }
-function go(s){current=s;render();}
+function go(s){restartArmed=false;current=s;render();}
 function render(){
   if(!state){renderClubSelect();return;}
   setNav();
@@ -905,6 +905,7 @@ function bindCommon(){
   document.querySelectorAll('[data-player]').forEach(b=>b.onclick=()=>{selPlayer=b.dataset.player;go('player');});
   document.querySelectorAll('[data-ev]').forEach(b=>b.onclick=()=>resolveEvent(+b.dataset.ev));
   const ec=$('#evtClose'); if(ec)ec.onclick=()=>{evtMsg=null;render();};
+  const rb=$('#restartBtn'); if(rb)rb.onclick=()=>{ if(!restartArmed){restartArmed=true;render();} else {doRestart();} };
   const tk=$('#tutOK'); if(tk)tk.onclick=()=>{state.seenTutorial=true;save();render();};
   const ts=$('#tutShow'); if(ts)ts.onclick=()=>{state.seenTutorial=false;render();};
   document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const r=buyPlayer(b.dataset.buy);render();const m=$('#buyMsg');if(m)m.innerHTML=`<span style="color:${r.ok?'var(--accent)':'var(--danger)'}">${r.msg}</span>`;});
@@ -1143,7 +1144,15 @@ function viewHistory(){
     ${done?`<div class="card"><h2>歴代シーズン</h2><div style="overflow-x:auto"><table>
       <tr><th>季</th><th>順位</th><th class="name">MVP</th><th class="name">得点王</th></tr>${rows}</table></div></div>`
       :`<div class="card"><p class="muted">まだシーズンを完了していません。1シーズン戦い抜くと記録が刻まれます。</p></div>`}
-    ${legendCard()}`;
+    ${legendCard()}
+    <div class="card"><h2>設定</h2>
+      <button class="btn ${restartArmed?'':'sec'}" id="restartBtn">${restartArmed?'⚠️ 本当に消す？（もう一度押す）':'🔄 別のクラブで最初から'}</button>
+      <p class="muted" style="font-size:11px;margin-top:6px">現在のセーブ（クラブ史・実績含む）を消去し、クラブ選択からやり直します</p></div>`;
+}
+let restartArmed=false;
+function doRestart(){
+  try{localStorage.removeItem(SAVE_KEY);}catch(e){localStorage.setItem(SAVE_KEY,'');}
+  state=null; restartArmed=false; current='dashboard'; render();
 }
 function legendCard(){
   const leg=Object.values(state.legend||{});
