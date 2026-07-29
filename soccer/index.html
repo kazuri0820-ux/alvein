@@ -341,6 +341,14 @@ function condColor(c){return c>=70?'var(--accent)':c>=40?'var(--warn)':'var(--da
 function morale(){return state.morale===undefined?60:state.morale;}
 function moraleFactor(){return 0.9+0.2*(morale()/100);}      // 0→×0.9, 100→×1.1
 function aiFactor(){return Math.min(1.30,1+(((state&&state.season)||1)-1)*0.03);} // AIクラブはシーズン毎に成長（最大+30%）
+function power(s){return s.att*0.38+s.mid*0.24+s.def*0.38;}   // 総合戦力スコア
+function matchOdds(myS,oppS){                                  // 勝/分/負(%)を実効戦力から推定
+  const d=power(myS)-power(oppS);
+  const pMe=1/(1+Math.exp(-d/5.5));
+  let draw=0.30-Math.abs(d)*0.012; draw=Math.max(0.10,Math.min(0.32,draw));
+  const win=Math.round((1-draw)*pMe*100), dr=Math.round(draw*100);
+  return {win, draw:dr, lose:Math.max(0,100-win-dr)};
+}
 function moraleInfo(){
   const m=morale();
   if(m>=85)return{e:'🔥',l:'絶好調',c:'var(--accent)'};
@@ -1053,6 +1061,11 @@ function viewTactics(){
     const rfHtml=rf.length?rf.map(x=>`<span style="color:${x==='W'?'var(--accent)':x==='L'?'var(--danger)':'var(--muted)'};font-weight:700">${x}</span>`).join(' '):'<span class="muted">開幕前</span>';
     const kp=squadOf(oppId).slice().sort((a,b)=>b.ov-a.ov)[0];
     const rival=isRivalOpp(oppId);
+    // 予想勝率（自軍=士気/パーク込み、相手=リーグ強度/ライバル補正込み、ホーム補正も考慮）
+    const meS=strength(club,state.lineup,state.tactics), opS=strength(opp,bestXI(opp,'4-3-3'),AI_TAC);
+    if(isHome){meS.att*=1.06;meS.def*=1.03;}else{opS.att*=1.06;opS.def*=1.03;}
+    if(rival){opS.att*=1.03;opS.mid*=1.03;opS.def*=1.03;}
+    const od=matchOdds(meS,opS);
     const tired=state.lineup.filter(i=>condOf(sq[i].id)<40).map(i=>sq[i].name);
     const slump=state.lineup.filter(i=>formOf(sq[i].id)<=-1).map(i=>sq[i].name);
     let warn='';
@@ -1065,7 +1078,12 @@ function viewTactics(){
       <div class="stats-line"><span>相手総合力</span><b>${clubRating(opp)}${aiFactor()>1?` <span class="muted" style="font-weight:400;font-size:11px">+${Math.round((aiFactor()-1)*100)}%</span>`:''}</b></div>
       <div class="stats-line"><span>相手の最近5戦</span><b>${rfHtml}</b></div>
       <div class="stats-line"><span>要注意選手</span><b>${kp.name} <span class="muted" style="font-weight:400">(${kp.ov})</span></b></div>
-      <div style="margin-top:8px">${warn}</div></div>`;
+      <div class="stats-line" style="border:none"><span>予想</span><b>勝 ${od.win}% ・ 分 ${od.draw}% ・ 負 ${od.lose}%</b></div>
+      <div style="display:flex;height:10px;border-radius:5px;overflow:hidden;margin-bottom:8px">
+        <div style="width:${od.win}%;background:var(--accent)"></div>
+        <div style="width:${od.draw}%;background:var(--muted)"></div>
+        <div style="width:${od.lose}%;background:var(--danger)"></div></div>
+      ${warn}</div>`;
   }
   return previewCard+`<div class="card"><h2>戦術</h2>
     <div class="row" style="align-items:center;margin-bottom:6px">
