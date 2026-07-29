@@ -7738,6 +7738,14 @@ const RANDOM_CHOICE=[
    {label:"縁を尊び、任地との絆を深めさせる",hint:"民心↑ その兵の忠誠と士気↑(守るやりがい)",fx:{mood:1,call:()=>{const c=S.units.filter(u=>u.role==="active"&&typeof unitDutyType==="function"&&unitDutyType(u));if(!c.length){apply({log:"いま任地に就く兵はおらず、この話は流れた。"});return;}const u=c[Math.floor(Math.random()*c.length)];if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);u.moral=Math.min(100,(u.moral||0)+6);unitHistory(u,"任地の人々に慕われ、守るべき者の顔が見える日々に確かなやりがいを見出した。");chron(`${fullName(u)}は任地の人々にいっそう深く根づいた。「この人たちを守るのが、私の務めです」――その言葉には、静かな誇りが満ちている。`,"people");}}},
    {label:"武人の本分を思い出させる",hint:"軍事↑ その兵は戦士としての気概を引き締める",fx:{st:{military:1},call:()=>{const c=S.units.filter(u=>u.role==="active"&&typeof unitDutyType==="function"&&unitDutyType(u));if(!c.length){apply({log:"引き締めるべき任地の兵もおらず、話は流れた。"});return;}const u=c[Math.floor(Math.random()*c.length)];u.moral=Math.min(100,(u.moral||0)+4);unitHistory(u,"土地への情に流されず、武人の本分は戦場にありと己を引き締めた。");chron(`長は${fullName(u)}に「そなたの本分は戦場にある」と諭した。任地の情を胸に仕舞い、その兵は武人としての気概をいっそう引き締めている。`,"people");}}},
   ]},
+ /* ── 火花散らす二人(競い合いを好敵手に育てるか結束に導くか) ── */
+ {tag:"好 敵",title:"火花散らす二人",
+  body:"同じ道を征く二人の兵が、事あるごとに腕を張り合い、互いに一歩も譲らぬという。その負けん気は稽古場をぴりりと引き締めているが、時に角突き合わせもする。この競い合いを好敵手の縁として育てるか、同じ隊の仲間として結束へ導くか。",
+  speaker:"ガレオン「張り合う心は、双方を高みへ押し上げる薪にもなりましょう。……導きようが肝要かと」",
+  choices:[
+   {label:"競い合いを好敵手の縁に育てる",hint:"同職の二人が好敵手に(同陣で連携↑・互いに成長)",fx:{call:()=>{const byCls={};for(const u of S.units){if(u.role==="active"&&!u.injured&&!u.rivalWith&&(u.lv||1)>=3)(byCls[u.cls]=byCls[u.cls]||[]).push(u);}const groups=Object.values(byCls).filter(a=>a.length>=2);if(!groups.length){apply({log:"いま好敵手となりそうな同職の二人はおらず、この話は流れた。"});return;}const g=groups[Math.floor(Math.random()*groups.length)];const a=g[0],b=g[1];a.rivalWith=b.id;b.rivalWith=a.id;a.moral=Math.min(100,(a.moral||0)+3);b.moral=Math.min(100,(b.moral||0)+3);unitHistory(a,`${b.nm}と互いを好敵手と認め合い、競い合って腕を磨く間柄となった。`);unitHistory(b,`${a.nm}と互いを好敵手と認め合い、競い合って腕を磨く間柄となった。`);chron(`長の計らいで、${fullName(a)}と${fullName(b)}は互いを好敵手と認め合った。同じ道を征く二人は、これからは相手の背中を追って腕を磨き合う(同陣で連携↑・一方が伸びればもう一方も負けじと成長)。`,"big");}}},
+   {label:"同じ隊の仲間として結束へ導く",hint:"治安↑ その二人の士気↑(結束)",fx:{st:{order:1},call:()=>{const byCls={};for(const u of S.units){if(u.role==="active"&&!u.injured&&!u.rivalWith)(byCls[u.cls]=byCls[u.cls]||[]).push(u);}const groups=Object.values(byCls).filter(a=>a.length>=2);if(!groups.length){apply({log:"諭すべき二人もおらず、話は流れた。"});return;}const g=groups[Math.floor(Math.random()*groups.length)];const a=g[0],b=g[1];a.moral=Math.min(100,(a.moral||0)+4);b.moral=Math.min(100,(b.moral||0)+4);unitHistory(a,`張り合う相手と、同じ隊の仲間として肩を並べることを長に諭された。`);chron(`長は${fullName(a)}と${fullName(b)}に「競うより、背を預け合え」と諭した。角突き合わせていた二人は、いつしか轡を並べて笑い合っている。`,"people");}}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
