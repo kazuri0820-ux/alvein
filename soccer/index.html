@@ -813,7 +813,7 @@ function newGame(clubId,difficulty){
     mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60,pendingEvent:null,form:{},
     cash:DIFFS[dk].cash,signings:[],market:MARKET_RAW.map(makeMarketPlayer),
     eventQueue:[],winStreak:0,lossStreak:0,pstats:{},history:{seasons:[]},
-    career:{matches:0,wins:0,gf:0,titles:0,bestStreak:0},achievements:{}};
+    career:{matches:0,wins:0,gf:0,titles:0,bestStreak:0},achievements:{},legend:{}};
   save();
 }
 
@@ -1127,7 +1127,20 @@ function viewHistory(){
     </div></div>
     ${done?`<div class="card"><h2>歴代シーズン</h2><div style="overflow-x:auto"><table>
       <tr><th>季</th><th>順位</th><th class="name">MVP</th><th class="name">得点王</th></tr>${rows}</table></div></div>`
-      :`<div class="card"><p class="muted">まだシーズンを完了していません。1シーズン戦い抜くと記録が刻まれます。</p></div>`}`;
+      :`<div class="card"><p class="muted">まだシーズンを完了していません。1シーズン戦い抜くと記録が刻まれます。</p></div>`}
+    ${legendCard()}`;
+}
+function legendCard(){
+  const leg=Object.values(state.legend||{});
+  if(!leg.length)return '';
+  const topG=leg.slice().filter(L=>L.goals>0).sort((a,b)=>b.goals-a.goals).slice(0,5);
+  const topA=leg.slice().filter(L=>L.apps>0).sort((a,b)=>b.apps-a.apps).slice(0,5);
+  const list=(arr,val,unit)=>arr.map((L,i)=>`<div class="stats-line"><span>${i+1}. ${L.name}</span><b>${val(L)}${unit}</b></div>`).join('')||'<span class="muted">—</span>';
+  return `<div class="card"><h2>🏛️ クラブレジェンド <span class="muted" style="font-weight:400;font-size:11px">通算（完了シーズンの累計）</span></h2>
+    <div class="row" style="gap:18px">
+      <div style="flex:1;min-width:160px"><div style="color:var(--gold);font-weight:700;font-size:13px;margin-bottom:4px">通算得点</div>${list(topG,L=>L.goals,'G')}</div>
+      <div style="flex:1;min-width:160px"><div style="color:var(--accent2);font-weight:700;font-size:13px;margin-bottom:4px">通算出場</div>${list(topA,L=>L.apps,'試合')}</div>
+    </div></div>`;
 }
 
 function viewQuests(){
@@ -1703,6 +1716,10 @@ function nextSeason(){
   state.table=emptyTable();
   if(pos===1)car().titles++;
   checkAchievements();
+  // クラブレジェンド（通算個人記録）へ今季を加算（自クラブのみ）→ リセット前に
+  if(!state.legend)state.legend={};
+  Object.values(state.scorers||{}).forEach(s=>{if(s.clubId===state.clubId){const L=state.legend[s.id]||(state.legend[s.id]={name:s.name,goals:0,assists:0,apps:0});L.goals+=s.goals;L.assists+=s.assists||0;}});
+  Object.keys(state.pstats||{}).forEach(id=>{const L=state.legend[id]||(state.legend[id]={name:(PLAYERS[id]?PLAYERS[id].name:id),goals:0,assists:0,apps:0});L.apps+=state.pstats[id].apps;});
   state.scorers={}; state.pstats={};
   state.quests={}; state.cs=0;   // シーズン目標をリセット
   save(); go('dashboard');
@@ -1728,6 +1745,7 @@ if(state&&!state.difficulty)state.difficulty='normal';
 if(state&&!state.history)state.history={seasons:[]};
 if(state&&!state.career)state.career={matches:0,wins:0,gf:0,titles:0,bestStreak:0};
 if(state&&!state.achievements)state.achievements={};
+if(state&&!state.legend)state.legend={};
 registerSignings();
 render();
 </script>
