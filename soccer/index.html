@@ -782,7 +782,7 @@ function newGame(clubId,difficulty){
     lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho',
     mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60,pendingEvent:null,form:{},
     cash:DIFFS[dk].cash,signings:[],market:MARKET_RAW.map(makeMarketPlayer),
-    eventQueue:[],winStreak:0,lossStreak:0,pstats:{}};
+    eventQueue:[],winStreak:0,lossStreak:0,pstats:{},history:{seasons:[]}};
   save();
 }
 
@@ -838,7 +838,7 @@ function resolveEvent(idx){
   state.pendingEvent=null; save(); render();
 }
 function setNav(){
-  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['transfer','移籍'],['manager','監督'],['quests','クエスト'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['fixtures','日程']];
+  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['transfer','移籍'],['manager','監督'],['quests','クエスト'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['history','クラブ史'],['fixtures','日程']];
   $('#nav').innerHTML=items.map(([k,l])=>`<button data-s="${k}" class="${k===current?'active':''}">${l}</button>`).join('');
   $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.s));
   $('#seasonPill').textContent=state?`シーズン ${state.season} ・ 第${Math.min(state.round+1,14)}節 ・ ${diff().name}`:'';
@@ -854,6 +854,7 @@ function render(){
   else if(current==='manager')el.innerHTML=viewManager();
   else if(current==='transfer')el.innerHTML=viewTransfer();
   else if(current==='quests'){checkQuests();el.innerHTML=viewQuests();}
+  else if(current==='history')el.innerHTML=viewHistory();
   else if(current==='player')el.innerHTML=viewPlayerDetail();
   else if(current==='tactics'){el.innerHTML=viewTactics();bindTactics();}
   else if(current==='standings')el.innerHTML=viewStandings();
@@ -1053,6 +1054,28 @@ function viewPlayerDetail(){
     <button class="btn" data-go="training">育成で鍛える →</button>
     <button class="btn sec" data-go="squad">戻る</button>
   </div></div>`;
+}
+
+function viewHistory(){
+  const club=clubById(state.clubId);
+  const h=state.history||{seasons:[]};
+  const done=h.seasons.length;
+  const titles=h.seasons.filter(s=>s.champ).length;
+  const best=done?Math.min(...h.seasons.map(s=>s.pos)):'-';
+  const rows=h.seasons.slice().reverse().map(s=>`<tr class="${s.champ?'me':''}">
+    <td>${s.season}</td><td>${s.pos}位${s.champ?' 🏆':''}</td>
+    <td class="name">${s.mvp?`${s.mvp.name} <span class="muted">(${s.mvp.rating.toFixed(1)})</span>`:'-'}</td>
+    <td class="name">${s.topScorer?`${s.topScorer.name} ${s.topScorer.goals}G`:'-'}</td></tr>`).join('');
+  return `<div class="card"><h2><span class="badge" style="background:${club.color}"></span>${club.name} クラブ史</h2>
+    <div class="kpi">
+      <div class="k"><div class="v">${done}</div><div class="l">完了シーズン</div></div>
+      <div class="k"><div class="v" style="color:var(--gold)">${titles}</div><div class="l">リーグ優勝</div></div>
+      <div class="k"><div class="v">${best===Infinity?'-':best+'位'}</div><div class="l">最高順位</div></div>
+      <div class="k"><div class="v" style="color:var(--accent2)">Lv.${mgr().lvl}</div><div class="l">監督</div></div>
+    </div></div>
+    ${done?`<div class="card"><h2>歴代シーズン</h2><div style="overflow-x:auto"><table>
+      <tr><th>季</th><th>順位</th><th class="name">MVP</th><th class="name">得点王</th></tr>${rows}</table></div></div>`
+      :`<div class="card"><p class="muted">まだシーズンを完了していません。1シーズン戦い抜くと記録が刻まれます。</p></div>`}`;
 }
 
 function viewQuests(){
@@ -1610,6 +1633,12 @@ function nextSeason(){
   checkQuests();            // シーズン終了時点の目標（優勝など）を判定してから
   const mvp=seasonMVP(); if(mvp)gainXP(mvp,300);   // シーズンMVP報酬（リセット前に付与）
   const pos=standings().findIndex(x=>x.c.id===state.clubId)+1;   // 成績に応じた賞金
+  // クラブ史に今季を記録（リセット前に）
+  const myTop=Object.values(state.scorers||{}).filter(s=>s.clubId===state.clubId).sort((a,b)=>b.goals-a.goals)[0];
+  if(!state.history)state.history={seasons:[]};
+  state.history.seasons.push({season:state.season,pos,champ:pos===1,
+    mvp:mvp?{name:PLAYERS[mvp].name,rating:avgRating(mvp)}:null,
+    topScorer:myTop?{name:myTop.name,goals:myTop.goals}:null});
   state.cash=(state.cash||0)+Math.round((pos===1?120:pos<=3?80:pos<=6?50:30)*diff().prize*(1+perkLv('financier')*0.1));
   const signed=new Set((state.signings||[]).map(p=>p.name));      // 市場を毎季リフレッシュ（獲得済みは除外）
   state.market=MARKET_RAW.filter(a=>!signed.has(a[0])).map(makeMarketPlayer);
@@ -1638,6 +1667,7 @@ if(state&&!state.market)state.market=MARKET_RAW.map(makeMarketPlayer);
 if(state&&!state.eventQueue)state.eventQueue=[];
 if(state&&!state.pstats)state.pstats={};
 if(state&&!state.difficulty)state.difficulty='normal';
+if(state&&!state.history)state.history={seasons:[]};
 registerSignings();
 render();
 </script>
