@@ -59,6 +59,14 @@
   .ev.goal{border-color:var(--accent);background:rgba(63,185,80,.12);font-weight:600}
   .ev.chance{border-color:var(--warn)}
   .ev.card{border-color:var(--danger)}
+  .ev.talk{border-color:var(--accent2);background:rgba(47,129,247,.10)}
+  .ev.big{border-color:var(--gold);background:rgba(227,179,65,.14);font-weight:700;font-size:14px}
+  .momentum{display:flex;height:12px;border-radius:6px;overflow:hidden;margin-top:14px;background:var(--bg3)}
+  .momentum>i,.momentum>b{display:block;height:100%;transition:width .5s ease}
+  .card.decision{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2) inset,0 0 24px rgba(47,129,247,.25);animation:pop .35s}
+  @keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
+  .ava{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:800;vertical-align:middle;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+  .mood{font-size:12px;padding:2px 10px;border-radius:999px;border:1px solid var(--line);display:inline-flex;gap:5px;align-items:center}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
   .stats-line{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding:3px 0;border-bottom:1px solid var(--line)}
   .stats-line b{color:var(--txt)}
@@ -250,6 +258,18 @@ function setCond(id,v){if(!state.cond)state.cond={};state.cond[id]=Math.max(0,Ma
 function condFactor(id){return 0.8+0.2*(condOf(id)/100);}   // 0(疲労)→×0.8, 100→×1.0
 function condColor(c){return c>=70?'var(--accent)':c>=40?'var(--warn)':'var(--danger)';}
 
+/* ---------- RPG: チーム士気（モラル） ---------- */
+function morale(){return state.morale===undefined?60:state.morale;}
+function moraleFactor(){return 0.9+0.2*(morale()/100);}      // 0→×0.9, 100→×1.1
+function moraleInfo(){
+  const m=morale();
+  if(m>=85)return{e:'🔥',l:'絶好調',c:'var(--accent)'};
+  if(m>=65)return{e:'😄',l:'好調',c:'var(--accent)'};
+  if(m>=45)return{e:'🙂',l:'普通',c:'var(--warn)'};
+  if(m>=25)return{e:'😟',l:'不調',c:'var(--danger)'};
+  return{e:'😰',l:'最悪',c:'var(--danger)'};
+}
+
 /* ---------- RPG: 特殊能力（アビリティ） ---------- */
 // 実効能力値のしきい値で解放（＝レベルアップで新たに開花しうる）。試合のチーム力に補正。
 const ABILITIES=[
@@ -354,7 +374,8 @@ function strength(club,lineup,tac){
   // 特殊能力ボーナス
   xi.forEach(p=>abilitiesOf(p).forEach(a=>{att+=a.b.att;mid+=a.b.mid;def+=a.b.def;}));
   // 監督の采配パーク（自クラブのみ）
-  if(club.id===state.clubId){att+=perkLv('attackCoach');mid+=perkLv('midCoach');def+=perkLv('defenseCoach');}
+  if(club.id===state.clubId){att+=perkLv('attackCoach');mid+=perkLv('midCoach');def+=perkLv('defenseCoach');
+    const mf=moraleFactor(); att*=mf; mid*=mf; def*=mf;}
   if(tac.style==='attack'){att*=1.10;def*=0.93;}
   else if(tac.style==='defend'){att*=0.92;def*=1.10;}
   if(tac.press==='high'){mid*=1.05;def*=0.97;}
@@ -464,7 +485,7 @@ function newGame(clubId){
   state={season:1,round:0,clubId,fixtures:fx,table:emptyTable(),
     tactics:{formation:'4-3-3',style:'balanced',press:'mid',line:'mid'},
     lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho',
-    mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{}};
+    mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60};
   save();
 }
 
@@ -608,6 +629,7 @@ function viewDashboard(){
         <div class="k"><div class="v">${rec.gf}:${rec.ga}</div><div class="l">得失点</div></div>
         <div class="k"><div class="v" style="color:var(--accent2)">${teamAvgLevel()}</div><div class="l">平均Lv</div></div>
         <div class="k"><div class="v" style="color:var(--gold)">Lv.${mgr().lvl}</div><div class="l">監督</div></div>
+        <div class="k"><div class="v" style="color:${moraleInfo().c};font-size:16px">${moraleInfo().e}${morale()}</div><div class="l">士気 ${moraleInfo().l}</div></div>
       </div>
       ${mgr().points>0?`<p style="color:var(--gold);font-size:12px;margin-top:10px;cursor:pointer" data-go="manager">💡 パークポイントが${mgr().points}あります → 監督タブで強化</p>`:''}
     </div>
@@ -808,72 +830,174 @@ function bindTactics(){
 }
 
 /* 試合演出 */
-let matchTimers=[];
+/* ===== インタラクティブ試合エンジン（RPGバトル風） ===== */
+const AI_TAC={style:'balanced',press:'mid',line:'mid'};
+let M=null, matchTimer=null;
+function avatar(name,color,size){
+  const init=(name||'?').split(' ').map(w=>w[0]||'').slice(0,2).join('').toUpperCase();
+  return `<span class="ava" style="width:${size}px;height:${size}px;background:${color};font-size:${Math.round(size*0.4)}px">${init}</span>`;
+}
+function byPlayerSide(side){return (side==='home'&&M.isHome)||(side==='away'&&!M.isHome);}
+function mom(d){M.momentum=Math.max(6,Math.min(94,M.momentum+d));}   // プレイヤー有利度 0-100
+function pushLog(type,text){M.log.push({m:M.min,type,text});}
 function startMatch(){
   const m=playerMatchOfRound(state.round);
   const club=clubById(state.clubId);
   const isHome=m.h===state.clubId;
-  const oppId=isHome?m.a:m.h; const opp=clubById(oppId);
+  const opp=clubById(isHome?m.a:m.h);
   const homeC=isHome?club:opp, awayC=isHome?opp:club;
   const homeL=isHome?state.lineup:bestXI(opp,'4-3-3');
   const awayL=isHome?bestXI(opp,'4-3-3'):state.lineup;
-  const homeT=isHome?state.tactics:{style:'balanced',press:'mid',line:'mid'};
-  const awayT=isHome?{style:'balanced',press:'mid',line:'mid'}:state.tactics;
-  const res=simulate(homeC,homeL,homeT,awayC,awayL,awayT,true);
-  showMatch(homeC,awayC,res);
+  const H=strength(homeC,homeL,isHome?state.tactics:AI_TAC);
+  const A=strength(awayC,awayL,isHome?AI_TAC:state.tactics);
+  H.att*=1.06; H.def*=1.03;                          // ホームアドバンテージ
+  let possH=H.mid/(H.mid+A.mid); possH=Math.max(.35,Math.min(.65,possH));
+  M={homeC,awayC,homeL,awayL,isHome,H,A,possH,pStr:isHome?H:A,
+     min:0,hs:0,as:0,log:[],scorers:[],assists:[],
+     st:{home:{sh:0,sot:0},away:{sh:0,sot:0}},
+     momentum:50,keyLeft:3,halftimeDone:false,decision:null,over:false,fast:false};
+  current='match'; setNav(); renderMatch();
+  matchTimer=setTimeout(matchTick,700);
 }
-function showMatch(homeC,awayC,res){
-  current='match'; setNav();
+function matchTick(){
+  if(M.decision||M.over)return;
+  M.min++;
+  if(M.min>90){finishMatch();return;}
+  if(M.min===45&&!M.halftimeDone){M.halftimeDone=true;M.decision={type:'halftime'};renderMatch();return;}
+  if(rnd()<0.30){
+    const isH=rnd()<M.possH;
+    const side=isH?'home':'away';
+    const atk=isH?M.H:M.A, dfn=isH?M.A:M.H;
+    const q=atk.att/(atk.att+dfn.def);
+    M.st[side].sh++;
+    if(byPlayerSide(side)&&M.keyLeft>0&&q>0.47&&M.min>8&&rnd()<0.55){
+      M.keyLeft--; M.decision={type:'chance',side,q}; renderMatch(); return;   // 決断ポイント
+    }
+    resolveAuto(side,q);
+  }
+  renderMatch();
+  matchTimer=setTimeout(matchTick, M.fast?18:170);
+}
+function goalScored(side,sc,asst,text,big){
+  if(side==='home')M.hs++; else M.as++;
+  const cid=(side==='home'?M.homeC:M.awayC).id;
+  M.scorers.push({side,id:sc.id,name:sc.name,clubId:cid});
+  if(asst)M.assists.push({side,id:asst.id,name:asst.name,clubId:cid});
+  M.st[side].sot++;
+  pushLog(big?'big':'goal',text);
+  mom(byPlayerSide(side)?16:-16);
+}
+function resolveAuto(side,q){            // 自動処理（相手＆自軍の非決断チャンス）
+  const atkC=side==='home'?M.homeC:M.awayC, atkL=side==='home'?M.homeL:M.awayL;
+  const gk=(side==='home'?M.A:M.H).gk;
+  const onT=rnd()<0.32+q*0.35;
+  if(!onT){ mom(byPlayerSide(side)?2:-2); return; }
+  M.st[side].sot++;
+  let gp=(q-0.24)*1.15*(1-gk/300); gp=Math.max(.03,Math.min(.6,gp));
+  if(rnd()<gp){
+    const sc=pickScorer(atkC,atkL); const asst=(rnd()<0.65)?pickAssister(atkC,atkL,sc.id):null;
+    goalScored(side,sc,asst,`⚽ ${sc.name}！ ${GOAL_TXT[Math.floor(rnd()*GOAL_TXT.length)]}${asst?`（A: ${asst.name}）`:''} (${atkC.short})`,false);
+  }else{
+    mom(byPlayerSide(side)?5:-5);
+    if(byPlayerSide(side)&&rnd()<0.4)pushLog('chance',`${atkC.short} ${MISS_TXT[Math.floor(rnd()*MISS_TXT.length)]}`);
+  }
+}
+function resolveKeyMoment(choice){
+  if(!M.decision||M.decision.type!=='chance')return;
+  const {side,q}=M.decision; M.decision=null;
+  const atkC=side==='home'?M.homeC:M.awayC, atkL=side==='home'?M.homeL:M.awayL;
+  const gk=(side==='home'?M.A:M.H).gk;
+  const p=eff(pickScorer(atkC,atkL));
+  const mf=morale()/100;
+  let pGoal,verb,scorer=p,asst=null;
+  if(choice==='shoot'){ pGoal=0.30+(p.sho-70)*0.010+q*0.15+mf*0.08-(gk-80)*0.004; verb='豪快なシュート'; }
+  else if(choice==='through'){ const pass=Math.min(0.95,0.40+(p.pas-70)*0.013); pGoal=pass*0.85+mf*0.05;
+    verb='スルーパス'; const tm=pickScorer(atkC,atkL); if(tm.id!==p.id){scorer=tm;asst=p;} }
+  else { const dr=Math.min(0.92,0.34+(p.dri-70)*0.013); pGoal=dr*0.9+mf*0.05-(gk-80)*0.003; verb='ドリブル突破'; }
+  pGoal=Math.max(0.08,Math.min(0.92,pGoal));
+  M.st[side].sh++;
+  if(rnd()<pGoal){
+    goalScored(side,scorer,asst,`🔥 GOAL!! ${scorer.name} の${verb}が突き刺さった！${asst?`（${asst.name}の絶妙な演出）`:''}`,true);
+  }else{
+    M.st[side].sot++;
+    mom(-10);
+    const fail=choice==='shoot'?'枠を捉えきれず':choice==='through'?'パスはカットされ':'寄せられて奪われ';
+    pushLog('chance',`💨 ${p.name} の${verb}、${fail}実らず…`);
+  }
+  renderMatch(); matchTimer=setTimeout(matchTick,850);
+}
+function teamTalk(kind){
+  if(!M.decision||M.decision.type!=='halftime')return; M.decision=null;
+  const diff=(M.isHome?M.hs-M.as:M.as-M.hs);
+  let mult=1,dmom=0,txt='';
+  if(kind==='rally'){ if(diff<=0){mult=1.06;dmom=12;txt='「まだ終わっちゃいない、行くぞ！」ベンチが沸き立った';} else {mult=0.99;dmom=-4;txt='「気を抜くな！」…選手はやや硬くなった';} }
+  else if(kind==='calm'){ mult=1.02;dmom=4;txt='「落ち着いていこう」いつものリズムを取り戻した';}
+  else { if(diff>0){mult=1.05;dmom=10;txt='「最高だ、この調子でいけ！」選手は自信に満ちている';} else {mult=1.0;dmom=3;txt='「顔を上げろ、君たちは強い」少し落ち着いた';} }
+  M.pStr.att*=mult; M.pStr.mid*=mult; M.pStr.def*=mult; mom(dmom);
+  pushLog('talk','🗣 '+txt);
+  renderMatch(); matchTimer=setTimeout(matchTick,700);
+}
+function finishMatch(){
+  if(matchTimer)clearTimeout(matchTimer);
+  M.over=true;
+  const my=M.isHome?M.hs:M.as, op=M.isHome?M.as:M.hs;
+  const before=morale();
+  state.morale=Math.max(0,Math.min(100,before+(my>op?8:my<op?-8:2)));
+  const res={hs:M.hs,as:M.as,possH:M.possH,stats:M.st,events:M.log,scorers:M.scorers,assists:M.assists};
+  finalizeRound(state.round,{hs:res.hs,as:res.as,scorers:res.scorers,assists:res.assists});
+  const xpres=awardMatchXP(res,M.homeC,M.awayC);
+  const quests=checkQuests();
+  showResult(M.homeC,M.awayC,res,xpres,quests,{before,after:state.morale});
+}
+function renderMatch(){
+  const {homeC,awayC}=M;
+  const homeFav=Math.round(M.isHome?M.momentum:100-M.momentum);
+  const logHtml=M.log.slice().reverse().map(e=>`<div class="ev ${e.type}"><span class="m">${e.m}'</span>${e.text}</div>`).join('');
+  let panel='';
+  if(M.decision&&M.decision.type==='chance'){
+    const {side}=M.decision; const atkC=side==='home'?M.homeC:M.awayC, atkL=side==='home'?M.homeL:M.awayL;
+    const p=eff(pickScorer(atkC,atkL));
+    panel=`<div class="card decision"><h2>⚡ ビッグチャンス！ <span class="muted" style="font-weight:400">${M.min}'</span></h2>
+      <div class="row" style="align-items:center;gap:12px;margin-bottom:10px">${avatar(p.name,atkC.color,46)}
+        <div><b style="font-size:15px">${p.name}</b> <span class="pos ${p.grp}">${p.pos}</span><br>
+        <span class="muted" style="font-size:12px">SHO ${p.sho} ・ PAS ${p.pas} ・ DRI ${p.dri}</span></div></div>
+      <p class="muted" style="font-size:12px;margin-bottom:8px">監督、どう仕掛ける？</p>
+      <div class="row">
+        <button class="btn" data-km="shoot">⚽ シュート</button>
+        <button class="btn blue" data-km="through">🎯 スルーパス</button>
+        <button class="btn sec" data-km="dribble">🌀 ドリブル</button>
+      </div></div>`;
+  }else if(M.decision&&M.decision.type==='halftime'){
+    panel=`<div class="card decision"><h2>🗣 ハーフタイム　${M.hs} - ${M.as}</h2>
+      <p class="muted" style="font-size:12px;margin-bottom:8px">選手にどう声をかける？（後半の士気に影響）</p>
+      <div class="row">
+        <button class="btn" data-tt="rally">🔥 発破をかける</button>
+        <button class="btn blue" data-tt="calm">😌 落ち着かせる</button>
+        <button class="btn sec" data-tt="praise">👏 称賛する</button>
+      </div></div>`;
+  }else if(!M.over){
+    panel=`<div class="row" style="margin-top:10px"><button class="btn sec" id="skip">最後まで観る ⏩</button></div>`;
+  }
   $('#screen').innerHTML=`<div class="card">
-    <div class="scoreboard">
-      <div class="teams">
-        <div class="tn"><span class="badge" style="background:${homeC.color}"></span>${homeC.name}</div>
-        <div><div class="sc" id="scDisp">0 - 0</div><div class="clock" id="clk">キックオフ</div></div>
-        <div class="tn"><span class="badge" style="background:${awayC.color}"></span>${awayC.name}</div>
-      </div>
+    <div class="scoreboard"><div class="teams">
+      <div class="tn">${avatar(homeC.short,homeC.color,30)}<br>${homeC.name}${M.isHome?' 🏠':''}</div>
+      <div><div class="sc">${M.hs} - ${M.as}</div><div class="clock">${M.over?'試合終了':M.min+"'"}</div></div>
+      <div class="tn">${avatar(awayC.short,awayC.color,30)}<br>${awayC.name}${!M.isHome?' 🏠':''}</div>
     </div>
-    <div class="commentary" id="comm"></div>
-    <div class="row" style="margin-top:12px">
-      <button class="btn sec" id="skip">スキップ ⏩</button>
-      <button class="btn" id="fin" disabled>結果を確定 →</button>
+    <div class="momentum" title="勢い"><i style="width:${homeFav}%;background:${homeC.color}"></i><b style="width:${100-homeFav}%;background:${awayC.color}"></b></div>
+    <div class="muted" style="font-size:11px;text-align:center;margin-top:4px">勢い ${homeC.short} ${homeFav} : ${100-homeFav} ${awayC.short}</div>
     </div>
-  </div>`;
-  let dh=0,da=0; const evs=res.events; let delay=300;
-  const comm=$('#comm');
-  matchTimers.forEach(clearTimeout); matchTimers=[];
-  const paint=e=>{
-    const div=document.createElement('div');
-    div.className='ev '+e.type;
-    div.innerHTML=`<span class="m">${e.m}'</span>${e.text}`;
-    comm.appendChild(div); comm.scrollTop=comm.scrollHeight;
-    if(e.type==='goal'){if(e.team==='home')dh++;else da++;$('#scDisp').textContent=`${dh} - ${da}`;}
-    $('#clk').textContent=e.m+"'";
-  };
-  const finish=()=>{
-    $('#scDisp').textContent=`${res.hs} - ${res.as}`; $('#clk').textContent='試合終了';
-    $('#fin').disabled=false;
-    $('#fin').onclick=()=>{
-      finalizeRound(state.round,{hs:res.hs,as:res.as,scorers:res.scorers,assists:res.assists});
-      const xpres=awardMatchXP(res,homeC,awayC);
-      const quests=checkQuests();
-      showResult(homeC,awayC,res,xpres,quests);
-    };
-  };
-  if(evs.length===0){finish();}
-  evs.forEach((e,i)=>{
-    const t=setTimeout(()=>{paint(e);if(i===evs.length-1)finish();},delay);
-    matchTimers.push(t);
-    delay+=e.type==='goal'?1000:e.type==='chance'?550:420;
-  });
-  $('#skip').onclick=()=>{
-    matchTimers.forEach(clearTimeout);
-    comm.innerHTML=''; dh=0;da=0;
-    evs.forEach(paint); finish();
-  };
+    ${panel}
+    <div class="card"><div class="commentary">${logHtml||'<span class="muted">キックオフ！</span>'}</div></div>`;
+  document.querySelectorAll('[data-km]').forEach(b=>b.onclick=()=>resolveKeyMoment(b.dataset.km));
+  document.querySelectorAll('[data-tt]').forEach(b=>b.onclick=()=>teamTalk(b.dataset.tt));
+  const sk=$('#skip'); if(sk)sk.onclick=()=>{M.keyLeft=0;M.halftimeDone=true;M.fast=true;};
 }
-function showResult(homeC,awayC,res,xpres,quests){
+function showResult(homeC,awayC,res,xpres,quests,mor){
   current='match'; setNav();
   const poss=Math.round(res.possH*100);
+  const mi=moraleInfo();
+  const morBox=mor?`<div class="card"><h2>チーム士気</h2><div class="stats-line"><span>試合前 ${mor.before}</span><b style="color:${mi.c}">${mi.e} ${mor.after} ${mi.l}</b></div></div>`:'';
   const ups=(xpres&&xpres.players)||[];
   const upBox=(ups.length)?`<div class="card"><h2>⬆️ レベルアップ</h2>${ups.map(u=>`<div class="stats-line"><b>${u.name}</b><span>Lv.${u.lvl} に上昇！</span></div>`).join('')}</div>`:'';
   const mgrBox=(xpres&&xpres.mgrUps>0)?`<div class="card"><h2>🎖️ 監督レベルアップ</h2><div class="stats-line"><b>監督 Lv.${xpres.mgrLvl}</b><span>パークポイント +${xpres.mgrUps}！采配パークを強化できます</span></div></div>`:'';
@@ -894,6 +1018,7 @@ function showResult(homeC,awayC,res,xpres,quests){
     ${line('シュート',res.stats.home.sh,res.stats.away.sh)}
     ${line('枠内',res.stats.home.sot,res.stats.away.sot)}
     </div>
+    ${morBox}
     ${upBox}
     ${mgrBox}
     ${qBox}
@@ -976,6 +1101,7 @@ if(state&&!state.mgr)state.mgr={lvl:1,xp:0,points:0,perks:{}};
 if(state&&!state.quests)state.quests={};
 if(state&&state.cs===undefined)state.cs=0;
 if(state&&!state.cond)state.cond={};
+if(state&&state.morale===undefined)state.morale=60;
 render();
 </script>
 </body>
