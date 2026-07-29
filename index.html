@@ -2759,6 +2759,7 @@ function grantTitle(u,key){
   }else{
     chron(`${u.nm}が称号「${t.name}」を得た。`,"");
   }
+  if(titleWasNew&&typeof checkTitleCodexMilestone==="function")checkTitleCodexMilestone(); // 称号の種類が節目に達したら収集の里程標を祝う(やりがいの中間報酬)
   if(key!=="t_gloryincarnate"&&u.titles.length>=10&&!u.titles.includes("t_gloryincarnate"))grantTitle(u,"t_gloryincarnate"); // 称号を十指に余るほど集めた者を「栄光の化身」として顕彰=称号収集そのものに到達点を用意
 }
 function titleEffectsFor(u){
@@ -10152,6 +10153,24 @@ function checkGreatCodexMilestone(){
     if(done>=m && m<total && !S.flags.greatCodexMiles[m]){
       S.flags.greatCodexMiles[m]=S.day;
       chron(`――英傑図鑑に名を連ねし英傑、ついに${m}柱を数えた(${done}/${total})。歴史に名を刻む者たちが続々とこの国の物語に加わっている。全てを集めきる日も、そう遠くはない。`,"big");
+    }
+  }
+}
+/* 称号図鑑の収集里程標:授与された称号の種類が節目(20/40/60/80)に達した折、収集の歩みを国を挙げて
+   言祝ぐ。全種を集めきる"大収集"の前に、途中の到達感=やりがいの中間報酬を灯す(英傑図鑑の里程標と対をなす)。 */
+function checkTitleCodexMilestone(){
+  S.flags=S.flags||{};
+  const total=(typeof TITLE_DB!=="undefined")?TITLE_DB.length:0;
+  const seen=new Set(Object.keys(S.flags.titlesSeen||{}));
+  for(const u of (S.units||[]))for(const k of (u.titles||[]))seen.add(k);
+  const done=seen.size;
+  S.flags.titleCodexMiles=S.flags.titleCodexMiles||{};
+  for(const m of [20,40,60,80]){
+    if(done>=m && m<total && !S.flags.titleCodexMiles[m]){
+      S.flags.titleCodexMiles[m]=S.day;
+      if(typeof grantRenown==="function")grantRenown(2,`称号図鑑に${m}種の栄誉を集めたこと`);
+      if(typeof apply==="function")apply({mood:5});
+      chron(`――王国が兵たちに刻んできた称号、その種類ついに${m}を数えた(称号図鑑 ${done}/${total})。数多の栄誉がこの国の歩みを彩っている。全てを集めきる誉れの日も、そう遠くはない。`,"big");
     }
   }
 }
