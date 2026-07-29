@@ -13385,6 +13385,8 @@ const UNIQUE_JOBS=[
   check:(u)=>u.founder||((u.totalExpEarned||0)>0&&S.units.every(o=>o.id===u.id||(o.totalExpEarned||0)<=(u.totalExpEarned||0)))},
  {key:"bloodline_heir",name:"血脈を継ぐ者",nickname:"血脈を継ぐ者",
   check:(u)=>!!u.lineage}, // 亡き英傑の血を継ぎ、その遺志と器量を受け継いで自らも英雄格へ昇った者(血脈=legacyの成就)。稀有な出自ゆえ汎用の頂点判定より優先
+ {key:"epic_feat",name:"武勇伝の主",nickname:"武勇伝の主",
+  check:(u)=>!!u.sigFeat&&(u.sigFeat.weight||0)>=4}, // 巨獣・未踏の王・魔将・魔王討伐級の、生涯の語り草となる大武勲(sigFeat weight≥4)を刻んだ英雄。特定の達成ゆえ汎用の頂点判定より優先
  {key:"aegis_god",name:"守護神",nickname:"不落の守護神",
   check:(u)=>(u.guardianSaveCount||0)>=3}, // 我が身を挺して幾度も戦友の命を救い抜いた、部隊の絶対の盾(守護を極める道)
  {key:"type_sovereign",name:"万流を極めし者",nickname:"万流を極めし者",
