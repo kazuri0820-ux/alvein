@@ -245,15 +245,15 @@ function teamAvgLevel(){
 /* ---------- RPG: 特殊能力（アビリティ） ---------- */
 // 実効能力値のしきい値で解放（＝レベルアップで新たに開花しうる）。試合のチーム力に補正。
 const ABILITIES=[
-  {id:'speed',   name:'スピードスター', icon:'⚡', test:e=>e.pac>=90&&e.grp!=='GK',                 b:{att:.8,mid:.2,def:0}},
-  {id:'clinical',name:'決定力',        icon:'🎯', test:e=>e.sho>=88&&e.grp!=='GK',                 b:{att:1.0,mid:0,def:0}},
-  {id:'playmaker',name:'キラーパス',    icon:'🅿', test:e=>e.pas>=86&&e.grp!=='GK',                 b:{att:.3,mid:.9,def:0}},
-  {id:'dribbler',name:'ドリブル王',     icon:'🌀', test:e=>e.dri>=88&&e.grp!=='GK',                 b:{att:.6,mid:.5,def:0}},
-  {id:'wall',    name:'鉄壁',          icon:'🛡', test:e=>e.def>=86&&e.grp!=='ATT'&&e.grp!=='GK',  b:{att:0,mid:.2,def:1.0}},
-  {id:'power',   name:'フィジカル',      icon:'💪', test:e=>e.phy>=87,                              b:{att:.2,mid:.3,def:.4}},
-  {id:'maestro', name:'司令塔',         icon:'🎼', test:e=>e.pas>=84&&e.dri>=84&&e.grp==='MID',    b:{att:.4,mid:.8,def:.2}},
-  {id:'keeper',  name:'守護神',         icon:'🧤', test:e=>e.grp==='GK'&&e.def>=86,                b:{att:0,mid:0,def:1.2}},
-  {id:'star',    name:'スーパースター',  icon:'⭐', test:e=>e.ov>=90,                               b:{att:.6,mid:.6,def:.6}},
+  {id:'speed',   name:'スピードスター', icon:'⚡', desc:'快足でカウンターに強い',   test:e=>e.pac>=90&&e.grp!=='GK',                 b:{att:.8,mid:.2,def:0}},
+  {id:'clinical',name:'決定力',        icon:'🎯', desc:'決定機を確実に沈める',     test:e=>e.sho>=88&&e.grp!=='GK',                 b:{att:1.0,mid:0,def:0}},
+  {id:'playmaker',name:'キラーパス',    icon:'🅿', desc:'一本のパスで局面を変える', test:e=>e.pas>=86&&e.grp!=='GK',                 b:{att:.3,mid:.9,def:0}},
+  {id:'dribbler',name:'ドリブル王',     icon:'🌀', desc:'単騎で持ち運ぶ',           test:e=>e.dri>=88&&e.grp!=='GK',                 b:{att:.6,mid:.5,def:0}},
+  {id:'wall',    name:'鉄壁',          icon:'🛡', desc:'対人・空中戦に強い',       test:e=>e.def>=86&&e.grp!=='ATT'&&e.grp!=='GK',  b:{att:0,mid:.2,def:1.0}},
+  {id:'power',   name:'フィジカル',      icon:'💪', desc:'球際で当たり負けしない',   test:e=>e.phy>=87,                              b:{att:.2,mid:.3,def:.4}},
+  {id:'maestro', name:'司令塔',         icon:'🎼', desc:'中盤を統率する',           test:e=>e.pas>=84&&e.dri>=84&&e.grp==='MID',    b:{att:.4,mid:.8,def:.2}},
+  {id:'keeper',  name:'守護神',         icon:'🧤', desc:'守護神級のセービング',     test:e=>e.grp==='GK'&&e.def>=86,                b:{att:0,mid:0,def:1.2}},
+  {id:'star',    name:'スーパースター',  icon:'⭐', desc:'全てが規格外',             test:e=>e.ov>=90,                               b:{att:.6,mid:.6,def:.6}},
 ];
 function abilitiesOf(e){return ABILITIES.filter(a=>a.test(e));}
 
@@ -497,6 +497,7 @@ function finalizeRound(r,playerResult){
 /* ---------- 9. 描画 ---------- */
 const $=s=>document.querySelector(s);
 let current='dashboard';
+let selPlayer=null;   // 選手詳細で表示中の選手id
 function setNav(){
   const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['manager','監督'],['quests','クエスト'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['fixtures','日程']];
   $('#nav').innerHTML=items.map(([k,l])=>`<button data-s="${k}" class="${k===current?'active':''}">${l}</button>`).join('');
@@ -513,6 +514,7 @@ function render(){
   else if(current==='training')el.innerHTML=viewTraining();
   else if(current==='manager')el.innerHTML=viewManager();
   else if(current==='quests'){checkQuests();el.innerHTML=viewQuests();}
+  else if(current==='player')el.innerHTML=viewPlayerDetail();
   else if(current==='tactics'){el.innerHTML=viewTactics();bindTactics();}
   else if(current==='standings')el.innerHTML=viewStandings();
   else if(current==='ranking')el.innerHTML=viewRanking();
@@ -524,6 +526,7 @@ function bindCommon(){
   document.querySelectorAll('[data-rank]').forEach(b=>b.onclick=()=>{rankSort=b.dataset.rank;render();});
   document.querySelectorAll('[data-drill]').forEach(b=>b.onclick=()=>{state.trainFocus=b.dataset.drill;save();render();});
   document.querySelectorAll('[data-perk]').forEach(b=>b.onclick=()=>{investPerk(b.dataset.perk);render();});
+  document.querySelectorAll('[data-player]').forEach(b=>b.onclick=()=>{selPlayer=b.dataset.player;go('player');});
   document.querySelectorAll('[data-train]').forEach(b=>b.onclick=()=>{
     const cur=state.trainFocus||'sho';
     const p=PLAYERS[b.dataset.train]; const name=p?p.name:'';
@@ -614,7 +617,7 @@ function viewSquad(){
     const pot=potentialOf(p); const gt=growthType(p.id);
     const gtc={'早熟':'#f0883e','標準':'#8b949e','晩成':'#3fb950'}[gt];
     const atCap=p.ov>=pot;
-    return `<tr class="${inXI?'me':''}"><td class="name">${inXI?'● ':''}<span title="成長型: ${gt}" style="color:${gtc};font-size:10px;font-weight:700">${gt[0]}</span> ${p.name} <span style="font-size:12px">${abils}</span></td>
+    return `<tr class="${inXI?'me':''}"><td class="name">${inXI?'● ':''}<span title="成長型: ${gt}" style="color:${gtc};font-size:10px;font-weight:700">${gt[0]}</span> <a data-player="${p.id}" style="color:var(--txt);text-decoration:underline;text-decoration-color:var(--line);cursor:pointer">${p.name}</a> <span style="font-size:12px">${abils}</span></td>
       <td><span class="pos ${p.grp}">${p.pos}</span></td>
       <td><b style="color:var(--accent2)">${p.lvl||1}</b></td>
       <td class="ov">${p.ov}</td>
@@ -627,6 +630,49 @@ function viewSquad(){
     <tr><th class="name">選手</th><th>POS</th><th>Lv</th><th>OVR</th><th>POT</th><th>PAC</th><th>SHO</th><th>PAS</th><th>DRI</th><th>DEF</th><th>PHY</th><th>XP</th></tr>
     ${rows}</table></div>
     <p class="muted" style="font-size:11px;margin-top:8px">特性: ${ABILITIES.map(a=>a.icon+a.name).join(' ・ ')}</p></div>`;
+}
+
+function viewPlayerDetail(){
+  const base=PLAYERS[selPlayer];
+  if(!base){go('squad');return '';}
+  const p=eff(base); const g=prog(base.id);
+  const pot=potentialOf(base); const gt=growthType(base.id);
+  const gtc={'早熟':'#f0883e','標準':'#8b949e','晩成':'#3fb950'}[gt];
+  const need=xpNeedFor(base.id,g.lvl); const pct=Math.round(g.xp/need*100);
+  const sc=(state.scorers&&state.scorers[base.id])||{goals:0,assists:0};
+  const atCap=p.ov>=pot;
+  const statRow=(l,k)=>{const add=(g.add&&g.add[k])||0;return `<div class="stats-line"><span>${l}</span><b>${p[k]}${add?` <span style="color:var(--accent);font-size:11px">(+${add})</span>`:''}</b></div>`;};
+  const abils=abilitiesOf(p);
+  const abilHtml=abils.length?abils.map(a=>`<div class="stats-line" style="align-items:center"><span>${a.icon} <b>${a.name}</b></span><span class="muted" style="font-size:11px">${a.desc}</span></div>`).join(''):'<span class="muted">まだ特性を獲得していません（能力を伸ばすと開花）</span>';
+  return `<div class="card">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h2 style="margin:0"><span class="pos ${p.grp}">${p.pos}</span> ${base.name}</h2>
+      <button class="btn sec" data-go="squad" style="padding:5px 12px">← スカッド</button>
+    </div>
+    <div class="kpi" style="margin-top:12px">
+      <div class="k"><div class="v" style="color:var(--accent2)">Lv.${p.lvl||1}</div><div class="l">レベル</div></div>
+      <div class="k"><div class="v ov">${p.ov}</div><div class="l">総合</div></div>
+      <div class="k"><div class="v" style="color:var(--gold)">${atCap?'MAX':pot}</div><div class="l">ポテンシャル</div></div>
+      <div class="k"><div class="v" style="color:${gtc}">${gt}</div><div class="l">成長型</div></div>
+    </div>
+    <div class="bar" style="margin:12px 0" title="XP ${g.xp}/${need}"><i style="width:${pct}%"></i></div>
+    <p class="muted" style="font-size:12px">次のレベルまで ${Math.max(0,need-g.xp)} XP${atCap?' ・ 能力はポテンシャル上限に到達':` ・ 伸びしろ +${pot-p.ov}`}</p>
+  </div>
+  <div class="card"><h2>能力値 <span class="muted" style="font-weight:400;font-size:11px">（+は育成/成長ぶん）</span></h2>
+    ${statRow('スピード','pac')}${statRow('シュート','sho')}${statRow('パス','pas')}
+    ${statRow('ドリブル','dri')}${statRow('守備','def')}${statRow('フィジカル','phy')}
+  </div>
+  <div class="card"><h2>今季成績</h2>
+    <div class="kpi">
+      <div class="k"><div class="v">${sc.goals||0}</div><div class="l">ゴール</div></div>
+      <div class="k"><div class="v">${sc.assists||0}</div><div class="l">アシスト</div></div>
+    </div>
+  </div>
+  <div class="card"><h2>特性</h2>${abilHtml}</div>
+  <div class="card"><div class="row">
+    <button class="btn" data-go="training">育成で鍛える →</button>
+    <button class="btn sec" data-go="squad">戻る</button>
+  </div></div>`;
 }
 
 function viewQuests(){
