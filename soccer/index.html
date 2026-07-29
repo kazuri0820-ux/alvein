@@ -359,12 +359,17 @@ function morale(){return state.morale===undefined?60:state.morale;}
 function moraleFactor(){return 0.9+0.2*(morale()/100);}      // 0→×0.9, 100→×1.1
 /* 難易度設定 */
 const DIFFS={
-  easy:  {name:'イージー', aiGrow:0.015, aiBase:0.95, cash:160, xp:1.25, prize:1.2},
-  normal:{name:'ノーマル', aiGrow:0.03,  aiBase:1.0,  cash:120, xp:1.0,  prize:1.0},
-  hard:  {name:'ハード',   aiGrow:0.045, aiBase:1.08, cash:90,  xp:0.8,  prize:0.85},
+  easy:  {name:'イージー', aiGrow:0.015, aiBase:0.95, rubber:0.004, cash:160, xp:1.25, prize:1.2},
+  normal:{name:'ノーマル', aiGrow:0.03,  aiBase:1.0,  rubber:0.006, cash:120, xp:1.0,  prize:1.0},
+  hard:  {name:'ハード',   aiGrow:0.035, aiBase:1.03, rubber:0.006, cash:95,  xp:0.9,  prize:0.9},
 };
 function diff(){return DIFFS[(state&&state.difficulty)]||DIFFS.normal;}
-function aiFactor(){const d=diff();const s=(state&&state.season)||1;return d.aiBase*Math.min(1.30,1+(s-1)*d.aiGrow);} // AIはシーズン毎に成長（難易度で係数変化）
+function aiFactor(){ // AIは小さめのシーズン成長＋自軍の成長に追随（ラバーバンド）で難易度維持
+  const d=diff(); const s=(state&&state.season)||1;
+  const seasonC=Math.min(0.12,(s-1)*d.aiGrow);
+  const rubber=Math.min(0.20,Math.max(0,(parseFloat(teamAvgLevel())-1)*d.rubber));
+  return d.aiBase*(1+seasonC+rubber);
+}
 function power(s){return s.att*0.38+s.mid*0.24+s.def*0.38;}   // 総合戦力スコア
 function matchOdds(myS,oppS){                                  // 勝/分/負(%)を実効戦力から推定
   const d=power(myS)-power(oppS);
@@ -696,9 +701,11 @@ function pickAssister(club,lineup,scorerId){
 }
 const GOAL_TXT=['ゴォォル！','ネットが揺れた！','決めた！','見事なフィニッシュ！','こじ開けた！'];
 const MISS_TXT=['惜しい！枠の外','ポストを直撃！','GK好セーブ！','決定機を逃す','クロスバー！'];
+function dayForm(s){const f=0.86+rnd()*0.28;s.att*=f;s.mid*=f;s.def*=f;} // 日替わりの調子(±14%)で番狂わせ
 function simulate(homeC,homeL,homeT,awayC,awayL,awayT,withEvents){
   const H=strength(homeC,homeL,homeT), A=strength(awayC,awayL,awayT);
   H.att*=1.06; H.def*=1.03; // ホームアドバンテージ
+  dayForm(H); dayForm(A);   // 両チームに日替わり変動
   let possH=H.mid/(H.mid+A.mid); possH=Math.max(.35,Math.min(.65,possH));
   const st={home:{sh:0,sot:0},away:{sh:0,sot:0}};
   let hs=0,as=0; const events=[]; const scorers=[]; const assists=[];
@@ -1429,6 +1436,7 @@ function startMatch(){
   const H=strength(homeC,homeL,isHome?state.tactics:AI_TAC);
   const A=strength(awayC,awayL,isHome?AI_TAC:state.tactics);
   H.att*=1.06; H.def*=1.03;                          // ホームアドバンテージ
+  dayForm(H); dayForm(A);                             // 日替わりの調子（番狂わせ）
   const rival=isRivalOpp(opp.id);
   if(rival){const os=isHome?A:H; os.att*=1.03; os.mid*=1.03; os.def*=1.03;}  // ライバルも燃える＝ボス級
   let possH=H.mid/(H.mid+A.mid); possH=Math.max(.35,Math.min(.65,possH));
