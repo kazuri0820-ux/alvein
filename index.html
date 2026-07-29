@@ -10980,6 +10980,21 @@ const ITEMS=[
    chron(`${fullName(master)}が${fullName(pupil)}を弟子に迎えた。師の背を追い、${pupil.nm}はめきめきと腕を上げていくだろう。育て育てられる絆が、静かに芽生えている。`,"big");
    render();refreshOpenPanels();
  }},
+ {key:"rival_pledge",name:"果たし状",rarity:"rare",desc:"選んだ兵と、同じ道を征く相手との間に好敵手の縁を結ばせる。負けじと競い合う二人は、同じ陣に立てば連携が上がり、一方が伸びればもう一方も食らいついて腕を磨く(好敵手のいない兵に。関係の絆の収集を後押し)。",needsTarget:true,effect:(targetId)=>{
+   const u=findAnyUnit(targetId);if(!u){chron("果たし状を託す相手が見当たらなかった。","");return;}
+   if(u.role!=="active"||u.injured){chron(`${fullName(u)}は今、腕を張り合える調子になく、果たし状は静かにしまわれた。`,"");return;}
+   if(u.rivalWith){chron(`${fullName(u)}には既に好敵手がおり、果たし状は静かにしまわれた。`,"");return;}
+   const ulv=u.lv||1;
+   const cand=S.units.filter(o=>o.role==="active"&&!o.injured&&o.id!==u.id&&o.cls===u.cls&&!o.rivalWith&&o.id!==u.bondWith&&o.id!==u.discordWith&&o.id!==u.masterId&&o.id!==u.pupilId);
+   if(!cand.length){chron(`${fullName(u)}と同じ道を征き、好敵手となれる相手が見当たらず、果たし状は静かにしまわれた。`,"");return;}
+   const o=cand.slice().sort((a,b)=>Math.abs((a.lv||1)-ulv)-Math.abs((b.lv||1)-ulv))[0];
+   u.rivalWith=o.id;o.rivalWith=u.id;
+   u.moral=Math.min(100,(u.moral||0)+3);o.moral=Math.min(100,(o.moral||0)+3);
+   unitHistory(u,`果たし状をもって${o.nm}と好敵手の縁を結び、競い合って腕を磨く間柄となった。`);
+   unitHistory(o,`${u.nm}から果たし状を受け、互いを好敵手と認め合う間柄となった。`);
+   chron(`長の計らいで、${fullName(u)}と${fullName(o)}は果たし状を交わし、互いを好敵手と認め合った。同じ道を征く二人は、これからは相手の背中を追って腕を磨き合う(同陣で連携↑・一方が伸びればもう一方も負けじと成長)。`,"big");
+   render();refreshOpenPanels();
+ }},
  {key:"treasure_map",name:"宝の古地図",rarity:"rare",desc:"レア以上のダンジョンの在り処が一つ判明する。",effect:()=>{
    const d=generateDungeon();
    if(d.rarity.key==="common"){
