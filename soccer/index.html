@@ -236,6 +236,18 @@ const ABILITIES=[
 ];
 function abilitiesOf(e){return ABILITIES.filter(a=>a.test(e));}
 
+/* ---------- RPG: 育成トレーニング ---------- */
+const TP_MAX=3;                           // 1節あたりのトレーニングポイント
+const DRILLS=[['sho','シュート'],['pas','パス'],['def','守備'],['phy','フィジカル'],['pac','スピード'],['dri','ドリブル']];
+function trainPlayer(id,stat){
+  if(!state.tp||state.tp<=0)return null;   // TP切れ
+  state.tp--;
+  const g=prog(id); g.add[stat]=(g.add[stat]||0)+1; // 狙った能力+1（eff側で99上限）
+  const ups=gainXP(id,70);                 // 経験値も獲得
+  save();
+  return ups;                              // レベルアップ数
+}
+
 /* ---------- 3. フォーメーション & ベストXI ---------- */
 const FORMATIONS={
   '4-3-3':['GK','DEF','DEF','DEF','DEF','MID','MID','MID','ATT','ATT','ATT'],
@@ -377,7 +389,7 @@ function newGame(clubId){
   const club=clubById(clubId);
   state={season:1,round:0,clubId,fixtures:fx,table:emptyTable(),
     tactics:{formation:'4-3-3',style:'balanced',press:'mid',line:'mid'},
-    lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{}};
+    lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho'};
   save();
 }
 
@@ -413,6 +425,7 @@ function finalizeRound(r,playerResult){
     else{th.d++;ta.d++;th.pts++;ta.pts++;}
   });
   state.round++;
+  state.tp=TP_MAX;   // 新しい節でトレーニングポイント回復
   save();
 }
 
@@ -420,7 +433,7 @@ function finalizeRound(r,playerResult){
 const $=s=>document.querySelector(s);
 let current='dashboard';
 function setNav(){
-  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['fixtures','日程']];
+  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['fixtures','日程']];
   $('#nav').innerHTML=items.map(([k,l])=>`<button data-s="${k}" class="${k===current?'active':''}">${l}</button>`).join('');
   $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.s));
   $('#seasonPill').textContent=state?`シーズン ${state.season} ・ 第${Math.min(state.round+1,14)}節`:'';
@@ -432,6 +445,7 @@ function render(){
   const el=$('#screen');
   if(current==='dashboard')el.innerHTML=viewDashboard();
   else if(current==='squad')el.innerHTML=viewSquad();
+  else if(current==='training')el.innerHTML=viewTraining();
   else if(current==='tactics'){el.innerHTML=viewTactics();bindTactics();}
   else if(current==='standings')el.innerHTML=viewStandings();
   else if(current==='ranking')el.innerHTML=viewRanking();
@@ -441,6 +455,18 @@ function render(){
 function bindCommon(){
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
   document.querySelectorAll('[data-rank]').forEach(b=>b.onclick=()=>{rankSort=b.dataset.rank;render();});
+  document.querySelectorAll('[data-drill]').forEach(b=>b.onclick=()=>{state.trainFocus=b.dataset.drill;save();render();});
+  document.querySelectorAll('[data-train]').forEach(b=>b.onclick=()=>{
+    const cur=state.trainFocus||'sho';
+    const p=PLAYERS[b.dataset.train]; const name=p?p.name:'';
+    const ups=trainPlayer(b.dataset.train,cur);
+    render();
+    const msg=$('#trainMsg');
+    if(msg){
+      if(ups===null)msg.innerHTML='<span style="color:var(--danger)">TPが足りません。次節まで待ちましょう。</span>';
+      else msg.innerHTML=`<span style="color:var(--accent)">✅ ${name} を鍛えた（${DRILLS.find(d=>d[0]===cur)[1]} +1 / +70XP）${ups>0?' <b>⬆️レベルアップ！</b>':''}</span>`;
+    }
+  });
   const kb=$('#toMatch'); if(kb)kb.onclick=()=>go('tactics');
 }
 
@@ -524,6 +550,28 @@ function viewSquad(){
     <tr><th class="name">選手</th><th>POS</th><th>Lv</th><th>OVR</th><th>PAC</th><th>SHO</th><th>PAS</th><th>DRI</th><th>DEF</th><th>PHY</th><th>XP</th></tr>
     ${rows}</table></div>
     <p class="muted" style="font-size:11px;margin-top:8px">特性: ${ABILITIES.map(a=>a.icon+a.name).join(' ・ ')}</p></div>`;
+}
+
+function viewTraining(){
+  const club=clubById(state.clubId);
+  const cur=state.trainFocus||'sho';
+  const curLabel=DRILLS.find(d=>d[0]===cur)[1];
+  const drillBtns=DRILLS.map(d=>`<button class="btn ${cur===d[0]?'':'sec'}" data-drill="${d[0]}" style="padding:6px 12px">${d[1]}</button>`).join('');
+  const rows=club.squad.map(p=>eff(p)).sort((a,b)=>b.ov-a.ov).map(p=>{
+    const g=prog(p.id); const inXI=state.lineup.includes(club.squad.findIndex(x=>x.id===p.id));
+    return `<tr class="${inXI?'me':''}"><td class="name">${p.name}</td>
+      <td><span class="pos ${p.grp}">${p.pos}</span></td>
+      <td><b style="color:var(--accent2)">${p.lvl||1}</b></td><td class="ov">${p.ov}</td>
+      <td class="ov" style="color:var(--warn)">${p[cur]}</td>
+      <td><button class="btn" data-train="${p.id}" ${state.tp>0?'':'disabled'} style="padding:4px 12px;font-size:12px">鍛える</button></td></tr>`;
+  }).join('');
+  return `<div class="card"><h2>育成トレーニング <span class="muted" style="font-weight:400;font-size:12px">（残りTP: <b style="color:${state.tp>0?'var(--accent)':'var(--danger)'}">${state.tp||0}</b>/${TP_MAX}・次節で回復）</span></h2>
+    <p class="muted" style="font-size:12px;margin-bottom:10px">メニューを選んで選手を鍛えると、その能力が <b>+1</b>・さらに <b>経験値+70</b>（TPを1消費）。レベルが上がれば新たな特性が開花することも。</p>
+    <div class="row" style="margin-bottom:10px">${drillBtns}</div>
+    <div style="overflow-x:auto"><table>
+    <tr><th class="name">選手</th><th>POS</th><th>Lv</th><th>OVR</th><th>${curLabel}</th><th></th></tr>
+    ${rows}</table></div>
+    <div id="trainMsg" style="font-size:13px;margin-top:10px;min-height:20px"></div></div>`;
 }
 
 function viewTactics(){
@@ -735,6 +783,7 @@ function nextSeason(){
 state=load();
 if(state&&!state.scorers)state.scorers={};
 if(state&&!state.prog)state.prog={};
+if(state&&state.tp===undefined)state.tp=TP_MAX;
 render();
 </script>
 </body>
