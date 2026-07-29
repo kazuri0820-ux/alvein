@@ -9584,6 +9584,16 @@ const UNIQUE_EVENTS=[
     {label:"民の前に立たせ、その威徳を示せ",hint:"外交↑ 民心↑↑",fx:{st:{diplomacy:4},mood:7,flag:{uq_greatsRoundTable:true},log:"英傑たちが城下に姿を見せると、民は熱狂した。伝説の者たちを擁する王国の名は、諸国にいっそう轟いている。",logCls:"big"}},
     {label:"酒宴を開き、ただ語らいを楽しませよ",hint:"民心↑↑ 国庫↓",fx:{gold:-60,mood:9,flag:{uq_greatsRoundTable:true},log:"英傑たちを囲む盛大な酒宴が催された。歴史の生き証人たちが交わす武勇伝に、宴は夜通し尽きることがなかった。",logCls:"big"}},
    ]})},
+ {key:"vanquishFestival", // 通算30体の「王」を屠った折の一度きりの祝祭的選択=討王の積み重ねに物語の報酬を足す(意味ある三択)
+  cond:()=>((S.kingsFelledTotal||0)>=30)&&!(S.flags&&S.flags.uq_vanquishFestival),
+  build:()=>({tag:"祝 祭",title:"討王の凱旋祭",
+   body:"数え切れぬ迷宮の「王」を屠ってきた我が軍の武勲を讃え、城下から凱旋祭を開こうという声が上がっている。討ち果たした強敵たちの名を刻んだ凱旋門をくぐる兵たちの姿を、民は一目見たがっている。",
+   speaker:"セラ「これまで討ち取ってきた王の数、もはや語り草にございます。この誉れ、いかに民と分かち合いましょう」",
+   choices:[
+    {label:"凱旋門を築き、討王の武勲を刻め",hint:"軍事↑ 民心↑ 国庫↓",fx:{gold:-80,st:{military:4},mood:6,flag:{uq_vanquishFestival:true},log:"討ち果たした王の名を刻んだ凱旋門が築かれた。くぐり抜ける兵たちに、民は惜しみない喝采を送っている。",logCls:"big"}},
+    {label:"戦利の宝を民に分け与えよ",hint:"民心↑↑ 経済↑",fx:{st:{economy:3},mood:8,flag:{uq_vanquishFestival:true},log:"王たちから得た戦利の宝が、祭りとともに民へ分け与えられた。城下は歓喜に沸き返っている。",logCls:"big"}},
+    {label:"討王の武勇伝を諸国に喧伝せよ",hint:"外交↑↑",fx:{st:{diplomacy:6},mood:3,flag:{uq_vanquishFestival:true},log:"数多の王を屠ったアルヴェインの武名が、使者を通じて諸国に喧伝された。その武威に、周辺国は一目置いている。",logCls:"big"}},
+   ]})},
 ];
 function checkUniqueEvents(){
   for(const ue of UNIQUE_EVENTS){
