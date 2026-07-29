@@ -7489,6 +7489,21 @@ const RANDOM_CHOICE=[
    {label:"大義を認め、密かに後ろ盾となる",hint:"国庫↓ 賭け――成れば外交で大きく報われる",fx:{gold:-40,call:()=>{if(Math.random()<0.55){apply({st:{diplomacy:4},mood:3,log:"後ろ盾を得た陣営が王位を制した。恩義に厚く報い、両国の間には固い誼が結ばれた(外交↑↑)。"});}else{apply({st:{order:-1,diplomacy:-1},log:"後ろ盾となった陣営は敗れた。賭けは外れ、隣国との間には気まずい空気が残った。"});}}}},
    {label:"内政不干渉を貫き、静観する",hint:"治安↑(火中の栗を拾わぬ)",fx:{st:{order:1},log:"長は他国の争いに関わらぬと決めた。火中の栗は拾わず、まずは自国の守りを固める。"}},
   ]},
+ /* ── 忠義の岐路(情けか規律か・愛着と統治) ── */
+ {tag:"軍 律",title:"脱走を企てた兵",
+  body:"一人の兵が、闇に紛れて陣を抜け出そうとしていたところを引き止められた。問い質せば、積もる不満と望郷の念に耐えかねてのことだという。情けをかけるか、軍律に照らすか。",
+  speaker:"ガレオン「見逃せば示しがつきませぬ。なれど、追い詰めても心は戻りますまい」",
+  choices:[
+   {label:"想いを聞き、情けをかけて繋ぎ止める",hint:"その兵の忠誠が大きく回復 / わずかな規律の緩み",fx:{st:{order:-1},call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length){chron("だが当の兵は、もうこの地にいなかった。","");return;}const u=cands.sort((a,b)=>(a.loyalty||0)-(b.loyalty||0))[0];if(u.loyalty!=null)u.loyalty=Math.min(100,(u.loyalty||0)+22);u.moral=Math.min(100,(u.moral||0)+8);unitHistory(u,"脱走を思いとどまり、情けをかけられて心を入れ替えた。この恩は忘れぬと誓った。");chron(`${fullName(u)}は長の情けに触れ、涙を呑んで陣に留まった。以前にも増して、忠実な面持ちで務めに就いている。`,"people");}}},
+   {label:"軍律に照らし、厳しく罰する",hint:"治安↑↑(規律が引き締まる) / その兵の士気↓",fx:{st:{order:2},call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length){chron("だが当の兵は、もうこの地にいなかった。","");return;}const u=cands.sort((a,b)=>(a.loyalty||0)-(b.loyalty||0))[0];u.moral=Math.max(0,(u.moral||0)-8);unitHistory(u,"脱走を咎められ、軍律に照らして厳しく罰せられた。");chron(`${fullName(u)}は軍律に照らして厳しく罰せられた。陣中に緊張が走り、規律は引き締まったが、その目には翳りが残る。`,"people");}}},
+  ]},
+ /* ── 論功の裁き(個か全体か・意味ある選択) ── */
+ {tag:"恩 賞",title:"恩賞の沙汰",
+  body:"迷宮から、一人の兵がまとまった財宝を持ち帰った。これを手柄の兵に厚く報いるか、国庫に納めて皆で分かち合うか、裁きが求められている。",
+  choices:[
+   {label:"手柄の兵に厚く報いる",hint:"その兵の忠誠・士気↑↑ / 国庫の実入りは控えめ",fx:{gold:ri(15,30),call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length){chron("報いるべき当の兵はおらず、財宝は国庫に納められた。","");return;}const u=cands[Math.floor(Math.random()*cands.length)];if(u.loyalty!=null)u.loyalty=Math.min(100,(u.loyalty||0)+12);u.moral=Math.min(100,(u.moral||0)+12);unitHistory(u,"持ち帰った財宝の功を厚く報いられ、大いに面目を施した。");chron(`${fullName(u)}は持ち帰った財宝の功を厚く報いられた。手柄が正しく報われることを知り、兵の忠義はいっそう篤くなった。`,"people");}}},
+   {label:"国庫に納め、皆で分かち合う",hint:"国庫↑↑ 全兵の士気が少し上がる",fx:{gold:ri(55,95),call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.moral=Math.min(100,(u.moral||0)+3);chron("財宝は国庫に納められ、皆で分かち合われた。公平な裁きに、兵たちは静かに頷いている。","people");}}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
