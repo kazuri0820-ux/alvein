@@ -2745,13 +2745,17 @@ function grantTitle(u,key){
   const firstInRealm=!S.units.some(o=>o.id!==u.id&&(o.titles||[]).includes(key));
   u.titles.push(key);
   // これまでに王国で授与された称号の種類を記録=全種類を集める長期のコレクション目標(殿堂に到達度を表示)
-  S.flags=S.flags||{};S.flags.titlesSeen=S.flags.titlesSeen||{};if(!S.flags.titlesSeen[key])S.flags.titlesSeen[key]=S.day;
+  S.flags=S.flags||{};S.flags.titlesSeen=S.flags.titlesSeen||{};const titleWasNew=!S.flags.titlesSeen[key];if(titleWasNew)S.flags.titlesSeen[key]=S.day;
   const valTxt=t.effect==="injuryMult"?`×${t.value}`:t.effect==="expMult"?`×${t.value}`:`+${t.value}/日`;
   unitHistory(u,`称号「${t.name}」を得た(${TITLE_EFFECT_LABEL[t.effect]}${valTxt})。`);
   if(PRESTIGE_TITLES.has(key)){
     u.moral=Math.min(100,(u.moral||0)+4);
     S.mood=Math.min(100,(S.mood||0)+1); // 偉業の証は国全体を少しだけ沸かせる
     chron(`${firstInRealm?"――王国史上初、":"――"}${typeof fullName==="function"?fullName(u):u.nm}が誉れ高き称号「${t.name}」を帯びた。${t.desc}――その名は、長く語り継がれることだろう。`,"big");
+  }else if(titleWasNew){
+    // 王国で初めて授与された称号=全称号コレクションに新たな一枠が加わった瞬間。収集の到達度を添えて祝う(称号を集めるやり込みに felt な手応えを与える)
+    const _tDone=Object.keys(S.flags.titlesSeen).length,_tTotal=TITLE_DB.length;
+    chron(`${u.nm}が称号「${t.name}」を得た。王国に初めて生まれた称号だ(称号図鑑 ${_tDone}/${_tTotal})。`,"people");
   }else{
     chron(`${u.nm}が称号「${t.name}」を得た。`,"");
   }
