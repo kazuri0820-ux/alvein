@@ -515,6 +515,20 @@ function bestXI(club,formation){
   }
   return xi;
 }
+// おすすめ布陣: 実効値（Lv/成長 × コンディション × 調子）で最適な先発を選ぶ
+function recommendXI(club,formation){
+  const slots=FORMATIONS[formation];
+  const sq=squadOf(club.id);
+  const score=p=>eff(p).ov*condFactor(p.id)*formFactor(p.id);
+  const pool=sq.map((p,ix)=>({p,ix})).sort((a,b)=>score(b.p)-score(a.p));
+  const used=new Set(), xi=[];
+  for(const g of slots){
+    let pick=pool.find(x=>x.p.grp===g&&!used.has(x.ix));
+    if(!pick)pick=pool.find(x=>!used.has(x.ix));
+    used.add(pick.ix); xi.push(pick.ix);
+  }
+  return xi;
+}
 
 /* ---------- 4. チーム力算出 ---------- */
 function mean(a){return a.length?a.reduce((t,x)=>t+x,0)/a.length:55;}
@@ -1034,7 +1048,10 @@ function viewTactics(){
     <div class="card"><h2>フォーメーション <span class="muted" style="font-weight:400;font-size:12px">${state.tactics.formation}（選手タップで詳細）</span></h2>${pitchHTML(club)}</div>
     <div class="card"><h2>チーム力プレビュー</h2>${statBars(s)}
       <p class="muted" style="font-size:12px;margin-top:8px">先発の特性: <span style="font-size:14px">${abilLine}</span></p></div>
-    <div class="card"><h2>先発11人</h2>${lineupHtml}
+    <div class="card"><h2>先発11人</h2>
+      <div class="row" style="margin-bottom:8px"><button class="btn blue" id="recommend" style="padding:6px 14px">⚡ おすすめ布陣</button>
+        <span class="muted" style="font-size:11px;align-self:center">調子・コンディション・レベルから自動編成</span></div>
+      ${lineupHtml}
       <p class="muted" style="font-size:12px;margin-top:6px">各枠のプルダウンで入れ替え可能</p></div>
     <div class="card"><div class="row">
       <button class="btn sec" data-go="dashboard">← 戻る</button>
@@ -1058,6 +1075,7 @@ function bindTactics(){
       state.lineup[idx]=val; save(); render();
     };
   });
+  const rec=$('#recommend'); if(rec)rec.onclick=()=>{state.lineup=recommendXI(clubById(state.clubId),state.tactics.formation);save();render();};
   const k=$('#kickoff'); if(k)k.onclick=startMatch;
 }
 
