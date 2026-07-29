@@ -10887,6 +10887,14 @@ const ITEMS=[
  {key:"coin_small",name:"小さな硬貨袋",rarity:"common",desc:"国庫が少し潤う。",effect:()=>apply({gold:ri(15,30),log:"硬貨袋を使い、国庫がわずかに潤った。"})},
  {key:"grain_sack",name:"穀物の袋",rarity:"common",desc:"食糧が少し増える。",effect:()=>apply({food:ri(20,40),log:"穀物の袋を蔵に運び入れた。"})},
  {key:"tonic",name:"疲労回復の秘薬",rarity:"common",desc:"選んだ兵の疲労を大きく回復。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;u.fatigue=Math.max(0,(u.fatigue||0)-50);chron(`${u.nm}が秘薬を使い、疲労が大きく和らいだ。`,"");}},
+ {key:"army_respite",name:"全軍の休息令",rarity:"rare",desc:"現役の全兵に十分な休息を取らせ、連戦で溜まった疲労を大きく癒す。疲れ果てて出撃できずにいた兵も再び戦列に戻り、間を置かず次の攻勢に出られる(疲労を癒す一品は個々の秘薬のみだった――遠征テンポを立て直す全軍規模の一手)。",effect:()=>{
+   const act=S.units.filter(u=>u.role==="active");
+   if(!act.length){chron("休ませるべき兵がいなかった。","");return;}
+   let revived=0;
+   for(const u of act){const before=(u.fatigue||0);u.fatigue=Math.max(0,before-40);if(before>=70&&u.fatigue<70)revived++;}
+   chron(`王国を挙げて全兵に休息が与えられ、現役の全兵(${act.length}名)の疲れが大きく癒えた。${revived>0?`疲れ果てて動けずにいた${revived}名も、再び戦列に戻った。`:""}間を置かず、次なる攻勢に出られる。`,"big");
+   if(typeof render==="function")render();if(typeof refreshOpenPanels==="function")refreshOpenPanels();
+ }},
  {key:"bandage_kit",name:"上等な包帯",rarity:"common",desc:"療養中の兵の回復日数を短縮。",effect:()=>{const c=S.units.filter(u=>u.injured>0);if(!c.length){chron("療養中の兵がおらず、包帯は使われなかった。","");return;}const u=c[Math.floor(Math.random()*c.length)];u.injured=Math.max(0,u.injured-2);chron(`${u.nm}の傷の治りが早まった。`,"");}},
  {key:"charm_luck",name:"幸運のお守り",rarity:"common",desc:"民心が少し上がる。",effect:()=>apply({mood:ri(3,6),log:"幸運のお守りが配られ、民の顔に笑みが戻った。"})},
  {key:"herb_bundle",name:"薬草の束",rarity:"common",desc:"農業が少し上がる。",effect:()=>apply({st:{agriculture:ri(1,3)},log:"薬草の知識が畑仕事に活かされた。"})},
