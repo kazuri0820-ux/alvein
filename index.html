@@ -7647,6 +7647,13 @@ const RANDOM_CHOICE=[
    {label:"意気に感じ、出撃を許す",hint:"その兵の士気と忠誠↑↑ だが無理が祟り疲労も",fx:{call:()=>{const c=S.units.filter(u=>u.injured>0);if(!c.length){apply({log:"出撃を願う手負いの兵はおらず、この話は流れた。"});return;}const u=c[Math.floor(Math.random()*c.length)];u.moral=Math.min(100,(u.moral||0)+10);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);u.fatigue=Math.min(100,(u.fatigue||0)+ri(8,15));unitHistory(u,"傷を押して出撃を願い、その武人の意気を長に認められた。");chron(`${fullName(u)}は傷を押して戦場に立つことを許された。その武人の意気に、戦友たちも胸を熱くしている。無理を押した体に疲れは残るが、士気はいや増すばかりだ。`,"people");}}},
    {label:"傷が癒えるまで休ませる",hint:"治安↑ その兵の傷の治りが早まる",fx:{st:{order:1},call:()=>{const c=S.units.filter(u=>u.injured>0);if(!c.length){apply({log:"休ませるべき手負いの兵はおらず、この話は流れた。"});return;}const u=c[Math.floor(Math.random()*c.length)];u.injured=Math.max(0,(u.injured||0)-ri(1,2));u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,"はやる心を長に諭され、傷を癒すことに専念した。");chron(`長は${fullName(u)}の逸る心を諭し、まず傷を癒すよう命じた。手厚い養生で治りは早まり、兵もその気遣いに深く頷いている。`,"people");}}},
   ]},
+ /* ── 戦場に咲いた一輪(戦友を悼む情けか武人の覚悟か) ── */
+ {tag:"手 向",title:"戦場に咲いた一輪",
+  body:"激しい戦のあと、荒れ果てた陣の傍らに、一輪の花がひっそりと咲いているのを兵が見つけた。手を止めて散っていった戦友を悼むか、気を引き締めて次なる戦に備えるか。",
+  choices:[
+   {label:"しばし手を止め、戦友を悼む",hint:"全兵の士気↑ 民心↑(絆と人の情)",fx:{mood:2,call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.moral=Math.min(100,(u.moral||0)+ri(2,4));chron("兵たちはしばし得物を置き、戦場に咲いた一輪の花に、散っていった戦友の面影を重ねた。声もなく手を合わせるうち、生きて轡を並べる者たちの絆は、いっそう深く結ばれている。","big");}}},
+   {label:"気を引き締め、次なる戦に備える",hint:"治安↑(武人の覚悟)",fx:{st:{order:1},log:"感傷は胸の奥にそっと仕舞い、兵たちは黙々と次なる戦への備えに戻った。散った者の分まで――その静かな覚悟が、陣容を確かに引き締めている。"}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
