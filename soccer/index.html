@@ -440,6 +440,8 @@ const MGR_PERKS=[
   {id:'fitness',     name:'フィジオ',   icon:'🩹', max:3, desc:'試合後のコンディション回復 +6/Lv'},
   {id:'financier',   name:'経営手腕',   icon:'💰', max:3, desc:'シーズン賞金 +10%/Lv'},
   {id:'inspire',     name:'監督の檄',   icon:'📣', max:3, desc:'試合中1回発動：勢い＋戦力UP＋体力回復（効果Lv比例）'},
+  {id:'bunker',      name:'鉄壁シフト', icon:'🧱', max:1, desc:'試合中1回発動：守備力を大幅UP（リード時に）'},
+  {id:'allout',      name:'パワープレー',icon:'⚡', max:1, desc:'試合中1回発動：攻撃力UP・守備ややダウン（追う展開に）'},
 ];
 function respecPerks(){const m=mgr();let refund=0;Object.values(m.perks).forEach(v=>refund+=v);m.points+=refund;m.perks={};save();return refund;}
 function mgr(){if(!state.mgr)state.mgr={lvl:1,xp:0,points:0,perks:{}};if(!state.mgr.perks)state.mgr.perks={};return state.mgr;}
@@ -1376,7 +1378,7 @@ function startMatch(){
      rival,derby:rival?derbyName(state.clubId,opp.id):null,
      min:0,hs:0,as:0,log:[],scorers:[],assists:[],
      st:{home:{sh:0,sot:0},away:{sh:0,sot:0}},
-     myL:isHome?homeL:awayL,subsLeft:3+perkLv('subMaster'),boostLeft:perkLv('inspire')>0?1:0,talkMult:1,subOut:null,
+     myL:isHome?homeL:awayL,subsLeft:3+perkLv('subMaster'),skillsUsed:{},talkMult:1,attMult:1,midMult:1,defMult:1,subOut:null,
      momentum:50,keyLeft:3,halftimeDone:false,decision:null,over:false,fast:false,flashId:null};
   current='match'; setNav(); renderMatch();
   matchTimer=setTimeout(matchTick,700);
@@ -1453,7 +1455,7 @@ function recompPStr(){   // 自軍の実効戦力を現在の先発(M.myL)＋ホ
   const club=clubById(state.clubId);
   const s=strength(club,M.myL,state.tactics);
   if(M.isHome){s.att*=1.06;s.def*=1.03;}
-  s.att*=M.talkMult; s.mid*=M.talkMult; s.def*=M.talkMult;
+  s.att*=M.talkMult*(M.attMult||1); s.mid*=M.talkMult*(M.midMult||1); s.def*=M.talkMult*(M.defMult||1);
   M.pStr.att=s.att; M.pStr.mid=s.mid; M.pStr.def=s.def;
 }
 function teamTalk(kind){
@@ -1476,15 +1478,17 @@ function performSub(inIdx){
   M.decision=null; M.subOut=null;
   renderMatch(); matchTimer=setTimeout(matchTick,600);
 }
-function activateInspire(){
-  if(!M||M.over||(M.boostLeft||0)<=0)return;
-  M.boostLeft--; const lv=perkLv('inspire')||1;
-  mom(8+lv*4);                              // 勢いを引き寄せる
-  M.talkMult*=(1+0.03*lv);                  // 戦力UP（試合中持続）
-  const sq=squadOf(state.clubId);
-  M.myL.forEach(ix=>{const p=sq[ix];if(p)setCond(p.id,condOf(p.id)+8*lv);}); // 体力回復
-  recompPStr(); save();
-  pushLog('big','📣 監督の檄！ チームが息を吹き返した（勢い＋・戦力UP・体力回復）');
+// 発動型監督スキル（対応パークを取得していれば試合中1回ずつ使用可）
+const MATCH_SKILLS=[
+  {id:'inspire',perk:'inspire',icon:'📣',name:'檄',run:()=>{const lv=perkLv('inspire')||1;mom(8+lv*4);M.talkMult*=(1+0.03*lv);const sq=squadOf(state.clubId);M.myL.forEach(ix=>{const p=sq[ix];if(p)setCond(p.id,condOf(p.id)+8*lv);});pushLog('big','📣 監督の檄！ チームが息を吹き返した（勢い＋・戦力UP・体力回復）');}},
+  {id:'bunker',perk:'bunker',icon:'🧱',name:'鉄壁',run:()=>{M.defMult=(M.defMult||1)*1.18;mom(4);pushLog('talk','🧱 鉄壁シフト！ 守備を固めた（守備力UP）');}},
+  {id:'allout',perk:'allout',icon:'⚡',name:'総攻撃',run:()=>{M.attMult=(M.attMult||1)*1.18;M.defMult=(M.defMult||1)*0.92;mom(6);pushLog('big','⚡ パワープレー！ 攻撃に全振り（攻撃UP・守備ややダウン）');}},
+];
+function activateSkill(id){
+  if(!M||M.over)return;
+  const sk=MATCH_SKILLS.find(s=>s.id===id); if(!sk)return;
+  if((perkLv(sk.perk)||0)<=0||M.skillsUsed[id])return;
+  M.skillsUsed[id]=true; sk.run(); recompPStr(); save();
   renderMatch();                            // 進行ループは継続中のため新規スケジュールは不要
 }
 function finishMatch(){
@@ -1563,10 +1567,11 @@ function renderMatch(){
         <div class="row" style="margin-top:8px"><button class="btn sec" id="subCancel">戻る</button></div></div>`;
     }
   }else if(!M.over){
+    const skillBtns=MATCH_SKILLS.filter(s=>perkLv(s.perk)>0&&!M.skillsUsed[s.id]).map(s=>`<button class="btn" data-skill="${s.id}" style="background:var(--gold);color:#000">${s.icon} ${s.name}</button>`).join('');
     panel=`<div class="row" style="margin-top:10px">
       <button class="btn sec" id="skip">最後まで観る ⏩</button>
       ${M.subsLeft>0?`<button class="btn blue" id="subBtn">🔄 交代 (${M.subsLeft})</button>`:''}
-      ${M.boostLeft>0?`<button class="btn" id="inspireBtn" style="background:var(--gold);color:#000">📣 檄</button>`:''}</div>`;
+      ${skillBtns}</div>`;
   }
   $('#screen').innerHTML=`<div class="card">
     ${M.rival?`<div style="text-align:center;color:var(--gold);font-weight:800;font-size:14px;margin-bottom:6px">🔥 ${M.derby} 🔥</div>`:''}
@@ -1585,7 +1590,7 @@ function renderMatch(){
   document.querySelectorAll('[data-tt]').forEach(b=>b.onclick=()=>teamTalk(b.dataset.tt));
   const sk=$('#skip'); if(sk)sk.onclick=()=>{M.keyLeft=0;M.halftimeDone=true;M.fast=true;};
   const sb=$('#subBtn'); if(sb)sb.onclick=()=>{M.decision={type:'sub'};M.subOut=null;renderMatch();};
-  const ib=$('#inspireBtn'); if(ib)ib.onclick=activateInspire;
+  document.querySelectorAll('[data-skill]').forEach(b=>b.onclick=()=>activateSkill(b.dataset.skill));
   const sc=$('#subCancel'); if(sc)sc.onclick=()=>{if(M.subOut!==null){M.subOut=null;renderMatch();}else{M.decision=null;renderMatch();matchTimer=setTimeout(matchTick,300);}};
   document.querySelectorAll('[data-subout]').forEach(b=>b.onclick=()=>{M.subOut=+b.dataset.subout;renderMatch();});
   document.querySelectorAll('[data-subin]').forEach(b=>b.onclick=()=>performSub(+b.dataset.subin));
