@@ -8414,6 +8414,9 @@ function barracksVignette(){
     if(u.fief)cand.push(`${nm(u)}のもとに、賜った所領からの便りが届いていた。民の暮らしぶりを記した文を、噛みしめるように幾度も読み返していた。`);
     if(u.awakened)cand.push(`${nm(u)}が、目覚めた己の力を確かめるように、誰もいない鍛錬場で静かに技を繰り返していた。その瞳の奥には、まだ底の見えぬ何かが揺れている。`);
     if(u.devoted)cand.push(`${nm(u)}が、王旗の前で無言のまま片膝をついていた。捧げた忠誠に迷いはない――その背が、そう語っていた。`);
+    if(u.uniqueJob){const uj=(typeof UNIQUE_JOBS!=="undefined")&&UNIQUE_JOBS.find(x=>x.key===u.uniqueJob);if(uj)cand.push(`若い兵たちが、《${uj.nickname}》と呼ばれる${nm(u)}を遠巻きに見つめ、憧れの眼差しを送っていた。当の本人は気に留めるふうもなく、いつも通り黙々と得物を磨いている。`);} // 二つ名を帯びた者の、平時の風格(唯一無二の到達を日常に映す)
+    if((u.fatigue||0)>=75)cand.push(`度重なる出撃で疲れの色濃い${nm(u)}が、兵舎の梁に背を預けて浅く目を閉じていた。それでも呼ばれればすぐ立てるよう、得物だけは手放さずにいる。`); // 疲労困憊の兵の一幕(疲労という状態を情景に映し、休ませる判断へ静かに促す)
+    if(u.dreamDone)cand.push(`かつての夢を叶えた${nm(u)}が、晴れやかな顔で若い兵に稽古をつけていた。望みを遂げてなお剣を置かぬその姿に、皆が静かな憧れを抱いている。`); // 本懐を遂げた者の、満ち足りた日常(夢の成就をその後の生き様に映す)
   }
   if(!cand.length)return null;
   return cand[Math.floor(Math.random()*cand.length)];
