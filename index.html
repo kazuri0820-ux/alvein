@@ -15238,6 +15238,15 @@ function renderStatsDetail(){
   const stg=STAGES[S.stage];
   let h=`<div class="srow"><div class="sh"><div class="nm">現在の段階(Rank ${stg.rank})</div><div class="vl">${stg.name}</div></div><div class="ef">${stg.note} 次の段階まで:${STAGES[S.stage+1]?(STAGES[S.stage+1].min-S.pop>0?STAGES[S.stage+1].min-S.pop+"人":"まもなく"):"最終段階"}</div></div>`;
   h+=`<div class="srow"><div class="sh"><div class="nm">兵士数</div><div class="vl">${S.units.length} 人</div></div><div class="ef">総合戦力:${Math.round(totalTroopPower())}。各兵はジョブ・レベル・特性を持つ個別の存在。「兵士」ボタンから名簿と訓練が行える。</div></div>`;
+  { // 結ばれた縁:兵たちの間に育まれた人間関係(師弟・好敵手・戦友・確執・相棒獣・知行・血脈)を国力画面から一望できるように——愛着システムの見える化(磨き込み)
+    const A=(S.units||[]).filter(u=>u.role==="active");
+    const bond=A.filter(u=>u.bondWith).length>>1, rival=A.filter(u=>u.rivalWith).length>>1, discord=A.filter(u=>u.discordWith).length>>1;
+    const mentor=A.filter(u=>u.masterId).length, beast=A.filter(u=>u.beast).length, fief=A.filter(u=>u.fief).length, lineage=A.filter(u=>u.lineage).length;
+    const parts=[];
+    if(bond)parts.push(`戦友${bond}組`); if(rival)parts.push(`好敵手${rival}組`); if(mentor)parts.push(`師弟${mentor}組`); if(discord)parts.push(`確執${discord}組`);
+    if(beast)parts.push(`相棒獣${beast}`); if(fief)parts.push(`知行持ち${fief}`); if(lineage)parts.push(`血脈${lineage}`);
+    if(parts.length)h+=`<div class="srow"><div class="sh"><div class="nm">結ばれた縁</div><div class="vl">${bond+rival+mentor+discord}組</div></div><div class="ef">${parts.join(" ／ ")}――兵たちの間に育まれた絆と因縁。同陣で連携や成長に響き、王国に人の物語を織りなす。</div></div>`;
+  }
   h+=`<div class="srow"><div class="sh"><div class="nm">人口</div><div class="vl">${S.pop} 人</div></div><div class="ef">食糧と民心が十分だと自然に増える。戦争や疫病で減ることも。</div></div>`;
   for(const[k,label]of STATDEF){
     const v=Math.round(S.st[k]);
