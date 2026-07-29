@@ -177,10 +177,25 @@ function clubRating(c){ // 平均トップ11（ベース値）
 const PLAYERS={}; CLUBS.forEach(c=>c.squad.forEach(p=>PLAYERS[p.id]=p));
 // レベルアップ時に伸びやすい能力（ポジション別）: [主, 副, 副]
 const GROW={GK:['def','phy','pas'],DEF:['def','phy','pac'],MID:['pas','dri','def'],ATT:['sho','dri','pac']};
-function xpNeed(lvl){return 100+(lvl-1)*45;}         // 次レベルまでの必要XP
+function xpNeed(lvl){return 100+(lvl-1)*45;}         // 次レベルまでの必要XP（基準）
 function prog(id){if(!state.prog)state.prog={};if(!state.prog[id])state.prog[id]={lvl:1,xp:0,add:{}};return state.prog[id];}
+// 決定的ハッシュ（乱数不可のため id から安定生成）
+function hashId(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h;}
+function growthType(id){return ['早熟','標準','晩成'][hashId(id+'g')%3];}
+function potentialOf(p){                              // OVR上限（ベースOVR＋伸びしろ）
+  const base=(PLAYERS[p.id]||p).ov;
+  const h=hashId(p.id)%1000/1000;
+  let pot=base+Math.max(2,Math.round((99-base)*0.5+h*8));
+  const gt=growthType(p.id);
+  if(gt==='早熟')pot-=2; else if(gt==='晩成')pot+=3;
+  return Math.min(99,Math.max(base,pot));
+}
+function xpMult(id){const gt=growthType(id);return gt==='早熟'?0.9:gt==='晩成'?1.12:1;} // 晩成は伸びが遅いが上限高
+function xpNeedFor(id,lvl){return Math.round(xpNeed(lvl)*xpMult(id));}
 function growPlayer(id){
-  const p=PLAYERS[id]; if(!p)return; const g=prog(id); const k=GROW[p.grp]||GROW.MID;
+  const p=PLAYERS[id]; if(!p)return;
+  if(eff(p).ov>=potentialOf(p))return;               // ポテンシャル到達で能力成長は停止
+  const g=prog(id); const k=GROW[p.grp]||GROW.MID;
   g.add[k[0]]=(g.add[k[0]]||0)+2; g.add[k[1]]=(g.add[k[1]]||0)+1; g.add[k[2]]=(g.add[k[2]]||0)+1;
 }
 function eff(p){ // 成長ボーナス込みの実効選手（Lv/XP付き）
@@ -193,7 +208,7 @@ function eff(p){ // 成長ボーナス込みの実効選手（Lv/XP付き）
 }
 function gainXP(id,amount){
   const g=prog(id); g.xp+=amount; let ups=0;
-  while(g.xp>=xpNeed(g.lvl)){g.xp-=xpNeed(g.lvl);g.lvl++;growPlayer(id);ups++;}
+  while(g.xp>=xpNeedFor(id,g.lvl)){g.xp-=xpNeedFor(id,g.lvl);g.lvl++;growPlayer(id);ups++;}
   return ups;
 }
 // 試合後、自クラブ先発にXPを付与。レベルアップした選手を返す
@@ -247,10 +262,12 @@ const DRILLS=[['sho','シュート'],['pas','パス'],['def','守備'],['phy','�
 function trainPlayer(id,stat){
   if(!state.tp||state.tp<=0)return null;   // TP切れ
   state.tp--;
-  const g=prog(id); g.add[stat]=(g.add[stat]||0)+1; // 狙った能力+1（eff側で99上限）
-  const ups=gainXP(id,Math.round(70*(1+perkLv('academy')*0.15))); // 育成環境パークでXP増
+  const p=PLAYERS[id]; const g=prog(id);
+  const capped=p&&eff(p).ov>=potentialOf(p);
+  if(!capped)g.add[stat]=(g.add[stat]||0)+1; // ポテンシャル未到達なら狙った能力+1
+  const ups=gainXP(id,Math.round(70*(1+perkLv('academy')*0.15))); // 育成環境パークでXP増（到達後もXPは入る）
   save();
-  return ups;                              // レベルアップ数
+  return {ups,capped};                     // レベルアップ数・ポテンシャル到達か
 }
 
 /* ---------- RPG: 監督のレベル・采配パーク ---------- */
@@ -483,12 +500,13 @@ function bindCommon(){
   document.querySelectorAll('[data-train]').forEach(b=>b.onclick=()=>{
     const cur=state.trainFocus||'sho';
     const p=PLAYERS[b.dataset.train]; const name=p?p.name:'';
-    const ups=trainPlayer(b.dataset.train,cur);
+    const r=trainPlayer(b.dataset.train,cur);
     render();
     const msg=$('#trainMsg');
     if(msg){
-      if(ups===null)msg.innerHTML='<span style="color:var(--danger)">TPが足りません。次節まで待ちましょう。</span>';
-      else msg.innerHTML=`<span style="color:var(--accent)">✅ ${name} を鍛えた（${DRILLS.find(d=>d[0]===cur)[1]} +1 / +70XP）${ups>0?' <b>⬆️レベルアップ！</b>':''}</span>`;
+      if(r===null)msg.innerHTML='<span style="color:var(--danger)">TPが足りません。次節まで待ちましょう。</span>';
+      else if(r.capped)msg.innerHTML=`<span class="muted">🏔️ ${name} はポテンシャル上限に到達。能力は伸びませんが経験値のみ獲得${r.ups>0?' <b style="color:var(--accent2)">⬆️レベルアップ！</b>':''}</span>`;
+      else msg.innerHTML=`<span style="color:var(--accent)">✅ ${name} を鍛えた（${DRILLS.find(d=>d[0]===cur)[1]} +1 / +XP）${r.ups>0?' <b>⬆️レベルアップ！</b>':''}</span>`;
     }
   });
   const kb=$('#toMatch'); if(kb)kb.onclick=()=>go('tactics');
@@ -562,18 +580,22 @@ function viewSquad(){
   const rows=club.squad.map(p=>eff(p)).sort((a,b)=>b.ov-a.ov).map(p=>{
     const idx=club.squad.findIndex(x=>x.id===p.id);
     const inXI=state.lineup.includes(idx);
-    const g=prog(p.id); const pct=Math.round(g.xp/xpNeed(g.lvl)*100);
+    const g=prog(p.id); const need=xpNeedFor(p.id,g.lvl); const pct=Math.round(g.xp/need*100);
     const abils=abilitiesOf(p).map(a=>`<span title="${a.name}" style="cursor:help">${a.icon}</span>`).join('');
-    return `<tr class="${inXI?'me':''}"><td class="name">${inXI?'● ':''}${p.name} <span style="font-size:12px">${abils}</span></td>
+    const pot=potentialOf(p); const gt=growthType(p.id);
+    const gtc={'早熟':'#f0883e','標準':'#8b949e','晩成':'#3fb950'}[gt];
+    const atCap=p.ov>=pot;
+    return `<tr class="${inXI?'me':''}"><td class="name">${inXI?'● ':''}<span title="成長型: ${gt}" style="color:${gtc};font-size:10px;font-weight:700">${gt[0]}</span> ${p.name} <span style="font-size:12px">${abils}</span></td>
       <td><span class="pos ${p.grp}">${p.pos}</span></td>
       <td><b style="color:var(--accent2)">${p.lvl||1}</b></td>
       <td class="ov">${p.ov}</td>
+      <td class="muted" title="ポテンシャル">${atCap?'<span style="color:var(--gold)">MAX</span>':pot}</td>
       <td>${p.pac}</td><td>${p.sho}</td><td>${p.pas}</td><td>${p.dri}</td><td>${p.def}</td><td>${p.phy}</td>
-      <td style="min-width:60px"><div class="bar" title="XP ${g.xp}/${xpNeed(g.lvl)}"><i style="width:${pct}%"></i></div></td></tr>`;
+      <td style="min-width:60px"><div class="bar" title="XP ${g.xp}/${need}"><i style="width:${pct}%"></i></div></td></tr>`;
   }).join('');
-  return `<div class="card"><h2>スカッド <span class="muted" style="font-weight:400;font-size:12px">（● = 先発 ・ Lv=レベル ・ 右端=次Lvまでの経験値）</span></h2>
+  return `<div class="card"><h2>スカッド <span class="muted" style="font-weight:400;font-size:12px">（● = 先発 ・ 成長型 早/標/晩 ・ POT=ポテンシャル上限）</span></h2>
     <div style="overflow-x:auto"><table>
-    <tr><th class="name">選手</th><th>POS</th><th>Lv</th><th>OVR</th><th>PAC</th><th>SHO</th><th>PAS</th><th>DRI</th><th>DEF</th><th>PHY</th><th>XP</th></tr>
+    <tr><th class="name">選手</th><th>POS</th><th>Lv</th><th>OVR</th><th>POT</th><th>PAC</th><th>SHO</th><th>PAS</th><th>DRI</th><th>DEF</th><th>PHY</th><th>XP</th></tr>
     ${rows}</table></div>
     <p class="muted" style="font-size:11px;margin-top:8px">特性: ${ABILITIES.map(a=>a.icon+a.name).join(' ・ ')}</p></div>`;
 }
