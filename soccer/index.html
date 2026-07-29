@@ -230,6 +230,8 @@ function awardMatchXP(res,homeC,awayC){
     if(gainXP(p.id,xp)>0)ups.push({name:p.name,lvl:prog(p.id).lvl});
   });
   if(oppScore===0)state.cs=(state.cs||0)+1;   // クリーンシート集計
+  // コンディション: 全員+30回復、先発は-40消耗（差引: 先発 純-10 / 控え +30）
+  club.squad.forEach((p,i)=>{let c=condOf(p.id)+30; if(state.lineup.includes(i))c-=40; setCond(p.id,c);});
   // 監督XP（結果＋得点）
   const mxp=(result==='W'?50:result==='D'?25:10)+myScore*5;
   const mgrUps=gainMgrXP(mxp);
@@ -241,6 +243,12 @@ function teamAvgLevel(){
   const lv=club.squad.map(p=>prog(p.id).lvl);
   return (lv.reduce((t,x)=>t+x,0)/lv.length).toFixed(1);
 }
+
+/* ---------- RPG: コンディション / 疲労 ---------- */
+function condOf(id){return (state.cond&&state.cond[id]!==undefined)?state.cond[id]:100;}
+function setCond(id,v){if(!state.cond)state.cond={};state.cond[id]=Math.max(0,Math.min(100,Math.round(v)));}
+function condFactor(id){return 0.8+0.2*(condOf(id)/100);}   // 0(疲労)→×0.8, 100→×1.0
+function condColor(c){return c>=70?'var(--accent)':c>=40?'var(--warn)':'var(--danger)';}
 
 /* ---------- RPG: 特殊能力（アビリティ） ---------- */
 // 実効能力値のしきい値で解放（＝レベルアップで新たに開花しうる）。試合のチーム力に補正。
@@ -266,6 +274,7 @@ function trainPlayer(id,stat){
   const p=PLAYERS[id]; const g=prog(id);
   const capped=p&&eff(p).ov>=potentialOf(p);
   if(!capped)g.add[stat]=(g.add[stat]||0)+1; // ポテンシャル未到達なら狙った能力+1
+  setCond(id,condOf(id)-8);                   // 練習で少し疲労
   const ups=gainXP(id,Math.round(70*(1+perkLv('academy')*0.15))); // 育成環境パークでXP増（到達後もXPは入る）
   save();
   return {ups,capped};                     // レベルアップ数・ポテンシャル到達か
@@ -333,11 +342,12 @@ function bestXI(club,formation){
 function mean(a){return a.length?a.reduce((t,x)=>t+x,0)/a.length:55;}
 function strength(club,lineup,tac){
   const xi=lineup.map(i=>eff(club.squad[i]));
+  const cf=p=>condFactor(p.id);   // コンディション補正（自クラブのみ実効。AIは100で×1）
   const gkp=xi.find(p=>p.grp==='GK');
-  const gk=gkp?gkp.ov:58;
-  const defs=xi.filter(p=>p.grp==='DEF').map(p=>p.ov);
-  const mids=xi.filter(p=>p.grp==='MID').map(p=>p.ov);
-  const atts=xi.filter(p=>p.grp==='ATT').map(p=>p.ov);
+  const gk=gkp?gkp.ov*cf(gkp):58;
+  const defs=xi.filter(p=>p.grp==='DEF').map(p=>p.ov*cf(p));
+  const mids=xi.filter(p=>p.grp==='MID').map(p=>p.ov*cf(p));
+  const atts=xi.filter(p=>p.grp==='ATT').map(p=>p.ov*cf(p));
   let att=mean(atts)*.6+mean(mids)*.3+mean(defs)*.1;
   let mid=mean(mids)*.6+mean(atts)*.2+mean(defs)*.2;
   let def=mean(defs)*.6+gk*.25+mean(mids)*.15;
@@ -454,7 +464,7 @@ function newGame(clubId){
   state={season:1,round:0,clubId,fixtures:fx,table:emptyTable(),
     tactics:{formation:'4-3-3',style:'balanced',press:'mid',line:'mid'},
     lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho',
-    mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0};
+    mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{}};
   save();
 }
 
@@ -620,6 +630,7 @@ function viewSquad(){
     return `<tr class="${inXI?'me':''}"><td class="name">${inXI?'● ':''}<span title="成長型: ${gt}" style="color:${gtc};font-size:10px;font-weight:700">${gt[0]}</span> <a data-player="${p.id}" style="color:var(--txt);text-decoration:underline;text-decoration-color:var(--line);cursor:pointer">${p.name}</a> <span style="font-size:12px">${abils}</span></td>
       <td><span class="pos ${p.grp}">${p.pos}</span></td>
       <td><b style="color:var(--accent2)">${p.lvl||1}</b></td>
+      <td><b style="color:${condColor(condOf(p.id))}" title="コンディション">${condOf(p.id)}</b></td>
       <td class="ov">${p.ov}</td>
       <td class="muted" title="ポテンシャル">${atCap?'<span style="color:var(--gold)">MAX</span>':pot}</td>
       <td>${p.pac}</td><td>${p.sho}</td><td>${p.pas}</td><td>${p.dri}</td><td>${p.def}</td><td>${p.phy}</td>
@@ -627,7 +638,7 @@ function viewSquad(){
   }).join('');
   return `<div class="card"><h2>スカッド <span class="muted" style="font-weight:400;font-size:12px">（● = 先発 ・ 成長型 早/標/晩 ・ POT=ポテンシャル上限）</span></h2>
     <div style="overflow-x:auto"><table>
-    <tr><th class="name">選手</th><th>POS</th><th>Lv</th><th>OVR</th><th>POT</th><th>PAC</th><th>SHO</th><th>PAS</th><th>DRI</th><th>DEF</th><th>PHY</th><th>XP</th></tr>
+    <tr><th class="name">選手</th><th>POS</th><th>Lv</th><th title="コンディション">体力</th><th>OVR</th><th>POT</th><th>PAC</th><th>SHO</th><th>PAS</th><th>DRI</th><th>DEF</th><th>PHY</th><th>XP</th></tr>
     ${rows}</table></div>
     <p class="muted" style="font-size:11px;margin-top:8px">特性: ${ABILITIES.map(a=>a.icon+a.name).join(' ・ ')}</p></div>`;
 }
@@ -657,6 +668,7 @@ function viewPlayerDetail(){
     </div>
     <div class="bar" style="margin:12px 0" title="XP ${g.xp}/${need}"><i style="width:${pct}%"></i></div>
     <p class="muted" style="font-size:12px">次のレベルまで ${Math.max(0,need-g.xp)} XP${atCap?' ・ 能力はポテンシャル上限に到達':` ・ 伸びしろ +${pot-p.ov}`}</p>
+    <div class="stats-line" style="margin-top:6px"><span>コンディション</span><b style="color:${condColor(condOf(base.id))}">${condOf(base.id)}%</b></div>
   </div>
   <div class="card"><h2>能力値 <span class="muted" style="font-weight:400;font-size:11px">（+は育成/成長ぶん）</span></h2>
     ${statRow('スピード','pac')}${statRow('シュート','sho')}${statRow('パス','pas')}
@@ -963,6 +975,7 @@ if(state&&state.tp===undefined)state.tp=TP_MAX;
 if(state&&!state.mgr)state.mgr={lvl:1,xp:0,points:0,perks:{}};
 if(state&&!state.quests)state.quests={};
 if(state&&state.cs===undefined)state.cs=0;
+if(state&&!state.cond)state.cond={};
 render();
 </script>
 </body>
