@@ -8314,6 +8314,7 @@ function rollRandomTurnEvent(){
   checkBondMilestone(); // 絆の里程標:戦友・師弟・好敵手の縁が節目の数に達した折、人の結びつきの豊かさを国を挙げて言祝ぐ
   checkExpeditionMilestone(); // 遠征の里程標:通算の迷宮踏破数が大台(50/100/200)に達した折、遠征の積み重ねを国を挙げて言祝ぐ
   checkReignAgeMilestone(); // 治世の年輪:治世が節目の年数(10/20/40年)に達した折、長き治世を保った歩みそのものを言祝ぐ
+  checkVanquishMilestone(); // 討王の里程標:通算で討ち取った迷宮の「王」の総数が大台(25/60/120体)に達した折、討王の積み重ねを国を挙げて言祝ぐ
   checkKingTitle(); // 王号:治世の色に応じて民が王をどう呼ぶかが定まり、色が移ろえば呼び名も変わる
   applyKingTitleBoon(); // 王徳:現在の王号に宿る治世の恵みを日々わずかに国へ及ぼす
   checkStageAdvance(); // 段階の到達:人口の節目を越え新たな時代を迎えた瞬間を国を挙げて祝う
@@ -12308,6 +12309,23 @@ function checkReignAgeMilestone(){
     }
   }
 }
+/* 討王の里程標:王国が通算で討ち取った迷宮の「王」(=個性を帯びた強大なボス)の総数が大台に達した折、
+   その武の積み重ねを国を挙げて言祝ぐ。全種の王を集める大収集(=種類の軸)や各型の初討伐(=多様性の軸)とは別に、
+   幾多の王を屠り続けてきた"量そのもの"を称える——攻略の手応え・討王のやりがいに効く。 */
+function checkVanquishMilestone(){
+  if(typeof S==="undefined"||!S)return;
+  S.flags=S.flags||{};
+  const felled=S.kingsFelledTotal||0;
+  S.flags.vanquishMiles=S.flags.vanquishMiles||{};
+  for(const t of [{n:25,rn:2,mood:5,gold:150},{n:60,rn:3,mood:7,gold:300},{n:120,rn:4,mood:10,gold:550}]){
+    if(felled>=t.n&&!S.flags.vanquishMiles[t.n]){
+      S.flags.vanquishMiles[t.n]=S.day;
+      if(typeof grantRenown==="function")grantRenown(t.rn,`迷宮の「王」を通算${t.n}体討ち取ったこと`);
+      if(typeof apply==="function")apply({mood:t.mood,gold:t.gold});
+      chron(`――アルヴェインの兵が討ち果たした迷宮の「王」、その数ついに通算${t.n}体を数えた。個性ある強敵を幾度も正面から打ち破ってきた武の積み重ねが、王国を大陸屈指の討王の国たらしめている。`,"big");
+    }
+  }
+}
 /* 難度の初踏破:初めて【レア】【エピック】【レジェンド】級の迷宮を制した瞬間を、王国史の"格の一段"として刻む。
    攻略型の初踏破(=多様性の軸)とも通算節目(=量の軸)とも異なる「どれだけ格上に挑めたか=難度の軸」。
    より高い格の迷宮ほど報いは跳ね上がり、覚醒の隊士には確かな手応えを残す。 */
@@ -12614,6 +12632,7 @@ function resolveDungeonRun(dungeonId){
       if(dungeon.bossTrait){ // ボスの個性に応じた追加報酬
         // 討伐したボスの王のコレクション記録=全種の王を討ち取る収集目標(初討伐は名を刻む)
         for(const su of squad){if(su)su.kingsSlain=(su.kingsSlain||0)+1;} // 個々の兵の「王」討伐数=歴戦の証(討王の称号へ)
+        S.kingsFelledTotal=(S.kingsFelledTotal||0)+1; // 王国が通算で討ち取った「王」の総数=討王の量的積み重ね(討王の里程標へ)
         S.flags=S.flags||{};S.flags.bossKings=S.flags.bossKings||{};
         if(!S.flags.bossKings[dungeon.bossTrait]&&BOSS_TRAITS[dungeon.bossTrait]){S.flags.bossKings[dungeon.bossTrait]=S.day;grantRenown(4,`「${BOSS_TRAITS[dungeon.bossTrait].label}」の討伐`);chron(`――「${BOSS_TRAITS[dungeon.bossTrait].label}」を初めて討ち取った。討伐した王の名が、また一つ王国史に刻まれる。`,"big");
           {const ldr=squad.filter(Boolean).sort((a,b)=>unitPower(b)-unitPower(a))[0];if(ldr)recordSigFeat(ldr,`いまだ誰も討たぬ強大な王「${BOSS_TRAITS[dungeon.bossTrait].label}」を、王国で初めて討ち取った`,4);} // 未踏の王の初討伐は語り草に
