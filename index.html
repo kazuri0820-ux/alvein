@@ -7403,6 +7403,22 @@ const RANDOM_CHOICE=[
    {label:"救助に向かわせる",hint:"結果は踏み込んでみないと分からない",fx:{call:()=>{pushEventPriority("__cave_rescue_result__");}}},
    {label:"危険と判断し、引き返させる",hint:"安全策",fx:{log:"一団は洞窟から引き返した。声の正体は結局分からずじまいだった。"}},
   ]},
+ /* ── 忠義を試す引き抜き(築いた忠誠が報われる・愛着) ── */
+ {tag:"引 抜",title:"隣領からの引き抜き",
+  body:"隣領の領主が使いを寄越し、我が軍の腕利きの古参兵に破格の俸禄を約束して引き抜こうとしているという。捨て置けば、あの者の心が揺らぐやもしれぬ。",
+  speaker:"ガレオン「あの者は長く仕えた古強者。失うは惜しゅうございます」",
+  choices:[
+   {label:"破格の褒賞と誉れで引き止める",hint:"国庫↓ その古参兵の忠誠・士気が大きく上がる",fx:{gold:-50,call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length){chron("だが引き止めるべき古参兵は、今はいなかった。","");return;}const u=[...cands].sort((a,b)=>(S.day-(b.joinDay||S.day))-(S.day-(a.joinDay||S.day)))[0];if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+14);u.moral=Math.min(100,(u.moral||0)+8);unitHistory(u,"隣領の誘いを断り、破格の誉れを賜って留まった。生涯この恩は忘れぬと誓った。");chron(`${fullName(u)}は隣領の誘いを一蹴し、「我が忠義は金では買えませぬ」と言い切った。`,"people");}}},
+   {label:"本人の心に任せ、信じて送り出す覚悟をする",hint:"忠誠が篤ければ自ら残る――築いた信頼が試される",fx:{call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length){chron("だが心を試すべき古参兵は、今はいなかった。","");return;}const u=[...cands].sort((a,b)=>(S.day-(b.joinDay||S.day))-(S.day-(a.joinDay||S.day)))[0];if((u.loyalty||0)>=70){if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);u.moral=Math.min(100,(u.moral||0)+5);if(typeof grantRenown==="function")grantRenown(2,"古参兵が誘いを退けて留まったこと");unitHistory(u,"去るも留まるも自由と告げられ、迷わず王国に留まることを選んだ。");chron(`${fullName(u)}は「行く当てなどありませぬ。ここが我が家です」と笑い、自ら留まった。信じた甲斐があった。`,"big");}else{u.moral=Math.max(0,(u.moral||0)-8);unitHistory(u,"隣領の誘いに心を揺らしたが、辛うじて踏みとどまった。");chron(`${fullName(u)}は隣領の誘いに大いに心を揺らした。辛くも留まったが、その背には迷いが残っている。`,"people");}}}},
+  ]},
+ /* ── 個の武を試す他流試合(晴れ舞台と risk・愛着) ── */
+ {tag:"挑 戦",title:"他流試合を挑む武者",
+  body:"武者修行と称する見知らぬ武人が城下を訪れ、この国で最も腕の立つ者との一手を所望している。受ければ兵の名は上がろうが、無傷とはいくまい。",
+  speaker:"ガレオン「腕試しには打ってつけ。なれど、怪我をせぬとも限りませぬ」",
+  choices:[
+   {label:"最強の兵を立てて受ける",hint:"勝てば大きく成長し武名も上がる / 疲弊は避けられぬ",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){chron("だが立ち合わせる兵が、今はいなかった。","");return;}const u=[...act].sort((a,b)=>unitPower(b)-unitPower(a))[0];u.fatigue=Math.min(100,(u.fatigue||0)+ri(8,16));if(Math.random()<0.72){u.exp=(u.exp||0)+ri(24,40);if(typeof processLevelUps==="function")processLevelUps(u);u.moral=Math.min(100,(u.moral||0)+10);if(typeof grantRenown==="function")grantRenown(2,"他流試合での勝利");unitHistory(u,"流浪の武人との他流試合を制し、武名を大いに高めた。");chron(`${fullName(u)}が流浪の武人を見事に打ち破った。武者は潔く負けを認め、その名を胸に刻んで去っていった。`,"big");}else{u.exp=(u.exp||0)+ri(10,18);if(typeof processLevelUps==="function")processLevelUps(u);u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,"流浪の武人と互角に渡り合ったが、あと一歩及ばなかった。");chron(`${fullName(u)}は流浪の武人と互角に渡り合ったが、惜しくも一本を取られた。だが得るものは大きかった。`,"people");}}}},
+   {label:"丁重に辞退する",hint:"治安↑(いらぬ諍いを避ける)",fx:{st:{order:1},log:"長は他流試合を丁重に辞退した。武人は残念そうに、しかし礼を尽くして去っていった。"}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
