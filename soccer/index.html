@@ -67,6 +67,13 @@
   @keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
   .ava{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:800;vertical-align:middle;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.4)}
   .mood{font-size:12px;padding:2px 10px;border-radius:999px;border:1px solid var(--line);display:inline-flex;gap:5px;align-items:center}
+  .pitch{position:relative;width:100%;max-width:400px;margin:0 auto;aspect-ratio:3/4;background:repeating-linear-gradient(180deg,#1a6b2e 0 12.5%,#17612a 12.5% 25%);border:2px solid #2e8b46;border-radius:10px;overflow:hidden}
+  .pitch .halfway{position:absolute;left:4%;right:4%;top:50%;border-top:2px solid rgba(255,255,255,.28)}
+  .pitch .circle{position:absolute;left:50%;top:50%;width:26%;aspect-ratio:1;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.22);border-radius:50%}
+  .pitch .pbox{position:absolute;left:28%;right:28%;height:14%;border:2px solid rgba(255,255,255,.20)}
+  .pitch .pbox.top{top:0;border-top:none}.pitch .pbox.bot{bottom:0;border-bottom:none}
+  .ptoken{position:absolute;transform:translate(-50%,-50%);text-align:center;width:56px;cursor:pointer}
+  .ptoken .pname{display:block;font-size:9px;color:#fff;text-shadow:0 1px 2px #000;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
   .stats-line{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding:3px 0;border-bottom:1px solid var(--line)}
   .stats-line b{color:var(--txt)}
@@ -982,6 +989,23 @@ function viewTraining(){
     <div id="trainMsg" style="font-size:13px;margin-top:10px;min-height:20px"></div></div>`;
 }
 
+function pitchHTML(club){
+  const sq=squadOf(club.id);
+  const slots=FORMATIONS[state.tactics.formation];
+  const lines={GK:[],DEF:[],MID:[],ATT:[]};
+  slots.forEach((g,idx)=>lines[g].push(state.lineup[idx]));
+  const yMap={GK:90,DEF:68,MID:44,ATT:18};
+  let tokens='';
+  ['GK','DEF','MID','ATT'].forEach(g=>{
+    const arr=lines[g], n=arr.length;
+    arr.forEach((sqi,i)=>{
+      const p=sq[sqi]; if(!p)return; const e=eff(p); const x=(i+1)/(n+1)*100; const y=yMap[g];
+      const last=p.name.split(' ').pop();
+      tokens+=`<div class="ptoken" data-player="${p.id}" style="left:${x}%;top:${y}%">${avatar(p.name,club.color,34)}<span class="pname">${formInfo(p.id).e}${last}</span></div>`;
+    });
+  });
+  return `<div class="pitch"><div class="pbox top"></div><div class="pbox bot"></div><div class="halfway"></div><div class="circle"></div>${tokens}</div>`;
+}
 function viewTactics(){
   const club=clubById(state.clubId);
   const sq=squadOf(club.id);
@@ -1007,6 +1031,7 @@ function viewTactics(){
       <label class="muted">ライン</label>${sel('line',state.tactics.line,[['high','ハイライン'],['mid','標準'],['low','低め']])}
     </div>
     </div>
+    <div class="card"><h2>フォーメーション <span class="muted" style="font-weight:400;font-size:12px">${state.tactics.formation}（選手タップで詳細）</span></h2>${pitchHTML(club)}</div>
     <div class="card"><h2>チーム力プレビュー</h2>${statBars(s)}
       <p class="muted" style="font-size:12px;margin-top:8px">先発の特性: <span style="font-size:14px">${abilLine}</span></p></div>
     <div class="card"><h2>先発11人</h2>${lineupHtml}
