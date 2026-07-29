@@ -13586,6 +13586,8 @@ const UNIQUE_JOBS=[
   check:(u)=>(u.dungeonClearCount||0)>=10&&S.units.every(o=>o.id===u.id||(o.dungeonClearCount||0)<=(u.dungeonClearCount||0))}, // 最も多くの迷宮を踏破した歴戦の英傑(戦歴の道)
  {key:"myriad_honor",name:"万勲の英傑",nickname:"万勲の英傑",
   check:(u)=>(u.titles||[]).length>=6&&S.units.every(o=>o.id===u.id||(o.titles||[]).length<=(u.titles||[]).length)}, // 最も多くの称号を帯びた、生き様そのものが伝説の者(叙勲の極み)
+ {key:"dream_weaver",name:"幾多の夢を紡ぐ者",nickname:"夢を重ねし者",
+  check:(u)=>Array.isArray(u.dreamsFulfilled)&&u.dreamsFulfilled.length>=3}, // 一つの夢を叶えるたび新たな志を灯し、生涯に三つ以上の本懐を遂げた稀有な生き様(ひそかな夢を追い続けた道)。夢という特定の縁ゆえ汎用の頂点判定より優先
  {key:"true_desire",name:"本懐の英傑",nickname:"本懐の英傑",
   check:(u)=>!!u.dreamDone&&(u.titles||[]).length>=2}, // 己の夢を成し遂げ、なお誉れを重ねた者(志を貫いた道)
  {key:"ever_victor",name:"常勝将軍",nickname:"常勝将軍",
