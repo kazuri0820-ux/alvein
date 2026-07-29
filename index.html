@@ -8312,6 +8312,7 @@ function rollRandomTurnEvent(){
   checkReignFeats(); // 治世の偉業:治世を貫く到達目標を達成した折、王国を挙げて祝い、恩賞を下す
   checkGrandCollections(); // 大収集の完成:全称号/全二つ名/全英傑を集めきった瞬間を一度きりの祝祭として刻む
   checkBondMilestone(); // 絆の里程標:戦友・師弟・好敵手の縁が節目の数に達した折、人の結びつきの豊かさを国を挙げて言祝ぐ
+  checkExpeditionMilestone(); // 遠征の里程標:通算の迷宮踏破数が大台(50/100/200)に達した折、遠征の積み重ねを国を挙げて言祝ぐ
   checkKingTitle(); // 王号:治世の色に応じて民が王をどう呼ぶかが定まり、色が移ろえば呼び名も変わる
   applyKingTitleBoon(); // 王徳:現在の王号に宿る治世の恵みを日々わずかに国へ及ぼす
   checkStageAdvance(); // 段階の到達:人口の節目を越え新たな時代を迎えた瞬間を国を挙げて祝う
@@ -12269,6 +12270,22 @@ function checkBondMilestone(){
       if(typeof grantRenown==="function")grantRenown(t.rn,`兵たちの間に${t.n}の縁が結ばれたこと`);
       if(typeof apply==="function")apply(t.gold?{mood:t.mood,gold:t.gold}:{mood:t.mood});
       chron(`――アルヴェインの兵たちの間に、戦友・師弟・好敵手の縁が今や${t.n}を数えるに至った(現${total})。人と人の結びつきこそが、この国を単なる軍勢ではなく、一個の家族たらしめている。`,"big");
+    }
+  }
+}
+/* 遠征の里程標:王国が通算で踏破した迷宮の数が大台(50/100/200)に達した折、国を挙げて言祝ぐ。
+   治世の偉業「迷宮の覇者」(通算25回)のその先に、遠征を積み重ねる長い歩みへの中間報酬を灯す(量の軸の中間到達点)。 */
+function checkExpeditionMilestone(){
+  if(typeof S==="undefined"||!S)return;
+  S.flags=S.flags||{};
+  const done=S.dungeonsCleared||0;
+  S.flags.expeditionMiles=S.flags.expeditionMiles||{};
+  for(const t of [{n:50,rn:2,mood:5,gold:150},{n:100,rn:3,mood:7,gold:300},{n:200,rn:4,mood:10,gold:500}]){
+    if(done>=t.n&&!S.flags.expeditionMiles[t.n]){
+      S.flags.expeditionMiles[t.n]=S.day;
+      if(typeof grantRenown==="function")grantRenown(t.rn,`迷宮を通算${t.n}回踏破したこと`);
+      if(typeof apply==="function")apply({mood:t.mood,gold:t.gold});
+      chron(`――アルヴェインの兵が潜り抜けた迷宮、その数ついに通算${t.n}を数えた。数え切れぬ死線を越えてきた遠征の積み重ねが、王国の武名を大陸に轟かせている。`,"big");
     }
   }
 }
