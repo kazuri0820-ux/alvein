@@ -7437,6 +7437,21 @@ const RANDOM_CHOICE=[
    {label:"暇と路銀を与え、親子の再会を許す",hint:"国庫↓ その兵の忠誠・士気が大きく上がる",fx:{gold:-30,call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length){chron("だが会うべき当の兵は、今この地にいなかった。","");return;}const u=cands[Math.floor(Math.random()*cands.length)];u.moral=Math.min(100,(u.moral||0)+10);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+12);unitHistory(u,"遠来の老親と再会を果たし、この恩を生涯忘れぬと誓った。");chron(`${fullName(u)}は老いた親と手を取り合い、涙ながらに再会を喜んだ。「このご恩は、この身が朽ちるまで」――兵の忠義は、いっそう篤くなった。`,"people");}}},
    {label:"今は任が許さぬと、詫びて見送る",hint:"治安↑(務めを重んじる) / その兵の士気↓",fx:{st:{order:1},call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length){chron("だが当の兵は、今この地にいなかった。","");return;}const u=cands[Math.floor(Math.random()*cands.length)];u.moral=Math.max(0,(u.moral||0)-7);unitHistory(u,"務めを優先し、遠来の老親と会えぬまま見送った。");chron(`${fullName(u)}は務めを優先し、遠来の老親を会わぬまま見送った。気丈に振る舞っていたが、その背は寂しげだった。`,"people");}}},
   ]},
+ /* ── 一兵卒の家族の情(愛着を育てる) ── */
+ {tag:"願 い",title:"兵の養子縁組",
+  body:"ある兵が、戦の最中に助け出した戦災孤児を、我が子として引き取りたいと願い出てきた。身寄りのないその子を、放ってはおけぬのだという。",
+  speaker:"フィオナ「兵の情の深さ……。あたたかな話ではありませんか」",
+  choices:[
+   {label:"養子縁組を許し、支度金を持たせて祝福する",hint:"国庫↓ その兵の忠誠・士気が大きく上がる",fx:{gold:-30,call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length){chron("だが願い出た当の兵は、今この地にいなかった。","");return;}const u=cands[Math.floor(Math.random()*cands.length)];u.moral=Math.min(100,(u.moral||0)+10);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+12);unitHistory(u,"戦災孤児を養子に迎え、守るべきもののために生きる覚悟を新たにした。");chron(`${fullName(u)}は孤児を我が子として迎え入れた。守るべき者を得たその背には、以前にも増して確かな覚悟が宿っている。`,"people");}}},
+   {label:"戦時ゆえ、今は時期尚早と諭す",hint:"治安↑(引き締め) / その兵の士気↓",fx:{st:{order:1},call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length){chron("だが願い出た当の兵は、今この地にいなかった。","");return;}const u=cands[Math.floor(Math.random()*cands.length)];u.moral=Math.max(0,(u.moral||0)-5);unitHistory(u,"養子縁組は時期尚早と諭され、孤児の身を案じつつ務めへ戻った。");chron(`${fullName(u)}は養子縁組を今は控えるよう諭された。孤児の身を案じながらも、静かに務めへ戻っていった。`,"people");}}},
+  ]},
+ /* ── 兵同士の縁の発見(関係性の発見・愛着) ── */
+ {tag:"奇 縁",title:"幼馴染の再会",
+  body:"入隊した二人の兵が、幼き日を同じ里で過ごした幼馴染だったと判明した。数奇な巡り合わせに、二人とも驚きを隠せない様子である。",
+  choices:[
+   {label:"同じ隊に組ませ、旧交を温めさせる",hint:"二人に戦友の絆が芽生えるかも",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");let bonded=false;if(typeof forgeSquadBond==="function")bonded=forgeSquadBond(act,"幼馴染の再会");if(!bonded){for(const u of act.slice(0,2))if(u)u.moral=Math.min(100,(u.moral||0)+4);chron("幼馴染の二人は同じ隊に組まれ、幼き日の思い出に花を咲かせた。陣中の空気も、どこか和んでいる。","people");}}}},
+   {label:"公私は分けるべしと、別々に配する",hint:"治安↑(規律を保つ)",fx:{st:{order:1},log:"長は公私を分けるべしと、二人を別々の隊に配した。規律は保たれ、二人もそれを弁えている。"}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
