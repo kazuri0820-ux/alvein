@@ -10595,6 +10595,7 @@ const BOSS_TRAITS={
   beastlord:{label:"獣心の王",color:"#c98a5a",desc:"数多の獣を従える野生の王。討ち果たせば、懐いた獣の一匹が勲功第一の兵に生涯の相棒として付き従う(相棒獣)"},
   anthemking:{label:"凱歌の王",color:"#e0b060",desc:"戦場に凱歌を轟かせる王。討ち果たせば、その勝ち鬨が部隊の疲れを吹き飛ばし、意気軒昂として帰還させる(疲労回復・士気↑)"},
   mason:{label:"石工の王",color:"#b9a07a",desc:"古の石工術を極めた不動の王。討ち果たせば、その秘伝が国の職人に宿り、手がけている普請(事業)が一気に捗る"},
+  matchmaker:{label:"縁結びの王",color:"#e0a0b8",desc:"戦場に不思議な縁を手繰り寄せる王。討ち果たせば、その死闘を背中合わせに凌ぎきった二人の兵の間に、生涯の戦友の絆が芽生える"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
 /* 「石工の王」の報酬:討伐で得た秘伝の石工術を国の普請へ注ぎ、進行中の事業を一気に前進させる(完成に達したものは
@@ -12679,7 +12680,23 @@ function resolveDungeonRun(dungeonId){
         else if(dungeon.bossTrait==="mentorking"){for(const u of squad){const g=Math.round(ri(16,26)*levelMult);u.exp+=g;processLevelUps(u);}chron(`「教導の王」を討ち果たした部隊は、その死闘のさなかに授けられた教えを胸に、見違えて成長した(部隊全員が大きく経験を積んだ)。`,"big");}
         else if(dungeon.bossTrait==="beastlord"){const mvp=squad.filter(u=>u&&S.units.some(x=>x.id===u.id)&&!u.beast&&u.role==="active").sort((a,b)=>unitPower(b)-unitPower(a))[0];if(mvp&&typeof assignBeast==="function"){const bt=assignBeast(mvp);const k=beastKind(bt.kind);unitHistory(mvp,`「獣心の王」を討った際、その眷属の幼き${k.nm}「${bt.nm}」が懐き、生涯の相棒となった。`);chron(`「獣心の王」を討ち果たすと、従えられていた獣の一匹が、勲功第一の${fullName(mvp)}に懐いた。幼き${k.nm}「${bt.nm}」が、これより生涯の相棒として付き従う(相棒獣・${k.boonLabel})。`,"big");}else{const g=Math.round(ri(40,70)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「獣心の王」を討ち果たした。相棒に迎えられる獣はいなかったが、その巣から財貨${g}を持ち帰った。`,"");}}
         else if(dungeon.bossTrait==="anthemking"){let n=0;for(const u of squad){if(u&&S.units.some(x=>x.id===u.id)&&u.role==="active"){u.fatigue=Math.max(0,(u.fatigue||0)-40);u.moral=Math.min(100,(u.moral||0)+6);n++;}}if(n)chron(`「凱歌の王」を討ち果たすと、鳴り響いた勝ち鬨が部隊${n}名の疲れを吹き飛ばした。皆、意気軒昂として――疲労を癒し、士気も高く帰還した(すぐにまた出撃できる)。`,"big");else{const g=Math.round(ri(30,60)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「凱歌の王」を討ち果たし、財貨${g}を得た。`,"");}}
-        else if(dungeon.bossTrait==="mason"){bossMasonReward(dungeon,squad,levelMult);}
+        else if(dungeon.bossTrait==="matchmaker"){ // 縁結びの王:死闘を共にくぐった隊士二人に戦友の絆を結ぶ(関係システムに繋がる新しい報酬軸=愛着)
+          const bondless=squad.filter(u=>u&&!u.bondWith&&u.role==="active"&&S.units.some(x=>x.id===u.id));
+          if(bondless.length>=2){
+            const a=bondless[Math.floor(Math.random()*bondless.length)];
+            const rest=bondless.filter(u=>u.id!==a.id);
+            const scored=rest.map(u=>{let w=1;if(u.cls===a.cls)w+=2;return{u,w};}); // 同職ほど親近感(既存の縁ロジックに倣う)
+            let total=scored.reduce((s,x)=>s+x.w,0),r=Math.random()*total,bd=scored[scored.length-1].u;
+            for(const x of scored){r-=x.w;if(r<=0){bd=x.u;break;}}
+            a.bondWith=bd.id;bd.bondWith=a.id;
+            a.moral=Math.min(100,(a.moral||0)+6);bd.moral=Math.min(100,(bd.moral||0)+6);
+            if(typeof unitHistory==="function"){unitHistory(a,`「縁結びの王」との死闘を背中合わせに凌ぎ、${bd.nm}と生涯の戦友となった。`);unitHistory(bd,`「縁結びの王」との死闘を背中合わせに凌ぎ、${a.nm}と生涯の戦友となった。`);}
+            chron(`「縁結びの王」との死闘を共にくぐり抜けた${fullName(a)}と${fullName(bd)}――生死を分かつ戦場で背を預け合ううち、二人の間に誰より固い戦友の絆が芽生えた。`,"big");
+          }else{
+            const g=Math.round(ri(45,85)*dungeon.rarity.mult*levelMult);apply({gold:g});
+            chron(`「縁結びの王」を討ち果たした。此度の隊はすでに固い絆で結ばれた者ばかりゆえ、代わりに王の蓄えていた財貨${g}を持ち帰った。`,"");
+          }
+        }
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
       battleSkillSpotlight(squad,`ボス「${dungeon.bossName}」`);
