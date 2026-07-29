@@ -10140,6 +10140,20 @@ function makeGreatVolunteer(fig){
   return {id:u.id,unit:u,postedDay:S.day,cost,rank:GREAT_RANK,hiddenPotential:false,
     comment:`${fig.region}にその名を刻む「${fig.title}」。${fig.flavor||""}`, great:fig.id};
 }
+/* 英傑図鑑の里程標:邂逅した英傑が節目の数(50/100…)に達した瞬間を一度きりの祝いとして刻む。
+   数百名に及ぶ長い収集の道のりに、途中の達成感を灯す(集めきる前の"やりがい"の中間報酬)。 */
+function checkGreatCodexMilestone(){
+  S.flags=S.flags||{};
+  const total=(typeof GREAT_FIGURES!=="undefined")?GREAT_FIGURES.length:0;
+  const done=Object.keys(Object.assign({},S.flags.greatsSeen||{},S.flags.greatsHired||{})).length;
+  S.flags.greatCodexMiles=S.flags.greatCodexMiles||{};
+  for(const m of [50,100,150,200,250]){
+    if(done>=m && m<total && !S.flags.greatCodexMiles[m]){
+      S.flags.greatCodexMiles[m]=S.day;
+      chron(`――英傑図鑑に名を連ねし英傑、ついに${m}柱を数えた(${done}/${total})。歴史に名を刻む者たちが続々とこの国の物語に加わっている。全てを集めきる日も、そう遠くはない。`,"big");
+    }
+  }
+}
 function maybeOfferGreatVolunteer(){
   if((S.volunteers||[]).length>=8)return;
   const rank=STAGES[S.stage].rank;
@@ -10155,6 +10169,7 @@ function maybeOfferGreatVolunteer(){
   // 初めて出会う英傑には、全英傑コレクションの到達度を添えて記録する(ユーザーが愛でる英傑収集に、進捗の見える手応えを与える)
   const _gDone=Object.keys(Object.assign({},S.flags.greatsSeen,S.flags.greatsHired||{})).length, _gTotal=GREAT_FIGURES.length;
   chron(`……城下がにわかにざわめいている。かの「${fig.title}」${fig.nm}が、この国への仕官を願い出たという。まさか、あの英傑が(志願書に名を連ねた)。${greatWasNew?`――英傑図鑑にまた一人、その名が刻まれた(${_gDone}/${_gTotal})。`:""}`,"big");
+  if(greatWasNew)checkGreatCodexMilestone();
 }
 function checkWeeklyVolunteers(){
   if(S.day-(S.lastVolunteerDay||-10)>=7){
@@ -11230,7 +11245,7 @@ const ITEMS=[
  {key:"census_grand",name:"大規模な戸籍改め",rarity:"rare",desc:"人口がまとまって増える。",effect:()=>apply({pop:ri(10,18),log:"大規模な戸籍改めにより、多くの民の存在が明らかになった。"})},
  {key:"mentor_ticket",name:"名師招聘状",rarity:"rare",desc:"経験豊富な指南役が一人加わる。",effect:()=>{const u=makeUnit();const targetLv=ri(15,25);for(let i=1;i<targetLv;i++)u.exp+=i*10;processLevelUps(u,true);u.role="active";S.instructors.push(u);chron(`招聘状により、${u.nm} ${u.surname}が指南役として加わった。`,"big");}},
  {key:"fame_proclamation",name:"名声の触れ書き",rarity:"rare",desc:"王国の武名を近隣に触れ回り、腕に覚えのある者を招く。見込みある志願者が最大2名、志願所に加わる(満杯なら支度金)。",effect:()=>{S.volunteers=S.volunteers||[];let added=0;const names=[];for(let i=0;i<2;i++){if(S.volunteers.length>=8)break;const v=makeVolunteer();v.hiddenPotential=true;v.comment="王国の武名を慕い、自ら志願を求めて門を叩いた。";names.push(`${v.unit.nm} ${v.unit.surname}`);S.volunteers.push(v);added++;}if(added>0)chron(`名声の触れ書きが功を奏し、${names.join("・")}が志願所に加わった。`,"big");else{const g=ri(60,100);apply({gold:g});chron(`志願所は既に満杯で、触れ書きに応じた者は迎えられず、代わりに支度金${g}が集まった。`,"");}}},
- {key:"great_summons",name:"英傑招致の勅書",rarity:"epic",desc:"名だたる英傑一人が、召しに応じて志願所に姿を現す(運任せだった英傑との出会いを手繰り寄せ、英傑図鑑の収集を後押しする逸品)。",effect:()=>{S.volunteers=S.volunteers||[];if(S.volunteers.length>=8){const g=ri(80,120);apply({gold:g});chron(`志願所は既に満杯で英傑を迎える席がなく、勅書は使者への支度金${g}に代わった。`,"");return;}const fig=(typeof pickAvailableGreat==="function")?pickAvailableGreat():null;if(!fig){const g=ri(80,120);apply({gold:g});chron(`世に名だたる英傑はもはや残らず(あるいは既に招致済み)、勅書は名誉の下賜金${g}に代わった。`,"");return;}S.volunteers.push(makeGreatVolunteer(fig));S.flags=S.flags||{};S.flags.greatsSeen=S.flags.greatsSeen||{};const greatWasNew=!S.flags.greatsSeen[fig.id]&&!((S.flags.greatsHired||{})[fig.id]);S.flags.greatsSeen[fig.id]=true;const _gDone=Object.keys(Object.assign({},S.flags.greatsSeen,S.flags.greatsHired||{})).length,_gTotal=GREAT_FIGURES.length;chron(`英傑招致の勅書が発せられ、かの「${fig.title}」${fig.nm}が召しに応じて志願所に姿を現した。${greatWasNew?`――英傑図鑑にまた一人、その名が刻まれた(${_gDone}/${_gTotal})。`:""}`,"big");}},
+ {key:"great_summons",name:"英傑招致の勅書",rarity:"epic",desc:"名だたる英傑一人が、召しに応じて志願所に姿を現す(運任せだった英傑との出会いを手繰り寄せ、英傑図鑑の収集を後押しする逸品)。",effect:()=>{S.volunteers=S.volunteers||[];if(S.volunteers.length>=8){const g=ri(80,120);apply({gold:g});chron(`志願所は既に満杯で英傑を迎える席がなく、勅書は使者への支度金${g}に代わった。`,"");return;}const fig=(typeof pickAvailableGreat==="function")?pickAvailableGreat():null;if(!fig){const g=ri(80,120);apply({gold:g});chron(`世に名だたる英傑はもはや残らず(あるいは既に招致済み)、勅書は名誉の下賜金${g}に代わった。`,"");return;}S.volunteers.push(makeGreatVolunteer(fig));S.flags=S.flags||{};S.flags.greatsSeen=S.flags.greatsSeen||{};const greatWasNew=!S.flags.greatsSeen[fig.id]&&!((S.flags.greatsHired||{})[fig.id]);S.flags.greatsSeen[fig.id]=true;const _gDone=Object.keys(Object.assign({},S.flags.greatsSeen,S.flags.greatsHired||{})).length,_gTotal=GREAT_FIGURES.length;chron(`英傑招致の勅書が発せられ、かの「${fig.title}」${fig.nm}が召しに応じて志願所に姿を現した。${greatWasNew?`――英傑図鑑にまた一人、その名が刻まれた(${_gDone}/${_gTotal})。`:""}`,"big");if(greatWasNew&&typeof checkGreatCodexMilestone==="function")checkGreatCodexMilestone();}},
  {key:"honored_retirement",name:"名誉の隠居状",rarity:"uncommon",desc:"選んだ現役の兵を、名誉ある隠居として指南役に転じさせる。第一線は退くが、その豊富な経験で若手の訓練を永く支える(現役には戻れない)。惜しい古参を、失う前に次代の師とするための一品。",needsTarget:true,effect:(targetId)=>{const u=findAnyUnit(targetId);if(!u)return;if(u.role==="instructor"){chron(`${u.nm}は既に指南役だ。隠居状は静かにしまわれた。`,"");return;}if(typeof retireUnit==="function")retireUnit(u,true);}},
  // ── エピック追加 ──
  {key:"twin_dragon_scale",name:"双竜の鱗",rarity:"epic",desc:"軍事・魔導が大きく上昇する。",effect:()=>apply({st:{military:9,magic:9},log:"双竜の鱗が放つ力が、軍と魔導塔の双方に満ちた。"})},
