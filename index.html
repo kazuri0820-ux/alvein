@@ -7730,6 +7730,14 @@ const RANDOM_CHOICE=[
    {label:"知行を下賜し、根を張らせる",hint:"国庫↓↓ その古参が知行持ちに(忠義が揺るがず・所領の禄)",fx:{call:()=>{const cands=S.units.filter(u=>u.role==="active"&&typeof canGrantFief==="function"&&canGrantFief(u));if(!cands.length){apply({log:"いま知行を与えるにふさわしい古参はおらず、この話は流れた。"});return;}const u=cands.slice().sort((a,b)=>((b.dungeonClearCount||0)+(b.lv||0))-((a.dungeonClearCount||0)+(a.lv||0)))[0];if(typeof grantFief==="function")grantFief(u.id);}}},
    {label:"手元に置き、将として使い続ける",hint:"軍事↑(将才を前線で活かす)",fx:{st:{military:1},call:()=>{const cands=S.units.filter(u=>u.role==="active"&&typeof canGrantFief==="function"&&canGrantFief(u));if(!cands.length){apply({log:"知行の相談に上る古参もおらず、話は流れた。"});return;}const u=cands[Math.floor(Math.random()*cands.length)];if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+3);u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,"知行の誉れは後日にと、なお第一線で将として腕を振るうことを選んだ。");chron(`長は${fullName(u)}をなお手元に留め、将としての働きを望んだ。「まだ働けます」と、その古参は頼もしく頷いている。`,"people");}}},
   ]},
+ /* ── 任地に根づく兵(土地との絆を尊ぶか本分を引き締めるか) ── */
+ {tag:"任 地",title:"任地に根づく兵",
+  body:"駐屯や護衛の任に就いている兵の一人が、その土地の人々にすっかり慕われ、頼りにされているという。本人もまた、守るべき人々の顔が見える日々に、静かなやりがいを見出しているようだ。この縁を尊んで任地に留めるか、武人の本分を思い出させるか。",
+  speaker:"ガレオン「守るべき者の顔が見える務めは、兵に確かなやりがいを与えましょう。……なれど、その腕を前線で欲する声もございます」",
+  choices:[
+   {label:"縁を尊び、任地との絆を深めさせる",hint:"民心↑ その兵の忠誠と士気↑(守るやりがい)",fx:{mood:1,call:()=>{const c=S.units.filter(u=>u.role==="active"&&typeof unitDutyType==="function"&&unitDutyType(u));if(!c.length){apply({log:"いま任地に就く兵はおらず、この話は流れた。"});return;}const u=c[Math.floor(Math.random()*c.length)];if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);u.moral=Math.min(100,(u.moral||0)+6);unitHistory(u,"任地の人々に慕われ、守るべき者の顔が見える日々に確かなやりがいを見出した。");chron(`${fullName(u)}は任地の人々にいっそう深く根づいた。「この人たちを守るのが、私の務めです」――その言葉には、静かな誇りが満ちている。`,"people");}}},
+   {label:"武人の本分を思い出させる",hint:"軍事↑ その兵は戦士としての気概を引き締める",fx:{st:{military:1},call:()=>{const c=S.units.filter(u=>u.role==="active"&&typeof unitDutyType==="function"&&unitDutyType(u));if(!c.length){apply({log:"引き締めるべき任地の兵もおらず、話は流れた。"});return;}const u=c[Math.floor(Math.random()*c.length)];u.moral=Math.min(100,(u.moral||0)+4);unitHistory(u,"土地への情に流されず、武人の本分は戦場にありと己を引き締めた。");chron(`長は${fullName(u)}に「そなたの本分は戦場にある」と諭した。任地の情を胸に仕舞い、その兵は武人としての気概をいっそう引き締めている。`,"people");}}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
