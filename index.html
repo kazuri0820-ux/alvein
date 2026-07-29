@@ -10846,6 +10846,14 @@ const ITEMS=[
    unitHistory(u,`長より賜った鏨で、相棒の得物に「${mei}」の銘を刻んだ。`);
    chron(`${fullName(u)}の得物に、固有の銘「${mei}」が刻まれた。幾多の死線を共にした一振りが、名を持つ生涯の相棒となった。`,"big");
  }},
+ {key:"beast_whistle",name:"獣を招く笛",rarity:"rare",desc:"選んだ兵のもとに迷宮の獣が一頭懐き、生涯の相棒となる(既に相棒獣を連れた兵は対象外。相棒獣の絆と収集を後押し)。",needsTarget:true,effect:(targetId)=>{
+   const u=findAnyUnit(targetId);if(!u)return;
+   if(u.beast){const k=(typeof beastKindOf==="function")?beastKindOf(u):null;chron(`${u.nm}には既に相棒の${k?k.nm:"獣"}「${u.beast.nm}」がいる。笛はそっと仕舞い直された。`,"");return;}
+   const b=assignBeast(u);const k=beastKind(b.kind);
+   if(typeof grantTitle==="function")grantTitle(u,"t_beastfriend");
+   unitHistory(u,`笛の音に誘われた${k?k.nm:"獣"}「${b.nm}」が懐き、生涯の相棒となった。`);
+   chron(`${fullName(u)}のもとに、笛の音に誘われた${k?k.nm:"獣"}「${b.nm}」が現れ、深く懐いた。${k?`以後、${k.desc}。`:""}――かけがえのない相棒となるだろう。`,"big");
+ }},
  {key:"intensive_drill",name:"特訓の書",rarity:"rare",desc:"選んだ兵を集中的に鍛える。経験値が大きく伸び、稀に技を会得する(疲労が溜まる)。",needsTarget:true,effect:(targetId)=>{
    const u=findAnyUnit(targetId);if(!u)return;
    const before=u.lv;
