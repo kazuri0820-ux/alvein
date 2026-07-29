@@ -11004,6 +11004,18 @@ const ITEMS=[
    if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}
    chron(`竜を誘う香を焚くと、天がにわかに翳り――伝説の「古龍」${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」が姿を現した。竜殺しの誉れを掴む好機だ。`,"big");
  }},
+ {key:"king_lure",name:"王を狩る狼煙",rarity:"epic",desc:"天高く狼煙を上げ、いまだ討ち取っていない個性ある「王」を狙って呼び寄せる。討王図鑑の収集と、王ごとの褒賞を手繰り寄せる逸品(未討伐の王が優先的に現れる)。",effect:()=>{
+   const slain=(S.flags&&S.flags.bossKings)||{};
+   const remaining=(typeof BOSS_TRAIT_KEYS!=="undefined")?BOSS_TRAIT_KEYS.filter(k=>!slain[k]):[];
+   const pool=remaining.length?remaining:((typeof BOSS_TRAIT_KEYS!=="undefined")?BOSS_TRAIT_KEYS:[]);
+   const nd=generateDungeon();
+   if(pool.length){nd.bossTrait=pool[Math.floor(Math.random()*pool.length)];nd.condition=null;}
+   S.availableDungeons=S.availableDungeons||[];
+   S.availableDungeons.push(nd);
+   if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}
+   const lbl=(nd.bossTrait&&typeof BOSS_TRAITS!=="undefined"&&BOSS_TRAITS[nd.bossTrait])?BOSS_TRAITS[nd.bossTrait].label:"強敵";
+   chron(`王を狩る狼煙を高々と上げると、その煙に誘われ――${remaining.length?"いまだ討たぬ":""}「${lbl}」${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」が姿を現した。討王図鑑を進める好機だ。`,"big");
+ }},
  // ── アンコモン ──
  {key:"coin_pouch",name:"重い金貨袋",rarity:"uncommon",desc:"国庫がまとまって潤う。",effect:()=>apply({gold:ri(60,110),log:"金貨袋の中身が国庫に納められた。"})},
  {key:"recruit_notice",name:"募兵の触れ",rarity:"uncommon",desc:"国中に募兵の触れを出し、新たな志願者を数名呼び寄せる(志願一覧に加わる)。",effect:()=>{
