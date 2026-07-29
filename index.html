@@ -13375,6 +13375,8 @@ function buildRetireEvent(uid){
 const UNIQUE_JOBS=[
  {key:"protagonist",name:"主人公",nickname:"主人公",
   check:(u)=>u.founder||((u.totalExpEarned||0)>0&&S.units.every(o=>o.id===u.id||(o.totalExpEarned||0)<=(u.totalExpEarned||0)))},
+ {key:"bloodline_heir",name:"血脈を継ぐ者",nickname:"血脈を継ぐ者",
+  check:(u)=>!!u.lineage}, // 亡き英傑の血を継ぎ、その遺志と器量を受け継いで自らも英雄格へ昇った者(血脈=legacyの成就)。稀有な出自ゆえ汎用の頂点判定より優先
  {key:"aegis_god",name:"守護神",nickname:"不落の守護神",
   check:(u)=>(u.guardianSaveCount||0)>=3}, // 我が身を挺して幾度も戦友の命を救い抜いた、部隊の絶対の盾(守護を極める道)
  {key:"type_sovereign",name:"万流を極めし者",nickname:"万流を極めし者",
