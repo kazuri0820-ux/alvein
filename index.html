@@ -7668,6 +7668,13 @@ const RANDOM_CHOICE=[
    {label:"違いを面白がり、皆で認め合わせる",hint:"全兵の士気↑ 民心↑(多様さは強さ)",fx:{mood:1,call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.moral=Math.min(100,(u.moral||0)+ri(2,3));const out=act[Math.floor(Math.random()*act.length)];if(out){if(out.loyalty!=null)out.loyalty=Math.min(100,out.loyalty+5);unitHistory(out,"異郷の出自を戦友たちに面白がられ、笑いのうちに隊の一員として受け入れられた。");}chron("異郷の兵の珍しい訛りや風習は、やがて陣中の笑いの種となり、そして誇りとなった。異なる出自の者が肩を並べる隊は、いっそう懐深く、強い。","big");}}},
    {label:"隊は一つと厳しく諭す",hint:"治安↑(規律で束ねる)",fx:{st:{order:1},log:"長は「陣中に生国の別なし」と厳しく諭した。私語は収まり、兵たちは一つの隊として黙々と務めに戻っている。"}},
   ]},
+ /* ── 篝火を囲む夜(絆を温めるか英気を養うか) ── */
+ {tag:"篝 火",title:"篝火を囲む夜",
+  body:"戦を明日に控えた夜、兵たちは篝火を囲み、めいめいの故郷や、いつか叶えたい夢を静かに語り合っているという。長も車座に加わって語らいに耳を傾けるか、英気を養えと早めに休ませるか。",
+  choices:[
+   {label:"車座に加わり、皆の夢に耳を傾ける",hint:"全兵の士気↑(絆と誇り)",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"篝火を囲む兵がおらず、この話は流れた。"});return;}for(const u of act)u.moral=Math.min(100,(u.moral||0)+ri(3,5));const u=act[Math.floor(Math.random()*act.length)];if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+4);unitHistory(u,"篝火の夜、長に己の夢を語り、深く心を通わせた。");chron("長も車座に加わり、兵たちの語る故郷と夢に耳を傾けた。火を分かち合って交わした言葉は、明日への確かな力となっている。","big");}}},
+   {label:"英気を養えと、早めに休ませる",hint:"全兵の疲労が和らぐ / 治安↑",fx:{st:{order:1},call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.fatigue=Math.max(0,(u.fatigue||0)-ri(6,12));chron("長は「明日に備えよ」と兵たちを早めに休ませた。十分な眠りを得た兵たちは、翌朝、澄んだ目で戦場に臨むだろう。","big");}}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
