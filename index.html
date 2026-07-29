@@ -7698,6 +7698,14 @@ const RANDOM_CHOICE=[
    {label:"先駆けを任せ、意気に報いる",hint:"その兵に英気充溢(次の出撃で戦力↑)・士気と忠誠↑",fx:{call:()=>{const c=S.units.filter(u=>u.role==="active"&&!u.injured);if(!c.length){apply({log:"先駆けを願う兵はおらず、この話は流れた。"});return;}const u=c.slice().sort((a,b)=>((b.moral||0)-(a.moral||0)))[0];u.vigor=true;u.restDays=0;u.moral=Math.min(100,(u.moral||0)+8);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+6);unitHistory(u,"みずから先駆けを願い出て許され、次の戦へ英気を燃やした。");chron(`${fullName(u)}に先駆けの大役が許された。全身に英気を漲らせたその面持ちは、次の出撃で人一倍の力を振るうだろう。`,"people");}}},
    {label:"はやる心を鎮め、力を蓄えさせる",hint:"治安↑(逸りを抑え備えを固める)",fx:{st:{order:1},call:()=>{const c=S.units.filter(u=>u.role==="active"&&!u.injured);if(!c.length){apply({log:"逸る兵もおらず、話は流れた。"});return;}const u=c[Math.floor(Math.random()*c.length)];u.moral=Math.min(100,(u.moral||0)+2);unitHistory(u,"はやる心を長に諭され、いまは力を蓄えることに専念した。");chron(`長は${fullName(u)}の逸る心を静かに諭した。蓄えた力は、いざという時に爆ぜるだろう。`,"");}}},
   ]},
+ /* ── 相棒獣の手柄(公に讃えて絆を深めるか静かに労うか) ── */
+ {tag:"相 棒",title:"相棒獣の手柄",
+  body:"先の遠征で、ある兵の相棒獣が目覚ましい働きを見せ、危ういところを隊を救ったという。この手柄を皆の前で大いに讃え、相棒との絆をいっそう深めさせるか、出過ぎた誉れは無用と静かに労うにとどめるか。",
+  speaker:"ガレオン「獣とて、命を賭して仲間を守ったのです。その働き、軽んじてはなりますまい」",
+  choices:[
+   {label:"皆の前で大いに讃える",hint:"相棒獣を連れた兵の士気と忠誠↑(絆が深まる)",fx:{mood:1,call:()=>{const c=S.units.filter(u=>u.role==="active"&&u.beast);if(!c.length){apply({log:"此度、手柄を立てた相棒獣はおらず、この話は流れた。"});return;}const u=c[Math.floor(Math.random()*c.length)];const k=(typeof beastKind==="function")?beastKind(u.beast.kind):null;u.moral=Math.min(100,(u.moral||0)+8);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+6);unitHistory(u,`相棒${k?k.nm:"獣"}「${u.beast.nm}」の手柄が皆の前で讃えられ、二人の絆はいっそう深まった。`);chron(`${fullName(u)}の相棒${k?k.nm:"獣"}「${u.beast.nm}」の働きが、皆の前で高らかに讃えられた。誇らしげに主へ寄り添うその姿に、兵たちは目を細めている。`,"people");}}},
+   {label:"出過ぎた誉れは無用と静かに労う",hint:"治安↑(実を旨とする)",fx:{st:{order:1},call:()=>{const c=S.units.filter(u=>u.role==="active"&&u.beast);if(!c.length){apply({log:"労うべき相棒獣もおらず、話は流れた。"});return;}const u=c[Math.floor(Math.random()*c.length)];const k=(typeof beastKind==="function")?beastKind(u.beast.kind):null;u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,`相棒${k?k.nm:"獣"}「${u.beast.nm}」の働きを、長が静かに労った。`);chron(`長は${fullName(u)}の相棒の手柄を、大仰にせず静かに労った。飾らぬその労いに、兵と獣は黙って寄り添っている。`,"");}}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
