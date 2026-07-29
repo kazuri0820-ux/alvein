@@ -10844,6 +10844,19 @@ const ITEMS=[
    unitHistory(a,`契りの杯を交わし、${b.nm}と戦友となった。`);unitHistory(b,`契りの杯を交わし、${a.nm}と戦友となった。`);
    chron(`${a.nm}と${b.nm}が契りの杯を交わし、戦友となった。末永く背中を預け合うだろう。`,"big");
  }},
+ {key:"reconcile_cup",name:"手打ちの盃",rarity:"rare",desc:"選んだ兵と、確執を抱える相手との遺恨を解く。長年のわだかまりが消え、時には固い絆が芽生えることも(確執のある兵に)。",needsTarget:true,effect:(targetId)=>{
+   const u=findAnyUnit(targetId);if(!u)return;
+   if(!u.discordWith){chron(`${u.nm}には確執の相手がおらず、盃は静かに仕舞い直された。`,"");return;}
+   const o=S.units.find(x=>x.id===u.discordWith);
+   if(!o){u.discordWith=null;chron(`${u.nm}の遺恨は相手を欠き、行き場をなくして消えた。`,"");return;}
+   u.discordWith=null;o.discordWith=null;
+   let bonded=false;
+   if(!u.bondWith&&!o.bondWith&&typeof forgeSquadBond==="function"&&Math.random()<0.5)bonded=forgeSquadBond([u,o],"手打ちの末の和解");
+   if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+5);
+   if(o.loyalty!=null)o.loyalty=Math.min(100,o.loyalty+5);
+   unitHistory(u,`長の計らいで${o.nm}と手打ちの盃を交わし、長年の遺恨を解いた。`);
+   chron(bonded?`${fullName(u)}と${fullName(o)}は手打ちの盃を交わし、いつしか遺恨は固い絆へと変わった。`:`${fullName(u)}と${fullName(o)}は長の計らいで手打ちの盃を交わし、長年の確執に終止符を打った。`,"big");
+ }},
  {key:"treasure_map",name:"宝の古地図",rarity:"rare",desc:"レア以上のダンジョンの在り処が一つ判明する。",effect:()=>{
    const d=generateDungeon();
    if(d.rarity.key==="common"){
