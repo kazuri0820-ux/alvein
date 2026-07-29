@@ -9573,6 +9573,16 @@ const UNIQUE_EVENTS=[
   build:()=>({tag:"固 有",title:"多彩な軍勢",
    body:"実に多くの流儀を持つ者たちが、この王国には集うようになった。もはや、どんな任務・ダンジョンにも対応できる陣容だと、ガレオンが誇らしげに語る。",
    choices:[{label:"多様性を誇る布告を出す",hint:"外交+3",fx:{st:{diplomacy:3},flag:{uq_allSixRoutesTypes:true},log:"王国の多彩な陣容を誇る布告が出された。諸国からの評判も上々のようだ。",logCls:"big"}}]})},
+ {key:"greatsRoundTable", // 英傑を三柱以上召し抱えた折の一度きりの祝祭的選択=登用のやりがいに物語の報酬を足す(意味ある三択)
+  cond:()=>{const h=Object.keys((S.flags&&S.flags.greatsHired)||{}).length;return h>=3&&!(S.flags&&S.flags.uq_greatsRoundTable);},
+  build:()=>({tag:"英 傑",title:"英傑たちの円卓",
+   body:"歴史に名を刻む英傑たちが、いつしか幾人もこの王国に集っていた。彼らが一堂に会する円卓の席を設けよと、家臣が進言している。伝説の者たちが膝を突き合わせれば、いったい何が生まれるだろうか。",
+   speaker:"ガレオン「英傑どうしが轡を並べる――考えるだけで胸が高鳴りますな。彼らに、何を託しましょうか」",
+   choices:[
+    {label:"軍議を開き、兵法を語らせよ",hint:"軍事↑ 民心↑",fx:{st:{military:4},mood:5,flag:{uq_greatsRoundTable:true},log:"英傑たちの円卓で兵法談義が交わされ、その知の粋が王国軍に注がれた。伝説の将に学ぶ幸運を、兵たちは噛みしめている。",logCls:"big"}},
+    {label:"民の前に立たせ、その威徳を示せ",hint:"外交↑ 民心↑↑",fx:{st:{diplomacy:4},mood:7,flag:{uq_greatsRoundTable:true},log:"英傑たちが城下に姿を見せると、民は熱狂した。伝説の者たちを擁する王国の名は、諸国にいっそう轟いている。",logCls:"big"}},
+    {label:"酒宴を開き、ただ語らいを楽しませよ",hint:"民心↑↑ 国庫↓",fx:{gold:-60,mood:9,flag:{uq_greatsRoundTable:true},log:"英傑たちを囲む盛大な酒宴が催された。歴史の生き証人たちが交わす武勇伝に、宴は夜通し尽きることがなかった。",logCls:"big"}},
+   ]})},
 ];
 function checkUniqueEvents(){
   for(const ue of UNIQUE_EVENTS){
