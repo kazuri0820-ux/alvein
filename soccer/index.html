@@ -306,6 +306,13 @@ function awardMatchXP(res,homeC,awayC){
     let mult=motiv; if(personaOf(p.id).id==='ambition')mult*=1.15;   // 野心家はXP+15%
     xp=Math.round(xp*mult);
     if(gainXP(p.id,xp)>0)ups.push({name:p.name,lvl:prog(p.id).lvl});
+    // マッチレーティング（5.0〜10.0）
+    let r=6.4+(goalsBy[p.id]||0)*1.0+(assistsBy[p.id]||0)*0.6;
+    if((p.grp==='GK'||p.grp==='DEF')&&oppScore===0)r+=0.6;
+    r+= result==='W'?0.4:result==='L'?-0.4:0;
+    r+= formOf(p.id)*0.1;
+    r=Math.max(5.0,Math.min(10.0,r));
+    const ps=pstat(p.id); ps.apps++; ps.rsum+=r;
   });
   if(oppScore===0)state.cs=(state.cs||0)+1;   // クリーンシート集計
   // コンディション: 全員+30回復、先発は-40消耗（差引: 先発 純-10 / 控え +30）
@@ -719,7 +726,7 @@ function newGame(clubId){
     lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho',
     mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60,pendingEvent:null,form:{},
     cash:120,signings:[],market:MARKET_RAW.map(makeMarketPlayer),
-    eventQueue:[],winStreak:0,lossStreak:0};
+    eventQueue:[],winStreak:0,lossStreak:0,pstats:{}};
   save();
 }
 
@@ -736,6 +743,9 @@ function statEntry(s){
 }
 function addGoals(scorers){(scorers||[]).forEach(s=>{statEntry(s).goals++;});}
 function addAssists(assists){(assists||[]).forEach(s=>{statEntry(s).assists++;});}
+// 出場数・マッチレーティング（採点）
+function pstat(id){if(!state.pstats)state.pstats={};if(!state.pstats[id])state.pstats[id]={apps:0,rsum:0};return state.pstats[id];}
+function avgRating(id){const s=state.pstats&&state.pstats[id];return s&&s.apps?s.rsum/s.apps:0;}
 function finalizeRound(r,playerResult){
   const rd=state.fixtures[r];
   rd.forEach(m=>{
@@ -961,6 +971,8 @@ function viewPlayerDetail(){
     <div class="kpi">
       <div class="k"><div class="v">${sc.goals||0}</div><div class="l">ゴール</div></div>
       <div class="k"><div class="v">${sc.assists||0}</div><div class="l">アシスト</div></div>
+      <div class="k"><div class="v">${(state.pstats&&state.pstats[base.id]?state.pstats[base.id].apps:0)}</div><div class="l">出場</div></div>
+      <div class="k"><div class="v" style="color:var(--warn)">${avgRating(base.id)?avgRating(base.id).toFixed(1):'-'}</div><div class="l">平均点</div></div>
     </div>
   </div>
   <div class="card"><h2>特性</h2>${abilHtml}</div>
@@ -1472,9 +1484,26 @@ function viewFixtures(){
 
 let rankSort='goals';
 function viewRanking(){
-  const all=Object.values(state.scorers||{});
-  if(all.length===0)return `<div class="card"><h2>ランキング</h2><p class="muted">まだ記録がありません。試合を進めましょう。</p></div>`;
   const key=rankSort;
+  const tab=(k,l)=>`<button class="btn ${rankSort===k?'':'sec'}" data-rank="${k}" style="padding:6px 14px">${l}</button>`;
+  const tabs=`<div class="row" style="margin-bottom:10px">${tab('goals','得点王')}${tab('assists','アシスト王')}${tab('rating','平均点')}</div>`;
+  const head=`<div class="card"><h2>ランキング <span class="muted" style="font-weight:400;font-size:12px">（シーズン${state.season}）</span></h2>${tabs}`;
+  if(key==='rating'){
+    const arr=Object.keys(state.pstats||{}).map(id=>({id,apps:state.pstats[id].apps,avg:avgRating(id)}))
+      .filter(x=>x.apps>=3).sort((a,b)=>b.avg-a.avg).slice(0,20);
+    if(!arr.length)return head+`<p class="muted">3試合以上出場した選手の平均点が表示されます。試合を進めましょう。</p></div>`;
+    const c=clubById(state.clubId);
+    const rows=arr.map((x,i)=>{const p=PLAYERS[x.id];return `<tr class="me"><td>${i+1}</td>
+      <td class="name">${p?p.name:x.id}</td>
+      <td class="name"><span class="badge" style="background:${c.color}"></span>${c.short}</td>
+      <td>${x.apps}</td><td class="ov" style="color:var(--warn)">${x.avg.toFixed(2)}</td></tr>`;}).join('');
+    return head+`<p class="muted" style="font-size:11px">自チームの選手が対象（3試合以上）</p>
+      <div style="overflow-x:auto"><table>
+      <tr><th>#</th><th class="name">選手</th><th class="name">クラブ</th><th>出場</th><th>平均点</th></tr>
+      ${rows}</table></div></div>`;
+  }
+  const all=Object.values(state.scorers||{});
+  if(all.length===0)return head+`<p class="muted">まだ記録がありません。試合を進めましょう。</p></div>`;
   const arr=all.map(s=>({...s,assists:s.assists||0}))
     .sort((a,b)=>b[key]-a[key]||b.goals-a.goals||b.assists-a.assists).slice(0,20);
   const rows=arr.map((s,i)=>{
@@ -1485,10 +1514,7 @@ function viewRanking(){
       <td class="${key==='goals'?'ov':''}">${s.goals}</td>
       <td class="${key==='assists'?'ov':''}">${s.assists}</td></tr>`;
   }).join('');
-  const tab=(k,l)=>`<button class="btn ${rankSort===k?'':'sec'}" data-rank="${k}" style="padding:6px 14px">${l}</button>`;
-  return `<div class="card"><h2>ランキング <span class="muted" style="font-weight:400;font-size:12px">（シーズン${state.season}）</span></h2>
-    <div class="row" style="margin-bottom:10px">${tab('goals','得点王')}${tab('assists','アシスト王')}</div>
-    <div style="overflow-x:auto"><table>
+  return head+`<div style="overflow-x:auto"><table>
     <tr><th>#</th><th class="name">選手</th><th class="name">クラブ</th><th>G</th><th>A</th></tr>
     ${rows}</table></div></div>`;
 }
@@ -1502,7 +1528,7 @@ function nextSeason(){
   state.season++; state.round=0;
   state.fixtures=genFixtures(CLUBS.map(c=>c.id));
   state.table=emptyTable();
-  state.scorers={};
+  state.scorers={}; state.pstats={};
   state.quests={}; state.cs=0;   // シーズン目標をリセット
   save(); go('dashboard');
 }
@@ -1522,6 +1548,7 @@ if(state&&state.cash===undefined)state.cash=120;
 if(state&&!state.signings)state.signings=[];
 if(state&&!state.market)state.market=MARKET_RAW.map(makeMarketPlayer);
 if(state&&!state.eventQueue)state.eventQueue=[];
+if(state&&!state.pstats)state.pstats={};
 registerSignings();
 render();
 </script>
