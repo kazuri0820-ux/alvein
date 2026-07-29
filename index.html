@@ -7631,6 +7631,14 @@ const RANDOM_CHOICE=[
    {label:"共に敗因を検分し、糧とさせる",hint:"治安↑ その兵の知力↑(雪辱を糧に成長)",fx:{st:{order:1},call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"検分すべき兵がおらず、この話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];const inc=ri(1,3);u.wis=(u.wis||0)+inc;u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,"苦い敗北を一つひとつ検分し、雪辱を糧に一回り成長した。");chron(`${fullName(u)}は長と共に敗因をつぶさに検分し、同じ轍を踏むまいと心に刻んだ。知力が+${inc}。悔しさは、確かな糧へと変わっている。`,"people");}}},
    {label:"温かく慰め、前を向かせる",hint:"その兵の士気と忠誠↑",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"慰めるべき兵もおらず、話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+8);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+6);unitHistory(u,"長の温かな言葉に救われ、うなだれた顔を再び前へ上げた。");chron(`長は${fullName(u)}の肩を叩き、「一度の負けが兵を決めるのではない」と励ました。うつむいていた兵の目に、再び光が戻っている。`,"people");}}},
   ]},
+ /* ── 兵に家紋を許す(生涯の誇りを与えるか質実を貫くか) ── */
+ {tag:"誉 れ",title:"兵に家紋を許す",
+  body:"武功を重ねた一兵卒が、いまや一家を成すに足る働きを見せている。この者に独自の家紋を帯びることを許し、末代までの誉れとするか、質実を旨として今しばらく武功で語らせるか。",
+  speaker:"ガレオン「己の紋を掲げることは、兵にとって何よりの誉れにございます」",
+  choices:[
+   {label:"家紋を許し、末代までの誉れとする",hint:"民心↑ 功なる兵の忠誠と士気↑(生涯の誇り)",fx:{mood:1,call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"家紋を許すべき兵がおらず、この話は流れた。"});return;}const u=act.slice().sort((a,b)=>((b.lv||0)-(a.lv||0)))[0];if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+10);u.moral=Math.min(100,(u.moral||0)+6);unitHistory(u,"長より独自の家紋を帯びることを許され、一家の誉れを背負う身となった。");chron(`${fullName(u)}に独自の家紋が許された。掲げた紋を仰ぐその面持ちには、末代までの誉れを担う静かな誇りが宿っている。`,"people");}}},
+   {label:"質実を旨とし、いまは武功で語らせる",hint:"治安↑(質実剛健)",fx:{st:{order:1},log:"華美な誉れは後日にと、長は質実を旨とした。飾らぬその姿勢が、かえって兵たちの信を厚くしている。"}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
