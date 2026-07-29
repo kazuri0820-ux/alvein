@@ -13400,7 +13400,8 @@ function buildHeroEvent(uid){
   if(!u)return null;
   const j=jobFor(u.cls,u.lv,u.route);
   const uniqueDef=u.uniqueJob?UNIQUE_JOBS.find(d=>d.key===u.uniqueJob):null;
-  const uniqueBody=uniqueDef?`\n\n――否、それだけではない。${u.nm}の歩みは、もはや${JOB_TREES[u.cls].label}の域すら超えている。人々はその者をこう呼び始めた――《${uniqueDef.nickname}》と。`:"";
+  const _ujDone=Object.keys((S.flags&&S.flags.uniqueJobsSeen)||{}).length, _ujTotal=(typeof UNIQUE_JOBS!=="undefined")?UNIQUE_JOBS.length:0;
+  const uniqueBody=uniqueDef?`\n\n――否、それだけではない。${u.nm}の歩みは、もはや${JOB_TREES[u.cls].label}の域すら超えている。人々はその者をこう呼び始めた――《${uniqueDef.nickname}》と。${_ujTotal?`(二つ名図鑑 ${_ujDone}/${_ujTotal})`:""}`:"";
   return{tag:"栄 誉",title:uniqueDef?`${u.nm}、《${uniqueDef.nickname}》の域へ`:`${u.nm}、${j.name}の域へ`,
    body:`${u.nm}が、ついに${JOB_TREES[u.cls].label}の頂――「${j.name}」と呼ぶべき域に達した。もはや一介の兵ではない。二つ名を授けるべきだ、と大臣たちが口を揃える。${uniqueBody}`,
    speaker:"ガレオン「かような者は、そう多くは出ません。しかるべき栄誉を」",
