@@ -7584,6 +7584,21 @@ const RANDOM_CHOICE=[
    {label:"買い上げ、軍馬に迎える",hint:"国庫↓ 軍事↑",fx:{gold:-40,st:{military:3},log:"見事な軍馬が買い上げられ、騎馬隊に迎えられた。国庫は軽くなったが、軍の機動と威容は一段と増している。"}},
    {label:"値が張りすぎると、丁重に見送る",hint:"国庫を守る",fx:{log:"長は名馬を惜しみつつも、値が張りすぎると丁重に見送った。馬商人は残念そうに、次の街へと去っていった。"}},
   ]},
+ /* ── 賄い方の兵(食で結ぶ隊の絆) ── */
+ {tag:"賄 い",title:"鍋を振る兵",
+  body:"陣中の飯がこのところやたらと旨い。聞けば、一人の兵が余り物の食材でひと工夫を凝らしているという。この兵を賄い方に取り立てるか、あくまで戦士として鍛えるか。",
+  choices:[
+   {label:"賄い方に取り立て、皆の腹を満たさせる",hint:"兵糧を少し / 全兵の疲労が和らぎ士気↑ その兵の忠誠↑",fx:{food:-8,call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"取り立てるべき兵が見当たらず、この話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];for(const o of act){o.fatigue=Math.max(0,(o.fatigue||0)-ri(4,9));o.moral=Math.min(100,(o.moral||0)+ri(2,4));}if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+10);u.moral=Math.min(100,(u.moral||0)+6);unitHistory(u,"賄い方として鍋を振り、疲れた戦友たちの腹と心を満たした。");chron(`${fullName(u)}の温かい飯が陣中に湯気を立て、疲れきった兵たちの顔がほころんだ。同じ釜の飯を分かち合ううち、隊の絆はいっそう深まっている。`,"people");}}},
+   {label:"あくまで戦士として鍛える",hint:"軍事↑(本分を全う)",fx:{st:{military:1},log:"賄いは片手間とし、兵は本分の鍛錬に励んだ。腕は鈍らせぬが、あの旨い飯を惜しむ声も陣中には残っている。"}},
+  ]},
+ /* ── 文字を学びたい兵(成長と愛着) ── */
+ {tag:"手 習",title:"文字を学びたい兵",
+  body:"一人の兵が、意を決したように長へ願い出た。「戦のほかは何も知らぬ身。せめて文字を、覚えとうございます」。書記に学ばせるか、今は武を磨くべしと諭すか。",
+  speaker:"ガレオン「己を高めんとする志は、鍛錬に劣らぬ財にございます」",
+  choices:[
+   {label:"書記に付け、読み書きを学ばせる",hint:"治安↑ その兵の知力と忠誠↑",fx:{st:{order:1},call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"学びを志す兵が見当たらず、この話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];const inc=ri(2,4);u.wis=(u.wis||0)+inc;if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);u.moral=Math.min(100,(u.moral||0)+4);unitHistory(u,"書記に付いて文字を覚え、剣のほかに知る喜びを得た。");chron(`${fullName(u)}は夜ごと書記のもとに通い、たどたどしくも文字を綴れるようになった。知力が+${inc}。新たな世界を知った兵の目は、以前より澄んでいる。`,"people");}}},
+   {label:"今は武を磨くべしと諭す",hint:"その兵の疲労回復・武を志す",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"諭すべき兵もおらず、話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];u.fatigue=Math.max(0,(u.fatigue||0)-ri(8,14));u.moral=Math.min(100,(u.moral||0)+2);unitHistory(u,"まずは武を極めよとの言葉を胸に、いっそう鍛錬に励んだ。");chron(`${fullName(u)}は「文字はいつでも学べる。今は剣を」との言葉に深く頷き、稽古に打ち込んだ。その一途さもまた、得難い才である。`,"");}}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
