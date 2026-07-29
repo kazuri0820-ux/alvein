@@ -74,6 +74,9 @@
   .pitch .pbox.top{top:0;border-top:none}.pitch .pbox.bot{bottom:0;border-bottom:none}
   .ptoken{position:absolute;transform:translate(-50%,-50%);text-align:center;width:56px;cursor:pointer}
   .ptoken .pname{display:block;font-size:9px;color:#fff;text-shadow:0 1px 2px #000;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pitch.compact{max-width:300px}
+  .ptoken.pgoal .ava{animation:goalPulse 1s ease infinite;box-shadow:0 0 0 3px var(--gold),0 0 12px var(--gold)}
+  @keyframes goalPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.2)}}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
   .stats-line{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding:3px 0;border-bottom:1px solid var(--line)}
   .stats-line b{color:var(--txt)}
@@ -1020,7 +1023,8 @@ function viewTraining(){
     <div id="trainMsg" style="font-size:13px;margin-top:10px;min-height:20px"></div></div>`;
 }
 
-function pitchHTML(club){
+function pitchHTML(club,opts){
+  opts=opts||{};
   const sq=squadOf(club.id);
   const slots=FORMATIONS[state.tactics.formation];
   const lines={GK:[],DEF:[],MID:[],ATT:[]};
@@ -1030,12 +1034,13 @@ function pitchHTML(club){
   ['GK','DEF','MID','ATT'].forEach(g=>{
     const arr=lines[g], n=arr.length;
     arr.forEach((sqi,i)=>{
-      const p=sq[sqi]; if(!p)return; const e=eff(p); const x=(i+1)/(n+1)*100; const y=yMap[g];
+      const p=sq[sqi]; if(!p)return; const x=(i+1)/(n+1)*100; const y=yMap[g];
       const last=p.name.split(' ').pop();
-      tokens+=`<div class="ptoken" data-player="${p.id}" style="left:${x}%;top:${y}%">${avatar(p.name,club.color,34)}<span class="pname">${formInfo(p.id).e}${last}</span></div>`;
+      const hl=(opts.highlight&&opts.highlight===p.id)?' pgoal':'';
+      tokens+=`<div class="ptoken${hl}" data-player="${p.id}" style="left:${x}%;top:${y}%">${avatar(p.name,club.color,34)}<span class="pname">${formInfo(p.id).e}${last}</span></div>`;
     });
   });
-  return `<div class="pitch"><div class="pbox top"></div><div class="pbox bot"></div><div class="halfway"></div><div class="circle"></div>${tokens}</div>`;
+  return `<div class="pitch${opts.compact?' compact':''}"><div class="pbox top"></div><div class="pbox bot"></div><div class="halfway"></div><div class="circle"></div>${tokens}</div>`;
 }
 function viewTactics(){
   const club=clubById(state.clubId);
@@ -1158,7 +1163,7 @@ function startMatch(){
      rival,derby:rival?derbyName(state.clubId,opp.id):null,
      min:0,hs:0,as:0,log:[],scorers:[],assists:[],
      st:{home:{sh:0,sot:0},away:{sh:0,sot:0}},
-     momentum:50,keyLeft:3,halftimeDone:false,decision:null,over:false,fast:false};
+     momentum:50,keyLeft:3,halftimeDone:false,decision:null,over:false,fast:false,flashId:null};
   current='match'; setNav(); renderMatch();
   matchTimer=setTimeout(matchTick,700);
 }
@@ -1187,6 +1192,7 @@ function goalScored(side,sc,asst,text,big){
   M.scorers.push({side,id:sc.id,name:sc.name,clubId:cid});
   if(asst)M.assists.push({side,id:asst.id,name:asst.name,clubId:cid});
   M.st[side].sot++;
+  if(byPlayerSide(side))M.flashId=sc.id;   // 自軍得点者をピッチ上でハイライト
   pushLog(big?'big':'goal',text);
   mom(byPlayerSide(side)?16:-16);
 }
@@ -1306,6 +1312,7 @@ function renderMatch(){
     <div class="muted" style="font-size:11px;text-align:center;margin-top:4px">勢い ${homeC.short} ${homeFav} : ${100-homeFav} ${awayC.short}</div>
     </div>
     ${panel}
+    <div class="card"><h2 style="font-size:13px">自軍フォーメーション ${M.flashId?'<span style="color:var(--gold)">⚽ 得点！</span>':''}</h2>${pitchHTML(clubById(state.clubId),{compact:true,highlight:M.flashId})}</div>
     <div class="card"><div class="commentary">${logHtml||'<span class="muted">キックオフ！</span>'}</div></div>`;
   document.querySelectorAll('[data-km]').forEach(b=>b.onclick=()=>resolveKeyMoment(b.dataset.km));
   document.querySelectorAll('[data-tt]').forEach(b=>b.onclick=()=>teamTalk(b.dataset.tt));
