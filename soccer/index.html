@@ -205,15 +205,20 @@ function awardMatchXP(res,homeC,awayC){
   (res.scorers||[]).filter(s=>s.clubId===state.clubId).forEach(s=>goalsBy[s.id]=(goalsBy[s.id]||0)+1);
   (res.assists||[]).filter(s=>s.clubId===state.clubId).forEach(s=>assistsBy[s.id]=(assistsBy[s.id]||0)+1);
   const club=clubById(state.clubId); const ups=[];
+  const motiv=1+perkLv('motivator')*0.1;
   state.lineup.forEach(i=>{
     const p=club.squad[i]; let xp=40;
     xp+=(goalsBy[p.id]||0)*30; xp+=(assistsBy[p.id]||0)*20;
     xp+= result==='W'?25:result==='D'?10:0;
     if((p.grp==='GK'||p.grp==='DEF')&&oppScore===0)xp+=20;
+    xp=Math.round(xp*motiv);
     if(gainXP(p.id,xp)>0)ups.push({name:p.name,lvl:prog(p.id).lvl});
   });
+  // 監督XP（結果＋得点）
+  const mxp=(result==='W'?50:result==='D'?25:10)+myScore*5;
+  const mgrUps=gainMgrXP(mxp);
   save();
-  return ups;
+  return {players:ups,mgrUps,mgrLvl:mgr().lvl};
 }
 function teamAvgLevel(){
   const club=clubById(state.clubId);
@@ -243,10 +248,24 @@ function trainPlayer(id,stat){
   if(!state.tp||state.tp<=0)return null;   // TP切れ
   state.tp--;
   const g=prog(id); g.add[stat]=(g.add[stat]||0)+1; // 狙った能力+1（eff側で99上限）
-  const ups=gainXP(id,70);                 // 経験値も獲得
+  const ups=gainXP(id,Math.round(70*(1+perkLv('academy')*0.15))); // 育成環境パークでXP増
   save();
   return ups;                              // レベルアップ数
 }
+
+/* ---------- RPG: 監督のレベル・采配パーク ---------- */
+const MGR_PERKS=[
+  {id:'attackCoach', name:'攻撃指導',   icon:'⚔', max:5, desc:'試合の攻撃力 +1/Lv'},
+  {id:'midCoach',    name:'中盤掌握',   icon:'🎯', max:5, desc:'試合の中盤力 +1/Lv'},
+  {id:'defenseCoach',name:'守備規律',   icon:'🛡', max:5, desc:'試合の守備力 +1/Lv'},
+  {id:'academy',     name:'育成環境',   icon:'📈', max:5, desc:'トレーニング獲得XP +15%/Lv'},
+  {id:'motivator',   name:'モチベーター',icon:'🔥', max:5, desc:'試合で選手が得るXP +10%/Lv'},
+];
+function mgr(){if(!state.mgr)state.mgr={lvl:1,xp:0,points:0,perks:{}};if(!state.mgr.perks)state.mgr.perks={};return state.mgr;}
+function mgrXpNeed(lvl){return 150+(lvl-1)*80;}
+function perkLv(id){return mgr().perks[id]||0;}
+function gainMgrXP(amount){const m=mgr();m.xp+=amount;let ups=0;while(m.xp>=mgrXpNeed(m.lvl)){m.xp-=mgrXpNeed(m.lvl);m.lvl++;m.points++;ups++;}return ups;}
+function investPerk(id){const m=mgr();const d=MGR_PERKS.find(p=>p.id===id);if(!d||m.points<=0||(m.perks[id]||0)>=d.max)return false;m.perks[id]=(m.perks[id]||0)+1;m.points--;save();return true;}
 
 /* ---------- 3. フォーメーション & ベストXI ---------- */
 const FORMATIONS={
@@ -281,6 +300,8 @@ function strength(club,lineup,tac){
   let def=mean(defs)*.6+gk*.25+mean(mids)*.15;
   // 特殊能力ボーナス
   xi.forEach(p=>abilitiesOf(p).forEach(a=>{att+=a.b.att;mid+=a.b.mid;def+=a.b.def;}));
+  // 監督の采配パーク（自クラブのみ）
+  if(club.id===state.clubId){att+=perkLv('attackCoach');mid+=perkLv('midCoach');def+=perkLv('defenseCoach');}
   if(tac.style==='attack'){att*=1.10;def*=0.93;}
   else if(tac.style==='defend'){att*=0.92;def*=1.10;}
   if(tac.press==='high'){mid*=1.05;def*=0.97;}
@@ -389,7 +410,8 @@ function newGame(clubId){
   const club=clubById(clubId);
   state={season:1,round:0,clubId,fixtures:fx,table:emptyTable(),
     tactics:{formation:'4-3-3',style:'balanced',press:'mid',line:'mid'},
-    lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho'};
+    lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho',
+    mgr:{lvl:1,xp:0,points:0,perks:{}}};
   save();
 }
 
@@ -433,7 +455,7 @@ function finalizeRound(r,playerResult){
 const $=s=>document.querySelector(s);
 let current='dashboard';
 function setNav(){
-  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['fixtures','日程']];
+  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['manager','監督'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['fixtures','日程']];
   $('#nav').innerHTML=items.map(([k,l])=>`<button data-s="${k}" class="${k===current?'active':''}">${l}</button>`).join('');
   $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.s));
   $('#seasonPill').textContent=state?`シーズン ${state.season} ・ 第${Math.min(state.round+1,14)}節`:'';
@@ -446,6 +468,7 @@ function render(){
   if(current==='dashboard')el.innerHTML=viewDashboard();
   else if(current==='squad')el.innerHTML=viewSquad();
   else if(current==='training')el.innerHTML=viewTraining();
+  else if(current==='manager')el.innerHTML=viewManager();
   else if(current==='tactics'){el.innerHTML=viewTactics();bindTactics();}
   else if(current==='standings')el.innerHTML=viewStandings();
   else if(current==='ranking')el.innerHTML=viewRanking();
@@ -456,6 +479,7 @@ function bindCommon(){
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
   document.querySelectorAll('[data-rank]').forEach(b=>b.onclick=()=>{rankSort=b.dataset.rank;render();});
   document.querySelectorAll('[data-drill]').forEach(b=>b.onclick=()=>{state.trainFocus=b.dataset.drill;save();render();});
+  document.querySelectorAll('[data-perk]').forEach(b=>b.onclick=()=>{investPerk(b.dataset.perk);render();});
   document.querySelectorAll('[data-train]').forEach(b=>b.onclick=()=>{
     const cur=state.trainFocus||'sho';
     const p=PLAYERS[b.dataset.train]; const name=p?p.name:'';
@@ -523,7 +547,9 @@ function viewDashboard(){
         <div class="k"><div class="v">${rec.w}-${rec.d}-${rec.l}</div><div class="l">勝分敗</div></div>
         <div class="k"><div class="v">${rec.gf}:${rec.ga}</div><div class="l">得失点</div></div>
         <div class="k"><div class="v" style="color:var(--accent2)">${teamAvgLevel()}</div><div class="l">平均Lv</div></div>
+        <div class="k"><div class="v" style="color:var(--gold)">Lv.${mgr().lvl}</div><div class="l">監督</div></div>
       </div>
+      ${mgr().points>0?`<p style="color:var(--gold);font-size:12px;margin-top:10px;cursor:pointer" data-go="manager">💡 パークポイントが${mgr().points}あります → 監督タブで強化</p>`:''}
     </div>
     <div class="card"><h2>チーム力（現在の戦術）</h2>${statBars(s)}
       <p class="muted" style="font-size:12px;margin-top:8px">フォーメーション ${state.tactics.formation}・${styleLabel(state.tactics.style)}</p></div>
@@ -550,6 +576,29 @@ function viewSquad(){
     <tr><th class="name">選手</th><th>POS</th><th>Lv</th><th>OVR</th><th>PAC</th><th>SHO</th><th>PAS</th><th>DRI</th><th>DEF</th><th>PHY</th><th>XP</th></tr>
     ${rows}</table></div>
     <p class="muted" style="font-size:11px;margin-top:8px">特性: ${ABILITIES.map(a=>a.icon+a.name).join(' ・ ')}</p></div>`;
+}
+
+function viewManager(){
+  const m=mgr();
+  const pct=Math.round(m.xp/mgrXpNeed(m.lvl)*100);
+  const perks=MGR_PERKS.map(p=>{
+    const lv=perkLv(p.id); const maxed=lv>=p.max; const can=m.points>0&&!maxed;
+    const dots='●'.repeat(lv)+'○'.repeat(p.max-lv);
+    return `<div class="stats-line" style="align-items:center">
+      <span style="flex:1;text-align:left">${p.icon} <b>${p.name}</b> <span class="muted" style="font-size:11px">${p.desc}</span></span>
+      <span style="color:var(--accent);letter-spacing:1px;margin:0 10px">${dots}</span>
+      <button class="btn ${can?'':'sec'}" data-perk="${p.id}" ${can?'':'disabled'} style="padding:3px 12px;font-size:13px">＋</button>
+    </div>`;
+  }).join('');
+  return `<div class="card"><h2>監督</h2>
+    <div class="kpi">
+      <div class="k"><div class="v" style="color:var(--accent2)">Lv.${m.lvl}</div><div class="l">監督レベル</div></div>
+      <div class="k"><div class="v" style="color:var(--gold)">${m.points}</div><div class="l">パークポイント</div></div>
+    </div>
+    <div class="bar" style="margin:12px 0" title="XP ${m.xp}/${mgrXpNeed(m.lvl)}"><i style="width:${pct}%"></i></div>
+    <p class="muted" style="font-size:12px">試合結果でXP獲得（勝利+50 / 引分+25 / 敗北+10、得点×5）。レベルアップでパークポイントを獲得。</p></div>
+    <div class="card"><h2>采配パーク</h2>${perks}
+    ${m.points>0?'<p style="color:var(--gold);font-size:12px;margin-top:10px">💡 未使用のパークポイントがあります。＋で強化してください。</p>':''}</div>`;
 }
 
 function viewTraining(){
@@ -674,8 +723,8 @@ function showMatch(homeC,awayC,res){
     $('#fin').disabled=false;
     $('#fin').onclick=()=>{
       finalizeRound(state.round,{hs:res.hs,as:res.as,scorers:res.scorers,assists:res.assists});
-      const ups=awardMatchXP(res,homeC,awayC);
-      showResult(homeC,awayC,res,ups);
+      const xpres=awardMatchXP(res,homeC,awayC);
+      showResult(homeC,awayC,res,xpres);
     };
   };
   if(evs.length===0){finish();}
@@ -690,10 +739,12 @@ function showMatch(homeC,awayC,res){
     evs.forEach(paint); finish();
   };
 }
-function showResult(homeC,awayC,res,ups){
+function showResult(homeC,awayC,res,xpres){
   current='match'; setNav();
   const poss=Math.round(res.possH*100);
-  const upBox=(ups&&ups.length)?`<div class="card"><h2>⬆️ レベルアップ</h2>${ups.map(u=>`<div class="stats-line"><b>${u.name}</b><span>Lv.${u.lvl} に上昇！</span></div>`).join('')}</div>`:'';
+  const ups=(xpres&&xpres.players)||[];
+  const upBox=(ups.length)?`<div class="card"><h2>⬆️ レベルアップ</h2>${ups.map(u=>`<div class="stats-line"><b>${u.name}</b><span>Lv.${u.lvl} に上昇！</span></div>`).join('')}</div>`:'';
+  const mgrBox=(xpres&&xpres.mgrUps>0)?`<div class="card"><h2>🎖️ 監督レベルアップ</h2><div class="stats-line"><b>監督 Lv.${xpres.mgrLvl}</b><span>パークポイント +${xpres.mgrUps}！采配パークを強化できます</span></div></div>`:'';
   const line=(l,h,a)=>`<div class="stats-line"><b>${h}</b><span>${l}</span><b>${a}</b></div>`;
   const rd=state.fixtures[state.round-1];
   const involved=[homeC.id,awayC.id];
@@ -711,6 +762,7 @@ function showResult(homeC,awayC,res,ups){
     ${line('枠内',res.stats.home.sot,res.stats.away.sot)}
     </div>
     ${upBox}
+    ${mgrBox}
     <div class="card"><h2>他会場の結果</h2>${others||'<span class="muted">なし</span>'}</div>
     <div class="card"><div class="row">
       <button class="btn" data-go="dashboard">続ける →</button>
@@ -784,6 +836,7 @@ state=load();
 if(state&&!state.scorers)state.scorers={};
 if(state&&!state.prog)state.prog={};
 if(state&&state.tp===undefined)state.tp=TP_MAX;
+if(state&&!state.mgr)state.mgr={lvl:1,xp:0,points:0,perks:{}};
 render();
 </script>
 </body>
