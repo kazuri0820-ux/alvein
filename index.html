@@ -7722,6 +7722,14 @@ const RANDOM_CHOICE=[
    {label:"一人を同道させ、見聞を広げさせる",hint:"護衛料が入る/その兵の知力が伸びる(見聞)",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active"&&!u.injured);if(!act.length){apply({log:"旅に同道できる兵がおらず、この話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];const wi=ri(2,3);u.wis=(u.wis||0)+wi;u.moral=Math.min(100,(u.moral||0)+4);const fee=ri(15,30);apply({gold:fee});unitHistory(u,"遠国への隊商に同道し、見知らぬ土地の風物と人の営みに触れて、視野を大きく広げて帰った。");chron(`${fullName(u)}は隊商に同道して遠き地を巡り、多くの見聞を携えて帰還した(知力+${wi})。その眼には、以前にはなかった落ち着きと深みが宿っている。護衛料${fee}も国庫に入った。`,"people");}}},
    {label:"いまは国の守りを固める",hint:"軍事↑(守りを厚く)",fx:{st:{military:1},log:"長は隊商の求めを丁重に断り、兵を手元に留めて守りを固めた。備えあれば憂いなし――その堅実が、王国の護りを確かにしている。"}},
   ]},
+ /* ── 知行を望む古参(領地を与え根を張らせるか手元で使い続けるか) ── */
+ {tag:"知 行",title:"知行を望む古参",
+  body:"長く忠勤を重ねた古参の一人が、いまや一国一城の主にふさわしい働きを見せている。重臣たちも、この者に知行(領地)を与えて王国に根を張らせてはと勧めてきた。国庫を投じて知行を下賜するか、いまはなお手元に置き、将として使い続けるか。",
+  speaker:"ガレオン「領地を持てば、その忠義は生涯揺るがぬものとなりましょう。……なれど、相応の費えと、一将を土地に縛る痛みもございます」",
+  choices:[
+   {label:"知行を下賜し、根を張らせる",hint:"国庫↓↓ その古参が知行持ちに(忠義が揺るがず・所領の禄)",fx:{call:()=>{const cands=S.units.filter(u=>u.role==="active"&&typeof canGrantFief==="function"&&canGrantFief(u));if(!cands.length){apply({log:"いま知行を与えるにふさわしい古参はおらず、この話は流れた。"});return;}const u=cands.slice().sort((a,b)=>((b.dungeonClearCount||0)+(b.lv||0))-((a.dungeonClearCount||0)+(a.lv||0)))[0];if(typeof grantFief==="function")grantFief(u.id);}}},
+   {label:"手元に置き、将として使い続ける",hint:"軍事↑(将才を前線で活かす)",fx:{st:{military:1},call:()=>{const cands=S.units.filter(u=>u.role==="active"&&typeof canGrantFief==="function"&&canGrantFief(u));if(!cands.length){apply({log:"知行の相談に上る古参もおらず、話は流れた。"});return;}const u=cands[Math.floor(Math.random()*cands.length)];if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+3);u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,"知行の誉れは後日にと、なお第一線で将として腕を振るうことを選んだ。");chron(`長は${fullName(u)}をなお手元に留め、将としての働きを望んだ。「まだ働けます」と、その古参は頼もしく頷いている。`,"people");}}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
