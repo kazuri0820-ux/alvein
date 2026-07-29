@@ -7714,6 +7714,14 @@ const RANDOM_CHOICE=[
    {label:"全力でぶつからせ、弟子を伸ばす",hint:"弟子の能力↑・師弟双方の士気↑(絆が深まる)",fx:{call:()=>{const masters=S.units.filter(u=>u.role==="active"&&u.pupilId&&S.units.some(o=>o.id===u.pupilId&&o.role==="active"));if(!masters.length){apply({log:"いま手合わせをする師弟はおらず、この話は流れた。"});return;}const m=masters[Math.floor(Math.random()*masters.length)];const pu=S.units.find(o=>o.id===m.pupilId);const keys=["str","agi","vit","wis","int","lead"];const k=keys[Math.floor(Math.random()*keys.length)];const inc=ri(1,2);pu[k]=(pu[k]||0)+inc;pu.moral=Math.min(100,(pu.moral||0)+6);m.moral=Math.min(100,(m.moral||0)+3);unitHistory(pu,`師${m.nm}に全力で挑み、胸を借りて一回り成長した。`);unitHistory(m,`弟子${pu.nm}の全力の挑戦を受け止め、その成長を頼もしく見届けた。`);chron(`${fullName(pu)}は師${m.nm}に全力でぶつかり、幾度も打ち込んでは弾き返された。汗みずくで挑むその姿に、師も目を細めている。稽古を経て、弟子はまた一つ強くなった。`,"people");}}},
    {label:"型と呼吸を丁寧に仕込ませる",hint:"治安↑(基本を固める)",fx:{st:{order:1},call:()=>{const masters=S.units.filter(u=>u.role==="active"&&u.pupilId&&S.units.some(o=>o.id===u.pupilId&&o.role==="active"));if(!masters.length){apply({log:"型を仕込む師弟もおらず、話は流れた。"});return;}const m=masters[Math.floor(Math.random()*masters.length)];const pu=S.units.find(o=>o.id===m.pupilId);pu.moral=Math.min(100,(pu.moral||0)+3);unitHistory(pu,`師${m.nm}に型と呼吸を丁寧に仕込まれ、基本を身体に刻んだ。`);chron(`師${m.nm}は逸る弟子${pu.nm}を諭し、木剣の握りから呼吸まで一つひとつ手直しした。派手さはなくとも、その基本こそが弟子の芯を作っていく。`,"");}}},
   ]},
+ /* ── 隊商に請われた同道(見聞を広げさせるか守りを固めるか) ── */
+ {tag:"同 道",title:"隊商に請われた同道",
+  body:"遥か遠国を目指す隊商が、道中の護衛にと腕の立つ兵を一人貸してほしいと願い出た。長き旅は骨が折れるが、見知らぬ土地の風物や人の営みは、兵の視野を大きく広げよう。一人を旅に同道させるか、いまは国の守りを固めるか。",
+  speaker:"ガレオン「剣の腕だけでなく、広い見聞もまた将の器を作りましょう。……なれど、守りを薄くする痛みもございます」",
+  choices:[
+   {label:"一人を同道させ、見聞を広げさせる",hint:"護衛料が入る/その兵の知力が伸びる(見聞)",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active"&&!u.injured);if(!act.length){apply({log:"旅に同道できる兵がおらず、この話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];const wi=ri(2,3);u.wis=(u.wis||0)+wi;u.moral=Math.min(100,(u.moral||0)+4);const fee=ri(15,30);apply({gold:fee});unitHistory(u,"遠国への隊商に同道し、見知らぬ土地の風物と人の営みに触れて、視野を大きく広げて帰った。");chron(`${fullName(u)}は隊商に同道して遠き地を巡り、多くの見聞を携えて帰還した(知力+${wi})。その眼には、以前にはなかった落ち着きと深みが宿っている。護衛料${fee}も国庫に入った。`,"people");}}},
+   {label:"いまは国の守りを固める",hint:"軍事↑(守りを厚く)",fx:{st:{military:1},log:"長は隊商の求めを丁重に断り、兵を手元に留めて守りを固めた。備えあれば憂いなし――その堅実が、王国の護りを確かにしている。"}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
