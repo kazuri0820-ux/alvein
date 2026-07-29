@@ -7615,6 +7615,14 @@ const RANDOM_CHOICE=[
    {label:"盛大に祈願し、皆の心を一つにする",hint:"国庫↓ 治安↑ 全兵の士気↑(祈祷を担う僧は面目を施す)",fx:{gold:-25,st:{order:1},call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.moral=Math.min(100,(u.moral||0)+ri(3,6));const holy=act.filter(u=>u.cls==="priest"||u.cls==="monk");if(holy.length){const u=holy[Math.floor(Math.random()*holy.length)];if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+6);u.moral=Math.min(100,(u.moral||0)+4);unitHistory(u,"戦勝祈願の儀を執り行い、全軍の心を束ねる大役を果たした。");}chron("荘厳な戦勝祈願の儀が執り行われ、兵たちは声を合わせて武運を祈った。研ぎ澄まされた気概が、陣中に満ちている。","big");}}},
    {label:"質素に済ませ、備えに回す",hint:"軍事↑(実利を取る)",fx:{st:{military:2},log:"祈願は質素に済まされ、浮いた費えは武具と兵糧の備えに回された。派手さはないが、陣容は着実に整っている。"}},
   ]},
+ /* ── 陣中の兵棋(盤上の兵法か実地の鍛錬か) ── */
+ {tag:"盤 上",title:"陣中の兵棋くらべ",
+  body:"手空きの折、兵たちの間で盤上に石を並べて戦を模す遊戯が流行り出した。これを兵法の稽古と見て奨励するか、遊びは程々にと実地の鍛錬を優先させるか。",
+  speaker:"ガレオン「盤上で読む一手は、いつか戦場の一手となりましょう」",
+  choices:[
+   {label:"兵法の稽古として奨励する",hint:"治安↑ 盤上に長けた兵の知力↑",fx:{st:{order:1},call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"盤を囲む兵もおらず、この話は流れた。"});return;}const u=act.slice().sort((a,b)=>(((b.wis||0)+(b.int||0))-((a.wis||0)+(a.int||0))))[0];const inc=ri(1,3);u.wis=(u.wis||0)+inc;u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,"盤上の兵棋に没頭し、戦の理を読む目を養った。");chron(`${fullName(u)}は盤上の兵棋にのめり込み、幾手も先を読む力を磨いた。知力が+${inc}。その眼差しは、いつしか実戦の駆け引きをも見据えている。`,"people");}}},
+   {label:"遊びは程々に、鍛錬を優先させる",hint:"軍事↑(実地の鍛錬)",fx:{st:{military:1},mood:1,log:"盤上の遊戯は程々にと、兵たちは再び稽古場へ戻った。机上より実地――その堅実さが、陣容を確かに鍛えている。"}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
