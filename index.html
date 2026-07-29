@@ -7654,6 +7654,13 @@ const RANDOM_CHOICE=[
    {label:"しばし手を止め、戦友を悼む",hint:"全兵の士気↑ 民心↑(絆と人の情)",fx:{mood:2,call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.moral=Math.min(100,(u.moral||0)+ri(2,4));chron("兵たちはしばし得物を置き、戦場に咲いた一輪の花に、散っていった戦友の面影を重ねた。声もなく手を合わせるうち、生きて轡を並べる者たちの絆は、いっそう深く結ばれている。","big");}}},
    {label:"気を引き締め、次なる戦に備える",hint:"治安↑(武人の覚悟)",fx:{st:{order:1},log:"感傷は胸の奥にそっと仕舞い、兵たちは黙々と次なる戦への備えに戻った。散った者の分まで――その静かな覚悟が、陣容を確かに引き締めている。"}},
   ]},
+ /* ── 兵の得物が折れる(新調の恩か古き相棒への愛着か) ── */
+ {tag:"得 物",title:"兵の得物が折れる",
+  body:"長く連れ添った得物が、激戦のさなかに音を立てて折れたという。その兵はしばし呆然と、手の中に残った柄を見つめていた。惜しまず新しい一振りを打たせるか、本人の望むまま古い刃を打ち直させるか。",
+  choices:[
+   {label:"惜しまず、新しい一振りを打たせる",hint:"国庫↓ その兵の士気と忠誠↑",fx:{gold:-20,call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"得物を欲する兵がおらず、この話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+8);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+8);unitHistory(u,"長の計らいで新たな得物を賜り、その心遣いに深く報いんと誓った。");chron(`${fullName(u)}の手に、長の計らいで新たな一振りが渡された。折れた相棒への惜別を胸に、兵は新しい刃を固く握りしめている。`,"people");}}},
+   {label:"本人の望むまま、古い刃を打ち直させる",hint:"その兵の武具への愛着が深まる",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){apply({log:"得物を惜しむ兵もおらず、話は流れた。"});return;}const u=act[Math.floor(Math.random()*act.length)];u.moral=Math.min(100,(u.moral||0)+4);unitHistory(u,"折れた相棒の刃を自ら鍛冶場で打ち直し、いっそう手に馴染ませた。");chron(`${fullName(u)}は折れた得物を捨てず、幾晩もかけて自ら打ち直した。傷を負ってなお共にある一振りへの想いは、いよいよ深い。`,"");}}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
