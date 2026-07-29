@@ -223,6 +223,24 @@ function buyPlayer(mid){
   state.cash-=price; state.market.splice(i,1); state.signings.push(p); PLAYERS[p.id]=p; save();
   return {ok:true,msg:`🎉 ${p.name} を獲得！（-${price}M / 残り ${state.cash}M）スカッドに加入`};
 }
+function sellPlayer(id){
+  const si=(state.signings||[]).findIndex(p=>p.id===id);
+  if(si<0)return {ok:false,msg:'放出できるのは獲得選手のみです'};
+  const club=clubById(state.clubId); const baseLen=club.squad.length;
+  const p=state.signings[si]; const squadIdx=baseLen+si; const value=Math.round(playerPrice(p)*0.6);
+  // 先発にいれば同ポジ優先で控えと差し替え（indexは後段のremapで整合）
+  if(state.lineup.includes(squadIdx)){
+    const sq=squadOf(club.id);
+    const idxs=sq.map((_,ix)=>ix);
+    const repl=idxs.find(ix=>ix!==squadIdx&&!state.lineup.includes(ix)&&sq[ix].grp===p.grp)
+             ?? idxs.find(ix=>ix!==squadIdx&&!state.lineup.includes(ix));
+    if(repl!==undefined)state.lineup[state.lineup.indexOf(squadIdx)]=repl;
+  }
+  state.signings.splice(si,1);
+  state.lineup=state.lineup.map(ix=>ix>squadIdx?ix-1:ix);   // 後ろの獲得選手のindexを詰める
+  state.cash=(state.cash||0)+value; save();
+  return {ok:true,msg:`👋 ${p.name} を放出（+${value}M / 資金 ${state.cash}M）`};
+}
 // レベルアップ時に伸びやすい能力（ポジション別）: [主, 副, 副]
 const GROW={GK:['def','phy','pas'],DEF:['def','phy','pac'],MID:['pas','dri','def'],ATT:['sho','dri','pac']};
 function xpNeed(lvl){return 100+(lvl-1)*45;}         // 次レベルまでの必要XP（基準）
@@ -705,6 +723,7 @@ function bindCommon(){
   document.querySelectorAll('[data-ev]').forEach(b=>b.onclick=()=>resolveEvent(+b.dataset.ev));
   const ec=$('#evtClose'); if(ec)ec.onclick=()=>{evtMsg=null;render();};
   document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const r=buyPlayer(b.dataset.buy);render();const m=$('#buyMsg');if(m)m.innerHTML=`<span style="color:${r.ok?'var(--accent)':'var(--danger)'}">${r.msg}</span>`;});
+  document.querySelectorAll('[data-sell]').forEach(b=>b.onclick=()=>{const r=sellPlayer(b.dataset.sell);render();const m=$('#buyMsg');if(m)m.innerHTML=`<span style="color:${r.ok?'var(--warn)':'var(--danger)'}">${r.msg}</span>`;});
   document.querySelectorAll('[data-train]').forEach(b=>b.onclick=()=>{
     const cur=state.trainFocus||'sho';
     const p=PLAYERS[b.dataset.train]; const name=p?p.name:'';
@@ -903,14 +922,18 @@ function viewTransfer(){
       <td class="muted" title="ポテンシャル">${pot}</td><td><b style="color:var(--gold)">${price}M</b></td>
       <td><button class="btn ${can?'':'sec'}" data-buy="${p.id}" ${can?'':'disabled'} style="padding:4px 12px;font-size:12px">獲得</button></td></tr>`;
   }).join('');
-  const owned=(state.signings||[]).length?state.signings.map(p=>`<span class="mood" style="margin:3px">${p.name} <b>${eff(p).ov}</b></span>`).join(' '):'<span class="muted">まだ獲得選手はいません</span>';
+  const owned=(state.signings||[]).length?state.signings.map(p=>{
+    const val=Math.round(playerPrice(p)*0.6);
+    return `<div class="stats-line" style="align-items:center"><span>${p.name} <span class="pos ${eff(p).grp}">${p.pos}</span> <b>${eff(p).ov}</b></span>
+      <button class="btn sec" data-sell="${p.id}" style="padding:3px 10px;font-size:12px">放出 +${val}M</button></div>`;
+  }).join(''):'<span class="muted">まだ獲得選手はいません</span>';
   return `<div class="card"><h2>移籍市場 <span class="muted" style="font-weight:400;font-size:12px">・ 資金 <b style="color:var(--gold)">${state.cash||0}M</b></span></h2>
-    <p class="muted" style="font-size:12px;margin-bottom:8px">実在スターを獲得してチーム強化。加入選手はスカッドに入り育成・起用できます。資金はシーズン成績（順位）で増加。</p>
+    <p class="muted" style="font-size:12px;margin-bottom:8px">実在スターを獲得してチーム強化。加入選手はスカッドに入り育成・起用できます。資金はシーズン成績（順位）で増加。市場は毎シーズン更新。</p>
     <div id="buyMsg" style="font-size:13px;min-height:18px;margin-bottom:6px"></div>
     <div style="overflow-x:auto"><table>
     <tr><th class="name">選手</th><th>POS</th><th>OVR</th><th>POT</th><th>価格</th><th></th></tr>
     ${rows||'<tr><td colspan="6" class="muted">売り出し中の選手はいません</td></tr>'}</table></div></div>
-    <div class="card"><h2>獲得済みの選手 <span class="muted" style="font-weight:400;font-size:12px">${(state.signings||[]).length}名</span></h2><div style="line-height:2.2">${owned}</div></div>`;
+    <div class="card"><h2>獲得済みの選手 <span class="muted" style="font-weight:400;font-size:12px">${(state.signings||[]).length}名</span></h2>${owned}</div>`;
 }
 
 function viewManager(){
@@ -1291,6 +1314,8 @@ function nextSeason(){
   checkQuests();            // シーズン終了時点の目標（優勝など）を判定してから
   const pos=standings().findIndex(x=>x.c.id===state.clubId)+1;   // 成績に応じた賞金
   state.cash=(state.cash||0)+(pos===1?120:pos<=3?80:pos<=6?50:30);
+  const signed=new Set((state.signings||[]).map(p=>p.name));      // 市場を毎季リフレッシュ（獲得済みは除外）
+  state.market=MARKET_RAW.filter(a=>!signed.has(a[0])).map(makeMarketPlayer);
   state.season++; state.round=0;
   state.fixtures=genFixtures(CLUBS.map(c=>c.id));
   state.table=emptyTable();
