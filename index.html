@@ -10174,6 +10174,24 @@ function checkTitleCodexMilestone(){
     }
   }
 }
+/* 二つ名図鑑の収集里程標:兵が体現した唯一無二の二つ名の種類が節目(10/20/30)に達した折、収集の歩みを
+   国を挙げて言祝ぐ。全種を集めきる"大収集"の前に、途中の到達感=やりがいの中間報酬を灯す(英傑・称号図鑑の里程標と対をなす)。 */
+function checkUniqueCodexMilestone(){
+  S.flags=S.flags||{};
+  const total=(typeof UNIQUE_JOBS!=="undefined")?UNIQUE_JOBS.length:0;
+  const seen=new Set(Object.keys(S.flags.uniqueJobsSeen||{}));
+  for(const u of (S.units||[]))if(u.uniqueJob)seen.add(u.uniqueJob);
+  const done=seen.size;
+  S.flags.uniqueCodexMiles=S.flags.uniqueCodexMiles||{};
+  for(const m of [10,20,30]){
+    if(done>=m && m<total && !S.flags.uniqueCodexMiles[m]){
+      S.flags.uniqueCodexMiles[m]=S.day;
+      if(typeof grantRenown==="function")grantRenown(3,`二つ名図鑑に${m}種の伝説を集めたこと`);
+      if(typeof apply==="function")apply({mood:6});
+      chron(`――アルヴェインの兵が体現した唯一無二の二つ名、その種類ついに${m}を数えた(二つ名図鑑 ${done}/${total})。伝説を歩む者たちが、次々とこの国から生まれている。全てを集めきる日も、そう遠くはない。`,"big");
+    }
+  }
+}
 function maybeOfferGreatVolunteer(){
   if((S.volunteers||[]).length>=8)return;
   const rank=STAGES[S.stage].rank;
@@ -13597,6 +13615,7 @@ function checkUniqueJobOnHero(u){
     try{if(def.check(u)){u.uniqueJob=def.key;
       // これまでに一度でも授かった二つ名を記録=全種類の二つ名を集める長期コレクション目標(殿堂に到達度を表示)
       S.flags=S.flags||{};S.flags.uniqueJobsSeen=S.flags.uniqueJobsSeen||{};if(!S.flags.uniqueJobsSeen[def.key])S.flags.uniqueJobsSeen[def.key]=S.day;
+      if(typeof checkUniqueCodexMilestone==="function")checkUniqueCodexMilestone(); // 二つ名の種類が節目に達したら収集の里程標を祝う(やりがいの中間報酬)
       return def;}}catch(e){/* 判定失敗時はスキップ */}
   }
   return null;
