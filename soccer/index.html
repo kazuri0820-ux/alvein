@@ -1163,6 +1163,7 @@ function startMatch(){
      rival,derby:rival?derbyName(state.clubId,opp.id):null,
      min:0,hs:0,as:0,log:[],scorers:[],assists:[],
      st:{home:{sh:0,sot:0},away:{sh:0,sot:0}},
+     myL:isHome?homeL:awayL,subsLeft:3,talkMult:1,subOut:null,
      momentum:50,keyLeft:3,halftimeDone:false,decision:null,over:false,fast:false,flashId:null};
   current='match'; setNav(); renderMatch();
   matchTimer=setTimeout(matchTick,700);
@@ -1235,6 +1236,13 @@ function resolveKeyMoment(choice){
   }
   renderMatch(); matchTimer=setTimeout(matchTick,850);
 }
+function recompPStr(){   // 自軍の実効戦力を現在の先発(M.myL)＋ホーム補正＋トークブーストで再計算
+  const club=clubById(state.clubId);
+  const s=strength(club,M.myL,state.tactics);
+  if(M.isHome){s.att*=1.06;s.def*=1.03;}
+  s.att*=M.talkMult; s.mid*=M.talkMult; s.def*=M.talkMult;
+  M.pStr.att=s.att; M.pStr.mid=s.mid; M.pStr.def=s.def;
+}
 function teamTalk(kind){
   if(!M.decision||M.decision.type!=='halftime')return; M.decision=null;
   const diff=(M.isHome?M.hs-M.as:M.as-M.hs);
@@ -1242,9 +1250,18 @@ function teamTalk(kind){
   if(kind==='rally'){ if(diff<=0){mult=1.06;dmom=12;txt='「まだ終わっちゃいない、行くぞ！」ベンチが沸き立った';} else {mult=0.99;dmom=-4;txt='「気を抜くな！」…選手はやや硬くなった';} }
   else if(kind==='calm'){ mult=1.02;dmom=4;txt='「落ち着いていこう」いつものリズムを取り戻した';}
   else { if(diff>0){mult=1.05;dmom=10;txt='「最高だ、この調子でいけ！」選手は自信に満ちている';} else {mult=1.0;dmom=3;txt='「顔を上げろ、君たちは強い」少し落ち着いた';} }
-  M.pStr.att*=mult; M.pStr.mid*=mult; M.pStr.def*=mult; mom(dmom);
+  M.talkMult*=mult; recompPStr(); mom(dmom);
   pushLog('talk','🗣 '+txt);
   renderMatch(); matchTimer=setTimeout(matchTick,700);
+}
+function performSub(inIdx){
+  const slot=M.myL.indexOf(M.subOut); if(slot<0){M.decision=null;M.subOut=null;renderMatch();return;}
+  const sq=squadOf(state.clubId); const outName=sq[M.subOut]?sq[M.subOut].name:'';
+  M.myL[slot]=inIdx; M.subsLeft--;
+  recompPStr(); save();
+  pushLog('talk',`🔄 交代: ${outName} → ${sq[inIdx].name}`);
+  M.decision=null; M.subOut=null;
+  renderMatch(); matchTimer=setTimeout(matchTick,600);
 }
 function finishMatch(){
   if(matchTimer)clearTimeout(matchTimer);
@@ -1298,8 +1315,28 @@ function renderMatch(){
         <button class="btn blue" data-tt="calm">😌 落ち着かせる</button>
         <button class="btn sec" data-tt="praise">👏 称賛する</button>
       </div></div>`;
+  }else if(M.decision&&M.decision.type==='sub'){
+    const sq=squadOf(state.clubId);
+    if(M.subOut===null){
+      const outs=M.myL.map(ix=>`<button class="btn sec" data-subout="${ix}" style="text-align:left;font-size:12px;padding:5px 10px">${sq[ix].name} <span class="pos ${eff(sq[ix]).grp}">${sq[ix].pos}</span> 体力${condOf(sq[ix].id)} ${formInfo(sq[ix].id).e}</button>`).join('');
+      panel=`<div class="card decision"><h2>🔄 選手交代 <span class="muted" style="font-weight:400;font-size:12px">残り${M.subsLeft}</span></h2>
+        <p class="muted" style="font-size:12px;margin-bottom:8px">誰を下げる？</p>
+        <div style="display:flex;flex-direction:column;gap:6px">${outs}</div>
+        <div class="row" style="margin-top:8px"><button class="btn sec" id="subCancel">やめる</button></div></div>`;
+    }else{
+      const outP=sq[M.subOut];
+      const benchIdx=sq.map((_,ix)=>ix).filter(ix=>!M.myL.includes(ix));
+      benchIdx.sort((a,b)=>(sq[b].grp===outP.grp)-(sq[a].grp===outP.grp)||eff(sq[b]).ov-eff(sq[a]).ov);
+      const ins=benchIdx.map(ix=>`<button class="btn ${sq[ix].grp===outP.grp?'':'sec'}" data-subin="${ix}" style="text-align:left;font-size:12px;padding:5px 10px">${sq[ix].name} <span class="pos ${eff(sq[ix]).grp}">${sq[ix].pos}</span> OVR${eff(sq[ix]).ov} 体力${condOf(sq[ix].id)}</button>`).join('')||'<span class="muted">控えがいません</span>';
+      panel=`<div class="card decision"><h2>🔄 ${outP.name} に代えて…</h2>
+        <p class="muted" style="font-size:12px;margin-bottom:8px">誰を入れる？（同ポジ優先表示）</p>
+        <div style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto">${ins}</div>
+        <div class="row" style="margin-top:8px"><button class="btn sec" id="subCancel">戻る</button></div></div>`;
+    }
   }else if(!M.over){
-    panel=`<div class="row" style="margin-top:10px"><button class="btn sec" id="skip">最後まで観る ⏩</button></div>`;
+    panel=`<div class="row" style="margin-top:10px">
+      <button class="btn sec" id="skip">最後まで観る ⏩</button>
+      ${M.subsLeft>0?`<button class="btn blue" id="subBtn">🔄 交代 (${M.subsLeft})</button>`:''}</div>`;
   }
   $('#screen').innerHTML=`<div class="card">
     ${M.rival?`<div style="text-align:center;color:var(--gold);font-weight:800;font-size:14px;margin-bottom:6px">🔥 ${M.derby} 🔥</div>`:''}
@@ -1317,6 +1354,10 @@ function renderMatch(){
   document.querySelectorAll('[data-km]').forEach(b=>b.onclick=()=>resolveKeyMoment(b.dataset.km));
   document.querySelectorAll('[data-tt]').forEach(b=>b.onclick=()=>teamTalk(b.dataset.tt));
   const sk=$('#skip'); if(sk)sk.onclick=()=>{M.keyLeft=0;M.halftimeDone=true;M.fast=true;};
+  const sb=$('#subBtn'); if(sb)sb.onclick=()=>{M.decision={type:'sub'};M.subOut=null;renderMatch();};
+  const sc=$('#subCancel'); if(sc)sc.onclick=()=>{if(M.subOut!==null){M.subOut=null;renderMatch();}else{M.decision=null;renderMatch();matchTimer=setTimeout(matchTick,300);}};
+  document.querySelectorAll('[data-subout]').forEach(b=>b.onclick=()=>{M.subOut=+b.dataset.subout;renderMatch();});
+  document.querySelectorAll('[data-subin]').forEach(b=>b.onclick=()=>performSub(+b.dataset.subin));
 }
 function showResult(homeC,awayC,res,xpres,quests,mor,rivalBox){
   current='match'; setNav();
