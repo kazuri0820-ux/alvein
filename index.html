@@ -6025,6 +6025,28 @@ function buildFaithRevealEvent(scale){
   return{tag:"信 仰",title,body,choices:[{label:"見守る",fx}]};
 }
 const RANDOM_CHOICE_EXTRA=[
+ /* ── 天災(大地震):既存の大嵐・飢饉・疫病に続く新たな災禍。民をどう救うかの重い選択を通じて、王の器と国の絆を felt にする ── */
+ {tag:"天 災",title:"大地震、王国を揺るがす",
+  body:"突如、大地が激しく鳴動し、家々の壁が崩れ、城壁の一部までもが裂けた。かつてない大地震である。瓦礫の下には、まだ助けを待つ民がいるという。",
+  speaker:"ガレオン「陛下、いまは民をどう救うか――そのご決断が、後々まで語り継がれましょう」",
+  choices:[
+   {label:"国庫を惜しみなく投じ、速やかに復興させる",hint:"民心↑↑ 治安↑ 人口回復(出費)",fx:{call:()=>{
+     const cost=ri(120,180);
+     if(S.gold<cost){apply({mood:-4,pop:-Math.min(S.pop||0,ri(8,16)),st:{order:-1},log:`速やかな復興を望んだが国庫が足りず(${cost}G必要)、復旧は遅れ、崩れた家の下で失われた命もあった。民心は沈んでいる。`,logCls:"grave"});return;}
+     S.gold-=cost;const pr=ri(6,12);
+     apply({mood:7,pop:pr,st:{order:1,economy:-1},log:`国庫を惜しみなく投じ、瓦礫の撤去と再建が速やかに進んだ。行き場を失った${pr}の民も温かく迎え入れられ、王の情けは深く胸に刻まれた(復興に${cost}G)。`,logCls:"big"});
+   }}},
+   {label:"兵を動員し、瓦礫の下の民を救い出す",hint:"民心↑↑ 治安↑ / 兵が疲弊",fx:{call:()=>{
+     const active=S.units.filter(u=>u.role==="active");
+     if(!active.length){apply({mood:2,st:{order:1},log:"手の空いた兵はいなかったが、民は互いに助け合い、瓦礫の下から幾人もの命を掘り起こした。"});return;}
+     for(const u of active)u.fatigue=Math.min(100,(u.fatigue||0)+ri(14,24));
+     apply({mood:6,pop:ri(2,5),st:{order:1},log:`兵たちが泥と瓦礫にまみれ、下敷きになった民を次々と救い出した。皆へとへとに疲れ果てたが、救われた民は涙ながらに手を合わせている。`,logCls:"big"});
+   }}},
+   {label:"天命と受け止め、最小限の手当てで凌ぐ",hint:"賭け(出費なし/余震の恐れ)",fx:{call:()=>{
+     if(Math.random()<0.5){apply({mood:-2,log:"大きな余震はなく、民は自らの手で少しずつ日々を取り戻していった。王国は辛うじて持ちこたえた。"});}
+     else{const pl=ri(10,20);apply({mood:-6,pop:-Math.min(S.pop||0,pl),st:{economy:-1,order:-1},log:`数日後、大きな余震が再び王国を襲った。手当ての遅れた家々は倒れ、${pl}の民を失い、民心も大きく沈んだ。`,logCls:"grave"});}
+   }}},
+  ]},
  /* ── 期限付きイベント(先送りすると数日後に自動で悪い結果) ── */
  {tag:"急 使",title:"国境からの増援要請",
   body:"国境の小さな砦から、緊迫した使者が駆け込んできた。周辺で不穏な動きがあり、増援が欲しいという。すぐに動くか、様子を見るか。",
