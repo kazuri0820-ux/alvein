@@ -233,21 +233,27 @@ function buyPlayer(mid){
   state.cash-=price; state.market.splice(i,1); state.signings.push(p); PLAYERS[p.id]=p; save();
   return {ok:true,msg:`🎉 ${p.name} を獲得！（-${price}M / 残り ${state.cash}M）スカッドに加入`};
 }
-function sellPlayer(id){
-  const si=(state.signings||[]).findIndex(p=>p.id===id);
-  if(si<0)return {ok:false,msg:'放出できるのは獲得選手のみです'};
+function marketById(id){return (state.market||[]).find(x=>x.id===id);}
+// 獲得選手をスカッドから外す（先発なら同ポジ控えと差し替え・indexを整合）。返り値=外した選手
+function releaseSigning(id){
+  const si=(state.signings||[]).findIndex(p=>p.id===id); if(si<0)return null;
   const club=clubById(state.clubId); const baseLen=club.squad.length;
-  const p=state.signings[si]; const squadIdx=baseLen+si; const value=Math.round(playerPrice(p)*0.6);
-  // 先発にいれば同ポジ優先で控えと差し替え（indexは後段のremapで整合）
+  const p=state.signings[si]; const squadIdx=baseLen+si;
   if(state.lineup.includes(squadIdx)){
-    const sq=squadOf(club.id);
-    const idxs=sq.map((_,ix)=>ix);
+    const sq=squadOf(club.id); const idxs=sq.map((_,ix)=>ix);
     const repl=idxs.find(ix=>ix!==squadIdx&&!state.lineup.includes(ix)&&sq[ix].grp===p.grp)
              ?? idxs.find(ix=>ix!==squadIdx&&!state.lineup.includes(ix));
     if(repl!==undefined)state.lineup[state.lineup.indexOf(squadIdx)]=repl;
   }
   state.signings.splice(si,1);
-  state.lineup=state.lineup.map(ix=>ix>squadIdx?ix-1:ix);   // 後ろの獲得選手のindexを詰める
+  state.lineup=state.lineup.map(ix=>ix>squadIdx?ix-1:ix);
+  return p;
+}
+function sellPlayer(id){
+  const p0=(state.signings||[]).find(p=>p.id===id);
+  if(!p0)return {ok:false,msg:'放出できるのは獲得選手のみです'};
+  const value=Math.round(playerPrice(p0)*0.6);
+  const p=releaseSigning(id);
   state.cash=(state.cash||0)+value; save();
   return {ok:true,msg:`👋 ${p.name} を放出（+${value}M / 資金 ${state.cash}M）`};
 }
@@ -532,6 +538,24 @@ const EVENTS=[
    {label:'契約を延長し中心選手として厚遇',run:p=>{chMorale(5);gainXP(p.id,150);queueEvent('bigOffer2',p.id);return `${p.name}はクラブへの忠誠を誓った（士気+5 / 経験値+150）`;}},
    {label:'様子を見る',run:p=>{return `いまは静観することにした`;}},
   ]},
+ // 保有（獲得）選手への移籍オファー：高値売却の誘惑
+ {id:'offerIn',when:()=>(state.signings||[]).length>0,
+  pick:()=>{const s=state.signings||[];return s.length?s[Math.floor(rnd()*s.length)].id:null;},
+  title:'📞 移籍オファー到着',
+  text:p=>`${p?p.name:'選手'} に他クラブから移籍オファーが届いた（提示額 ${p?Math.round(playerPrice(p)*1.4):0}M）。`,
+  choices:[
+   {label:'受諾して高値で売却',run:p=>{if(!p)return 'オファーは流れた';const amt=Math.round(playerPrice(p)*1.4);releaseSigning(p.id);state.cash=(state.cash||0)+amt;chMorale(-3);return `${p.name} を売却（+${amt}M / 資金 ${state.cash}M・士気-3）`;}},
+   {label:'拒否して引き留める',run:p=>{if(!p)return '';chMorale(4);gainXP(p.id,100);return `${p.name} は残留を喜んだ（士気+4 / 経験値+100）`;}},
+  ]},
+ // スカウトの掘り出し物：市場の選手を特別価格で獲得できる
+ {id:'scout',when:()=>(state.market||[]).length>0,
+  pick:()=>{const m=state.market||[];return m.length?m[Math.floor(rnd()*m.length)].id:null;},
+  title:'🔍 スカウトの発見',
+  text:p=>p?`スカウトが逸材 ${p.name}（OVR${p.ov}）を発掘！特別価格 ${Math.round(playerPrice(p)*0.7)}M で獲得できる。`:'掘り出し物は見つからなかった',
+  choices:[
+   {label:'獲得する',run:(p,pid)=>{if(!p)return '';const price=Math.round(playerPrice(p)*0.7);if((state.cash||0)<price)return `資金が足りない…（${price}M 必要 / 所持 ${state.cash||0}M）`;const i=(state.market||[]).findIndex(x=>x.id===pid);if(i>=0)state.market.splice(i,1);state.cash-=price;state.signings.push(p);PLAYERS[p.id]=p;return `${p.name} を特別価格で獲得！（-${price}M / 資金 ${state.cash}M）`;}},
+   {label:'見送る',run:p=>`今回は見送った`},
+  ]},
 ];
 function eventById(id){return EVENTS.find(e=>e.id===id);}
 function queueEvent(id,pid){if(!state.eventQueue)state.eventQueue=[];state.eventQueue.push({id,pid:pid||null});}
@@ -590,7 +614,7 @@ function recommendXI(club,formation){
 function mean(a){return a.length?a.reduce((t,x)=>t+x,0)/a.length:55;}
 function strength(club,lineup,tac){
   const sq=squadOf(club.id);
-  const xi=lineup.map(i=>eff(sq[i]));
+  const xi=lineup.map(i=>sq[i]).filter(Boolean).map(p=>eff(p));   // 念のため無効indexを除外
   const cf=p=>condFactor(p.id)*formFactor(p.id);   // コンディション×調子（自クラブのみ実効。AIは×1）
   const gkp=xi.find(p=>p.grp==='GK');
   const gk=gkp?gkp.ov*cf(gkp):58;
@@ -618,7 +642,7 @@ function strength(club,lineup,tac){
 /* ---------- 5. 試合エンジン ---------- */
 function rnd(){return Math.random();}
 function pickScorer(club,lineup){
-  const xi=lineup.map(i=>squadOf(club.id)[i]).filter(p=>p.grp!=='GK');
+  const xi=lineup.map(i=>squadOf(club.id)[i]).filter(p=>p&&p.grp!=='GK');
   const weighted=[];
   xi.forEach(p=>{
     let w=p.sho*(p.grp==='ATT'?3:p.grp==='MID'?1.4:0.4);
@@ -630,7 +654,7 @@ function pickScorer(club,lineup){
   return xi[0];
 }
 function pickAssister(club,lineup,scorerId){
-  const xi=lineup.map(i=>squadOf(club.id)[i]).filter(p=>p.grp!=='GK'&&p.id!==scorerId);
+  const xi=lineup.map(i=>squadOf(club.id)[i]).filter(p=>p&&p.grp!=='GK'&&p.id!==scorerId);
   if(!xi.length)return null;
   const weighted=xi.map(p=>({p,w:p.pas*(p.grp==='MID'?2:p.grp==='ATT'?1.6:0.6)}));
   const tot=weighted.reduce((t,x)=>t+x.w,0);
@@ -794,8 +818,8 @@ let selPlayer=null;   // 選手詳細で表示中の選手id
 let evtMsg=null;      // 直近のイベント結果テキスト（一時表示）
 function resolveEvent(idx){
   const pe=state.pendingEvent; if(!pe)return;
-  const ev=eventById(pe.id); const p=pe.pid?PLAYERS[pe.pid]:null;
-  evtMsg=ev.choices[idx].run(p);
+  const ev=eventById(pe.id); const p=pe.pid?(PLAYERS[pe.pid]||marketById(pe.pid)):null;
+  evtMsg=ev.choices[idx].run(p,pe.pid);
   state.pendingEvent=null; save(); render();
 }
 function setNav(){
@@ -904,7 +928,7 @@ function viewDashboard(){
   setTimeout(()=>{const b=$('#nextSeason');if(b)b.onclick=nextSeason;},0);
   let eventCard='';
   if(state.pendingEvent){
-    const ev=eventById(state.pendingEvent.id); const pid=state.pendingEvent.pid; const p=pid?PLAYERS[pid]:null;
+    const ev=eventById(state.pendingEvent.id); const pid=state.pendingEvent.pid; const p=pid?(PLAYERS[pid]||marketById(pid)):null;
     eventCard=`<div class="card decision"><h2>${ev.title}</h2>
       ${p?`<div class="row" style="align-items:center;gap:10px;margin-bottom:8px">${avatar(p.name,club.color,40)}<div><b>${p.name}</b> <span class="pos ${eff(p).grp}">${p.pos}</span></div></div>`:''}
       <p style="margin-bottom:12px">${ev.text(p)}</p>
