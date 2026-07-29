@@ -456,7 +456,7 @@ const EVENTS=[
   text:p=>`${p.name} に強豪クラブからオファーが届いた。本人の心も揺れているようだ。`,
   choices:[
    {label:'主力として全幅の信頼を伝える',run:p=>{gainXP(p.id,150);chMorale(5);return `${p.name} は奮起した！（経験値+150 / 士気+5）`;}},
-   {label:'待遇改善を約束して慰留する',run:p=>{chMorale(8);state.tp=Math.max(0,(state.tp||0)-1);return `交渉に時間を割いた。チームは安堵（士気+8 / TP-1）`;}},
+   {label:'待遇改善を約束して慰留する',run:p=>{chMorale(6);queueEvent('transfer2',p.id);return `いったん引き留めた。後日あらためて交渉の場を設けることに（士気+6）`;}},
    {label:'クラブの規律を優先する',run:p=>{chMorale(-4);return `${p.name} は不満げだが規律は保たれた（士気-4）`;}},
   ]},
  {id:'clash',pick:null,title:'💢 ロッカールームの不和',
@@ -493,11 +493,49 @@ const EVENTS=[
    {label:'謙虚に受け入れる',run:_=>{gainMgrXP(120);chMorale(3);return `新たな視点を得た（監督XP+120 / 士気+3）`;}},
    {label:'自分の哲学を貫く',run:_=>{chMorale(5);return `ブレない姿勢がチームを引き締めた（士気+5）`;}},
   ]},
+ // --- 連鎖イベント（chainOnly: ランダム抽選には出ず、queueEventで発生） ---
+ {id:'transfer2',chainOnly:true,pick:null,title:'📝 約束の交渉（続き）',
+  text:p=>`先日引き留めた ${p?p.name:'あの選手'} との待遇交渉の場がやってきた。`,
+  choices:[
+   {label:'約束通り昇給を実行（-20M）',run:p=>{state.cash=Math.max(0,(state.cash||0)-20);chMorale(8);if(p)gainXP(p.id,120);return `${p?p.name:'選手'}は感激し全力を誓った（資金-20M / 士気+8${p?` / 経験値+120`:''}）`;}},
+   {label:'言葉を濁して先延ばし',run:p=>{chMorale(-10);return `約束が反故に。ロッカールームに不信感が広がった（士気-10）`;}},
+  ]},
+ {id:'bigOffer2',chainOnly:true,pick:null,title:'🤝 契約延長の効果',
+  text:p=>`${p?p.name:'主力'} との契約延長が発表され、クラブ全体に安心感が広がっている。`,
+  choices:[
+   {label:'この一体感を力に変える',run:_=>{chMorale(6);return `チームは結束を強めた（士気+6）`;}},
+  ]},
+ // --- 条件付きイベント（when が真のときだけ抽選対象） ---
+ {id:'streakW',pick:null,when:()=>(state.winStreak||0)>=3,title:'🌊 波に乗るチーム',
+  text:_=>`${state.winStreak}連勝中！チームに勢いがある。この波をどう活かす？`,
+  choices:[
+   {label:'さらに攻めの姿勢を植え付ける',run:_=>{chMorale(6);return `攻撃意識が高まった（士気+6）`;}},
+   {label:'兜の緒を締める',run:_=>{chMorale(3);state.cash=(state.cash||0)+10;return `地に足がついた（士気+3 / 資金+10M）`;}},
+  ]},
+ {id:'streakL',pick:null,when:()=>(state.lossStreak||0)>=2,title:'☔ 連敗の重圧',
+  text:_=>`${state.lossStreak}連敗。サポーターの不安が高まっている。`,
+  choices:[
+   {label:'選手を熱く鼓舞する',run:_=>{chMorale(8);return `選手は奮起した（士気+8）`;}},
+   {label:'冷静に戦術を見直す',run:_=>{gainMgrXP(120);chMorale(2);return `改善の糸口を掴んだ（監督XP+120 / 士気+2）`;}},
+   {label:'主力に発破をかける',run:_=>{chMorale(-3);const id=topPlayer();gainXP(id,120);return `${PLAYERS[id].name}は発奮した（士気-3 / ${PLAYERS[id].name} 経験値+120）`;}},
+  ]},
+ {id:'bigOffer',pick:topPlayer,when:()=>maxSquadLevel()>=12,title:'🌍 ビッグクラブの関心',
+  text:p=>`${p.name} の活躍に海外ビッグクラブが熱視線を送っている。`,
+  choices:[
+   {label:'契約を延長し中心選手として厚遇',run:p=>{chMorale(5);gainXP(p.id,150);queueEvent('bigOffer2',p.id);return `${p.name}はクラブへの忠誠を誓った（士気+5 / 経験値+150）`;}},
+   {label:'様子を見る',run:p=>{return `いまは静観することにした`;}},
+  ]},
 ];
 function eventById(id){return EVENTS.find(e=>e.id===id);}
+function queueEvent(id,pid){if(!state.eventQueue)state.eventQueue=[];state.eventQueue.push({id,pid:pid||null});}
 function maybeRollEvent(){
   if(state.round>=14)return;
-  if(rnd()<0.5){const ev=EVENTS[Math.floor(rnd()*EVENTS.length)];state.pendingEvent={id:ev.id,pid:ev.pick?ev.pick():null};}
+  if(state.eventQueue&&state.eventQueue.length){state.pendingEvent=state.eventQueue.shift();return;} // 連鎖イベント優先
+  if(rnd()<0.5){
+    const pool=EVENTS.filter(e=>!e.chainOnly&&(!e.when||e.when()));
+    const ev=pool[Math.floor(rnd()*pool.length)];
+    if(ev)state.pendingEvent={id:ev.id,pid:ev.pick?ev.pick():null};
+  }
 }
 
 /* ---------- RPG: ライバル / ダービー ---------- */
@@ -680,7 +718,8 @@ function newGame(clubId){
     tactics:{formation:'4-3-3',style:'balanced',press:'mid',line:'mid'},
     lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho',
     mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60,pendingEvent:null,form:{},
-    cash:120,signings:[],market:MARKET_RAW.map(makeMarketPlayer)};
+    cash:120,signings:[],market:MARKET_RAW.map(makeMarketPlayer),
+    eventQueue:[],winStreak:0,lossStreak:0};
   save();
 }
 
@@ -1268,6 +1307,9 @@ function finishMatch(){
   M.over=true;
   const my=M.isHome?M.hs:M.as, op=M.isHome?M.as:M.hs;
   const win=my>op, lose=my<op;
+  if(win){state.winStreak=(state.winStreak||0)+1;state.lossStreak=0;}
+  else if(lose){state.lossStreak=(state.lossStreak||0)+1;state.winStreak=0;}
+  else {state.winStreak=0;state.lossStreak=0;}
   const before=morale();
   chMorale(win?8:lose?-8:2);                         // 通常の士気変動
   if(win){const sq=squadOf(state.clubId); if(state.lineup.some(i=>personaOf(sq[i].id).id==='mood'))chMorale(2);} // ムードメーカー
@@ -1479,6 +1521,7 @@ if(state&&!state.form)state.form={};
 if(state&&state.cash===undefined)state.cash=120;
 if(state&&!state.signings)state.signings=[];
 if(state&&!state.market)state.market=MARKET_RAW.map(makeMarketPlayer);
+if(state&&!state.eventQueue)state.eventQueue=[];
 registerSignings();
 render();
 </script>
