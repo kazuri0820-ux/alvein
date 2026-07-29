@@ -7419,6 +7419,22 @@ const RANDOM_CHOICE=[
    {label:"最強の兵を立てて受ける",hint:"勝てば大きく成長し武名も上がる / 疲弊は避けられぬ",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");if(!act.length){chron("だが立ち合わせる兵が、今はいなかった。","");return;}const u=[...act].sort((a,b)=>unitPower(b)-unitPower(a))[0];u.fatigue=Math.min(100,(u.fatigue||0)+ri(8,16));if(Math.random()<0.72){u.exp=(u.exp||0)+ri(24,40);if(typeof processLevelUps==="function")processLevelUps(u);u.moral=Math.min(100,(u.moral||0)+10);if(typeof grantRenown==="function")grantRenown(2,"他流試合での勝利");unitHistory(u,"流浪の武人との他流試合を制し、武名を大いに高めた。");chron(`${fullName(u)}が流浪の武人を見事に打ち破った。武者は潔く負けを認め、その名を胸に刻んで去っていった。`,"big");}else{u.exp=(u.exp||0)+ri(10,18);if(typeof processLevelUps==="function")processLevelUps(u);u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,"流浪の武人と互角に渡り合ったが、あと一歩及ばなかった。");chron(`${fullName(u)}は流浪の武人と互角に渡り合ったが、惜しくも一本を取られた。だが得るものは大きかった。`,"people");}}}},
    {label:"丁重に辞退する",hint:"治安↑(いらぬ諍いを避ける)",fx:{st:{order:1},log:"長は他流試合を丁重に辞退した。武人は残念そうに、しかし礼を尽くして去っていった。"}},
   ]},
+ /* ── 統治の価値判断(結果か規律か・意味ある選択) ── */
+ {tag:"裁 断",title:"命に背いた殊勲",
+  body:"退けとの下知に背き、独断で踏みとどまって戦況を覆した兵がいる。手柄は紛れもない。だがそれは、軍律を破っての功でもあった。どう裁くべきか。",
+  speaker:"ガレオン「功は功。なれど、下知に背く風潮が根づけば、いずれ軍は乱れましょう」",
+  choices:[
+   {label:"独断の功を大いに認め、褒め称える",hint:"その兵の士気↑・武名↑ / 治安↓(規律が緩む)",fx:{st:{order:-1},call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length){chron("だが誉めるべき当の兵は、もうこの場にいなかった。","");return;}const u=cands[Math.floor(Math.random()*cands.length)];u.moral=Math.min(100,(u.moral||0)+12);if(typeof grantRenown==="function")grantRenown(2,"独断で戦況を覆した殊勲");unitHistory(u,"下知に背いての功を大いに認められ、意気に感じた。");chron(`${fullName(u)}の独断の殊勲は大いに讃えられた。兵は奮い立ったが、古参の中には「軍律はどうなる」と眉をひそめる者もいた。`,"people");}}},
+   {label:"手柄は認めつつ、軍律違反を厳しく諭す",hint:"治安↑(規律が引き締まる) / その兵の士気↓",fx:{st:{order:2},call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length){chron("だが諭すべき当の兵は、もうこの場にいなかった。","");return;}const u=cands[Math.floor(Math.random()*cands.length)];u.moral=Math.max(0,(u.moral||0)-6);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+3);unitHistory(u,"功を認められつつも軍律違反を諭され、深く胸に刻んだ。");chron(`${fullName(u)}は功を認められつつも、軍律違反を厳しく諭された。唇を噛みしめたが、その言葉の重みは軍全体を引き締めている。`,"people");}}},
+  ]},
+ /* ── 一兵卒の家族の情(愛着を深める) ── */
+ {tag:"面 会",title:"遠来の老親",
+  body:"ある兵の老いた親が、遠い故郷から杖を頼りに訪ねてきた。老い先短い身、ひと目わが子の元気な姿を見ておきたいのだという。",
+  speaker:"フィオナ「親御さんも、もうお歳でしょう……。会える時に、会わせてあげたいものですわ」",
+  choices:[
+   {label:"暇と路銀を与え、親子の再会を許す",hint:"国庫↓ その兵の忠誠・士気が大きく上がる",fx:{gold:-30,call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length){chron("だが会うべき当の兵は、今この地にいなかった。","");return;}const u=cands[Math.floor(Math.random()*cands.length)];u.moral=Math.min(100,(u.moral||0)+10);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+12);unitHistory(u,"遠来の老親と再会を果たし、この恩を生涯忘れぬと誓った。");chron(`${fullName(u)}は老いた親と手を取り合い、涙ながらに再会を喜んだ。「このご恩は、この身が朽ちるまで」――兵の忠義は、いっそう篤くなった。`,"people");}}},
+   {label:"今は任が許さぬと、詫びて見送る",hint:"治安↑(務めを重んじる) / その兵の士気↓",fx:{st:{order:1},call:()=>{const cands=(S.units||[]).filter(u=>u.role==="active");if(!cands.length){chron("だが当の兵は、今この地にいなかった。","");return;}const u=cands[Math.floor(Math.random()*cands.length)];u.moral=Math.max(0,(u.moral||0)-7);unitHistory(u,"務めを優先し、遠来の老親と会えぬまま見送った。");chron(`${fullName(u)}は務めを優先し、遠来の老親を会わぬまま見送った。気丈に振る舞っていたが、その背は寂しげだった。`,"people");}}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
