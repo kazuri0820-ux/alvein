@@ -1387,7 +1387,7 @@ function startMatch(){
   const rival=isRivalOpp(opp.id);
   if(rival){const os=isHome?A:H; os.att*=1.03; os.mid*=1.03; os.def*=1.03;}  // ライバルも燃える＝ボス級
   let possH=H.mid/(H.mid+A.mid); possH=Math.max(.35,Math.min(.65,possH));
-  M={homeC,awayC,homeL,awayL,isHome,H,A,possH,pStr:isHome?H:A,
+  M={homeC,awayC,homeL,awayL,isHome,H,A,possH,pStr:isHome?H:A,oppStr:isHome?A:H,aiAdjusted:false,
      rival,derby:rival?derbyName(state.clubId,opp.id):null,
      min:0,hs:0,as:0,log:[],scorers:[],assists:[],
      st:{home:{sh:0,sot:0},away:{sh:0,sot:0}},
@@ -1396,11 +1396,19 @@ function startMatch(){
   current='match'; setNav(); renderMatch();
   matchTimer=setTimeout(matchTick,700);
 }
+function aiManage(){   // AI監督の采配（試合後半に1回、スコアに応じて）
+  if(M.aiAdjusted||M.min<60)return;
+  const aiScore=M.isHome?M.as:M.hs, myScore=M.isHome?M.hs:M.as;
+  const lead=aiScore-myScore; const oppC=M.isHome?M.awayC:M.homeC;
+  if(lead>=1){ M.oppStr.att*=0.92; M.oppStr.def*=1.12; M.aiAdjusted=true; pushLog('talk',`🔧 ${oppC.short} がリードを守りに入った（守備的采配）`); }
+  else if(lead<=-1&&M.min>=70){ M.oppStr.att*=1.12; M.oppStr.def*=0.94; M.aiAdjusted=true; pushLog('talk',`🔧 ${oppC.short} が反撃に出た（攻撃的采配）`); }
+}
 function matchTick(){
   if(M.decision||M.over)return;
   M.min++;
   if(M.min>90){finishMatch();return;}
   if(M.min===45&&!M.halftimeDone){M.halftimeDone=true;M.decision={type:'halftime'};renderMatch();return;}
+  aiManage();
   if(rnd()<0.30){
     const isH=rnd()<M.possH;
     const side=isH?'home':'away';
