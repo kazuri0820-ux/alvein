@@ -7473,6 +7473,22 @@ const RANDOM_CHOICE=[
    {label:"献策を容れ、道案内させる",hint:"未知のダンジョンが姿を現す",fx:{call:()=>{const nd=generateDungeon();S.availableDungeons=S.availableDungeons||[];S.availableDungeons.push(nd);if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}chron(`降将の案内で、秘匿されていた砦${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」への道が明らかになった(討伐の一覧に加わった)。`,"big");}}},
    {label:"罠を疑い、丁重に遇するに留める",hint:"治安↑(慎重を期す)",fx:{st:{order:1},log:"長は降将の献策を丁重に聞き置くに留めた。逸る心を戒め、まずは守りを固める。"}},
   ]},
+ /* ── 集団の士気管理(休息か鼓舞かの選択) ── */
+ {tag:"進 言",title:"戦に倦む兵たち",
+  body:"度重なる遠征に、兵たちの間に疲れの色が濃い。しばし休ませて英気を養わせるか、気を引き締めて任を全うさせるか。",
+  speaker:"ガレオン「刃も研ぎ続ければ欠けまする。なれど、緩みは隙にもなりましょう」",
+  choices:[
+   {label:"しばしの休息を与える",hint:"現役兵の疲労が癒え士気↑ / 一時、備えが緩む",fx:{st:{military:-1},call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act){u.fatigue=Math.max(0,(u.fatigue||0)-30);u.moral=Math.min(100,(u.moral||0)+7);}chron(`兵たちにしばしの休息が与えられた。${act.length}名が英気を養い、澄んだ顔で戦列に戻ろうとしている。`,"people");}}},
+   {label:"気を引き締め、任を全うさせる",hint:"治安↑(規律) / 現役兵の士気↓",fx:{st:{order:2},call:()=>{const act=S.units.filter(u=>u.role==="active");for(const u of act)u.moral=Math.max(0,(u.moral||0)-4);chron("長は兵たちに気を引き締めるよう説いた。皆、疲れを押して務めへ戻ったが、その表情にはわずかな翳りが残る。","people");}}},
+  ]},
+ /* ── 隣国への介入(賭けと大義・意味ある選択) ── */
+ {tag:"密 使",title:"王位を巡る密使",
+  body:"隣国で王位を巡る争いが起きているという。一方の陣営から密使が訪れ、後ろ盾となってくれれば、事成った暁には厚く報いると持ちかけてきた。",
+  speaker:"フィオナ「他国の火事です。飛び火もあれば……漁夫の利も、あるかもしれませんわ」",
+  choices:[
+   {label:"大義を認め、密かに後ろ盾となる",hint:"国庫↓ 賭け――成れば外交で大きく報われる",fx:{gold:-40,call:()=>{if(Math.random()<0.55){apply({st:{diplomacy:4},mood:3,log:"後ろ盾を得た陣営が王位を制した。恩義に厚く報い、両国の間には固い誼が結ばれた(外交↑↑)。"});}else{apply({st:{order:-1,diplomacy:-1},log:"後ろ盾となった陣営は敗れた。賭けは外れ、隣国との間には気まずい空気が残った。"});}}}},
+   {label:"内政不干渉を貫き、静観する",hint:"治安↑(火中の栗を拾わぬ)",fx:{st:{order:1},log:"長は他国の争いに関わらぬと決めた。火中の栗は拾わず、まずは自国の守りを固める。"}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
