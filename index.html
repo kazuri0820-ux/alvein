@@ -8288,6 +8288,7 @@ function rollRandomTurnEvent(){
   checkKingsReflection(); // 王の述懐:国の実情に即した、統べる者の独白を稀に綴る
   checkReignFeats(); // 治世の偉業:治世を貫く到達目標を達成した折、王国を挙げて祝い、恩賞を下す
   checkGrandCollections(); // 大収集の完成:全称号/全二つ名/全英傑を集めきった瞬間を一度きりの祝祭として刻む
+  checkBondMilestone(); // 絆の里程標:戦友・師弟・好敵手の縁が節目の数に達した折、人の結びつきの豊かさを国を挙げて言祝ぐ
   checkKingTitle(); // 王号:治世の色に応じて民が王をどう呼ぶかが定まり、色が移ろえば呼び名も変わる
   applyKingTitleBoon(); // 王徳:現在の王号に宿る治世の恵みを日々わずかに国へ及ぼす
   checkStageAdvance(); // 段階の到達:人口の節目を越え新たな時代を迎えた瞬間を国を挙げて祝う
@@ -12152,6 +12153,32 @@ function checkGrandCollections(){
       if(typeof grantRenown==="function")grantRenown(6,"全ての英傑と邂逅したこと");
       if(typeof apply==="function")apply({mood:14,gold:700});
       chron(`――歴史に名を刻む${GREAT_FIGURES.length}人の英傑、そのことごとくがアルヴェインの地に集い、あるいは相まみえた。英傑図鑑ここに完成、その偉業は千古に輝く。`,"big");
+    }
+  }
+}
+/* 絆の里程標:兵たちの間に結ばれた縁(戦友・師弟・好敵手)の数が節目に達した折、人の結びつきの
+   豊かさを国を挙げて言祝ぐ。全部集めきる"大収集"とは別に、関係を育てる歩みそのものに中間報酬を
+   与える——社会シミュとしての手応え・兵への愛着・やりがいに効く。現役同士の生きた縁のみを数える。 */
+function checkBondMilestone(){
+  if(typeof S==="undefined"||!S)return;
+  S.flags=S.flags||{};
+  const units=S.units||[];
+  const idmap={}; for(const u of units)idmap[u.id]=u;
+  const seen=new Set(); let total=0;
+  for(const u of units){
+    if(u.role!=="active")continue; // 現役同士の生きた縁のみ
+    if(u.bondWith){const o=idmap[u.bondWith];if(o&&o.role==="active"){const k="b|"+[u.id,o.id].sort().join("|");if(!seen.has(k)){seen.add(k);total++;}}}
+    if(u.rivalWith){const o=idmap[u.rivalWith];if(o&&o.role==="active"){const k="r|"+[u.id,o.id].sort().join("|");if(!seen.has(k)){seen.add(k);total++;}}}
+    if(u.pupilId){const o=idmap[u.pupilId];if(o&&o.role==="active"){const k="m|"+[u.id,o.id].sort().join("|");if(!seen.has(k)){seen.add(k);total++;}}}
+  }
+  S.flags.bondMiles=S.flags.bondMiles||{};
+  const TIERS=[{n:5,rn:1,mood:4,gold:0},{n:10,rn:2,mood:6,gold:120},{n:18,rn:3,mood:8,gold:250},{n:30,rn:4,mood:10,gold:400}];
+  for(const t of TIERS){
+    if(total>=t.n&&!S.flags.bondMiles[t.n]){
+      S.flags.bondMiles[t.n]=S.day;
+      if(typeof grantRenown==="function")grantRenown(t.rn,`兵たちの間に${t.n}の縁が結ばれたこと`);
+      if(typeof apply==="function")apply(t.gold?{mood:t.mood,gold:t.gold}:{mood:t.mood});
+      chron(`――アルヴェインの兵たちの間に、戦友・師弟・好敵手の縁が今や${t.n}を数えるに至った(現${total})。人と人の結びつきこそが、この国を単なる軍勢ではなく、一個の家族たらしめている。`,"big");
     }
   }
 }
