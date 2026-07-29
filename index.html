@@ -8313,6 +8313,7 @@ function rollRandomTurnEvent(){
   checkGrandCollections(); // 大収集の完成:全称号/全二つ名/全英傑を集めきった瞬間を一度きりの祝祭として刻む
   checkBondMilestone(); // 絆の里程標:戦友・師弟・好敵手の縁が節目の数に達した折、人の結びつきの豊かさを国を挙げて言祝ぐ
   checkExpeditionMilestone(); // 遠征の里程標:通算の迷宮踏破数が大台(50/100/200)に達した折、遠征の積み重ねを国を挙げて言祝ぐ
+  checkReignAgeMilestone(); // 治世の年輪:治世が節目の年数(10/20/40年)に達した折、長き治世を保った歩みそのものを言祝ぐ
   checkKingTitle(); // 王号:治世の色に応じて民が王をどう呼ぶかが定まり、色が移ろえば呼び名も変わる
   applyKingTitleBoon(); // 王徳:現在の王号に宿る治世の恵みを日々わずかに国へ及ぼす
   checkStageAdvance(); // 段階の到達:人口の節目を越え新たな時代を迎えた瞬間を国を挙げて祝う
@@ -12286,6 +12287,24 @@ function checkExpeditionMilestone(){
       if(typeof grantRenown==="function")grantRenown(t.rn,`迷宮を通算${t.n}回踏破したこと`);
       if(typeof apply==="function")apply({mood:t.mood,gold:t.gold});
       chron(`――アルヴェインの兵が潜り抜けた迷宮、その数ついに通算${t.n}を数えた。数え切れぬ死線を越えてきた遠征の積み重ねが、王国の武名を大陸に轟かせている。`,"big");
+    }
+  }
+}
+/* 治世の年輪:王国がひとつの治世を長く保ち、節目の年数(治世10年/20年/40年)に達した折、その永きに
+   わたる歩みを国を挙げて言祝ぐ。到達目標(偉業)や収集(図鑑)とは別軸="生き延びた歳月"そのものを称える
+   耐久・やり込みの手応え。 */
+function checkReignAgeMilestone(){
+  if(typeof S==="undefined"||!S)return;
+  S.flags=S.flags||{};
+  const yd=(typeof AGE_YEAR_DAYS!=="undefined"&&AGE_YEAR_DAYS>0)?AGE_YEAR_DAYS:25;
+  const years=Math.floor((S.day||0)/yd);
+  S.flags.reignAgeMiles=S.flags.reignAgeMiles||{};
+  for(const t of [{y:10,rn:2,mood:5,gold:150},{y:20,rn:3,mood:7,gold:300},{y:40,rn:5,mood:12,gold:600}]){
+    if(years>=t.y&&!S.flags.reignAgeMiles[t.y]){
+      S.flags.reignAgeMiles[t.y]=S.day;
+      if(typeof grantRenown==="function")grantRenown(t.rn,`治世が${t.y}年の永きに及んだこと`);
+      if(typeof apply==="function")apply({mood:t.mood,gold:t.gold});
+      chron(`――アルヴェイン王国、建国よりここに治世${t.y}年。幾多の危機と戦乱を越えて国を保ち続けてきたその歩みは、それ自体が一つの偉業である。民は末永き御代を寿いでいる。`,"big");
     }
   }
 }
