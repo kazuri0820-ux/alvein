@@ -815,7 +815,7 @@ function newGame(clubId,difficulty){
     mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60,pendingEvent:null,form:{},
     cash:DIFFS[dk].cash,signings:[],market:MARKET_RAW.map(makeMarketPlayer),
     eventQueue:[],winStreak:0,lossStreak:0,pstats:{},history:{seasons:[]},
-    career:{matches:0,wins:0,gf:0,titles:0,bestStreak:0},achievements:{},legend:{}};
+    career:{matches:0,wins:0,gf:0,titles:0,bestStreak:0},achievements:{},legend:{},seenTutorial:false};
   save();
 }
 
@@ -905,6 +905,8 @@ function bindCommon(){
   document.querySelectorAll('[data-player]').forEach(b=>b.onclick=()=>{selPlayer=b.dataset.player;go('player');});
   document.querySelectorAll('[data-ev]').forEach(b=>b.onclick=()=>resolveEvent(+b.dataset.ev));
   const ec=$('#evtClose'); if(ec)ec.onclick=()=>{evtMsg=null;render();};
+  const tk=$('#tutOK'); if(tk)tk.onclick=()=>{state.seenTutorial=true;save();render();};
+  const ts=$('#tutShow'); if(ts)ts.onclick=()=>{state.seenTutorial=false;render();};
   document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const r=buyPlayer(b.dataset.buy);render();const m=$('#buyMsg');if(m)m.innerHTML=`<span style="color:${r.ok?'var(--accent)':'var(--danger)'}">${r.msg}</span>`;});
   document.querySelectorAll('[data-sell]').forEach(b=>b.onclick=()=>{const r=sellPlayer(b.dataset.sell);render();const m=$('#buyMsg');if(m)m.innerHTML=`<span style="color:${r.ok?'var(--warn)':'var(--danger)'}">${r.msg}</span>`;});
   document.querySelectorAll('[data-train]').forEach(b=>b.onclick=()=>{
@@ -995,7 +997,17 @@ function viewDashboard(){
   }else if(evtMsg){
     eventCard=`<div class="card"><h2>📖 出来事</h2><p style="margin-bottom:12px">${evtMsg}</p><button class="btn" id="evtClose">なるほど →</button></div>`;
   }
-  return eventCard+`<div class="card">
+  const welcomeCard=(!state.seenTutorial)?`<div class="card" style="border-color:var(--accent2)">
+    <h2>👋 ようこそ、監督！</h2>
+    <p style="font-size:13px;line-height:1.9">あなたはクラブの監督兼GM。選手を育て戦術を練り、クラブを頂点へ導きましょう。<br>
+    <b>基本の流れ</b><br>
+    ① <b>育成</b>でTPを使い選手を鍛える／<b>移籍</b>でスター獲得<br>
+    ② <b>戦術</b>で布陣・先発を決める（⚡おすすめ布陣が便利）<br>
+    ③ <b>ダッシュボード</b>から試合へ → ビッグチャンスやハーフタイムは自分で采配！<br>
+    ④ 勝てば選手も監督もレベルUP。<b>監督</b>でパーク、<b>クエスト</b>で報酬<br>
+    ヒント: 選手名タップで詳細（Lv・特性・調子）が見られます。</p>
+    <button class="btn" id="tutOK">はじめる →</button></div>`:'';
+  return welcomeCard+eventCard+`<div class="card">
       <h2><span class="badge" style="background:${club.color}"></span>${club.name}</h2>
       <div class="kpi">
         <div class="k"><div class="v">${pos}位</div><div class="l">現在順位</div></div>
@@ -1011,7 +1023,8 @@ function viewDashboard(){
     </div>
     <div class="card"><h2>チーム力（現在の戦術）</h2>${statBars(s)}
       <p class="muted" style="font-size:12px;margin-top:8px">フォーメーション ${state.tactics.formation}・${styleLabel(state.tactics.style)}</p></div>
-    ${matchBox}`;
+    ${matchBox}
+    <p class="muted" style="font-size:11px;text-align:center;margin-top:8px;cursor:pointer" id="tutShow">❔ 遊び方をもう一度見る</p>`;
 }
 function styleLabel(s){return{attack:'攻撃的',balanced:'バランス',defend:'守備的'}[s];}
 
@@ -1751,6 +1764,7 @@ if(state&&!state.history)state.history={seasons:[]};
 if(state&&!state.career)state.career={matches:0,wins:0,gf:0,titles:0,bestStreak:0};
 if(state&&!state.achievements)state.achievements={};
 if(state&&!state.legend)state.legend={};
+if(state&&state.seenTutorial===undefined)state.seenTutorial=true;   // 既存セーブは案内済み扱い
 registerSignings();
 render();
 </script>
