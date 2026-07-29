@@ -7706,6 +7706,14 @@ const RANDOM_CHOICE=[
    {label:"皆の前で大いに讃える",hint:"相棒獣を連れた兵の士気と忠誠↑(絆が深まる)",fx:{mood:1,call:()=>{const c=S.units.filter(u=>u.role==="active"&&u.beast);if(!c.length){apply({log:"此度、手柄を立てた相棒獣はおらず、この話は流れた。"});return;}const u=c[Math.floor(Math.random()*c.length)];const k=(typeof beastKind==="function")?beastKind(u.beast.kind):null;u.moral=Math.min(100,(u.moral||0)+8);if(u.loyalty!=null)u.loyalty=Math.min(100,u.loyalty+6);unitHistory(u,`相棒${k?k.nm:"獣"}「${u.beast.nm}」の手柄が皆の前で讃えられ、二人の絆はいっそう深まった。`);chron(`${fullName(u)}の相棒${k?k.nm:"獣"}「${u.beast.nm}」の働きが、皆の前で高らかに讃えられた。誇らしげに主へ寄り添うその姿に、兵たちは目を細めている。`,"people");}}},
    {label:"出過ぎた誉れは無用と静かに労う",hint:"治安↑(実を旨とする)",fx:{st:{order:1},call:()=>{const c=S.units.filter(u=>u.role==="active"&&u.beast);if(!c.length){apply({log:"労うべき相棒獣もおらず、話は流れた。"});return;}const u=c[Math.floor(Math.random()*c.length)];const k=(typeof beastKind==="function")?beastKind(u.beast.kind):null;u.moral=Math.min(100,(u.moral||0)+3);unitHistory(u,`相棒${k?k.nm:"獣"}「${u.beast.nm}」の働きを、長が静かに労った。`);chron(`長は${fullName(u)}の相棒の手柄を、大仰にせず静かに労った。飾らぬその労いに、兵と獣は黙って寄り添っている。`,"");}}},
   ]},
+ /* ── 師弟の手合わせ(全力で挑ませ弟子を伸ばすか型を仕込むか) ── */
+ {tag:"薫 陶",title:"師弟の手合わせ",
+  body:"稽古場で、師と仰ぐ古参とその弟子が木剣を交える一幕が、兵たちの目を惹いている。師の胸を借りて弟子に全力でぶつからせ、大きく伸びる機とするか、力任せを戒め、まずは型と呼吸を丁寧に仕込ませるか。",
+  speaker:"ガレオン「弟子が師に挑む――よき光景にございます。伸ばすも鍛えるも、匙加減次第かと」",
+  choices:[
+   {label:"全力でぶつからせ、弟子を伸ばす",hint:"弟子の能力↑・師弟双方の士気↑(絆が深まる)",fx:{call:()=>{const masters=S.units.filter(u=>u.role==="active"&&u.pupilId&&S.units.some(o=>o.id===u.pupilId&&o.role==="active"));if(!masters.length){apply({log:"いま手合わせをする師弟はおらず、この話は流れた。"});return;}const m=masters[Math.floor(Math.random()*masters.length)];const pu=S.units.find(o=>o.id===m.pupilId);const keys=["str","agi","vit","wis","int","lead"];const k=keys[Math.floor(Math.random()*keys.length)];const inc=ri(1,2);pu[k]=(pu[k]||0)+inc;pu.moral=Math.min(100,(pu.moral||0)+6);m.moral=Math.min(100,(m.moral||0)+3);unitHistory(pu,`師${m.nm}に全力で挑み、胸を借りて一回り成長した。`);unitHistory(m,`弟子${pu.nm}の全力の挑戦を受け止め、その成長を頼もしく見届けた。`);chron(`${fullName(pu)}は師${m.nm}に全力でぶつかり、幾度も打ち込んでは弾き返された。汗みずくで挑むその姿に、師も目を細めている。稽古を経て、弟子はまた一つ強くなった。`,"people");}}},
+   {label:"型と呼吸を丁寧に仕込ませる",hint:"治安↑(基本を固める)",fx:{st:{order:1},call:()=>{const masters=S.units.filter(u=>u.role==="active"&&u.pupilId&&S.units.some(o=>o.id===u.pupilId&&o.role==="active"));if(!masters.length){apply({log:"型を仕込む師弟もおらず、話は流れた。"});return;}const m=masters[Math.floor(Math.random()*masters.length)];const pu=S.units.find(o=>o.id===m.pupilId);pu.moral=Math.min(100,(pu.moral||0)+3);unitHistory(pu,`師${m.nm}に型と呼吸を丁寧に仕込まれ、基本を身体に刻んだ。`);chron(`師${m.nm}は逸る弟子${pu.nm}を諭し、木剣の握りから呼吸まで一つひとつ手直しした。派手さはなくとも、その基本こそが弟子の芯を作っていく。`,"");}}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
