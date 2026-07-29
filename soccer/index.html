@@ -196,6 +196,7 @@ function potentialOf(p){                              // OVR上限（ベースOV
   let pot=base+Math.max(2,Math.round((99-base)*0.5+h*8));
   const gt=growthType(p.id);
   if(gt==='早熟')pot-=2; else if(gt==='晩成')pot+=3;
+  if(personaOf(p.id).id==='genius')pot+=2;            // 天才肌は上限+2
   return Math.min(99,Math.max(base,pot));
 }
 function xpMult(id){const gt=growthType(id);return gt==='早熟'?0.9:gt==='晩成'?1.12:1;} // 晩成は伸びが遅いが上限高
@@ -234,12 +235,25 @@ function awardMatchXP(res,homeC,awayC){
     xp+=(goalsBy[p.id]||0)*30; xp+=(assistsBy[p.id]||0)*20;
     xp+= result==='W'?25:result==='D'?10:0;
     if((p.grp==='GK'||p.grp==='DEF')&&oppScore===0)xp+=20;
-    xp=Math.round(xp*motiv);
+    let mult=motiv; if(personaOf(p.id).id==='ambition')mult*=1.15;   // 野心家はXP+15%
+    xp=Math.round(xp*mult);
     if(gainXP(p.id,xp)>0)ups.push({name:p.name,lvl:prog(p.id).lvl});
   });
   if(oppScore===0)state.cs=(state.cs||0)+1;   // クリーンシート集計
   // コンディション: 全員+30回復、先発は-40消耗（差引: 先発 純-10 / 控え +30）
   club.squad.forEach((p,i)=>{let c=condOf(p.id)+30; if(state.lineup.includes(i))c-=40; setCond(p.id,c);});
+  // 調子(フォーム)更新: 得点/アシストで上昇・敗戦で下降・控えは中立へ。性格で振れ幅が変化
+  club.squad.forEach((p,i)=>{
+    const started=state.lineup.includes(i); let d=0;
+    if(started){
+      if(goalsBy[p.id]||assistsBy[p.id])d=1;
+      else if((p.grp==='GK'||p.grp==='DEF')&&oppScore===0)d=1;   // クリーンシートは守備陣の好調材料
+      else if(result==='L')d=-1;
+    } else d=formOf(p.id)>0?-1:(formOf(p.id)<0?1:0);
+    const pid=personaOf(p.id).id;
+    if(pid==='hot')d*=2; else if(pid==='cool')d=Math.round(d/2);
+    if(d)setForm(p.id,formOf(p.id)+d);
+  });
   // 監督XP（結果＋得点）
   const mxp=(result==='W'?50:result==='D'?25:10)+myScore*5;
   const mgrUps=gainMgrXP(mxp);
@@ -270,6 +284,22 @@ function moraleInfo(){
   return{e:'😰',l:'最悪',c:'var(--danger)'};
 }
 
+/* ---------- RPG: 選手の個性（性格）と調子（フォーム） ---------- */
+const PERSONAS=[
+  {id:'ambition',name:'野心家',    icon:'🔥',desc:'試合で得る経験値+15%'},
+  {id:'worker',  name:'努力家',    icon:'💪',desc:'トレーニング獲得経験値+50%'},
+  {id:'mood',    name:'ムードメーカー',icon:'😄',desc:'先発で勝つとチーム士気+2'},
+  {id:'hot',     name:'熱血漢',    icon:'⚡',desc:'調子の波が大きい'},
+  {id:'cool',    name:'クール',    icon:'🧊',desc:'調子が安定している'},
+  {id:'genius',  name:'天才肌',    icon:'✨',desc:'ポテンシャル上限+2'},
+];
+function personaOf(id){return PERSONAS[hashId(id+'p')%PERSONAS.length];}
+function formOf(id){return (state.form&&state.form[id]!==undefined)?state.form[id]:0;}   // -2..+2
+function setForm(id,v){if(!state.form)state.form={};state.form[id]=Math.max(-2,Math.min(2,v));}
+function formFactor(id){return 1+formOf(id)*0.03;}                                        // 0.94〜1.06
+const FORM_LABEL={'2':{e:'🔥',l:'絶好調',c:'var(--accent)'},'1':{e:'📈',l:'好調',c:'var(--accent)'},'0':{e:'➖',l:'普通',c:'var(--muted)'},'-1':{e:'📉',l:'不調',c:'var(--warn)'},'-2':{e:'❄️',l:'絶不調',c:'var(--danger)'}};
+function formInfo(id){return FORM_LABEL[String(formOf(id))];}
+
 /* ---------- RPG: 特殊能力（アビリティ） ---------- */
 // 実効能力値のしきい値で解放（＝レベルアップで新たに開花しうる）。試合のチーム力に補正。
 const ABILITIES=[
@@ -295,7 +325,8 @@ function trainPlayer(id,stat){
   const capped=p&&eff(p).ov>=potentialOf(p);
   if(!capped)g.add[stat]=(g.add[stat]||0)+1; // ポテンシャル未到達なら狙った能力+1
   setCond(id,condOf(id)-8);                   // 練習で少し疲労
-  const ups=gainXP(id,Math.round(70*(1+perkLv('academy')*0.15))); // 育成環境パークでXP増（到達後もXPは入る）
+  let tmul=1+perkLv('academy')*0.15; if(personaOf(id).id==='worker')tmul*=1.5; // 努力家は練習XP+50%
+  const ups=gainXP(id,Math.round(70*tmul)); // 育成環境パーク等でXP増（到達後もXPは入る）
   save();
   return {ups,capped};                     // レベルアップ数・ポテンシャル到達か
 }
@@ -422,7 +453,7 @@ function bestXI(club,formation){
 function mean(a){return a.length?a.reduce((t,x)=>t+x,0)/a.length:55;}
 function strength(club,lineup,tac){
   const xi=lineup.map(i=>eff(club.squad[i]));
-  const cf=p=>condFactor(p.id);   // コンディション補正（自クラブのみ実効。AIは100で×1）
+  const cf=p=>condFactor(p.id)*formFactor(p.id);   // コンディション×調子（自クラブのみ実効。AIは×1）
   const gkp=xi.find(p=>p.grp==='GK');
   const gk=gkp?gkp.ov*cf(gkp):58;
   const defs=xi.filter(p=>p.grp==='DEF').map(p=>p.ov*cf(p));
@@ -545,7 +576,7 @@ function newGame(clubId){
   state={season:1,round:0,clubId,fixtures:fx,table:emptyTable(),
     tactics:{formation:'4-3-3',style:'balanced',press:'mid',line:'mid'},
     lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho',
-    mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60,pendingEvent:null};
+    mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60,pendingEvent:null,form:{}};
   save();
 }
 
@@ -729,7 +760,7 @@ function viewSquad(){
     const pot=potentialOf(p); const gt=growthType(p.id);
     const gtc={'早熟':'#f0883e','標準':'#8b949e','晩成':'#3fb950'}[gt];
     const atCap=p.ov>=pot;
-    return `<tr class="${inXI?'me':''}"><td class="name">${inXI?'● ':''}<span title="成長型: ${gt}" style="color:${gtc};font-size:10px;font-weight:700">${gt[0]}</span> <a data-player="${p.id}" style="color:var(--txt);text-decoration:underline;text-decoration-color:var(--line);cursor:pointer">${p.name}</a> <span style="font-size:12px">${abils}</span></td>
+    return `<tr class="${inXI?'me':''}"><td class="name">${inXI?'● ':''}<span title="成長型: ${gt}" style="color:${gtc};font-size:10px;font-weight:700">${gt[0]}</span> <a data-player="${p.id}" style="color:var(--txt);text-decoration:underline;text-decoration-color:var(--line);cursor:pointer">${p.name}</a> <span title="調子: ${formInfo(p.id).l}">${formInfo(p.id).e}</span><span style="font-size:12px">${abils}</span></td>
       <td><span class="pos ${p.grp}">${p.pos}</span></td>
       <td><b style="color:var(--accent2)">${p.lvl||1}</b></td>
       <td><b style="color:${condColor(condOf(p.id))}" title="コンディション">${condOf(p.id)}</b></td>
@@ -771,6 +802,8 @@ function viewPlayerDetail(){
     <div class="bar" style="margin:12px 0" title="XP ${g.xp}/${need}"><i style="width:${pct}%"></i></div>
     <p class="muted" style="font-size:12px">次のレベルまで ${Math.max(0,need-g.xp)} XP${atCap?' ・ 能力はポテンシャル上限に到達':` ・ 伸びしろ +${pot-p.ov}`}</p>
     <div class="stats-line" style="margin-top:6px"><span>コンディション</span><b style="color:${condColor(condOf(base.id))}">${condOf(base.id)}%</b></div>
+    <div class="stats-line"><span>調子</span><b style="color:${formInfo(base.id).c}">${formInfo(base.id).e} ${formInfo(base.id).l}</b></div>
+    <div class="stats-line"><span>性格</span><b>${personaOf(base.id).icon} ${personaOf(base.id).name} <span class="muted" style="font-weight:400;font-size:11px">${personaOf(base.id).desc}</span></b></div>
   </div>
   <div class="card"><h2>能力値 <span class="muted" style="font-weight:400;font-size:11px">（+は育成/成長ぶん）</span></h2>
     ${statRow('スピード','pac')}${statRow('シュート','sho')}${statRow('パス','pas')}
@@ -1027,6 +1060,7 @@ function finishMatch(){
   const win=my>op, lose=my<op;
   const before=morale();
   chMorale(win?8:lose?-8:2);                         // 通常の士気変動
+  if(win){const c=clubById(state.clubId); if(state.lineup.some(i=>personaOf(c.squad[i].id).id==='mood'))chMorale(2);} // ムードメーカー
   let rivalBox=null;
   if(M.rival){                                       // ダービー特別処理
     chMorale(win?6:lose?-6:0);
@@ -1201,6 +1235,7 @@ if(state&&!state.quests)state.quests={};
 if(state&&state.cs===undefined)state.cs=0;
 if(state&&!state.cond)state.cond={};
 if(state&&state.morale===undefined)state.morale=60;
+if(state&&!state.form)state.form={};
 render();
 </script>
 </body>
