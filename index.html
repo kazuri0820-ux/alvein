@@ -13582,6 +13582,8 @@ const UNIQUE_JOBS=[
   check:(u)=>!!u.sigFeat&&(u.sigFeat.weight||0)>=4}, // 巨獣・未踏の王・魔将・魔王討伐級の、生涯の語り草となる大武勲(sigFeat weight≥4)を刻んだ英雄。特定の達成ゆえ汎用の頂点判定より優先
  {key:"surpass_master",name:"藍より出づる者",nickname:"師を超えし弟子",
   check:(u)=>{if(!u.masterId)return false;const m=(typeof findAnyUnit==="function")?findAnyUnit(u.masterId):null;return !!m&&(u.lv||0)>(m.lv||0)&&(u.lv||0)>=20;}}, // 師の背を追い続け、ついにその練度を追い越した弟子(青は藍より出でて藍より青し=師弟の絆が結ぶ到達点)。師弟という特定の縁ゆえ汎用の頂点判定より優先
+ {key:"lineage_link",name:"教えの継ぎ手",nickname:"教えの継ぎ手",
+  check:(u)=>!!u.masterId&&!!u.pupilId}, // 師より受け継いだ教えを、自らも弟子へと伝える――師弟の連なりの一環となった、教えの鎖の橋渡し(受け継ぎ、受け継がせる師弟の道)。師弟という特定の縁ゆえ汎用の頂点判定より優先
  {key:"aegis_god",name:"守護神",nickname:"不落の守護神",
   check:(u)=>(u.guardianSaveCount||0)>=3}, // 我が身を挺して幾度も戦友の命を救い抜いた、部隊の絶対の盾(守護を極める道)
  {key:"type_sovereign",name:"万流を極めし者",nickname:"万流を極めし者",
