@@ -177,12 +177,52 @@ const CLUBS = CLUBS_RAW.map(c=>({
 }));
 const clubById=id=>CLUBS.find(c=>c.id===id);
 function clubRating(c){ // 平均トップ11（ベース値）
-  const s=c.squad.slice().sort((a,b)=>b.ov-a.ov).slice(0,11);
+  const s=squadOf(c.id).slice().sort((a,b)=>b.ov-a.ov).slice(0,11);
   return Math.round(s.reduce((t,p)=>t+p.ov,0)/s.length);
 }
 
 /* ---------- RPG: 選手の経験値・レベル・成長 ---------- */
 const PLAYERS={}; CLUBS.forEach(c=>c.squad.forEach(p=>PLAYERS[p.id]=p));
+
+// 移籍市場プール（8クラブ外の実在選手。個人利用）: [名前,pos,pac,sho,pas,dri,def,phy]
+const MARKET_RAW=[
+  ['Victor Osimhen','ST',90,88,72,82,44,85],['Khvicha (FA)','LW',80,78,78,84,44,72],
+  ['Rafael Leão','LW',93,83,78,88,42,80],['Victor Boniface','ST',84,82,74,80,46,84],
+  ['Florian Wirtz','CAM',82,82,86,88,60,68],['Xavi Simons','CAM',84,80,84,88,54,66],
+  ['Federico Chiesa','RW',88,82,78,86,50,74],['Dušan Vlahović','ST',82,86,72,78,42,84],
+  ['Bruno Fernandes','CAM',76,84,88,84,66,76],['Cole Palmer','CAM',80,85,85,87,56,70],
+  ['Moisés Caicedo','CDM',82,70,80,80,84,85],['Enzo Fernández','CM',78,80,86,83,78,80],
+  ['Victor Gyökeres','ST',89,87,74,82,45,86],['João Félix','CAM',84,82,82,88,48,66],
+  ['Nico Williams','LW',94,80,78,88,46,74],['Alexander Isak','ST',88,87,76,85,44,80],
+  ['Toni Kroos (FA)','CM',60,78,90,80,72,64],['Sergio Ramos (FA)','CB',70,60,72,68,86,86],
+  ['Scott McTominay','CM',78,80,78,78,78,84],['Jamal (FA)','CDM',72,68,80,78,82,82],
+  ['Rasmus Højlund','ST',88,82,70,80,42,84],['Evan Ferguson','ST',82,80,70,80,42,82],
+  ['Kobbie Mainoo','CM',80,74,82,84,76,76],['Warren (FA)','RB',88,66,76,82,74,78],
+];
+let MKT_SEQ=0;
+function makeMarketPlayer(a){
+  const p={id:'mk'+(MKT_SEQ++),name:a[0],pos:a[1],pac:a[2],sho:a[3],pas:a[4],dri:a[5],def:a[6],phy:a[7]};
+  p.grp=groupOf(p.pos); p.ov=overall(p); return p;
+}
+// セーブ済みの獲得選手を PLAYERS 索引へ復元
+function registerSignings(){ if(state&&state.signings)state.signings.forEach(p=>{PLAYERS[p.id]=p;}); }
+// 実効スカッド（自クラブは獲得選手を末尾に連結。indexは崩さない）
+function squadOf(id){
+  const base=clubById(id).squad;
+  if(state&&id===state.clubId&&state.signings&&state.signings.length)return base.concat(state.signings);
+  return base;
+}
+function playerPrice(p){ // 市場価格（M）: OVRと伸びしろで算出
+  const pot=potentialOf(p);
+  return Math.max(5,Math.round((p.ov-58)*2.5+(pot-p.ov)*2));
+}
+function buyPlayer(mid){
+  const i=(state.market||[]).findIndex(p=>p.id===mid); if(i<0)return {ok:false,msg:'その選手はいません'};
+  const p=state.market[i]; const price=playerPrice(p);
+  if((state.cash||0)<price)return {ok:false,msg:`資金不足（${price}M 必要 / 所持 ${state.cash||0}M）`};
+  state.cash-=price; state.market.splice(i,1); state.signings.push(p); PLAYERS[p.id]=p; save();
+  return {ok:true,msg:`🎉 ${p.name} を獲得！（-${price}M / 残り ${state.cash}M）スカッドに加入`};
+}
 // レベルアップ時に伸びやすい能力（ポジション別）: [主, 副, 副]
 const GROW={GK:['def','phy','pas'],DEF:['def','phy','pac'],MID:['pas','dri','def'],ATT:['sho','dri','pac']};
 function xpNeed(lvl){return 100+(lvl-1)*45;}         // 次レベルまでの必要XP（基準）
@@ -228,10 +268,10 @@ function awardMatchXP(res,homeC,awayC){
   const goalsBy={},assistsBy={};
   (res.scorers||[]).filter(s=>s.clubId===state.clubId).forEach(s=>goalsBy[s.id]=(goalsBy[s.id]||0)+1);
   (res.assists||[]).filter(s=>s.clubId===state.clubId).forEach(s=>assistsBy[s.id]=(assistsBy[s.id]||0)+1);
-  const club=clubById(state.clubId); const ups=[];
+  const club=clubById(state.clubId); const sq=squadOf(club.id); const ups=[];
   const motiv=1+perkLv('motivator')*0.1;
   state.lineup.forEach(i=>{
-    const p=club.squad[i]; let xp=40;
+    const p=sq[i]; let xp=40;
     xp+=(goalsBy[p.id]||0)*30; xp+=(assistsBy[p.id]||0)*20;
     xp+= result==='W'?25:result==='D'?10:0;
     if((p.grp==='GK'||p.grp==='DEF')&&oppScore===0)xp+=20;
@@ -241,9 +281,9 @@ function awardMatchXP(res,homeC,awayC){
   });
   if(oppScore===0)state.cs=(state.cs||0)+1;   // クリーンシート集計
   // コンディション: 全員+30回復、先発は-40消耗（差引: 先発 純-10 / 控え +30）
-  club.squad.forEach((p,i)=>{let c=condOf(p.id)+30; if(state.lineup.includes(i))c-=40; setCond(p.id,c);});
+  sq.forEach((p,i)=>{let c=condOf(p.id)+30; if(state.lineup.includes(i))c-=40; setCond(p.id,c);});
   // 調子(フォーム)更新: 得点/アシストで上昇・敗戦で下降・控えは中立へ。性格で振れ幅が変化
-  club.squad.forEach((p,i)=>{
+  sq.forEach((p,i)=>{
     const started=state.lineup.includes(i); let d=0;
     if(started){
       if(goalsBy[p.id]||assistsBy[p.id])d=1;
@@ -262,7 +302,7 @@ function awardMatchXP(res,homeC,awayC){
 }
 function teamAvgLevel(){
   const club=clubById(state.clubId);
-  const lv=club.squad.map(p=>prog(p.id).lvl);
+  const lv=squadOf(club.id).map(p=>prog(p.id).lvl);
   return (lv.reduce((t,x)=>t+x,0)/lv.length).toFixed(1);
 }
 
@@ -346,7 +386,7 @@ function gainMgrXP(amount){const m=mgr();m.xp+=amount;let ups=0;while(m.xp>=mgrX
 function investPerk(id){const m=mgr();const d=MGR_PERKS.find(p=>p.id===id);if(!d||m.points<=0||(m.perks[id]||0)>=d.max)return false;m.perks[id]=(m.perks[id]||0)+1;m.points--;save();return true;}
 
 /* ---------- RPG: クエスト（シーズン目標） ---------- */
-function maxSquadLevel(){const c=clubById(state.clubId);return Math.max(...c.squad.map(p=>prog(p.id).lvl));}
+function maxSquadLevel(){return Math.max(...squadOf(state.clubId).map(p=>prog(p.id).lvl));}
 const QUESTS=[
   {id:'win8', name:'連戦連勝',  icon:'🏅', desc:'シーズンで7勝する',       target:7,  progress:()=>state.table[state.clubId].w,  reward:{mgrXp:120,points:1}},
   {id:'gf28', name:'得点マシン', icon:'⚽', desc:'チーム通算25得点',        target:25, progress:()=>state.table[state.clubId].gf, reward:{mgrXp:120}},
@@ -372,8 +412,8 @@ function checkQuests(){
 
 /* ---------- RPG: ストーリー / ナラティブイベント ---------- */
 function chMorale(d){state.morale=Math.max(0,Math.min(100,morale()+d));}
-function topPlayer(){const c=clubById(state.clubId);let b=c.squad[0];c.squad.forEach(p=>{if(eff(p).ov>eff(b).ov)b=p;});return b.id;}
-function youthPlayer(){const c=clubById(state.clubId);let b=c.squad[0],g=-1;c.squad.forEach(p=>{const gap=potentialOf(p)-eff(p).ov;if(gap>g){g=gap;b=p;}});return b.id;}
+function topPlayer(){const sq=squadOf(state.clubId);let b=sq[0];sq.forEach(p=>{if(eff(p).ov>eff(b).ov)b=p;});return b.id;}
+function youthPlayer(){const sq=squadOf(state.clubId);let b=sq[0],g=-1;sq.forEach(p=>{const gap=potentialOf(p)-eff(p).ov;if(gap>g){g=gap;b=p;}});return b.id;}
 const EVENTS=[
  {id:'transfer',pick:topPlayer,title:'📨 移籍のうわさ',
   text:p=>`${p.name} に強豪クラブからオファーが届いた。本人の心も揺れているようだ。`,
@@ -439,12 +479,13 @@ const FORMATIONS={
 };
 function bestXI(club,formation){
   const slots=FORMATIONS[formation];
-  const pool=club.squad.slice().sort((a,b)=>b.ov-a.ov);
+  const sq=squadOf(club.id);
+  const pool=sq.slice().sort((a,b)=>b.ov-a.ov);
   const used=new Set(), xi=[];
   for(const g of slots){
     let pick=pool.find(p=>p.grp===g&&!used.has(p.id));
     if(!pick)pick=pool.find(p=>!used.has(p.id));
-    used.add(pick.id); xi.push(club.squad.indexOf(pick));
+    used.add(pick.id); xi.push(sq.indexOf(pick));
   }
   return xi;
 }
@@ -452,7 +493,8 @@ function bestXI(club,formation){
 /* ---------- 4. チーム力算出 ---------- */
 function mean(a){return a.length?a.reduce((t,x)=>t+x,0)/a.length:55;}
 function strength(club,lineup,tac){
-  const xi=lineup.map(i=>eff(club.squad[i]));
+  const sq=squadOf(club.id);
+  const xi=lineup.map(i=>eff(sq[i]));
   const cf=p=>condFactor(p.id)*formFactor(p.id);   // コンディション×調子（自クラブのみ実効。AIは×1）
   const gkp=xi.find(p=>p.grp==='GK');
   const gk=gkp?gkp.ov*cf(gkp):58;
@@ -479,7 +521,7 @@ function strength(club,lineup,tac){
 /* ---------- 5. 試合エンジン ---------- */
 function rnd(){return Math.random();}
 function pickScorer(club,lineup){
-  const xi=lineup.map(i=>club.squad[i]).filter(p=>p.grp!=='GK');
+  const xi=lineup.map(i=>squadOf(club.id)[i]).filter(p=>p.grp!=='GK');
   const weighted=[];
   xi.forEach(p=>{
     let w=p.sho*(p.grp==='ATT'?3:p.grp==='MID'?1.4:0.4);
@@ -491,7 +533,7 @@ function pickScorer(club,lineup){
   return xi[0];
 }
 function pickAssister(club,lineup,scorerId){
-  const xi=lineup.map(i=>club.squad[i]).filter(p=>p.grp!=='GK'&&p.id!==scorerId);
+  const xi=lineup.map(i=>squadOf(club.id)[i]).filter(p=>p.grp!=='GK'&&p.id!==scorerId);
   if(!xi.length)return null;
   const weighted=xi.map(p=>({p,w:p.pas*(p.grp==='MID'?2:p.grp==='ATT'?1.6:0.6)}));
   const tot=weighted.reduce((t,x)=>t+x.w,0);
@@ -576,7 +618,8 @@ function newGame(clubId){
   state={season:1,round:0,clubId,fixtures:fx,table:emptyTable(),
     tactics:{formation:'4-3-3',style:'balanced',press:'mid',line:'mid'},
     lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho',
-    mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60,pendingEvent:null,form:{}};
+    mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60,pendingEvent:null,form:{},
+    cash:120,signings:[],market:MARKET_RAW.map(makeMarketPlayer)};
   save();
 }
 
@@ -628,7 +671,7 @@ function resolveEvent(idx){
   state.pendingEvent=null; save(); render();
 }
 function setNav(){
-  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['manager','監督'],['quests','クエスト'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['fixtures','日程']];
+  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['transfer','移籍'],['manager','監督'],['quests','クエスト'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['fixtures','日程']];
   $('#nav').innerHTML=items.map(([k,l])=>`<button data-s="${k}" class="${k===current?'active':''}">${l}</button>`).join('');
   $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.s));
   $('#seasonPill').textContent=state?`シーズン ${state.season} ・ 第${Math.min(state.round+1,14)}節`:'';
@@ -642,6 +685,7 @@ function render(){
   else if(current==='squad')el.innerHTML=viewSquad();
   else if(current==='training')el.innerHTML=viewTraining();
   else if(current==='manager')el.innerHTML=viewManager();
+  else if(current==='transfer')el.innerHTML=viewTransfer();
   else if(current==='quests'){checkQuests();el.innerHTML=viewQuests();}
   else if(current==='player')el.innerHTML=viewPlayerDetail();
   else if(current==='tactics'){el.innerHTML=viewTactics();bindTactics();}
@@ -658,6 +702,7 @@ function bindCommon(){
   document.querySelectorAll('[data-player]').forEach(b=>b.onclick=()=>{selPlayer=b.dataset.player;go('player');});
   document.querySelectorAll('[data-ev]').forEach(b=>b.onclick=()=>resolveEvent(+b.dataset.ev));
   const ec=$('#evtClose'); if(ec)ec.onclick=()=>{evtMsg=null;render();};
+  document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const r=buyPlayer(b.dataset.buy);render();const m=$('#buyMsg');if(m)m.innerHTML=`<span style="color:${r.ok?'var(--accent)':'var(--danger)'}">${r.msg}</span>`;});
   document.querySelectorAll('[data-train]').forEach(b=>b.onclick=()=>{
     const cur=state.trainFocus||'sho';
     const p=PLAYERS[b.dataset.train]; const name=p?p.name:'';
@@ -741,6 +786,7 @@ function viewDashboard(){
         <div class="k"><div class="v" style="color:var(--accent2)">${teamAvgLevel()}</div><div class="l">平均Lv</div></div>
         <div class="k"><div class="v" style="color:var(--gold)">Lv.${mgr().lvl}</div><div class="l">監督</div></div>
         <div class="k"><div class="v" style="color:${moraleInfo().c};font-size:16px">${moraleInfo().e}${morale()}</div><div class="l">士気 ${moraleInfo().l}</div></div>
+        <div class="k"><div class="v" style="color:var(--gold)">${state.cash||0}M</div><div class="l">資金</div></div>
       </div>
       ${mgr().points>0?`<p style="color:var(--gold);font-size:12px;margin-top:10px;cursor:pointer" data-go="manager">💡 パークポイントが${mgr().points}あります → 監督タブで強化</p>`:''}
     </div>
@@ -752,8 +798,9 @@ function styleLabel(s){return{attack:'攻撃的',balanced:'バランス',defend:
 
 function viewSquad(){
   const club=clubById(state.clubId);
-  const rows=club.squad.map(p=>eff(p)).sort((a,b)=>b.ov-a.ov).map(p=>{
-    const idx=club.squad.findIndex(x=>x.id===p.id);
+  const sq=squadOf(club.id);
+  const rows=sq.map(p=>eff(p)).sort((a,b)=>b.ov-a.ov).map(p=>{
+    const idx=sq.findIndex(x=>x.id===p.id);
     const inXI=state.lineup.includes(idx);
     const g=prog(p.id); const need=xpNeedFor(p.id,g.lvl); const pct=Math.round(g.xp/need*100);
     const abils=abilitiesOf(p).map(a=>`<span title="${a.name}" style="cursor:help">${a.icon}</span>`).join('');
@@ -844,6 +891,26 @@ function viewQuests(){
     ${rows}`;
 }
 
+function viewTransfer(){
+  const market=(state.market||[]).slice().sort((a,b)=>b.ov-a.ov);
+  const rows=market.map(p=>{
+    const price=playerPrice(p); const pot=potentialOf(p); const per=personaOf(p.id);
+    const can=(state.cash||0)>=price;
+    return `<tr><td class="name">${p.name} <span title="${per.name}">${per.icon}</span></td>
+      <td><span class="pos ${p.grp}">${p.pos}</span></td><td class="ov">${p.ov}</td>
+      <td class="muted" title="ポテンシャル">${pot}</td><td><b style="color:var(--gold)">${price}M</b></td>
+      <td><button class="btn ${can?'':'sec'}" data-buy="${p.id}" ${can?'':'disabled'} style="padding:4px 12px;font-size:12px">獲得</button></td></tr>`;
+  }).join('');
+  const owned=(state.signings||[]).length?state.signings.map(p=>`<span class="mood" style="margin:3px">${p.name} <b>${eff(p).ov}</b></span>`).join(' '):'<span class="muted">まだ獲得選手はいません</span>';
+  return `<div class="card"><h2>移籍市場 <span class="muted" style="font-weight:400;font-size:12px">・ 資金 <b style="color:var(--gold)">${state.cash||0}M</b></span></h2>
+    <p class="muted" style="font-size:12px;margin-bottom:8px">実在スターを獲得してチーム強化。加入選手はスカッドに入り育成・起用できます。資金はシーズン成績（順位）で増加。</p>
+    <div id="buyMsg" style="font-size:13px;min-height:18px;margin-bottom:6px"></div>
+    <div style="overflow-x:auto"><table>
+    <tr><th class="name">選手</th><th>POS</th><th>OVR</th><th>POT</th><th>価格</th><th></th></tr>
+    ${rows||'<tr><td colspan="6" class="muted">売り出し中の選手はいません</td></tr>'}</table></div></div>
+    <div class="card"><h2>獲得済みの選手 <span class="muted" style="font-weight:400;font-size:12px">${(state.signings||[]).length}名</span></h2><div style="line-height:2.2">${owned}</div></div>`;
+}
+
 function viewManager(){
   const m=mgr();
   const pct=Math.round(m.xp/mgrXpNeed(m.lvl)*100);
@@ -872,8 +939,9 @@ function viewTraining(){
   const cur=state.trainFocus||'sho';
   const curLabel=DRILLS.find(d=>d[0]===cur)[1];
   const drillBtns=DRILLS.map(d=>`<button class="btn ${cur===d[0]?'':'sec'}" data-drill="${d[0]}" style="padding:6px 12px">${d[1]}</button>`).join('');
-  const rows=club.squad.map(p=>eff(p)).sort((a,b)=>b.ov-a.ov).map(p=>{
-    const g=prog(p.id); const inXI=state.lineup.includes(club.squad.findIndex(x=>x.id===p.id));
+  const sq=squadOf(club.id);
+  const rows=sq.map(p=>eff(p)).sort((a,b)=>b.ov-a.ov).map(p=>{
+    const g=prog(p.id); const inXI=state.lineup.includes(sq.findIndex(x=>x.id===p.id));
     return `<tr class="${inXI?'me':''}"><td class="name">${p.name}</td>
       <td><span class="pos ${p.grp}">${p.pos}</span></td>
       <td><b style="color:var(--accent2)">${p.lvl||1}</b></td><td class="ov">${p.ov}</td>
@@ -891,17 +959,18 @@ function viewTraining(){
 
 function viewTactics(){
   const club=clubById(state.clubId);
+  const sq=squadOf(club.id);
   const slots=FORMATIONS[state.tactics.formation];
   const sel=(id,val,opts)=>`<select id="${id}">${opts.map(o=>`<option value="${o[0]}" ${o[0]===val?'selected':''}>${o[1]}</option>`).join('')}</select>`;
   const lineupHtml=slots.map((g,idx)=>{
     const usedElse=state.lineup.filter((_,i)=>i!==idx);
-    const opts=club.squad.map((p,pi)=>({p,pi})).filter(x=>x.p.grp===g&&!usedElse.includes(x.pi)).sort((a,b)=>b.p.ov-a.p.ov);
+    const opts=sq.map((p,pi)=>({p,pi})).filter(x=>x.p.grp===g&&!usedElse.includes(x.pi)).sort((a,b)=>b.p.ov-a.p.ov);
     const cur=state.lineup[idx];
     return `<div class="lineup-slot"><span class="pos ${g}">${g}</span>
       <select data-slot="${idx}">${opts.map(x=>{const e=eff(x.p);return `<option value="${x.pi}" ${x.pi===cur?'selected':''}>${x.p.name} (Lv${e.lvl||1}・${e.ov})</option>`;}).join('')}</select></div>`;
   }).join('');
   const s=strength(club,state.lineup,state.tactics);
-  const xiAbils=state.lineup.map(i=>eff(club.squad[i])).flatMap(p=>abilitiesOf(p).map(a=>({a,name:p.name})));
+  const xiAbils=state.lineup.map(i=>eff(sq[i])).flatMap(p=>abilitiesOf(p).map(a=>({a,name:p.name})));
   const abilLine=xiAbils.length?xiAbils.map(x=>`<span title="${x.name}: ${x.a.name}">${x.a.icon}</span>`).join(' '):'<span class="muted">なし</span>';
   return `<div class="card"><h2>戦術</h2>
     <div class="row" style="align-items:center;margin-bottom:6px">
@@ -1060,7 +1129,7 @@ function finishMatch(){
   const win=my>op, lose=my<op;
   const before=morale();
   chMorale(win?8:lose?-8:2);                         // 通常の士気変動
-  if(win){const c=clubById(state.clubId); if(state.lineup.some(i=>personaOf(c.squad[i].id).id==='mood'))chMorale(2);} // ムードメーカー
+  if(win){const sq=squadOf(state.clubId); if(state.lineup.some(i=>personaOf(sq[i].id).id==='mood'))chMorale(2);} // ムードメーカー
   let rivalBox=null;
   if(M.rival){                                       // ダービー特別処理
     chMorale(win?6:lose?-6:0);
@@ -1217,6 +1286,8 @@ function viewRanking(){
 
 function nextSeason(){
   checkQuests();            // シーズン終了時点の目標（優勝など）を判定してから
+  const pos=standings().findIndex(x=>x.c.id===state.clubId)+1;   // 成績に応じた賞金
+  state.cash=(state.cash||0)+(pos===1?120:pos<=3?80:pos<=6?50:30);
   state.season++; state.round=0;
   state.fixtures=genFixtures(CLUBS.map(c=>c.id));
   state.table=emptyTable();
@@ -1236,6 +1307,10 @@ if(state&&state.cs===undefined)state.cs=0;
 if(state&&!state.cond)state.cond={};
 if(state&&state.morale===undefined)state.morale=60;
 if(state&&!state.form)state.form={};
+if(state&&state.cash===undefined)state.cash=120;
+if(state&&!state.signings)state.signings=[];
+if(state&&!state.market)state.market=MARKET_RAW.map(makeMarketPlayer);
+registerSignings();
 render();
 </script>
 </body>
