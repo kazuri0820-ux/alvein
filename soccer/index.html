@@ -290,7 +290,7 @@ function eff(p){ // 成長ボーナス込みの実効選手（Lv/XP付き）
   return e;
 }
 function gainXP(id,amount){
-  const g=prog(id); g.xp+=amount; let ups=0;
+  const g=prog(id); g.xp+=Math.round(amount*diff().xp); let ups=0;   // 難易度でXP倍率
   while(g.xp>=xpNeedFor(id,g.lvl)){g.xp-=xpNeedFor(id,g.lvl);g.lvl++;growPlayer(id);ups++;}
   return ups;
 }
@@ -356,7 +356,14 @@ function condColor(c){return c>=70?'var(--accent)':c>=40?'var(--warn)':'var(--da
 /* ---------- RPG: チーム士気（モラル） ---------- */
 function morale(){return state.morale===undefined?60:state.morale;}
 function moraleFactor(){return 0.9+0.2*(morale()/100);}      // 0→×0.9, 100→×1.1
-function aiFactor(){return Math.min(1.30,1+(((state&&state.season)||1)-1)*0.03);} // AIクラブはシーズン毎に成長（最大+30%）
+/* 難易度設定 */
+const DIFFS={
+  easy:  {name:'イージー', aiGrow:0.015, aiBase:0.95, cash:160, xp:1.25, prize:1.2},
+  normal:{name:'ノーマル', aiGrow:0.03,  aiBase:1.0,  cash:120, xp:1.0,  prize:1.0},
+  hard:  {name:'ハード',   aiGrow:0.045, aiBase:1.08, cash:90,  xp:0.8,  prize:0.85},
+};
+function diff(){return DIFFS[(state&&state.difficulty)]||DIFFS.normal;}
+function aiFactor(){const d=diff();const s=(state&&state.season)||1;return d.aiBase*Math.min(1.30,1+(s-1)*d.aiGrow);} // AIはシーズン毎に成長（難易度で係数変化）
 function power(s){return s.att*0.38+s.mid*0.24+s.def*0.38;}   // 総合戦力スコア
 function matchOdds(myS,oppS){                                  // 勝/分/負(%)を実効戦力から推定
   const d=power(myS)-power(oppS);
@@ -760,14 +767,15 @@ const SAVE_KEY='gaffer_save_v1';
 let state=null;
 function save(){localStorage.setItem(SAVE_KEY,JSON.stringify(state));}
 function load(){try{const s=localStorage.getItem(SAVE_KEY);return s?JSON.parse(s):null;}catch(e){return null;}}
-function newGame(clubId){
+function newGame(clubId,difficulty){
   const fx=genFixtures(CLUBS.map(c=>c.id));
   const club=clubById(clubId);
-  state={season:1,round:0,clubId,fixtures:fx,table:emptyTable(),
+  const dk=DIFFS[difficulty]?difficulty:'normal';
+  state={season:1,round:0,clubId,difficulty:dk,fixtures:fx,table:emptyTable(),
     tactics:{formation:'4-3-3',style:'balanced',press:'mid',line:'mid'},
     lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho',
     mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60,pendingEvent:null,form:{},
-    cash:120,signings:[],market:MARKET_RAW.map(makeMarketPlayer),
+    cash:DIFFS[dk].cash,signings:[],market:MARKET_RAW.map(makeMarketPlayer),
     eventQueue:[],winStreak:0,lossStreak:0,pstats:{}};
   save();
 }
@@ -815,6 +823,7 @@ function finalizeRound(r,playerResult){
 const $=s=>document.querySelector(s);
 let current='dashboard';
 let selPlayer=null;   // 選手詳細で表示中の選手id
+let selDiff='normal'; // クラブ選択時の難易度
 let evtMsg=null;      // 直近のイベント結果テキスト（一時表示）
 function resolveEvent(idx){
   const pe=state.pendingEvent; if(!pe)return;
@@ -826,7 +835,7 @@ function setNav(){
   const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['transfer','移籍'],['manager','監督'],['quests','クエスト'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['fixtures','日程']];
   $('#nav').innerHTML=items.map(([k,l])=>`<button data-s="${k}" class="${k===current?'active':''}">${l}</button>`).join('');
   $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.s));
-  $('#seasonPill').textContent=state?`シーズン ${state.season} ・ 第${Math.min(state.round+1,14)}節`:'';
+  $('#seasonPill').textContent=state?`シーズン ${state.season} ・ 第${Math.min(state.round+1,14)}節 ・ ${diff().name}`:'';
 }
 function go(s){current=s;render();}
 function render(){
@@ -882,12 +891,20 @@ function renderClubSelect(){
       <div class="muted" style="font-size:12px">総合力 <span class="ov" style="color:var(--accent)">${r}</span> ・ ${c.squad.length}名</div>
     </div>`;
   }).join('');
+  const dsc={easy:'AIの成長ゆるやか・資金160M・獲得XP1.25倍',normal:'標準バランス・資金120M',hard:'AI強め＆急成長・資金90M・獲得XP0.8倍'};
+  const diffBtns=Object.keys(DIFFS).map(k=>`<button class="btn ${selDiff===k?'':'sec'}" data-diff="${k}" style="padding:6px 14px">${DIFFS[k].name}</button>`).join('');
   $('#screen').innerHTML=`<div class="card">
+     <h2>難易度を選択</h2>
+     <div class="row" style="margin-bottom:6px">${diffBtns}</div>
+     <p class="muted" style="font-size:12px">${dsc[selDiff]}</p>
+   </div>
+   <div class="card">
      <h2>クラブを選択</h2>
      <p class="muted" style="margin-bottom:14px">率いるクラブを選んでください。1シーズン全14節のリーグ戦を戦います。</p>
      <div class="grid">${cards}</div>
    </div>`;
-  document.querySelectorAll('[data-club]').forEach(el=>el.onclick=()=>{newGame(el.dataset.club);go('dashboard');});
+  document.querySelectorAll('[data-diff]').forEach(el=>el.onclick=()=>{selDiff=el.dataset.diff;renderClubSelect();});
+  document.querySelectorAll('[data-club]').forEach(el=>el.onclick=()=>{newGame(el.dataset.club,selDiff);go('dashboard');});
 }
 
 function statBars(s){
@@ -1572,7 +1589,7 @@ function nextSeason(){
   checkQuests();            // シーズン終了時点の目標（優勝など）を判定してから
   const mvp=seasonMVP(); if(mvp)gainXP(mvp,300);   // シーズンMVP報酬（リセット前に付与）
   const pos=standings().findIndex(x=>x.c.id===state.clubId)+1;   // 成績に応じた賞金
-  state.cash=(state.cash||0)+(pos===1?120:pos<=3?80:pos<=6?50:30);
+  state.cash=(state.cash||0)+Math.round((pos===1?120:pos<=3?80:pos<=6?50:30)*diff().prize);
   const signed=new Set((state.signings||[]).map(p=>p.name));      // 市場を毎季リフレッシュ（獲得済みは除外）
   state.market=MARKET_RAW.filter(a=>!signed.has(a[0])).map(makeMarketPlayer);
   state.season++; state.round=0;
@@ -1599,6 +1616,7 @@ if(state&&!state.signings)state.signings=[];
 if(state&&!state.market)state.market=MARKET_RAW.map(makeMarketPlayer);
 if(state&&!state.eventQueue)state.eventQueue=[];
 if(state&&!state.pstats)state.pstats={};
+if(state&&!state.difficulty)state.difficulty='normal';
 registerSignings();
 render();
 </script>
