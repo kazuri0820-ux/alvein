@@ -741,6 +741,28 @@ function standings(){
     .sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf||a.c.name.localeCompare(b.c.name));
 }
 // シーズンMVP（自チーム・3試合以上で平均点最高）
+/* ---------- RPG: 通算記録 & 実績 ---------- */
+function car(){if(!state.career)state.career={matches:0,wins:0,gf:0,titles:0,bestStreak:0};return state.career;}
+const ACHIEVEMENTS=[
+  {id:'debut',   icon:'👔',name:'監督デビュー',desc:'1試合を戦う',        check:()=>car().matches>=1},
+  {id:'win1',    icon:'✅',name:'初勝利',      desc:'初めて勝利する',      check:()=>car().wins>=1},
+  {id:'streak5', icon:'🔥',name:'5連勝',       desc:'5連勝を達成',        check:()=>(car().bestStreak||0)>=5},
+  {id:'title1',  icon:'🏆',name:'初タイトル',  desc:'リーグ優勝',          check:()=>car().titles>=1},
+  {id:'title3',  icon:'👑',name:'常勝軍団',    desc:'通算3回優勝',        check:()=>car().titles>=3},
+  {id:'gf100',   icon:'🎯',name:'得点マシン',  desc:'通算100得点',        check:()=>car().gf>=100},
+  {id:'rich',    icon:'💰',name:'大富豪',      desc:'資金500Mに到達',      check:()=>(state.cash||0)>=500},
+  {id:'galactico',icon:'🌍',name:'銀河系軍団', desc:'選手を5人獲得',       check:()=>(state.signings||[]).length>=5},
+  {id:'star20',  icon:'⭐',name:'スター製造',  desc:'選手をLv20に育てる',  check:()=>maxSquadLevel()>=20},
+  {id:'mgr10',   icon:'🎖️',name:'名将の風格',  desc:'監督Lv10に到達',      check:()=>mgr().lvl>=10},
+  {id:'derby3',  icon:'⚔️',name:'ダービーキング',desc:'ダービーで通算3勝', check:()=>(state.rivalWins||0)>=3},
+];
+function checkAchievements(){
+  if(!state.achievements)state.achievements={};
+  const got=[];
+  ACHIEVEMENTS.forEach(a=>{if(!state.achievements[a.id]&&a.check()){state.achievements[a.id]=true;got.push(a);}});
+  if(got.length)save();
+  return got;
+}
 function seasonMVP(){
   const sq=squadOf(state.clubId).filter(p=>state.pstats&&state.pstats[p.id]&&state.pstats[p.id].apps>=3);
   if(!sq.length)return null;
@@ -782,7 +804,8 @@ function newGame(clubId,difficulty){
     lineup:bestXI(club,'4-3-3'),history:[],scorers:{},prog:{},tp:TP_MAX,trainFocus:'sho',
     mgr:{lvl:1,xp:0,points:0,perks:{}},quests:{},cs:0,cond:{},morale:60,pendingEvent:null,form:{},
     cash:DIFFS[dk].cash,signings:[],market:MARKET_RAW.map(makeMarketPlayer),
-    eventQueue:[],winStreak:0,lossStreak:0,pstats:{},history:{seasons:[]}};
+    eventQueue:[],winStreak:0,lossStreak:0,pstats:{},history:{seasons:[]},
+    career:{matches:0,wins:0,gf:0,titles:0,bestStreak:0},achievements:{}};
   save();
 }
 
@@ -838,7 +861,7 @@ function resolveEvent(idx){
   state.pendingEvent=null; save(); render();
 }
 function setNav(){
-  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['transfer','移籍'],['manager','監督'],['quests','クエスト'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['history','クラブ史'],['fixtures','日程']];
+  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['training','育成'],['transfer','移籍'],['manager','監督'],['quests','クエスト'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['history','クラブ史'],['achievements','実績'],['fixtures','日程']];
   $('#nav').innerHTML=items.map(([k,l])=>`<button data-s="${k}" class="${k===current?'active':''}">${l}</button>`).join('');
   $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.s));
   $('#seasonPill').textContent=state?`シーズン ${state.season} ・ 第${Math.min(state.round+1,14)}節 ・ ${diff().name}`:'';
@@ -855,6 +878,7 @@ function render(){
   else if(current==='transfer')el.innerHTML=viewTransfer();
   else if(current==='quests'){checkQuests();el.innerHTML=viewQuests();}
   else if(current==='history')el.innerHTML=viewHistory();
+  else if(current==='achievements')el.innerHTML=viewAchievements();
   else if(current==='player')el.innerHTML=viewPlayerDetail();
   else if(current==='tactics'){el.innerHTML=viewTactics();bindTactics();}
   else if(current==='standings')el.innerHTML=viewStandings();
@@ -1054,6 +1078,26 @@ function viewPlayerDetail(){
     <button class="btn" data-go="training">育成で鍛える →</button>
     <button class="btn sec" data-go="squad">戻る</button>
   </div></div>`;
+}
+
+function viewAchievements(){
+  if(!state.achievements)state.achievements={};
+  const got=ACHIEVEMENTS.filter(a=>state.achievements[a.id]).length;
+  const c=car();
+  const rows=ACHIEVEMENTS.map(a=>{
+    const un=!!state.achievements[a.id];
+    return `<div class="stats-line" style="opacity:${un?1:0.5}">
+      <span style="flex:1;text-align:left"><span style="font-size:16px">${un?a.icon:'🔒'}</span> <b>${a.name}</b> <span class="muted" style="font-size:11px">${a.desc}</span></span>
+      <span style="color:${un?'var(--accent)':'var(--muted)'};font-size:12px">${un?'解除':'未達成'}</span></div>`;
+  }).join('');
+  return `<div class="card"><h2>実績 <span class="muted" style="font-weight:400;font-size:12px">${got}/${ACHIEVEMENTS.length}</span></h2>
+    <div class="kpi">
+      <div class="k"><div class="v">${c.matches}</div><div class="l">通算試合</div></div>
+      <div class="k"><div class="v" style="color:var(--accent)">${c.wins}</div><div class="l">通算勝利</div></div>
+      <div class="k"><div class="v">${c.gf}</div><div class="l">通算得点</div></div>
+      <div class="k"><div class="v" style="color:var(--gold)">${c.titles}</div><div class="l">優勝</div></div>
+    </div></div>
+    <div class="card"><h2>トロフィー</h2>${rows}</div>`;
 }
 
 function viewHistory(){
@@ -1430,6 +1474,7 @@ function finishMatch(){
   if(win){state.winStreak=(state.winStreak||0)+1;state.lossStreak=0;}
   else if(lose){state.lossStreak=(state.lossStreak||0)+1;state.winStreak=0;}
   else {state.winStreak=0;state.lossStreak=0;}
+  const c=car(); c.matches++; if(win)c.wins++; c.gf+=my; c.bestStreak=Math.max(c.bestStreak||0,state.winStreak||0); // 通算記録
   const before=morale();
   chMorale(win?8:lose?-8:2);                         // 通常の士気変動
   if(win){const sq=squadOf(state.clubId); if(state.lineup.some(i=>personaOf(sq[i].id).id==='mood'))chMorale(2);} // ムードメーカー
@@ -1448,8 +1493,9 @@ function finishMatch(){
   finalizeRound(state.round,{hs:res.hs,as:res.as,scorers:res.scorers,assists:res.assists});
   const xpres=awardMatchXP(res,M.homeC,M.awayC);
   const quests=checkQuests();
+  const achs=checkAchievements();
   maybeRollEvent();
-  showResult(M.homeC,M.awayC,res,xpres,quests,{before,after:state.morale},rivalBox);
+  showResult(M.homeC,M.awayC,res,xpres,quests,{before,after:state.morale},rivalBox,achs);
 }
 function renderMatch(){
   const {homeC,awayC}=M;
@@ -1523,11 +1569,12 @@ function renderMatch(){
   document.querySelectorAll('[data-subout]').forEach(b=>b.onclick=()=>{M.subOut=+b.dataset.subout;renderMatch();});
   document.querySelectorAll('[data-subin]').forEach(b=>b.onclick=()=>performSub(+b.dataset.subin));
 }
-function showResult(homeC,awayC,res,xpres,quests,mor,rivalBox){
+function showResult(homeC,awayC,res,xpres,quests,mor,rivalBox,achs){
   current='match'; setNav();
   const poss=Math.round(res.possH*100);
   const mi=moraleInfo();
   const rBox=rivalBox?`<div class="card decision"><h2>⚔️ ダービー</h2><p>${rivalBox}</p></div>`:'';
+  const achBox=(achs&&achs.length)?`<div class="card"><h2>🏅 実績解除！</h2>${achs.map(a=>`<div class="stats-line"><b>${a.icon} ${a.name}</b><span class="muted">${a.desc}</span></div>`).join('')}</div>`:'';
   const morBox=mor?`<div class="card"><h2>チーム士気</h2><div class="stats-line"><span>試合前 ${mor.before}</span><b style="color:${mi.c}">${mi.e} ${mor.after} ${mi.l}</b></div></div>`:'';
   const ups=(xpres&&xpres.players)||[];
   const upBox=(ups.length)?`<div class="card"><h2>⬆️ レベルアップ</h2>${ups.map(u=>`<div class="stats-line"><b>${u.name}</b><span>Lv.${u.lvl} に上昇！</span></div>`).join('')}</div>`:'';
@@ -1550,6 +1597,7 @@ function showResult(homeC,awayC,res,xpres,quests,mor,rivalBox){
     ${line('枠内',res.stats.home.sot,res.stats.away.sot)}
     </div>
     ${rBox}
+    ${achBox}
     ${morBox}
     ${upBox}
     ${mgrBox}
@@ -1645,6 +1693,8 @@ function nextSeason(){
   state.season++; state.round=0;
   state.fixtures=genFixtures(CLUBS.map(c=>c.id));
   state.table=emptyTable();
+  if(pos===1)car().titles++;
+  checkAchievements();
   state.scorers={}; state.pstats={};
   state.quests={}; state.cs=0;   // シーズン目標をリセット
   save(); go('dashboard');
@@ -1668,6 +1718,8 @@ if(state&&!state.eventQueue)state.eventQueue=[];
 if(state&&!state.pstats)state.pstats={};
 if(state&&!state.difficulty)state.difficulty='normal';
 if(state&&!state.history)state.history={seasons:[]};
+if(state&&!state.career)state.career={matches:0,wins:0,gf:0,titles:0,bestStreak:0};
+if(state&&!state.achievements)state.achievements={};
 registerSignings();
 render();
 </script>
