@@ -7452,6 +7452,23 @@ const RANDOM_CHOICE=[
    {label:"同じ隊に組ませ、旧交を温めさせる",hint:"二人に戦友の絆が芽生えるかも",fx:{call:()=>{const act=S.units.filter(u=>u.role==="active");let bonded=false;if(typeof forgeSquadBond==="function")bonded=forgeSquadBond(act,"幼馴染の再会");if(!bonded){for(const u of act.slice(0,2))if(u)u.moral=Math.min(100,(u.moral||0)+4);chron("幼馴染の二人は同じ隊に組まれ、幼き日の思い出に花を咲かせた。陣中の空気も、どこか和んでいる。","people");}}}},
    {label:"公私は分けるべしと、別々に配する",hint:"治安↑(規律を保つ)",fx:{st:{order:1},log:"長は公私を分けるべしと、二人を別々の隊に配した。規律は保たれ、二人もそれを弁えている。"}},
   ]},
+ /* ── 統治の裁定(正義と情理・意味ある選択) ── */
+ {tag:"裁 定",title:"賊を匿う村の疑い",
+  body:"辺境の一村が、街道を荒らす野盗を匿っているとの訴えが上がった。真偽は定かでない。厳しく取り締まるか、情理を尽くすか、まずは真偽を確かめるか。",
+  speaker:"ガレオン「早計は禍根を残しましょう。なれど、手ぬるくば示しがつきませぬ」",
+  choices:[
+   {label:"厳しく取り調べ、見せしめとする",hint:"治安↑↑ / 民心↓(民は長を恐れる)",fx:{st:{order:3},mood:-4,log:"村は厳しく取り調べられ、賊との繋がりは断たれた。街道に静けさが戻ったが、民は長の厳しさに息を潜めている。"}},
+   {label:"情理を尽くして諭し、村を赦す",hint:"民心↑ 外交↑ / わずかな治安の緩み",fx:{mood:4,st:{diplomacy:1,order:-1},log:"長は村人に情理を尽くして諭し、寛大に赦した。村は涙して恭順を誓い、その徳は近隣にも伝わっている。"}},
+   {label:"密かに調べ、真偽を確かめてから決める",hint:"国庫↓ 真相に応じた着実な対処",fx:{gold:-25,call:()=>{if(Math.random()<0.55){apply({st:{order:2},log:"密偵の調べで賊との繋がりが露見した。証を掴んで一味だけを捕らえ、村人には累を及ぼさずに片をつけた(治安↑)。"});}else{apply({mood:3,st:{diplomacy:1},log:"密かに調べたところ、訴えは村への逆恨みによる讒言と分かった。無実の村を救い、その公正な裁きは民の信を集めた(民心↑)。"});}}}},
+  ]},
+ /* ── 降将の情報(信と警戒・発見) ── */
+ {tag:"献 策",title:"降将の献策",
+  body:"先の戦で降った敵将が、恭順の証にと申し出た。敵が秘匿する古い砦の在り処を知っている、案内すれば宝も眠っていよう、と。信じるべきか、罠を疑うべきか。",
+  speaker:"フィオナ「甘い話には棘があるやもしれませんわ。でも……確かめる値打ちは、あるかも?」",
+  choices:[
+   {label:"献策を容れ、道案内させる",hint:"未知のダンジョンが姿を現す",fx:{call:()=>{const nd=generateDungeon();S.availableDungeons=S.availableDungeons||[];S.availableDungeons.push(nd);if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}chron(`降将の案内で、秘匿されていた砦${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」への道が明らかになった(討伐の一覧に加わった)。`,"big");}}},
+   {label:"罠を疑い、丁重に遇するに留める",hint:"治安↑(慎重を期す)",fx:{st:{order:1},log:"長は降将の献策を丁重に聞き置くに留めた。逸る心を戒め、まずは守りを固める。"}},
+  ]},
 ];
 RANDOM_CHOICE.push(...RANDOM_CHOICE_EXTRA);
 function buildCaveRescueResult(){
