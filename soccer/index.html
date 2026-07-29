@@ -227,6 +227,15 @@ function pickScorer(club,lineup){
   for(const x of weighted){r-=x.w;if(r<=0)return x.p;}
   return xi[0];
 }
+function pickAssister(club,lineup,scorerId){
+  const xi=lineup.map(i=>club.squad[i]).filter(p=>p.grp!=='GK'&&p.id!==scorerId);
+  if(!xi.length)return null;
+  const weighted=xi.map(p=>({p,w:p.pas*(p.grp==='MID'?2:p.grp==='ATT'?1.6:0.6)}));
+  const tot=weighted.reduce((t,x)=>t+x.w,0);
+  let r=rnd()*tot;
+  for(const x of weighted){r-=x.w;if(r<=0)return x.p;}
+  return xi[0];
+}
 const GOAL_TXT=['ゴォォル！','ネットが揺れた！','決めた！','見事なフィニッシュ！','こじ開けた！'];
 const MISS_TXT=['惜しい！枠の外','ポストを直撃！','GK好セーブ！','決定機を逃す','クロスバー！'];
 function simulate(homeC,homeL,homeT,awayC,awayL,awayT,withEvents){
@@ -234,7 +243,7 @@ function simulate(homeC,homeL,homeT,awayC,awayL,awayT,withEvents){
   H.att*=1.06; H.def*=1.03; // ホームアドバンテージ
   let possH=H.mid/(H.mid+A.mid); possH=Math.max(.35,Math.min(.65,possH));
   const st={home:{sh:0,sot:0},away:{sh:0,sot:0}};
-  let hs=0,as=0; const events=[]; const scorers=[];
+  let hs=0,as=0; const events=[]; const scorers=[]; const assists=[];
   const yc={home:0,away:0};
   for(let m=1;m<=90;m++){
     if(rnd()<0.30){
@@ -252,7 +261,12 @@ function simulate(homeC,homeL,homeT,awayC,awayL,awayT,withEvents){
           if(side==='home')hs++;else as++;
           const scorer=pickScorer(atkC,atkL);
           scorers.push({side,id:scorer.id,name:scorer.name,clubId:atkC.id});
-          if(withEvents)events.push({m,type:'goal',team:side,text:`⚽ ${scorer.name}！ ${GOAL_TXT[Math.floor(rnd()*GOAL_TXT.length)]} (${atkC.short})`});
+          let assistTxt='';
+          if(rnd()<0.65){
+            const assister=pickAssister(atkC,atkL,scorer.id);
+            if(assister){assists.push({side,id:assister.id,name:assister.name,clubId:atkC.id});assistTxt=`（A: ${assister.name}）`;}
+          }
+          if(withEvents)events.push({m,type:'goal',team:side,text:`⚽ ${scorer.name}！ ${GOAL_TXT[Math.floor(rnd()*GOAL_TXT.length)]}${assistTxt} (${atkC.short})`});
         }else if(withEvents&&rnd()<0.5){
           events.push({m,type:'chance',team:side,text:`${atkC.short} ${MISS_TXT[Math.floor(rnd()*MISS_TXT.length)]}`});
         }
@@ -263,7 +277,7 @@ function simulate(homeC,homeL,homeT,awayC,awayL,awayT,withEvents){
       yc[side]++; events.push({m,type:'card',team:side,text:`🟨 ${c.short} イエローカード`});
     }
   }
-  return{hs,as,possH,stats:st,events,scorers};
+  return{hs,as,possH,stats:st,events,scorers,assists};
 }
 
 /* ---------- 6. リーグ日程 ---------- */
@@ -307,24 +321,25 @@ function playerMatchOfRound(r){
   const rd=state.fixtures[r]; if(!rd)return null;
   return rd.find(m=>m.h===state.clubId||m.a===state.clubId);
 }
-function addGoals(scorers){
+function statEntry(s){
   if(!state.scorers)state.scorers={};
-  (scorers||[]).forEach(s=>{
-    if(!state.scorers[s.id])state.scorers[s.id]={name:s.name,clubId:s.clubId,goals:0};
-    state.scorers[s.id].goals++;
-  });
+  if(!state.scorers[s.id])state.scorers[s.id]={name:s.name,clubId:s.clubId,goals:0,assists:0};
+  if(state.scorers[s.id].assists===undefined)state.scorers[s.id].assists=0;
+  return state.scorers[s.id];
 }
+function addGoals(scorers){(scorers||[]).forEach(s=>{statEntry(s).goals++;});}
+function addAssists(assists){(assists||[]).forEach(s=>{statEntry(s).assists++;});}
 function finalizeRound(r,playerResult){
   const rd=state.fixtures[r];
   rd.forEach(m=>{
     if(m.played)return;
     let hs,as;
-    if(playerResult&&(m.h===state.clubId||m.a===state.clubId)){hs=playerResult.hs;as=playerResult.as;addGoals(playerResult.scorers);}
+    if(playerResult&&(m.h===state.clubId||m.a===state.clubId)){hs=playerResult.hs;as=playerResult.as;addGoals(playerResult.scorers);addAssists(playerResult.assists);}
     else{
       const hc=clubById(m.h),ac=clubById(m.a);
       const res=simulate(hc,bestXI(hc,'4-3-3'),{style:'balanced',press:'mid',line:'mid'},
                          ac,bestXI(ac,'4-3-3'),{style:'balanced',press:'mid',line:'mid'},false);
-      hs=res.hs;as=res.as;addGoals(res.scorers);
+      hs=res.hs;as=res.as;addGoals(res.scorers);addAssists(res.assists);
     }
     m.hs=hs;m.as=as;m.played=true;
     const th=state.table[m.h],ta=state.table[m.a];
@@ -340,7 +355,7 @@ function finalizeRound(r,playerResult){
 const $=s=>document.querySelector(s);
 let current='dashboard';
 function setNav(){
-  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['tactics','戦術'],['standings','順位表'],['ranking','得点王'],['fixtures','日程']];
+  const items=[['dashboard','ダッシュボード'],['squad','スカッド'],['tactics','戦術'],['standings','順位表'],['ranking','ランキング'],['fixtures','日程']];
   $('#nav').innerHTML=items.map(([k,l])=>`<button data-s="${k}" class="${k===current?'active':''}">${l}</button>`).join('');
   $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.s));
   $('#seasonPill').textContent=state?`シーズン ${state.season} ・ 第${Math.min(state.round+1,14)}節`:'';
@@ -360,6 +375,7 @@ function render(){
 }
 function bindCommon(){
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+  document.querySelectorAll('[data-rank]').forEach(b=>b.onclick=()=>{rankSort=b.dataset.rank;render();});
   const kb=$('#toMatch'); if(kb)kb.onclick=()=>go('tactics');
 }
 
@@ -533,7 +549,7 @@ function showMatch(homeC,awayC,res){
     $('#scDisp').textContent=`${res.hs} - ${res.as}`; $('#clk').textContent='試合終了';
     $('#fin').disabled=false;
     $('#fin').onclick=()=>{
-      finalizeRound(state.round,{hs:res.hs,as:res.as,scorers:res.scorers});
+      finalizeRound(state.round,{hs:res.hs,as:res.as,scorers:res.scorers,assists:res.assists});
       showResult(homeC,awayC,res);
     };
   };
@@ -605,19 +621,26 @@ function viewFixtures(){
   return blocks;
 }
 
+let rankSort='goals';
 function viewRanking(){
-  const arr=Object.values(state.scorers||{}).sort((a,b)=>b.goals-a.goals).slice(0,20);
-  if(arr.length===0)return `<div class="card"><h2>得点ランキング</h2><p class="muted">まだ得点がありません。試合を進めましょう。</p></div>`;
+  const all=Object.values(state.scorers||{});
+  if(all.length===0)return `<div class="card"><h2>ランキング</h2><p class="muted">まだ記録がありません。試合を進めましょう。</p></div>`;
+  const key=rankSort;
+  const arr=all.map(s=>({...s,assists:s.assists||0}))
+    .sort((a,b)=>b[key]-a[key]||b.goals-a.goals||b.assists-a.assists).slice(0,20);
   const rows=arr.map((s,i)=>{
     const c=clubById(s.clubId);
     return `<tr class="${s.clubId===state.clubId?'me':''}"><td>${i+1}</td>
       <td class="name">${s.name}</td>
       <td class="name"><span class="badge" style="background:${c.color}"></span>${c.short}</td>
-      <td><b>${s.goals}</b></td></tr>`;
+      <td class="${key==='goals'?'ov':''}">${s.goals}</td>
+      <td class="${key==='assists'?'ov':''}">${s.assists}</td></tr>`;
   }).join('');
-  return `<div class="card"><h2>得点ランキング <span class="muted" style="font-weight:400;font-size:12px">（シーズン${state.season}）</span></h2>
+  const tab=(k,l)=>`<button class="btn ${rankSort===k?'':'sec'}" data-rank="${k}" style="padding:6px 14px">${l}</button>`;
+  return `<div class="card"><h2>ランキング <span class="muted" style="font-weight:400;font-size:12px">（シーズン${state.season}）</span></h2>
+    <div class="row" style="margin-bottom:10px">${tab('goals','得点王')}${tab('assists','アシスト王')}</div>
     <div style="overflow-x:auto"><table>
-    <tr><th>#</th><th class="name">選手</th><th class="name">クラブ</th><th>得点</th></tr>
+    <tr><th>#</th><th class="name">選手</th><th class="name">クラブ</th><th>G</th><th>A</th></tr>
     ${rows}</table></div></div>`;
 }
 
