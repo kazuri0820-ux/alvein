@@ -392,6 +392,13 @@ function maybeRollEvent(){
   if(rnd()<0.5){const ev=EVENTS[Math.floor(rnd()*EVENTS.length)];state.pendingEvent={id:ev.id,pid:ev.pick?ev.pick():null};}
 }
 
+/* ---------- RPG: ライバル / ダービー ---------- */
+const RIVALS={rma:'bar',bar:'rma',mci:'liv',liv:'mci',psg:'bay',bay:'psg',ars:'int',int:'ars'};
+const DERBY={'bar|rma':'エル・クラシコ','liv|mci':'プレミア頂上決戦','bay|psg':'ヨーロッパ決戦','ars|int':'因縁の一戦'};
+function rivalOf(id){return RIVALS[id];}
+function derbyName(a,b){return DERBY[[a,b].sort().join('|')]||'ライバル対決';}
+function isRivalOpp(oppId){return rivalOf(state.clubId)===oppId;}
+
 /* ---------- 3. フォーメーション & ベストXI ---------- */
 const FORMATIONS={
   '4-3-3':['GK','DEF','DEF','DEF','DEF','MID','MID','MID','ATT','ATT','ATT'],
@@ -667,7 +674,8 @@ function viewDashboard(){
   let matchBox;
   if(m){
     const home=clubById(m.h),away=clubById(m.a);
-    matchBox=`<div class="card"><h2>⚔️ 第${state.round+1}節</h2>
+    const rivalHere=isRivalOpp(m.h===state.clubId?m.a:m.h);
+    matchBox=`<div class="card"${rivalHere?' style="border-color:var(--gold)"':''}><h2>⚔️ 第${state.round+1}節${rivalHere?` <span style="color:var(--gold)">🔥 ${derbyName(m.h,m.a)}</span>`:''}</h2>
       <div class="scoreboard"><div class="teams">
         <div class="tn"><span class="badge" style="background:${home.color}"></span>${home.name}${m.h===state.clubId?' 🏠':''}</div>
         <div class="sc muted" style="font-size:22px">VS</div>
@@ -923,8 +931,11 @@ function startMatch(){
   const H=strength(homeC,homeL,isHome?state.tactics:AI_TAC);
   const A=strength(awayC,awayL,isHome?AI_TAC:state.tactics);
   H.att*=1.06; H.def*=1.03;                          // ホームアドバンテージ
+  const rival=isRivalOpp(opp.id);
+  if(rival){const os=isHome?A:H; os.att*=1.03; os.mid*=1.03; os.def*=1.03;}  // ライバルも燃える＝ボス級
   let possH=H.mid/(H.mid+A.mid); possH=Math.max(.35,Math.min(.65,possH));
   M={homeC,awayC,homeL,awayL,isHome,H,A,possH,pStr:isHome?H:A,
+     rival,derby:rival?derbyName(state.clubId,opp.id):null,
      min:0,hs:0,as:0,log:[],scorers:[],assists:[],
      st:{home:{sh:0,sot:0},away:{sh:0,sot:0}},
      momentum:50,keyLeft:3,halftimeDone:false,decision:null,over:false,fast:false};
@@ -1013,14 +1024,26 @@ function finishMatch(){
   if(matchTimer)clearTimeout(matchTimer);
   M.over=true;
   const my=M.isHome?M.hs:M.as, op=M.isHome?M.as:M.hs;
+  const win=my>op, lose=my<op;
   const before=morale();
-  state.morale=Math.max(0,Math.min(100,before+(my>op?8:my<op?-8:2)));
+  chMorale(win?8:lose?-8:2);                         // 通常の士気変動
+  let rivalBox=null;
+  if(M.rival){                                       // ダービー特別処理
+    chMorale(win?6:lose?-6:0);
+    if(win){
+      const bonus=120; gainMgrXP(bonus); state.rivalWins=(state.rivalWins||0)+1;
+      const heroId=(M.scorers.find(s=>s.clubId===state.clubId)||{}).id||topPlayer();
+      gainXP(heroId,250);
+      rivalBox=`🔥 ${M.derby} 制覇！ <b>${PLAYERS[heroId].name}</b> がダービーの英雄に（経験値+250）・監督XP+${bonus}・士気大幅UP`;
+    }else if(lose){ rivalBox=`💔 ${M.derby} 敗北… この屈辱を糧に（士気ダウン）`; }
+    else{ rivalBox=`🤝 ${M.derby} は痛み分け`; }
+  }
   const res={hs:M.hs,as:M.as,possH:M.possH,stats:M.st,events:M.log,scorers:M.scorers,assists:M.assists};
   finalizeRound(state.round,{hs:res.hs,as:res.as,scorers:res.scorers,assists:res.assists});
   const xpres=awardMatchXP(res,M.homeC,M.awayC);
   const quests=checkQuests();
   maybeRollEvent();
-  showResult(M.homeC,M.awayC,res,xpres,quests,{before,after:state.morale});
+  showResult(M.homeC,M.awayC,res,xpres,quests,{before,after:state.morale},rivalBox);
 }
 function renderMatch(){
   const {homeC,awayC}=M;
@@ -1052,6 +1075,7 @@ function renderMatch(){
     panel=`<div class="row" style="margin-top:10px"><button class="btn sec" id="skip">最後まで観る ⏩</button></div>`;
   }
   $('#screen').innerHTML=`<div class="card">
+    ${M.rival?`<div style="text-align:center;color:var(--gold);font-weight:800;font-size:14px;margin-bottom:6px">🔥 ${M.derby} 🔥</div>`:''}
     <div class="scoreboard"><div class="teams">
       <div class="tn">${avatar(homeC.short,homeC.color,30)}<br>${homeC.name}${M.isHome?' 🏠':''}</div>
       <div><div class="sc">${M.hs} - ${M.as}</div><div class="clock">${M.over?'試合終了':M.min+"'"}</div></div>
@@ -1066,10 +1090,11 @@ function renderMatch(){
   document.querySelectorAll('[data-tt]').forEach(b=>b.onclick=()=>teamTalk(b.dataset.tt));
   const sk=$('#skip'); if(sk)sk.onclick=()=>{M.keyLeft=0;M.halftimeDone=true;M.fast=true;};
 }
-function showResult(homeC,awayC,res,xpres,quests,mor){
+function showResult(homeC,awayC,res,xpres,quests,mor,rivalBox){
   current='match'; setNav();
   const poss=Math.round(res.possH*100);
   const mi=moraleInfo();
+  const rBox=rivalBox?`<div class="card decision"><h2>⚔️ ダービー</h2><p>${rivalBox}</p></div>`:'';
   const morBox=mor?`<div class="card"><h2>チーム士気</h2><div class="stats-line"><span>試合前 ${mor.before}</span><b style="color:${mi.c}">${mi.e} ${mor.after} ${mi.l}</b></div></div>`:'';
   const ups=(xpres&&xpres.players)||[];
   const upBox=(ups.length)?`<div class="card"><h2>⬆️ レベルアップ</h2>${ups.map(u=>`<div class="stats-line"><b>${u.name}</b><span>Lv.${u.lvl} に上昇！</span></div>`).join('')}</div>`:'';
@@ -1091,6 +1116,7 @@ function showResult(homeC,awayC,res,xpres,quests,mor){
     ${line('シュート',res.stats.home.sh,res.stats.away.sh)}
     ${line('枠内',res.stats.home.sot,res.stats.away.sot)}
     </div>
+    ${rBox}
     ${morBox}
     ${upBox}
     ${mgrBox}
