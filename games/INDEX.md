@@ -6,6 +6,7 @@
 | # | Game | Theme | File | Artifact |
 |---|------|-------|------|----------|
 | 01 | PK シュートアウト (Penalty Shootout) | ⚽ Soccer | [01-penalty-shootout.html](01-penalty-shootout.html) | https://claude.ai/code/artifact/98f783a6-3a06-4896-b4ee-81e1a3ae6af5 |
+| 02 | ホームランダービー (Home Run Derby) | ⚾ Baseball | [02-homerun-derby.html](02-homerun-derby.html) | https://claude.ai/code/artifact/8d33042b-d865-4873-ab86-cdeb863dc59e |
 
 ---
 
@@ -20,7 +21,7 @@ Soccer ⚽
 - ペナルティ・ターゲット射的
 
 Baseball ⚾
-- バッティング（タイミングでホームラン）
+- ~~バッティング（タイミングでホームラン）~~ (done #02)
 - ピッチング（球種で三振を取る）
 - ホームランダービー
 - 守備（フライキャッチ）
