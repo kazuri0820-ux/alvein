@@ -25,6 +25,7 @@
 | 18 | ドリブル・スラローム (Dribble Slalom) | ⚽ Soccer | [18-dribble-slalom.html](18-dribble-slalom.html) | https://claude.ai/code/artifact/e800db4a-d5d1-4dea-b3b4-c0be07a7ec47 |
 | 19 | 代打サヨナラ (Walk-Off At-Bat) | ⚾ Baseball | [19-walkoff.html](19-walkoff.html) | https://claude.ai/code/artifact/935defb6-2d04-46ae-aef9-bcd8b4211ab1 |
 | 20 | PK戦トーナメント (Penalty Shootout Cup) | ⚽ Soccer | [20-pk-tournament.html](20-pk-tournament.html) | https://claude.ai/code/artifact/3d181d54-b31a-48ef-8b1e-59485c4635b5 |
+| 21 | レーザービーム (Outfield Assist) | ⚾ Baseball | [21-laser-beam.html](21-laser-beam.html) | https://claude.ai/code/artifact/021956ab-9d21-4ca3-ac01-679144edeb03 |
 
 ---
 
@@ -58,5 +59,6 @@ Baseball ⚾
 - ~~物理アーケード（スタジアム・ピンボール）~~ (done #15)
 - ~~守備連携・ダブルプレー~~ (done #17)
 - ~~一打席勝負・代打サヨナラ（見極め＋ミート）~~ (done #19)
+- ~~外野補殺・レーザービーム（送球判断＋精度）~~ (done #21)
 
 > 制作ルール: 毎回 `games/` を確認し、まだ作っていないコンセプトを選ぶ。番号は連番。当初候補は #12 までで完走済みのため、以降は上記「新機軸」から選ぶか新しい派生を考える。サッカー⚽と野球⚾を交互に。
