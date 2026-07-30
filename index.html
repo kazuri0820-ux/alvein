@@ -11914,6 +11914,7 @@ const KING_TITLES=[
  {key:"merchant",name:"富王",desc:"交易と蓄財に長け、黄金の治世を築く王",score:s=>(s.st.economy||0)*1.0+Math.min(90,(s.gold||0)*0.03)+Math.min(60,(s.vault||0)*0.05)},
  {key:"hegemon",name:"盟主",desc:"外交と威信で大陸に号令する、諸国の盟主たる王",score:s=>(s.st.diplomacy||0)*1.0+((s.neighbors||[]).filter(n=>n.allied).length)*20+(s.renown||0)*0.5+((s.flags&&s.flags.contCouncil==="leader")?30:0)},
  {key:"pioneer",name:"開拓王",desc:"版図を広げ、荒野を富める国へと拓く王",score:s=>((typeof STAGES!=="undefined"&&STAGES[s.stage])?STAGES[s.stage].rank:1)*18+((s.outposts||[]).length)*12+Math.min(60,(s.pop||0)*0.4)},
+ {key:"paragon",name:"英傑王",desc:"世に名だたる英傑を数多く召し抱え、綺羅星の如き陣容を築き上げた王",score:s=>{const g=(s.flags&&s.flags.greatsHired)?Object.keys(s.flags.greatsHired).length:0;return g*22+((s.units||[]).filter(u=>u&&u.great).length)*10+((s.hallOfFame||[]).length)*4;}},
 ];
 function currentKingTitle(){
   let best=null;
