@@ -15,6 +15,7 @@
 | 08 | カーブ・フリーキック (Curve Free Kick) | ⚽ Soccer | [08-free-kick.html](08-free-kick.html) | https://claude.ai/code/artifact/36d77776-41af-467f-a256-4ac6cf04d640 |
 | 09 | エース・ピッチャー (Ace Pitcher) | ⚾ Baseball | [09-ace-pitcher.html](09-ace-pitcher.html) | https://claude.ai/code/artifact/5d70501e-9141-4a3d-b3a0-1e5fc523ea14 |
 | 10 | リフティング名人 (Keepie Uppie) | ⚽ Soccer | [10-keepie-uppie.html](10-keepie-uppie.html) | https://claude.ai/code/artifact/84a8602e-199f-467c-ae92-bf78da297971 |
+| 11 | 盗塁王 (Steal the Base) | ⚾ Baseball | [11-steal-base.html](11-steal-base.html) | https://claude.ai/code/artifact/a791183e-e2f1-4e40-b5c8-4aef9e4a5bc1 |
 
 ---
 
@@ -34,6 +35,6 @@ Baseball ⚾
 - ~~ストラックアウト（的当て）~~ (done #05)
 - ~~ピッチング（球種で三振を取る）~~ (done #09)
 - ~~守備（フライキャッチ）~~ (done #07)
-- 走塁 / スチール判定
+- ~~走塁 / スチール判定~~ (done #11)
 
 > 制作ルール: 毎回 `games/` を確認し、まだ作っていないコンセプトを選ぶ。番号は連番。
