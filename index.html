@@ -3546,7 +3546,7 @@ function checkAging(){
   const bless=priestBlessing();
   const hallGrow=hallLegacyGrow()+(doctrineIs("people")?0.03:0)+((S.flags&&S.flags.heirloom==="oath")?0.05:0); // 殿堂の英霊の数＋「民の国」の国是＋家宝「誓いの円卓」に応じた、現役兵の忠誠へのわずかな後押し
   for(const u of [...S.units]){
-    u.age+=1/AGE_YEAR_DAYS;
+    u.age+=(1/AGE_YEAR_DAYS)*(doctrineIs("longevity")?0.7:1); // 「長寿の国」の国是では兵の老いが緩やかになる(古参が永く現役でいられる)
     u.fatigue=Math.max(0,(u.fatigue||0)-((u.race==="dwarf"?12:8)+(traitInfo(u.trait).fatigueRecover||0)+(doctrineIs("vigor")?4:0)+veteranTemper(u)+(relicHas("drum")?3:0))); // ドワーフは頑健で疲れの抜けが早い(種族の個性)。特性(不屈の体躯 等)や「健勇の国」の国是もさらに回復を早める。歴戦の古参は戦場慣れで疲れの抜けが早い。遺物「不屈の軍鼓」で全軍の疲れがさらに早く抜ける(スキル分は後段で加算)
     // 英気を養う:出撃せず十分に休んだ兵は、みなぎる英気を蓄え、次の一戦で常より力を発揮する(休息=戦力への投資という新たな運用軸)
     if(u.dungeonBusy){u.restDays=0;}
@@ -8921,6 +8921,7 @@ const NATIONAL_DOCTRINES=[
  {key:"vigor",name:"健勇の国",desc:"不屈の気風を重んじる国是。兵たちの疲れの抜けが永続的に早まり、休みなく戦い続けられる。"},
  {key:"heroes",name:"英傑の国",desc:"人材を何より重んじる国是。以後、志願兵に隠れた逸材(掘り出し物)が眠りやすくなる。"},
  {key:"alliance",name:"盟約の国",desc:"誼を重んじる国是。近隣諸国との関係が温まりやすく冷めにくくなり、交易の恵みも増す。同盟・盟約を軸に据える国の礎。"},
+ {key:"longevity",name:"長寿の国",desc:"健やかな長命を尊ぶ国是。兵の老いが緩やかになり、慣れ親しんだ歴戦の古参が永く現役であり続ける。"},
 ];
 function doctrineIs(k){return !!(S.flags&&S.flags.doctrine===k);}
 function doctrineName(){const d=NATIONAL_DOCTRINES.find(x=>x.key===(S.flags&&S.flags.doctrine));return d?d.name:null;}
@@ -8940,6 +8941,7 @@ function doctrineEffectText(){
     vigor:"兵の疲れの抜けが日々 +4 速く、休みなく戦い続けられる",
     heroes:"志願兵に隠れた逸材が眠る確率 +35%",
     alliance:"近隣諸国との関係が日々 +0.1 温まりやすく、交易・同盟の恵み(国庫+30%・食糧+20%)が増す",
+    longevity:"兵の老いる速さ -30%(慣れ親しんだ古参が永く現役でいられる)",
   }[k]||null;
 }
 function buildDoctrineEvent(){
