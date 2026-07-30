@@ -20,6 +20,7 @@
 | 13 | 球審ジャッジ (Umpire: Ball or Strike) | ⚾ Baseball | [13-umpire.html](13-umpire.html) | https://claude.ai/code/artifact/eff048af-dfe8-4307-9404-a8044c2dd47d |
 | 14 | ヘディング・サッカーテニス (Header Tennis) | ⚽ Soccer | [14-header-tennis.html](14-header-tennis.html) | https://claude.ai/code/artifact/6188b90b-24b6-4850-b308-887a1b7a1ab8 |
 | 15 | スタジアム・ピンボール (Baseball Pinball) | ⚾ Baseball | [15-baseball-pinball.html](15-baseball-pinball.html) | https://claude.ai/code/artifact/528ca55b-8763-48b4-aa15-d5e8be62619b |
+| 16 | ティキタカ (One-Touch Pass Soccer) | ⚽ Soccer | [16-tiki-taka.html](16-tiki-taka.html) | https://claude.ai/code/artifact/d9dabbc2-7067-4685-b11c-da88ec458f2b |
 
 ---
 
@@ -43,6 +44,7 @@ Baseball ⚾
 
 ### 新機軸（当初バックログ完走後の新コンセプト）
 - ~~球審ジャッジ（ボール/ストライク判定）~~ (done #13)
+- ~~パス回し／崩し（ティキタカ）~~ (done #16)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - トーナメント/ワールドカップ制（連戦・勝ち上がり）
 - 選手育成・シーズンモード
