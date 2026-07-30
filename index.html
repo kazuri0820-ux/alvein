@@ -9527,6 +9527,16 @@ const UNIQUE_EVENTS=[
     {label:"天の警めと受け止め、政を正す",hint:"治安+3 / 民心+1",fx:{st:{order:3},mood:1,flag:{uq_cometOmen:true},log:"王は彗星を天の警めと受け止め、自らの政を省みた。綱紀は引き締められ、緩みかけていた宮中に静かな緊張が戻った(治安↑)。",logCls:"big"}},
     {label:"星の運行を書き留め、後世へ遺す",hint:"魔導+2",fx:{st:{magic:2},flag:{uq_cometOmen:true},log:"王は学者に命じ、彗星の運行を克明に書き留めさせた。その記録は書庫に収められ、いつか星を読む者の礎となるだろう(魔導↑)。",logCls:"big"}},
    ]})},
+ {key:"ancientStele",
+  cond:()=>!S.flags.uq_ancientStele&&(S.day||0)>=120,
+  build:()=>({tag:"固 有",title:"古き戦碑、地より出づる",
+   body:"普請の折、地中から苔むした石碑が掘り出された。刻まれているのは、もはや誰も知らぬ古き戦人たちの名。この国が興る遥か前、この地を守って斃れた者たちの碑らしい。",
+   speaker:"老師ユグ「名は忘れられても、志は土に還らぬもの。……さて、いかがなさいます」",
+   choices:[
+    {label:"碑を建て直し、慰霊の社とする",hint:"民心+4 / 治安+2 / 国庫-",fx:{gold:-70,mood:4,st:{order:2},flag:{uq_ancientStele:true},log:"王は古の戦人を悼み、碑を建て直して小さな社とした。名も知れぬ英霊に手を合わせる民の姿が、村に静かな敬いと結束をもたらした(国庫- 民心↑ 治安↑)。",logCls:"big"}},
+    {label:"碑文を丹念に写し取り、書庫に納める",hint:"魔導+2 / 治安+1",fx:{st:{magic:2,order:1},flag:{uq_ancientStele:true},log:"王は碑文を一字残らず写し取らせ、書庫に納めた。失われかけた古の歴史が、いまや王国の知の礎の一つとなった(魔導↑)。",logCls:"big"}},
+    {label:"掘り返した非礼を詫び、丁重に埋め戻す",hint:"民心+2 / 治安+1",fx:{mood:2,st:{order:1},flag:{uq_ancientStele:true},log:"王は眠りを妨げた非礼を詫び、碑を丁重に埋め戻させた。慎ましくも死者を敬う王の姿に、家臣たちは静かな敬意を抱いた(民心↑)。",logCls:"big"}},
+   ]})},
  {key:"veteranPride",
   cond:()=>!S.flags.uq_veteranPride&&S.units.some(u=>u.role==="active"&&(S.day-(u.joinDay||S.day))>=300),
   build:()=>{
