@@ -9646,6 +9646,16 @@ const UNIQUE_EVENTS=[
     {label:"満を持して壮麗な観兵式を催す",hint:"外交↑ 民心↑↑",fx:{st:{diplomacy:4},mood:7,flag:{uq_fullRoster:true},log:"城下の大通りを埋め尽くして壮麗な観兵式が催された。寸分の隙もなく整った軍列を、諸国の使者も息を呑んで見守っている。",logCls:"big"}},
     {label:"全軍を労う大盤振る舞いの宴を開く",hint:"民心↑↑ 国庫↓",fx:{gold:-80,mood:9,flag:{uq_fullRoster:true},log:"満員の兵を残らず招いた盛大な宴が催された。名を呼び合い、肩を叩き合う兵たちの熱気が、夜更けまで谷を満たしている。",logCls:"big"}},
    ]})},
+ {key:"mentorLegacy", // 三組以上の師弟が育った折の一度きりの祝祭=師弟の絆の広がり(育て育てられる縁の収集)に物語の報酬を足す(意味ある三択・pure fx)
+  cond:()=>{const us=S.units||[];const n=us.filter(u=>u&&u.role==="active"&&u.masterId&&us.some(m=>m&&m.id===u.masterId&&m.role==="active")).length;return n>=3&&!(S.flags&&S.flags.uq_mentorLegacy);},
+  build:()=>({tag:"師 弟",title:"受け継がれゆく技",
+   body:"訓練場のあちこちで、師が弟子の手をとって型を伝えている。かつて教わった者が、いまは教える側に回る――幾組もの師弟が、いつしかこの国に育っていた。技と心が世代を越えて受け継がれてゆく光景に、長は静かに目を細めた。この連なりを、どう育もうか。",
+   speaker:"ガレオン「技は、伝えて初めて生き続けるもの。これほど師弟の育った隊は、そうそうありませぬ」",
+   choices:[
+    {label:"道場を構え、技の伝承を後押しする",hint:"軍事↑ 民心↑",fx:{gold:-50,st:{military:4},mood:3,flag:{uq_mentorLegacy:true},log:"師弟が心置きなく技を練る道場が構えられた。受け継がれてゆく型の一つひとつが、隊の地力を静かに底上げしている。",logCls:"big"}},
+    {label:"師弟の技比べを催し、民に披露する",hint:"外交↑ 民心↑↑",fx:{st:{diplomacy:3},mood:7,flag:{uq_mentorLegacy:true},log:"師と弟子が技を競う演武会が城下で催された。世代を越えて磨かれた太刀筋に、見物の民は惜しみない喝采を送っている。",logCls:"big"}},
+    {label:"師も弟子も労う和やかな宴を開く",hint:"民心↑↑ 国庫↓",fx:{gold:-60,mood:9,flag:{uq_mentorLegacy:true},log:"師弟がともに膝を並べる和やかな宴が開かれた。教え教わった日々を肴に語り合うその姿は、血の繋がりにも似た温もりに満ちている。",logCls:"big"}},
+   ]})},
 ];
 function checkUniqueEvents(){
   for(const ue of UNIQUE_EVENTS){
