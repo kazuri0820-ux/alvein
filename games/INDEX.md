@@ -21,6 +21,7 @@
 | 14 | ヘディング・サッカーテニス (Header Tennis) | ⚽ Soccer | [14-header-tennis.html](14-header-tennis.html) | https://claude.ai/code/artifact/6188b90b-24b6-4850-b308-887a1b7a1ab8 |
 | 15 | スタジアム・ピンボール (Baseball Pinball) | ⚾ Baseball | [15-baseball-pinball.html](15-baseball-pinball.html) | https://claude.ai/code/artifact/528ca55b-8763-48b4-aa15-d5e8be62619b |
 | 16 | ティキタカ (One-Touch Pass Soccer) | ⚽ Soccer | [16-tiki-taka.html](16-tiki-taka.html) | https://claude.ai/code/artifact/d9dabbc2-7067-4685-b11c-da88ec458f2b |
+| 17 | ダブルプレー (Turn Two) | ⚾ Baseball | [17-double-play.html](17-double-play.html) | https://claude.ai/code/artifact/8ff468c0-e426-48a0-8dc3-c3b9c85ef2d8 |
 
 ---
 
@@ -51,5 +52,6 @@ Baseball ⚾
 - ~~ラリー系の対CPU（ヘディング・サッカーテニス）~~ (done #14)
 - 複合ミニゲーム集（既存ゲームの連続チャレンジ）
 - ~~物理アーケード（スタジアム・ピンボール）~~ (done #15)
+- ~~守備連携・ダブルプレー~~ (done #17)
 
 > 制作ルール: 毎回 `games/` を確認し、まだ作っていないコンセプトを選ぶ。番号は連番。当初候補は #12 までで完走済みのため、以降は上記「新機軸」から選ぶか新しい派生を考える。サッカー⚽と野球⚾を交互に。
