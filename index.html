@@ -10720,6 +10720,7 @@ const DUNGEON_CONDITIONS={
   fatebound:{label:"宿縁の霊地",color:"#d99ab0",desc:"縁ある者たちの絆が試される地。戦友・好敵手・師弟のいずれかの組を伴って踏破すれば、その絆に応じた特別な成長がもたらされる"},
   veiled:{label:"霧幻の帳",color:"#9fa8b8",desc:"深い霧が内部を閉ざし、斥候も見通せない。弱点も掴めぬまま挑む博打だが、霧の奥には手つかずの財と獲物が眠る"},
   armory:{label:"武具の霊廟",color:"#c9b088",desc:"古の武人の魂が眠る霊廟。踏破すれば、隊の中の「まだ銘なき得物」に銘が宿り、分かちがたい相棒の一振りへと変わる"},
+  captives:{label:"囚われ人の牢獄",color:"#b0a48f",desc:"迷宮の奥深くに、囚われの者たちが繋がれている。討ち果たして解き放てば、自由を取り戻した者が恩義に報いんと志願兵として名乗りを上げる(志願一覧に加わる)"},
 };
 const DUNGEON_CONDITION_KEYS=Object.keys(DUNGEON_CONDITIONS);
 /* 陣形:ダンジョン派遣時に選ぶ布陣。攻略成否・負傷リスク・所要日数のトレードオフを一手加え、
@@ -12726,6 +12727,16 @@ function resolveDungeonRun(dungeonId){
           chron(`「${dungeon.name}」の武具の霊廟を踏破したが、銘を宿すにふさわしい得物(まだ銘なき武器)を携えた者はおらず、その武魂は静かに眠りへ戻った。`,"");
         }
       }
+      if(cond==="captives"){ // 囚われ人の牢獄: 迷宮に囚われた者を解放し、志願兵として迎える(攻略が人材確保に直結する新しい報酬軸)
+        S.volunteers=S.volunteers||[];
+        const room=Math.max(0,8-S.volunteers.length);
+        const want=ri(1,2);
+        const n=Math.min(room,want);
+        for(let i=0;i<n;i++){S.volunteers.push(makeVolunteer());}
+        apply({mood:3});
+        if(n>0)chron(`「${dungeon.name}」の奥に繋がれていた${n}名を解き放った。自由を取り戻した者たちは、この恩義に報いんとアルヴェインへの志願を申し出た(志願一覧に加わった)。`,"big");
+        else chron(`「${dungeon.name}」に囚われていた者を解き放ったが、志願所は既に満杯で、彼らは路銀を受け取り故郷へと帰っていった。`,"");
+      }
       if(cond==="heroordeal"){ // 英傑の試練: 少数精鋭で討ち果たすほど破格の恩賞(編成を絞る挑戦に報いる)
         const n=squad.filter(u=>u).length;
         if(n<=3){
@@ -13030,6 +13041,7 @@ const DUNGEON_CONDITION_JOURNAL={
   fatebound:"縁ある者の絆を試すような試練が続き、互いの信が幾度も問われた。",
   veiled:"深い霧が視界を閉ざし、隊は勘だけを頼りに一歩ずつ進むほかなかった。",
   armory:"古の得物が静かに並ぶ霊廟で、名なき一振りが淡く応えるように震えた。",
+  captives:"奥から微かな呻きと鎖の擦れる音が届き、囚われの者がいることを隊に知らせていた。",
 };
 function dungeonJournal(dungeon){
   const out=[];
