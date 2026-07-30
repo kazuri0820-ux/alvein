@@ -12,6 +12,7 @@
 | 05 | ストラックアウト9 (Strike Out 9) | ⚾ Baseball | [05-strikeout9.html](05-strikeout9.html) | https://claude.ai/code/artifact/1e1c5daa-d5dd-49bf-9efe-04d9b2eed0c6 |
 | 06 | キーパー・リフレックス (Keeper Reflex) | ⚽ Soccer | [06-keeper-reflex.html](06-keeper-reflex.html) | https://claude.ai/code/artifact/e8a34610-0d7a-4ab8-a50e-32c69282c06a |
 | 07 | ダイビングキャッチ (Fly Ball Catch) | ⚾ Baseball | [07-fly-ball-catch.html](07-fly-ball-catch.html) | https://claude.ai/code/artifact/24f15633-27e2-49b4-9ae7-c9dcd5b0d10d |
+| 08 | カーブ・フリーキック (Curve Free Kick) | ⚽ Soccer | [08-free-kick.html](08-free-kick.html) | https://claude.ai/code/artifact/36d77776-41af-467f-a256-4ac6cf04d640 |
 
 ---
 
@@ -20,7 +21,7 @@
 Soccer ⚽
 - ~~PKシュートアウト~~ (done #01)
 - ~~キャリア人生スゴロク（サイコロで選手を進める）~~ (done #03)
-- フリーキック（壁越え・カーブ）
+- ~~フリーキック（壁越え・カーブ）~~ (done #08)
 - ヘディングリフティング / キープアップ
 - ~~ドリブル回避ランナー~~ (done #04)
 - ~~ゴールキーパー（守る側）リフレックス~~ (done #06)
