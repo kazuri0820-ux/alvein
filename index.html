@@ -2089,6 +2089,7 @@ const EQUIPMENT_DB=[
  {key:"eqp_bead_valor",name:"武運の勾玉",slot:"accessory",rarity:"epic",statBonus:{agi:6,lead:5},boon:{fortuneRoll:9}},
  {key:"eqp_banner_soul",name:"隊魂の軍旗",slot:"accessory",rarity:"epic",statBonus:{lead:9,vit:4},boon:{squadExpBonus:0.18}},
  {key:"eqp_compass_adventurer",name:"冒険者の羅針盤",slot:"accessory",rarity:"legendary",statBonus:{agi:10,wis:8,lead:6},boon:{itemFind:0.3,marchDays:1}},
+ {key:"eqp_seal_merchant",name:"豪商の金印",slot:"accessory",rarity:"epic",statBonus:{lead:5,wis:4},boon:{goldFind:0.22}},// 財貨を呼ぶ霊験。特性・スキルに頼らずとも装飾品で金策ビルドを組める新たな一軸
 ];
 const EQUIP_SLOT_LABEL={weapon:"武器",armor:"防具",accessory:"装飾品"};
 const EQUIP_SET_BONUS={common:0,uncommon:2,rare:4,epic:6,legendary:10};
@@ -2149,7 +2150,7 @@ function equipmentEffects(u){
 /* 装備の霊験(特殊効果):これまで装備は能力値しか持たなかった。銘品の護符・脚絆・軍旗などに"能力値ではない効き目"
    (探索の実り・行軍の速さ・武運・部隊の学び)を宿し、"数値の強さ"とは別の軸で装備を選ぶ楽しみを加える。効果は
    既存の特性/スキルと同じ土俵で合算(Math.maxで良い方が活きる)される、装備×ビルドの新機軸。 */
-const BOON_LABEL={itemFind:"掘り出し上手",marchDays:"迅速行軍",fortuneRoll:"武運",squadExpBonus:"部隊の学び"};
+const BOON_LABEL={itemFind:"掘り出し上手",marchDays:"迅速行軍",fortuneRoll:"武運",squadExpBonus:"部隊の学び",goldFind:"金策上手"};
 function equipBoonSum(u,key){
   if(!u||!u.equipment)return 0;
   let s=0;
@@ -11786,7 +11787,7 @@ function unitSupportTags(u){
   if((se.fieldMedic||0)>0||(tr.fieldMedic||0)>0)tags.push("医療");
   if((se.campSupport||0)>0||(tr.campSupport||0)>0)tags.push("兵站");
   if((se.lootLuck||0)>0||(tr.lootLuck||0)>0)tags.push("宝運");
-  if((se.goldFind||0)>0||(tr.goldFind||0)>0)tags.push("金策");
+  if((se.goldFind||0)>0||(tr.goldFind||0)>0||equipBoonSum(u,"goldFind")>0)tags.push("金策");
   if((se.squadExpBonus||0)>0||(tr.squadExpBonus||0)>0||equipBoonSum(u,"squadExpBonus")>0)tags.push("育成");
   if((se.itemFind||0)>0||(tr.itemFind||0)>0||equipBoonSum(u,"itemFind")>0)tags.push("収集");
   if((se.fortuneRoll||0)>0||(tr.fortuneRoll||0)>0||equipBoonSum(u,"fortuneRoll")>0)tags.push("武運");
@@ -12694,7 +12695,7 @@ function resolveDungeonRun(dungeonId){
           if(u.typeClears[_tk]===TYPE_MASTERY_NEED){u.typeMastery=u.typeMastery||{};u.typeMastery[_tk]=S.day;chron(`――${u.nm}は「${dungeon.type.label}」の攻略を知り尽くし、ついにその型を得意とするに至った。以後、${dungeon.type.label}での攻略適性が高まる。`,"big");}
         }
       }
-      const squadGoldFind=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).goldFind)||0,skillEffects(u).goldFind||0))):0; // 「山師の目」(スキル)「生来の商才」(特性)持ちを伴うと持ち帰る財貨が増える=金策ビルドの編成レバー
+      const squadGoldFind=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).goldFind)||0,skillEffects(u).goldFind||0,equipBoonSum(u,'goldFind')))):0; // 「山師の目」(スキル)「生来の商才」(特性)持ちを伴うと持ち帰る財貨が増える=金策ビルドの編成レバー
       goldGained=Math.round(ri(25,55)*dungeon.rarity.mult*levelMult*(crit?1.35:1)*(1+squadGoldFind)*(1+streakBonus)*(1+ethosReward)*(seasonMods.goldMult||1)*aimMods.gold*(1+(dungeon.festerReward||0)));
       apply({gold:goldGained,mood:crit?4:2});
       if(seasonMods.restHeal>0){for(const u of squad){if(u){u.fatigue=Math.max(0,(u.fatigue||0)-8);if(u.injured>0){u.injured=Math.max(0,u.injured-1);if(u.injured<=0)u.injurySeverity=null;}}}} // 芽吹きの春:遠征帰りの兵の疲れと傷の癒えが早い
@@ -12986,7 +12987,7 @@ function resolveDungeonRun(dungeonId){
         }
       }
     }else{
-      const squadGoldFind=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).goldFind)||0,skillEffects(u).goldFind||0))):0;
+      const squadGoldFind=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).goldFind)||0,skillEffects(u).goldFind||0,equipBoonSum(u,'goldFind')))):0;
       goldGained=Math.round(ri(12,28)*dungeon.rarity.mult*levelMult*(1+squadGoldFind));
       apply({gold:goldGained});
       chron(`「${dungeon.name}」は踏破したが、ボス「${dungeon.bossName}」には及ばなかった。`,"sys");
@@ -13387,7 +13388,7 @@ function showDungeonResult(dungeon,tier,bossWin,memberLog,goldGained,itemGained,
     if(dungeon.merc)facs.push("傭兵");
     if(dungeon.tactic&&dungeon.tactic!=="none"&&typeof DUNGEON_TACTICS!=="undefined"&&DUNGEON_TACTICS[dungeon.tactic])facs.push(`秘策:${DUNGEON_TACTICS[dungeon.tactic].label}`);
     {const bs=rsquad.map(u=>(typeof beastKindOf==="function")?beastKindOf(u):null).filter(Boolean);if(bs.length)facs.push(`相棒獣:${[...new Set(bs.map(k=>k.nm))].join("・")}`);}
-    {const boonU=rsquad.filter(u=>typeof equipBoonSum==="function"&&(equipBoonSum(u,"itemFind")>0||equipBoonSum(u,"fortuneRoll")>0||equipBoonSum(u,"marchDays")>0||equipBoonSum(u,"squadExpBonus")>0));if(boonU.length)facs.push("装備の霊験");}
+    {const boonU=rsquad.filter(u=>typeof equipBoonSum==="function"&&(equipBoonSum(u,"itemFind")>0||equipBoonSum(u,"fortuneRoll")>0||equipBoonSum(u,"marchDays")>0||equipBoonSum(u,"squadExpBonus")>0||equipBoonSum(u,"goldFind")>0));if(boonU.length)facs.push("装備の霊験");}
     {const vets=rsquad.filter(u=>(typeof veteranTemper==="function")?veteranTemper(u)>=3:false);if(vets.length)facs.push(`歴戦の古参${vets.length}名`);}
     if(facs.length)h+=`<div style="margin:-4px 0 10px;display:flex;flex-wrap:wrap;gap:5px">${facs.map(f=>`<span style="font-size:10.5px;color:#c9a86a;border:1px solid rgba(201,162,75,.4);border-radius:5px;padding:2px 7px">${f}</span>`).join("")}</div>`;
   }
