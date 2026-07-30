@@ -9660,6 +9660,16 @@ const UNIQUE_EVENTS=[
     {label:"師弟の技比べを催し、民に披露する",hint:"外交↑ 民心↑↑",fx:{st:{diplomacy:3},mood:7,flag:{uq_mentorLegacy:true},log:"師と弟子が技を競う演武会が城下で催された。世代を越えて磨かれた太刀筋に、見物の民は惜しみない喝采を送っている。",logCls:"big"}},
     {label:"師も弟子も労う和やかな宴を開く",hint:"民心↑↑ 国庫↓",fx:{gold:-60,mood:9,flag:{uq_mentorLegacy:true},log:"師弟がともに膝を並べる和やかな宴が開かれた。教え教わった日々を肴に語り合うその姿は、血の繋がりにも似た温もりに満ちている。",logCls:"big"}},
    ]})},
+ {key:"rivalArena", // 三組以上の好敵手が競い合う折の一度きりの祝祭=関係の絆(戦友threeBonds・師弟mentorLegacyと対をなす好敵手)の広がりに物語の報酬を足す(意味ある三択・pure fx)
+  cond:()=>{if(S.flags&&S.flags.uq_rivalArena)return false;const us=S.units||[];const seen=new Set();let pairs=0;for(const u of us){if(u&&u.role==="active"&&u.rivalWith&&!seen.has(u.id)){const pr=us.find(x=>x&&x.id===u.rivalWith&&x.role==="active");if(pr&&!seen.has(pr.id)){seen.add(u.id);seen.add(pr.id);pairs++;}}}return pairs>=3;},
+  build:()=>({tag:"好敵手",title:"しのぎを削る者たち",
+   body:"訓練場では今日も、好敵手どうしが火花を散らしていた。「次こそは負けん」――幾組もの兵が、互いを目標に定めて腕を磨き合っている。競い合う相手がいるからこそ、人は際限なく強くなれる。長は、その熱を頼もしく見つめた。この競争を、どう活かそうか。",
+   speaker:"ガレオン「良き好敵手は百の師にも勝ると申します。これほど競い合う隊なら、放っておいても伸びましょうな」",
+   choices:[
+    {label:"御前試合を開き、腕を競わせる",hint:"軍事↑ 民心↑",fx:{st:{military:4},mood:4,flag:{uq_rivalArena:true},log:"好敵手どうしが技を競う御前試合が催された。負けじと繰り出される全力の応酬に、隊全体の練度が一段と引き上げられている。",logCls:"big"}},
+    {label:"競い合いを城下の民に見せる",hint:"外交↑ 民心↑↑",fx:{st:{diplomacy:3},mood:7,flag:{uq_rivalArena:true},log:"好敵手たちの熱戦が城下で披露された。互いに一歩も譲らぬ気迫の応酬に、見物の民は手に汗握って沸いている。",logCls:"big"}},
+    {label:"健闘を称え、皆で杯を交わす",hint:"民心↑↑ 国庫↓",fx:{gold:-50,mood:9,flag:{uq_rivalArena:true},log:"競い合った好敵手たちが、勝敗を越えて杯を交わした。全力でぶつかり合った相手だからこそ通じ合う、不思議な友情がそこにはある。",logCls:"big"}},
+   ]})},
 ];
 function checkUniqueEvents(){
   for(const ue of UNIQUE_EVENTS){
