@@ -10720,6 +10720,7 @@ const BOSS_TRAITS={
   meismith:{label:"銘工の王",color:"#c0a878",desc:"武具に魂を宿す古の名工の王。討ち果たせば、勲功第一の兵の得物に固有の銘が刻まれ、名を持つ生涯の相棒となる"},
   mentorbond:{label:"師弟を結ぶ王",color:"#a8c0d0",desc:"戦場で年長と若手の縁を取り持つ不思議な王。討ち果たせば、隊中の熟練の兵とうら若き新兵の間に師弟の縁が結ばれる"},
   demonlore:{label:"魔を識る王",color:"#8a6fb0",desc:"魔軍の理を知り尽くした異形の王。討ち果たせば、その秘伝が王国軍の対魔練度を一段引き上げる(魔王討伐への備えが進む)"},
+  captor:{label:"英傑を囚えし王",color:"#c8a860",desc:"名だたる英傑を虜囚として地下牢に囚えた強欲な王。討ち果たして解き放てば、その英傑が恩義に報いんと志願所へ馳せ参じる(運任せだった英傑との出会いを手繰り寄せ、英傑図鑑の収集を後押しする)"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
 /* 「石工の王」の報酬:討伐で得た秘伝の石工術を国の普請へ注ぎ、進行中の事業を一気に前進させる(完成に達したものは
@@ -12885,6 +12886,22 @@ function resolveDungeonRun(dungeonId){
           S.demonArmyLevel=(S.demonArmyLevel||0)+1;
           for(const u of squad){if(u&&u.role==="active"&&S.units.some(x=>x.id===u.id))u.moral=Math.min(100,(u.moral||0)+4);}
           chron(`「魔を識る王」を討ち果たすと、その骸から魔軍の理を記した秘伝が見つかった。持ち帰った知見が王国軍の対魔練度を一段引き上げた(対応練度Lv.${S.demonArmyLevel})。魔王討伐への備えが、また一歩進んだ。`,"big");
+        }
+        else if(dungeon.bossTrait==="captor"){ // 英傑を囚えし王:討ち果たすと囚われていた英傑が解放され志願所に加わる(偉人収集に繋がる新報酬軸)
+          S.volunteers=S.volunteers||[];
+          S.flags=S.flags||{};S.flags.greatsSeen=S.flags.greatsSeen||{};
+          const fig=(typeof pickAvailableGreat==="function")?pickAvailableGreat():null;
+          if(fig&&S.volunteers.length<8&&typeof makeGreatVolunteer==="function"){
+            S.volunteers.push(makeGreatVolunteer(fig));
+            const wasNew=!S.flags.greatsSeen[fig.id]&&!((S.flags.greatsHired||{})[fig.id]);
+            S.flags.greatsSeen[fig.id]=true;
+            const gd=Object.keys(Object.assign({},S.flags.greatsSeen,S.flags.greatsHired||{})).length,gt=(typeof GREAT_FIGURES!=="undefined")?GREAT_FIGURES.length:0;
+            chron(`「英傑を囚えし王」を討ち果たすと、地下牢に囚われていた英傑――かの「${fig.title}」${fig.nm}が解き放たれた。恩義に報いんと、その足で志願所へ馳せ参じたという。${wasNew?`――英傑図鑑にまた一人、その名が刻まれた(${gd}/${gt})。`:""}`,"big");
+            if(wasNew&&typeof checkGreatCodexMilestone==="function")checkGreatCodexMilestone();
+          }else{
+            const g=ri(80,140);apply({gold:g});
+            chron(`「英傑を囚えし王」を討ち果たしたが、囚われていた英傑は既に世に名を馳せた者ばかり(あるいは志願所が満杯)で、代わりに蔵から財貨${g}を解き放って持ち帰った。`,"");
+          }
         }
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
