@@ -1,0 +1,320 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>エース・ピッチャー — Ace Pitcher</title>
+<style>
+  :root{--sky:#22405e;--grass:#2fa055;--dirt:#c8823c;--chalk:#f4f7f2;--ink:#0c2138;
+    --gold:#ffcf3a;--hot:#ff5a3c;--cyan:#3ae8cf;--zone:#eaf3ec;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:#04121f;font-family:"Arial Narrow","Roboto Condensed",system-ui,sans-serif;color:var(--chalk);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;-webkit-user-select:none;user-select:none;touch-action:manipulation;}
+  #stage{position:relative;width:min(100vw,calc(100vh*1.5));aspect-ratio:3/2;max-height:100vh;
+    box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden;background:#123;}
+  canvas{display:block;width:100%;height:100%}
+  #hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:clamp(6px,1.4vw,12px);gap:6px;pointer-events:none;align-items:flex-start;flex-wrap:wrap;}
+  .board{background:rgba(8,20,32,.8);backdrop-filter:blur(6px);border:1px solid rgba(58,232,207,.32);
+    border-radius:9px;padding:5px clamp(8px,1.4vw,14px);display:flex;flex-direction:column;line-height:1;}
+  .board .label{font-size:clamp(8px,1.2vw,11px);letter-spacing:.16em;text-transform:uppercase;color:var(--cyan);opacity:.9}
+  .board .value{font-family:"Courier New",monospace;font-weight:700;font-size:clamp(17px,3.6vw,30px);font-variant-numeric:tabular-nums;}
+  #k .value{color:var(--gold)} #hits .value{color:var(--hot)}
+  #count{position:absolute;top:clamp(52px,10vw,66px);left:50%;transform:translateX(-50%);pointer-events:none;
+    background:rgba(8,20,32,.8);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:4px 12px;
+    font-family:"Courier New",monospace;font-weight:700;font-size:clamp(14px,2.6vw,20px);letter-spacing:.05em;}
+  #count b{color:var(--gold)} #count i{color:var(--hot);font-style:normal}
+  #msg{position:absolute;top:34%;left:0;right:0;text-align:center;pointer-events:none;font-weight:900;letter-spacing:.03em;
+    text-transform:uppercase;font-size:clamp(26px,6.4vw,58px);color:#fff;opacity:0;transition:opacity .14s;
+    text-shadow:0 4px 0 rgba(0,0,0,.35),0 0 30px currentColor;}
+  #ctrl{position:absolute;bottom:0;left:0;right:0;display:flex;flex-direction:column;gap:6px;
+    padding:8px clamp(8px,2vw,16px) calc(10px + env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(8,20,32,.85) 30%);}
+  #types{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+  .chip{pointer-events:auto;cursor:pointer;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);
+    color:var(--chalk);border-radius:100px;padding:6px clamp(10px,2.4vw,18px);font-family:inherit;font-weight:800;
+    font-size:clamp(12px,2.6vw,17px);letter-spacing:.03em;transition:all .1s;}
+  .chip.on{background:var(--cyan);color:var(--ink);border-color:var(--cyan);box-shadow:0 0 16px rgba(58,232,207,.4)}
+  .chip small{display:block;font-weight:500;font-size:.7em;opacity:.7}
+  #row2{display:flex;gap:10px;justify-content:center;align-items:center}
+  #pitchBtn{pointer-events:auto;cursor:pointer;border:none;border-radius:100px;padding:clamp(10px,2vw,15px) clamp(28px,7vw,52px);
+    font-family:inherit;font-weight:900;font-size:clamp(16px,3.6vw,24px);letter-spacing:.1em;text-transform:uppercase;color:var(--ink);
+    background:linear-gradient(180deg,var(--gold),#e0a81f);box-shadow:0 6px 0 #a8790f;transition:transform .08s,box-shadow .08s;}
+  #pitchBtn:active{transform:translateY(3px);box-shadow:0 3px 0 #a8790f}
+  #pitchBtn:disabled{filter:grayscale(.6) brightness(.7);cursor:default}
+  #tip{font-size:clamp(11px,2.1vw,15px);color:var(--chalk);opacity:.85;text-align:center}
+  #tip b{color:var(--cyan)}
+  #overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(8px,2vw,18px);
+    text-align:center;padding:20px;background:radial-gradient(120% 90% at 50% 25%,rgba(34,64,94,.4),rgba(4,18,31,.93));backdrop-filter:blur(3px);z-index:5;transition:opacity .4s;}
+  #overlay.hidden{opacity:0;pointer-events:none}
+  #overlay h1{font-size:clamp(30px,8.5vw,74px);font-weight:900;letter-spacing:.02em;line-height:.92;text-transform:uppercase;color:var(--chalk);
+    text-shadow:0 6px 0 rgba(0,0,0,.3),0 0 40px rgba(255,207,58,.4);}
+  #overlay h1 span{display:block;color:var(--gold);font-size:.5em;letter-spacing:.2em}
+  #overlay p{max-width:36ch;font-size:clamp(13px,2.5vw,18px);line-height:1.45;opacity:.92}
+  #playBtn{pointer-events:auto;cursor:pointer;border:none;border-radius:100px;padding:clamp(12px,2vw,17px) clamp(30px,6vw,54px);
+    font-family:inherit;font-weight:900;font-size:clamp(18px,3.4vw,25px);letter-spacing:.1em;text-transform:uppercase;color:var(--ink);
+    background:linear-gradient(180deg,var(--cyan),#12b79c);box-shadow:0 8px 0 #0a6a5a,0 14px 30px rgba(0,0,0,.5);transition:transform .08s,box-shadow .08s;}
+  #playBtn:active{transform:translateY(5px);box-shadow:0 3px 0 #0a6a5a}
+  .sub{font-size:clamp(11px,2vw,14px);letter-spacing:.2em;text-transform:uppercase;color:var(--gold);opacity:.85}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div id="hud">
+    <div class="board" id="k"><span class="label">奪三振 K</span><span class="value" id="k-v">0</span></div>
+    <div class="board" style="text-align:center"><span class="label">Inning</span><span class="value" id="inn">1</span></div>
+    <div class="board" style="text-align:center"><span class="label">Outs</span><span class="value" id="outs">0</span></div>
+    <div class="board" id="hits" style="text-align:right"><span class="label">被安打</span><span class="value" id="hits-v">0<small style="font-size:.5em;opacity:.6">/5</small></span></div>
+  </div>
+  <div id="count">B <b id="balls">0</b> ・ S <i id="strikes">0</i></div>
+  <div id="msg"></div>
+  <div id="ctrl">
+    <div id="tip">コースをタップ → 球種を選ぶ → <b>投げる</b>。変化球で釣り、四隅で見逃しを取れ</div>
+    <div id="types"></div>
+    <div id="row2"><button id="pitchBtn">投げる</button></div>
+  </div>
+  <div id="overlay">
+    <div class="sub">Baseball · Pitching</div>
+    <h1>エース<span>Pitcher</span></h1>
+    <p>あなたは投手。<b style="color:var(--cyan)">コース</b>と<b style="color:var(--gold)">球種</b>を選んで打者を打ち取れ。ゾーンから外れる変化球で空振りを、四隅のストレートで見逃しを奪取。甘い球は痛打される。被安打5でノックアウト、奪三振を稼げ！</p>
+    <button id="playBtn">Play Ball</button>
+    <div class="sub" style="opacity:.55">Tap / Click</div>
+  </div>
+</div>
+
+<script>
+(()=>{
+"use strict";
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const W=900,H=600;let dpr=Math.min(window.devicePixelRatio||1,2);
+function resize(){const r=cvs.getBoundingClientRect();cvs.width=Math.round(r.width*dpr);cvs.height=Math.round(r.height*dpr);
+  ctx.setTransform(cvs.width/W,0,0,cvs.height/H,0,0);}
+new ResizeObserver(resize).observe(cvs);resize();
+
+let AC=null;function ac(){if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,t='sine',v=.2,to=null){const a=ac();if(!a)return;const o=a.createOscillator(),g=a.createGain();
+  o.type=t;o.frequency.setValueAtTime(f,a.currentTime);if(to)o.frequency.exponentialRampToValueAtTime(to,a.currentTime+d);
+  g.gain.setValueAtTime(v,a.currentTime);g.gain.exponentialRampToValueAtTime(.0001,a.currentTime+d);
+  o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d);}
+function noise(d,v){const a=ac();if(!a)return;const n=a.createBuffer(1,a.sampleRate*d,a.sampleRate);const dd=n.getChannelData(0);
+  for(let i=0;i<dd.length;i++)dd[i]=(Math.random()*2-1)*(1-i/dd.length);const s=a.createBufferSource();s.buffer=n;const g=a.createGain();
+  g.gain.value=v;s.connect(g);g.connect(a.destination);s.start();}
+const sMitt=()=>{noise(.05,.18);tone(500,.08,'square',.14,220);};
+const sWhiff=()=>{noise(.1,.14);tone(300,.12,'sine',.14,140);};
+const sCrack=()=>{noise(.08,.32);tone(200,.1,'square',.22,120);};
+const sK=()=>{tone(660,.09,'square',.22);setTimeout(()=>tone(990,.18,'square',.24),90);};
+const sBad=()=>tone(160,.28,'sawtooth',.22,70);
+const sSel=()=>tone(720,.03,'square',.1);
+
+// strike zone box + 3x3 cells
+const Z={x:360,y:135,w:240,h:240};const cw=Z.w/3, ch=Z.h/3;
+function cellCenter(c,r){return {x:Z.x+(c+0.5)*cw, y:Z.y+(r+0.5)*ch};}
+const release={x:465,y:548};
+// pitch types: break in CELL units (dx col, dy row), deception, and label
+const TYPES=[
+  {k:'straight',name:'ストレート',jp:'速球',dx:0,dy:0,dec:0.0,col:'#ff5a3c'},
+  {k:'curve',name:'カーブ',jp:'縦変化',dx:-0.5,dy:1.15,dec:0.32,col:'#3ae8cf'},
+  {k:'slider',name:'スライダー',jp:'横変化',dx:1.25,dy:0.35,dec:0.28,col:'#ffcf3a'},
+  {k:'fork',name:'フォーク',jp:'落ちる',dx:0.0,dy:1.5,dec:0.4,col:'#c98ae0'},
+];
+const S={IDLE:'idle',AIM:'aim',PITCH:'pitch',RESULT:'result',OVER:'over'};
+let state=S.IDLE;
+let K=0, inning=1, outs=0, hits=0, balls=0, strikes=0;
+let selCell={c:1,r:1}, selType=0;
+let batter={swing:0,timing:0}, ball=null, particles=[], shake=0, flash=0, flashCol='#ffcf3a', tPrev=0;
+let batterDiscipline=0.5, batterPower=0.5;
+
+function reset(){K=0;inning=1;outs=0;hits=0;balls=0;strikes=0;selCell={c:1,r:1};selType=0;
+  batterDiscipline=0.5;batterPower=0.5;particles=[];ball=null;updateHUD();renderTypes();}
+function start(){reset();document.getElementById('overlay').classList.add('hidden');newBatter();}
+function newBatter(){balls=0;strikes=0;batter.swing=0;
+  // difficulty from inning
+  batterDiscipline=Math.min(0.82,0.46+inning*0.05);batterPower=Math.min(0.8,0.44+inning*0.05);
+  state=S.AIM;ball=null;pitchBtn.disabled=false;updateHUD();setTip();}
+function setTip(){document.getElementById('tip').innerHTML='コースをタップ → 球種を選ぶ → <b>投げる</b>';}
+
+// ---- UI ----
+function renderTypes(){const el=document.getElementById('types');el.innerHTML='';
+  TYPES.forEach((t,i)=>{const b=document.createElement('button');b.className='chip'+(i===selType?' on':'');
+    b.innerHTML=t.name+'<small>'+t.jp+'</small>';b.onclick=()=>{selType=i;sSel();renderTypes();};el.appendChild(b);});}
+const pitchBtn=document.getElementById('pitchBtn');
+pitchBtn.onclick=()=>doPitch();
+document.getElementById('playBtn').onclick=e=>{e.stopPropagation();ac()&&ac().resume&&ac().resume();start();};
+window.addEventListener('keydown',e=>{
+  const a=ac();a&&a.resume&&a.resume();
+  if(e.code==='Space'){e.preventDefault();if(state===S.IDLE||state===S.OVER)start();else if(state===S.AIM)doPitch();return;}
+  if(state!==S.AIM)return;
+  if(e.code==='ArrowLeft'){e.preventDefault();selCell.c=Math.max(0,selCell.c-1);sSel();}
+  else if(e.code==='ArrowRight'){e.preventDefault();selCell.c=Math.min(2,selCell.c+1);sSel();}
+  else if(e.code==='ArrowUp'){e.preventDefault();selCell.r=Math.max(0,selCell.r-1);sSel();}
+  else if(e.code==='ArrowDown'){e.preventDefault();selCell.r=Math.min(2,selCell.r+1);sSel();}
+  else if(['Digit1','Digit2','Digit3','Digit4'].includes(e.code)){selType=+e.code.slice(-1)-1;sSel();renderTypes();}
+});
+cvs.addEventListener('pointerdown',e=>{const a=ac();a&&a.resume&&a.resume();if(state!==S.AIM)return;
+  const r=cvs.getBoundingClientRect();const mx=(e.clientX-r.left)/r.width*W,my=(e.clientY-r.top)/r.height*H;
+  const c=Math.floor((mx-Z.x)/cw),rr=Math.floor((my-Z.y)/ch);
+  if(c>=0&&c<3&&rr>=0&&rr<3){selCell={c,r:rr};sSel();}});
+
+function doPitch(){
+  if(state!==S.AIM)return;
+  state=S.PITCH;pitchBtn.disabled=true;
+  const T=TYPES[selType];
+  const fc=selCell.c+T.dx, fr=selCell.r+T.dy; // final cell coords (may exceed 0..2)
+  const finalInZone=(fc>=-0.35&&fc<=2.35&&fr>=-0.35&&fr<=2.35);
+  const fx=Z.x+(fc+0.5)*cw, fy=Z.y+(fr+0.5)*ch;
+  // batter swing decision (decided at pitch, revealed on arrival)
+  const edgeStrike = finalInZone && (fc<0.2||fc>1.8||fr<0.2||fr>1.8); // painted corner
+  // temptation: initial aim looks like a strike (target always in zone) -> tempts swing;
+  // breaking pitches (dec) make it look more hittable => more chase even when it ends out
+  let swingP = batterDiscipline*0.4 + 0.35 + T.dec*0.5;
+  if(strikes>=2)swingP+=0.18;            // protect with 2 strikes
+  if(balls>=3)swingP-=0.28;              // take with 3 balls
+  if(!finalInZone && T.dec<0.05)swingP-=0.4; // straight ball out of zone: obvious, take
+  swingP=Math.max(0.05,Math.min(0.95,swingP));
+  const willSwing=Math.random()<swingP;
+  ball={t:0,dur:0.62,fx,fy,type:T,willSwing,finalInZone,edgeStrike,resolved:false,
+    cx:release.x+(fx-release.x)*0.5 + T.dx*cw*0.7, cy:release.y+(fy-release.y)*0.5};
+  batter.swing=0;
+}
+function resolveP(){
+  const b=ball;let out=false,strikeAdd=0,ballAdd=0,event='',col='#3ae8cf';
+  if(b.willSwing){
+    batter.swing=1;
+    if(!b.finalInZone){ // chased a ball -> whiff
+      strikeAdd=1;event='空振り';col='#3ae8cf';sWhiff();
+    } else {
+      // contact — quality depends on fatness (center+straight = fat) vs corner/breaking
+      const fat=(b.type.k==='straight'?0.5:0.2) + (!b.edgeStrike?0.28:0) - b.type.dec*0.2;
+      const roll=Math.random();
+      const hitProb=Math.max(0.08,Math.min(0.7, fat*batterPower*1.5));
+      if(roll<hitProb){event='ヒット';col='#ff5a3c';hits++;sCrack();shake=10;
+        burst(b.fx,b.fy,['#ff5a3c','#fff'],20);}
+      else if(roll<hitProb+0.34){ // foul
+        strikeAdd=(strikes<2)?1:0;event='ファウル';col='#ffcf3a';sCrack();shake=4;}
+      else {out=true;event='凡打（アウト）';col='#7ee0a0';sMitt();} // in-play out
+    }
+  } else { // took the pitch
+    if(b.finalInZone){strikeAdd=1;event='見逃し';col='#ffcf3a';sMitt();}
+    else {ballAdd=1;event='ボール';col='#8fb0c8';sMitt();}
+  }
+  strikes+=strikeAdd;balls+=ballAdd;
+  // resolve count
+  let atbatEnd=false;
+  if(strikes>=3){K++;outs++;event='奪三振！ K';col='#ffcf3a';flash=.6;flashCol='#ffcf3a';sK();
+    burst(release.x,300,['#ffcf3a','#3ae8cf','#fff'],26);atbatEnd=true;}
+  else if(balls>=4){hits++;event='四球（出塁）';col='#ff5a3c';sBad();atbatEnd=true;}
+  else if(event==='ヒット'){atbatEnd=true;}
+  else if(out){outs++;atbatEnd=true;}
+  showMsg(event,col);updateHUD();
+  state=S.RESULT;pitchBtn.disabled=true;
+  const delay=atbatEnd?1250:850;
+  setTimeout(()=>{
+    if(hits>=5)return endGame();
+    if(outs>=3){outs=0;inning++;updateHUD();}
+    if(atbatEnd)newBatter();
+    else {state=S.AIM;pitchBtn.disabled=false;batter.swing=0;setTip();}
+  },delay);
+}
+function endGame(){state=S.OVER;const ov=document.getElementById('overlay');
+  const rating=K>=18?'完全試合級！':K>=12?'エース':K>=7?'先発ローテ':K>=3?'中継ぎ':'炎上';
+  ov.querySelector('.sub').textContent='ノックアウト';
+  ov.querySelector('h1').innerHTML=K+' K<span>'+rating+'</span>';
+  ov.querySelector('p').innerHTML='奪三振 <b style="color:var(--gold)">'+K+'</b> ／ '+inning+'回 ／ 被安打5<br>コースと球種を操って三振の山を築け！';
+  ov.querySelector('#playBtn').textContent='Play Again';ov.classList.remove('hidden');}
+
+function burst(x,y,cols,n){for(let i=0;i<n;i++){const a=Math.random()*7,s=1+Math.random()*6;
+  particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:1,col:cols[i%cols.length],r:2+Math.random()*4});}}
+function updateHUD(){document.getElementById('k-v').textContent=K;document.getElementById('inn').textContent=inning;
+  document.getElementById('outs').textContent=outs;document.getElementById('hits-v').innerHTML=hits+'<small style="font-size:.5em;opacity:.6">/5</small>';
+  document.getElementById('balls').textContent=balls;document.getElementById('strikes').textContent=strikes;}
+let msgT=null;function showMsg(t,c){const m=document.getElementById('msg');m.textContent=t;m.style.color=c;m.style.opacity='1';
+  clearTimeout(msgT);msgT=setTimeout(()=>m.style.opacity='0',1000);}
+
+function update(dt){
+  if(state===S.PITCH&&ball){ball.t+=dt;
+    if(ball.t>=ball.dur&&!ball.resolved){ball.resolved=true;
+      // trigger swing animation slightly before resolve handled in draw
+      resolveP();}}
+  if(batter.swing>0&&batter.swing<1.2)batter.swing+=dt*4;
+  for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=.3;p.vx*=.99;p.life-=dt*1.1;if(p.life<=0)particles.splice(i,1);}
+  if(shake>0)shake=Math.max(0,shake-dt*30);if(flash>0)flash=Math.max(0,flash-dt*1.6);
+}
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function drawScene(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#1a3350');g.addColorStop(.45,'#25506f');g.addColorStop(.45,'#2fa055');g.addColorStop(1,'#1f7a44');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // crowd
+  ctx.fillStyle='#16283c';ctx.fillRect(0,90,W,50);ctx.save();ctx.globalAlpha=.4;
+  for(let i=0;i<220;i++){const x=i*27%W,y=94+(i*11%42);ctx.fillStyle=['#dfe7ee','#b7c4d0','#e6c07e'][i%3];ctx.fillRect(x,y,4,3);}ctx.restore();
+  // dirt circle around home/catcher, plate
+  ctx.fillStyle='#c8823c';ctx.beginPath();ctx.ellipse(W/2,470,220,120,0,0,7);ctx.fill();
+  // pitcher's mound near bottom
+  ctx.fillStyle='#b5732b';ctx.beginPath();ctx.ellipse(release.x,release.y+18,80,22,0,0,7);ctx.fill();
+  ctx.fillStyle='#fff';ctx.fillRect(release.x-16,release.y+14,32,5);
+  // catcher (behind zone, top)
+  ctx.save();ctx.translate(W/2,108);ctx.fillStyle='#3a3f4a';roundRect(-16,-6,32,34,8);ctx.fill();
+  ctx.fillStyle='#2a2f38';ctx.beginPath();ctx.arc(0,-12,11,0,7);ctx.fill();
+  ctx.fillStyle='#8a5a2b';ctx.beginPath();ctx.arc(-14,14,10,0,7);ctx.fill();ctx.restore();
+}
+function drawBatter(){
+  const x=Z.x-70,y=Z.y+Z.h+8, sw=Math.sin(Math.min(1,batter.swing)*Math.PI);
+  ctx.save();ctx.translate(x,y);
+  ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(6,26,26,7,0,0,7);ctx.fill();
+  ctx.rotate(-0.1+sw*0.5);
+  // body (navy)
+  ctx.fillStyle='#12356b';roundRect(-14,-58,28,50,8);ctx.fill();
+  ctx.fillStyle='#e8b88a';ctx.beginPath();ctx.arc(0,-68,11,0,7);ctx.fill();
+  ctx.fillStyle='#0c2138';ctx.fillRect(-14,-12,28,10);
+  // legs
+  ctx.strokeStyle='#12356b';ctx.lineWidth=8;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-6,-8);ctx.lineTo(-12,20);ctx.moveTo(6,-8);ctx.lineTo(14,20);ctx.stroke();
+  // bat (swings across when swing)
+  ctx.save();ctx.translate(8,-44);ctx.rotate(-2.1+sw*2.4);
+  ctx.strokeStyle='#c98a3a';ctx.lineWidth=6;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(50,0);ctx.stroke();
+  ctx.strokeStyle='#b5732b';ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(34,0);ctx.lineTo(50,0);ctx.stroke();ctx.restore();
+  ctx.restore();
+}
+function drawZone(){
+  // zone box
+  ctx.save();
+  ctx.fillStyle='rgba(10,20,32,.28)';roundRect(Z.x,Z.y,Z.w,Z.h,4);ctx.fill();
+  // 3x3 grid
+  ctx.strokeStyle='rgba(255,255,255,.22)';ctx.lineWidth=1.5;
+  for(let i=0;i<=3;i++){ctx.beginPath();ctx.moveTo(Z.x+i*cw,Z.y);ctx.lineTo(Z.x+i*cw,Z.y+Z.h);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(Z.x,Z.y+i*ch);ctx.lineTo(Z.x+Z.w,Z.y+i*ch);ctx.stroke();}
+  // outer frame
+  ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=3;roundRect(Z.x,Z.y,Z.w,Z.h,4);ctx.stroke();
+  // selected target cell
+  if(state===S.AIM){const cc=cellCenter(selCell.c,selCell.r);
+    ctx.strokeStyle='#3ae8cf';ctx.lineWidth=3;ctx.setLineDash([6,5]);
+    ctx.strokeRect(Z.x+selCell.c*cw+3,Z.y+selCell.r*ch+3,cw-6,ch-6);ctx.setLineDash([]);
+    ctx.fillStyle='rgba(58,232,207,.9)';ctx.beginPath();ctx.arc(cc.x,cc.y,7,0,7);ctx.fill();
+    ctx.strokeStyle=TYPES[selType].col;ctx.lineWidth=2;ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawBall(){
+  if((state!==S.PITCH&&state!==S.RESULT)||!ball)return;
+  const b=ball,k=Math.min(1,b.t/b.dur);
+  // quadratic bezier release->control->final to show break
+  const iu=1-k;const x=iu*iu*release.x+2*iu*k*b.cx+k*k*b.fx;
+  const y=iu*iu*release.y+2*iu*k*b.cy+k*k*b.fy;
+  const r=6+8*k; // grows toward plate
+  ctx.save();ctx.globalAlpha=.2;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(x,y+r*0.7,r,r*0.4,0,0,7);ctx.fill();ctx.globalAlpha=1;
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();
+  ctx.strokeStyle='#c62d2d';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(x-r*.3,y,r*.8,-.6,.6);ctx.stroke();
+  ctx.strokeStyle='rgba(0,0,0,.2)';ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.stroke();ctx.restore();
+}
+function render(){
+  ctx.clearRect(0,0,W,H);ctx.save();
+  if(shake>0)ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
+  drawScene();drawZone();drawBatter();drawBall();
+  for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();}
+  ctx.globalAlpha=1;ctx.restore();
+  if(flash>0){ctx.fillStyle='rgba('+(flashCol==='#ff5a3c'?'255,90,60':'255,207,58')+','+(flash*0.24)+')';ctx.fillRect(0,0,W,H);}
+}
+function loop(t){if(!tPrev)tPrev=t;let dt=(t-tPrev)/1000;tPrev=t;if(dt>.05)dt=.05;update(dt);render();requestAnimationFrame(loop);}
+reset();requestAnimationFrame(loop);state=S.IDLE;
+// test hook (inert unless URL hash has "test")
+if(location.hash.indexOf('test')>=0){window.__ap={
+  get state(){return state;}, get count(){return {balls,strikes,outs,K,hits,inning};},
+  pitch(c,r,type){if(state!==S.AIM)return false;selCell={c,r};selType=type;doPitch();return true;}};}
+})();
+</script>

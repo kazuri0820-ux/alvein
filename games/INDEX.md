@@ -13,6 +13,7 @@
 | 06 | キーパー・リフレックス (Keeper Reflex) | ⚽ Soccer | [06-keeper-reflex.html](06-keeper-reflex.html) | https://claude.ai/code/artifact/e8a34610-0d7a-4ab8-a50e-32c69282c06a |
 | 07 | ダイビングキャッチ (Fly Ball Catch) | ⚾ Baseball | [07-fly-ball-catch.html](07-fly-ball-catch.html) | https://claude.ai/code/artifact/24f15633-27e2-49b4-9ae7-c9dcd5b0d10d |
 | 08 | カーブ・フリーキック (Curve Free Kick) | ⚽ Soccer | [08-free-kick.html](08-free-kick.html) | https://claude.ai/code/artifact/36d77776-41af-467f-a256-4ac6cf04d640 |
+| 09 | エース・ピッチャー (Ace Pitcher) | ⚾ Baseball | [09-ace-pitcher.html](09-ace-pitcher.html) | https://claude.ai/code/artifact/5d70501e-9141-4a3d-b3a0-1e5fc523ea14 |
 
 ---
 
@@ -30,7 +31,7 @@ Soccer ⚽
 Baseball ⚾
 - ~~バッティング（タイミングでホームラン）~~ (done #02)
 - ~~ストラックアウト（的当て）~~ (done #05)
-- ピッチング（球種で三振を取る）
+- ~~ピッチング（球種で三振を取る）~~ (done #09)
 - ~~守備（フライキャッチ）~~ (done #07)
 - 走塁 / スチール判定
 
