@@ -16,6 +16,7 @@
 | 09 | エース・ピッチャー (Ace Pitcher) | ⚾ Baseball | [09-ace-pitcher.html](09-ace-pitcher.html) | https://claude.ai/code/artifact/5d70501e-9141-4a3d-b3a0-1e5fc523ea14 |
 | 10 | リフティング名人 (Keepie Uppie) | ⚽ Soccer | [10-keepie-uppie.html](10-keepie-uppie.html) | https://claude.ai/code/artifact/84a8602e-199f-467c-ae92-bf78da297971 |
 | 11 | 盗塁王 (Steal the Base) | ⚾ Baseball | [11-steal-base.html](11-steal-base.html) | https://claude.ai/code/artifact/a791183e-e2f1-4e40-b5c8-4aef9e4a5bc1 |
+| 12 | シュート・ギャラリー (Shooting Gallery) | ⚽ Soccer | [12-shooting-gallery.html](12-shooting-gallery.html) | https://claude.ai/code/artifact/427e99c1-aad8-46aa-95bc-829715665021 |
 
 ---
 
@@ -28,7 +29,7 @@ Soccer ⚽
 - ~~リフティング / キープアップ~~ (done #10)
 - ~~ドリブル回避ランナー~~ (done #04)
 - ~~ゴールキーパー（守る側）リフレックス~~ (done #06)
-- ペナルティ・ターゲット射的
+- ~~ターゲット射的（シュートギャラリー）~~ (done #12)
 
 Baseball ⚾
 - ~~バッティング（タイミングでホームラン）~~ (done #02)
