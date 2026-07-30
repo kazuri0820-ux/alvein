@@ -9507,6 +9507,16 @@ const UNIQUE_EVENTS=[
     {label:"大規模な投資に回す",hint:"経済+6 / 国庫の半分を投入",fx:{call:()=>{const spend=Math.round(S.gold*0.5);S.gold-=spend;S.st.economy+=6*statDiminish(S.st.economy);chron(`国庫から${spend}が大規模投資に回された。ネロは「これでこそ」と満足げだった。`,"big");},flag:{uq_richTreasury:true}}},
     {label:"備蓄として蔵に眠らせておく",hint:"民心+2 / 手堅く温存",fx:{mood:2,flag:{uq_richTreasury:true},log:"蓄えはそのまま蔵に眠ることになった。もしもの時への備えである。"}},
    ]})},
+ {key:"cometOmen",
+  cond:()=>!S.flags.uq_cometOmen&&(S.day||0)>=180,
+  build:()=>({tag:"固 有",title:"彗星、天を渡る",
+   body:"ある夜、長い尾を引く星が天を横切った。幾夜も西の空に輝き、民は家々の戸口に立ってこれを仰いだ。吉兆か、凶兆か――古老たちの見立ては割れ、王の沙汰を待っている。",
+   speaker:"老師ユグ「星の報せは、受け取る者の心を映す鏡と申します。陛下は、これをどうご覧になりますか」",
+   choices:[
+    {label:"吉兆と布告し、祝祭を催す",hint:"民心+5 / 国庫-",fx:{gold:-90,mood:5,flag:{uq_cometOmen:true},log:"王は彗星を吉兆と布告した。夜ごと広場に篝火が焚かれ、民は星を仰いで踊り明かした。国庫はいくらか軽くなったが、村は久方ぶりの高揚に包まれた(国庫- 民心↑)。",logCls:"big"}},
+    {label:"天の警めと受け止め、政を正す",hint:"治安+3 / 民心+1",fx:{st:{order:3},mood:1,flag:{uq_cometOmen:true},log:"王は彗星を天の警めと受け止め、自らの政を省みた。綱紀は引き締められ、緩みかけていた宮中に静かな緊張が戻った(治安↑)。",logCls:"big"}},
+    {label:"星の運行を書き留め、後世へ遺す",hint:"魔導+2",fx:{st:{magic:2},flag:{uq_cometOmen:true},log:"王は学者に命じ、彗星の運行を克明に書き留めさせた。その記録は書庫に収められ、いつか星を読む者の礎となるだろう(魔導↑)。",logCls:"big"}},
+   ]})},
  {key:"veteranPride",
   cond:()=>!S.flags.uq_veteranPride&&S.units.some(u=>u.role==="active"&&(S.day-(u.joinDay||S.day))>=300),
   build:()=>{
