@@ -9594,6 +9594,16 @@ const UNIQUE_EVENTS=[
     {label:"戦利の宝を民に分け与えよ",hint:"民心↑↑ 経済↑",fx:{st:{economy:3},mood:8,flag:{uq_vanquishFestival:true},log:"王たちから得た戦利の宝が、祭りとともに民へ分け与えられた。城下は歓喜に沸き返っている。",logCls:"big"}},
     {label:"討王の武勇伝を諸国に喧伝せよ",hint:"外交↑↑",fx:{st:{diplomacy:6},mood:3,flag:{uq_vanquishFestival:true},log:"数多の王を屠ったアルヴェインの武名が、使者を通じて諸国に喧伝された。その武威に、周辺国は一目置いている。",logCls:"big"}},
    ]})},
+ {key:"hallReverence", // 殿堂に十柱の英霊が名を連ねた折の一度きりの追想=喪い/退いた英雄たちへの愛着と余韻を深める(意味ある三択)
+  cond:()=>(((S.hallOfFame||[]).length)>=10)&&!(S.flags&&S.flags.uq_hallReverence),
+  build:()=>({tag:"追 想",title:"殿堂に集う面影",
+   body:"殿堂に名を刻んだ英霊たちが、いつしか十柱を数えるに至った。散った者、静かに去った者――王国の礎となった彼らの面影を、いかに偲び、後世へ遺そうか。家臣たちが王の裁可を待っている。",
+   speaker:"ドミニク「彼らの生き様は、今を生きる兵たちの道標にございます。その誉れ、どう継いでゆきましょうか」",
+   choices:[
+    {label:"荘厳な慰霊の儀を営み、皆で悼む",hint:"治安↑ 民心↑",fx:{st:{order:4},mood:6,flag:{uq_hallReverence:true},log:"殿堂の英霊を悼む荘厳な儀が営まれた。兵も民も静かに頭を垂れ、失われた者たちへの想いを新たにしている。",logCls:"big"}},
+    {label:"英霊を軍神と讃え、その武を継げと説く",hint:"軍事↑ 民心↑",fx:{st:{military:4},mood:4,flag:{uq_hallReverence:true},log:"殿堂の英雄たちが軍神として讃えられた。その武勇にあやかろうと、兵たちは奮い立っている。",logCls:"big"}},
+    {label:"事績を年代記に編み、後世へ遺す",hint:"外交↑ 民心↑",fx:{st:{diplomacy:3},mood:5,flag:{uq_hallReverence:true},log:"殿堂の英霊たちの事績が、克明な年代記として編まれた。王国の物語は、確かに次代へと受け継がれてゆく。",logCls:"big"}},
+   ]})},
 ];
 function checkUniqueEvents(){
   for(const ue of UNIQUE_EVENTS){
