@@ -11038,6 +11038,18 @@ const ITEMS=[
    const lbl=(nd.bossTrait&&typeof BOSS_TRAITS!=="undefined"&&BOSS_TRAITS[nd.bossTrait])?BOSS_TRAITS[nd.bossTrait].label:"強敵";
    chron(`王を狩る狼煙を高々と上げると、その煙に誘われ――${remaining.length?"いまだ討たぬ":""}「${lbl}」${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」が姿を現した。討王図鑑を進める好機だ。`,"big");
  }},
+ {key:"bond_lure",name:"縁を呼ぶ狼煙",rarity:"rare",desc:"香を焚き込めた特別な狼煙を上げ、兵の間に縁をもたらす「王」(縁結び・銘工・師弟を結ぶ王のいずれか)を狙って呼び寄せる。戦友・銘・師弟の絆を能動的に手繰り寄せる逸品。",effect:()=>{
+   const cand=["matchmaker","meismith","mentorbond"].filter(k=>(typeof BOSS_TRAITS!=="undefined")&&BOSS_TRAITS[k]);
+   if(!cand.length){const g=ri(60,100);apply({gold:g});chron(`縁を呼ぶ狼煙を上げたが、応じる王は現れず――代わりに使者への支度金${g}に代わった。`,"");return;}
+   const trait=cand[Math.floor(Math.random()*cand.length)];
+   const nd=generateDungeon();
+   nd.bossTrait=trait;nd.condition=null;
+   S.availableDungeons=S.availableDungeons||[];
+   S.availableDungeons.push(nd);
+   if(S.availableDungeons.length>6){const di=S.availableDungeons.findIndex(x=>!x.isFinal&&!x.protected);if(di>=0)S.availableDungeons.splice(di,1);}
+   const lbl=BOSS_TRAITS[trait].label;
+   chron(`縁を呼ぶ狼煙が細くたなびくと、それに誘われ――兵の縁を取り持つ「${lbl}」${nd.rarity.label?`【${nd.rarity.label}】`:""}「${nd.name}」が姿を現した。討ち果たせば、隊に新たな絆が芽生えよう。`,"big");
+ }},
  // ── アンコモン ──
  {key:"coin_pouch",name:"重い金貨袋",rarity:"uncommon",desc:"国庫がまとまって潤う。",effect:()=>apply({gold:ri(60,110),log:"金貨袋の中身が国庫に納められた。"})},
  {key:"recruit_notice",name:"募兵の触れ",rarity:"uncommon",desc:"国中に募兵の触れを出し、新たな志願者を数名呼び寄せる(志願一覧に加わる)。",effect:()=>{
