@@ -7,6 +7,7 @@
 |---|------|-------|------|----------|
 | 01 | PK シュートアウト (Penalty Shootout) | ⚽ Soccer | [01-penalty-shootout.html](01-penalty-shootout.html) | https://claude.ai/code/artifact/98f783a6-3a06-4896-b4ee-81e1a3ae6af5 |
 | 02 | ホームランダービー (Home Run Derby) | ⚾ Baseball | [02-homerun-derby.html](02-homerun-derby.html) | https://claude.ai/code/artifact/8d33042b-d865-4873-ab86-cdeb863dc59e |
+| 03 | サッカー人生スゴロク (Career Sugoroku) | ⚽ Soccer | [03-soccer-sugoroku.html](03-soccer-sugoroku.html) | https://claude.ai/code/artifact/bf290707-0869-464c-93a1-6e6ebc8fdc77 |
 
 ---
 
@@ -14,6 +15,7 @@
 
 Soccer ⚽
 - ~~PKシュートアウト~~ (done #01)
+- ~~キャリア人生スゴロク（サイコロで選手を進める）~~ (done #03)
 - フリーキック（壁越え・カーブ）
 - ヘディングリフティング / キープアップ
 - ドリブル回避ランナー
