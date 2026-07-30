@@ -27,6 +27,7 @@
 | 20 | PK戦トーナメント (Penalty Shootout Cup) | ⚽ Soccer | [20-pk-tournament.html](20-pk-tournament.html) | https://claude.ai/code/artifact/3d181d54-b31a-48ef-8b1e-59485c4635b5 |
 | 21 | レーザービーム (Outfield Assist) | ⚾ Baseball | [21-laser-beam.html](21-laser-beam.html) | https://claude.ai/code/artifact/021956ab-9d21-4ca3-ac01-679144edeb03 |
 | 22 | コーナーヘッド (Corner Kick Header) | ⚽ Soccer | [22-corner-header.html](22-corner-header.html) | https://claude.ai/code/artifact/06c2c61a-d979-42cd-82dc-e1cfd8214e2c |
+| 23 | 広角ヒッティング (Hit 'Em Where They Ain't) | ⚾ Baseball | [23-spray-hitting.html](23-spray-hitting.html) | https://claude.ai/code/artifact/7812f230-0c2d-4066-a149-f0e9deb4800d |
 
 ---
 
@@ -62,5 +63,6 @@ Baseball ⚾
 - ~~守備連携・ダブルプレー~~ (done #17)
 - ~~一打席勝負・代打サヨナラ（見極め＋ミート）~~ (done #19)
 - ~~外野補殺・レーザービーム（送球判断＋精度）~~ (done #21)
+- ~~広角打法・狙い打ち（方向＋深さでギャップへ）~~ (done #23)
 
 > 制作ルール: 毎回 `games/` を確認し、まだ作っていないコンセプトを選ぶ。番号は連番。当初候補は #12 までで完走済みのため、以降は上記「新機軸」から選ぶか新しい派生を考える。サッカー⚽と野球⚾を交互に。
