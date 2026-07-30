@@ -17,6 +17,7 @@
 | 10 | リフティング名人 (Keepie Uppie) | ⚽ Soccer | [10-keepie-uppie.html](10-keepie-uppie.html) | https://claude.ai/code/artifact/84a8602e-199f-467c-ae92-bf78da297971 |
 | 11 | 盗塁王 (Steal the Base) | ⚾ Baseball | [11-steal-base.html](11-steal-base.html) | https://claude.ai/code/artifact/a791183e-e2f1-4e40-b5c8-4aef9e4a5bc1 |
 | 12 | シュート・ギャラリー (Shooting Gallery) | ⚽ Soccer | [12-shooting-gallery.html](12-shooting-gallery.html) | https://claude.ai/code/artifact/427e99c1-aad8-46aa-95bc-829715665021 |
+| 13 | 球審ジャッジ (Umpire: Ball or Strike) | ⚾ Baseball | [13-umpire.html](13-umpire.html) | https://claude.ai/code/artifact/eff048af-dfe8-4307-9404-a8044c2dd47d |
 
 ---
 
@@ -38,4 +39,12 @@ Baseball ⚾
 - ~~守備（フライキャッチ）~~ (done #07)
 - ~~走塁 / スチール判定~~ (done #11)
 
-> 制作ルール: 毎回 `games/` を確認し、まだ作っていないコンセプトを選ぶ。番号は連番。
+### 新機軸（当初バックログ完走後の新コンセプト）
+- ~~球審ジャッジ（ボール/ストライク判定）~~ (done #13)
+- 2人対戦（PK対戦・打撃vs投球の読み合い）
+- トーナメント/ワールドカップ制（連戦・勝ち上がり）
+- 選手育成・シーズンモード
+- ラリー系の対CPU（テニス風のヘディング応酬 等）
+- 複合ミニゲーム集（既存ゲームの連続チャレンジ）
+
+> 制作ルール: 毎回 `games/` を確認し、まだ作っていないコンセプトを選ぶ。番号は連番。当初候補は #12 までで完走済みのため、以降は上記「新機軸」から選ぶか新しい派生を考える。サッカー⚽と野球⚾を交互に。
