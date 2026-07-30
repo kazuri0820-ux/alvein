@@ -26,6 +26,7 @@
 | 19 | 代打サヨナラ (Walk-Off At-Bat) | ⚾ Baseball | [19-walkoff.html](19-walkoff.html) | https://claude.ai/code/artifact/935defb6-2d04-46ae-aef9-bcd8b4211ab1 |
 | 20 | PK戦トーナメント (Penalty Shootout Cup) | ⚽ Soccer | [20-pk-tournament.html](20-pk-tournament.html) | https://claude.ai/code/artifact/3d181d54-b31a-48ef-8b1e-59485c4635b5 |
 | 21 | レーザービーム (Outfield Assist) | ⚾ Baseball | [21-laser-beam.html](21-laser-beam.html) | https://claude.ai/code/artifact/021956ab-9d21-4ca3-ac01-679144edeb03 |
+| 22 | コーナーヘッド (Corner Kick Header) | ⚽ Soccer | [22-corner-header.html](22-corner-header.html) | https://claude.ai/code/artifact/06c2c61a-d979-42cd-82dc-e1cfd8214e2c |
 
 ---
 
@@ -51,6 +52,7 @@ Baseball ⚾
 - ~~球審ジャッジ（ボール/ストライク判定）~~ (done #13)
 - ~~パス回し／崩し（ティキタカ）~~ (done #16)
 - ~~ドリブル・スラローム（ゲート通過タイムアタック）~~ (done #18)
+- ~~セットプレー・コーナーヘッド（クロス＋ヘディング）~~ (done #22)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
