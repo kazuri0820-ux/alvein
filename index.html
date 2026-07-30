@@ -10636,6 +10636,7 @@ const BOSS_TRAITS={
   mason:{label:"石工の王",color:"#b9a07a",desc:"古の石工術を極めた不動の王。討ち果たせば、その秘伝が国の職人に宿り、手がけている普請(事業)が一気に捗る"},
   matchmaker:{label:"縁結びの王",color:"#e0a0b8",desc:"戦場に不思議な縁を手繰り寄せる王。討ち果たせば、その死闘を背中合わせに凌ぎきった二人の兵の間に、生涯の戦友の絆が芽生える"},
   meismith:{label:"銘工の王",color:"#c0a878",desc:"武具に魂を宿す古の名工の王。討ち果たせば、勲功第一の兵の得物に固有の銘が刻まれ、名を持つ生涯の相棒となる"},
+  mentorbond:{label:"師弟を結ぶ王",color:"#a8c0d0",desc:"戦場で年長と若手の縁を取り持つ不思議な王。討ち果たせば、隊中の熟練の兵とうら若き新兵の間に師弟の縁が結ばれる"},
 };
 const BOSS_TRAIT_KEYS=Object.keys(BOSS_TRAITS);
 /* 「石工の王」の報酬:討伐で得た秘伝の石工術を国の普請へ注ぎ、進行中の事業を一気に前進させる(完成に達したものは
@@ -12764,6 +12765,14 @@ function resolveDungeonRun(dungeonId){
             if(eq){addEquipment(eq.key);chron(`「銘工の王」を討ち果たした。銘を刻むべき得物は無かったが、王が遺した名品「${eq.name}」を手に入れた。`,"big");}
             else{const g=Math.round(ri(45,85)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「銘工の王」を討ち果たし、財貨${g}を得た。`,"");}
           }
+        }
+        else if(dungeon.bossTrait==="mentorbond"){ // 師弟を結ぶ王:死闘を共にした熟練兵と新兵に師弟の縁を結ぶ(師弟システムに繋がる新報酬軸=愛着)
+          const inSquad=(u)=>u&&u.role==="active"&&S.units.some(x=>x.id===u.id);
+          const masters=squad.filter(u=>inSquad(u)&&!u.pupilId&&!u.masterId&&(u.lv||1)>=15);
+          const pupils=squad.filter(u=>inSquad(u)&&!u.masterId&&!u.pupilId&&(u.lv||1)<=8);
+          let done=false;
+          for(const m of masters){const pu=pupils.find(p=>p.id!==m.id);if(pu){m.pupilId=pu.id;pu.masterId=m.id;m.moral=Math.min(100,(m.moral||0)+3);pu.moral=Math.min(100,(pu.moral||0)+4);pu.loyalty=Math.min(100,(pu.loyalty||0)+2);if(typeof unitHistory==="function"){unitHistory(m,`「師弟を結ぶ王」との死闘を経て、見どころある若武者${pu.nm}を弟子に取った。`);unitHistory(pu,`「師弟を結ぶ王」との死闘を経て、${m.nm}を師と仰ぐことになった。`);}chron(`「師弟を結ぶ王」を討ち果たすと、共に死線を越えた${fullName(m)}と若武者${fullName(pu)}の間に、いつしか師弟の縁が芽生えた。師の背を追い、${pu.nm}はめきめきと腕を上げていくだろう。`,"big");done=true;break;}}
+          if(!done){const g=Math.round(ri(45,85)*dungeon.rarity.mult*levelMult);apply({gold:g});chron(`「師弟を結ぶ王」を討ち果たした。此度の隊に新たな師弟の縁は結べなかったが、代わりに王の蓄えた財貨${g}を持ち帰った。`,"");}
         }
       }
       // 金・固有スキル持ちの見せ場: 集めた一流の技がボス戦で決定打になる(スキルに手応えを与える)
