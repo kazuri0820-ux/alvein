@@ -22,6 +22,7 @@
 | 15 | スタジアム・ピンボール (Baseball Pinball) | ⚾ Baseball | [15-baseball-pinball.html](15-baseball-pinball.html) | https://claude.ai/code/artifact/528ca55b-8763-48b4-aa15-d5e8be62619b |
 | 16 | ティキタカ (One-Touch Pass Soccer) | ⚽ Soccer | [16-tiki-taka.html](16-tiki-taka.html) | https://claude.ai/code/artifact/d9dabbc2-7067-4685-b11c-da88ec458f2b |
 | 17 | ダブルプレー (Turn Two) | ⚾ Baseball | [17-double-play.html](17-double-play.html) | https://claude.ai/code/artifact/8ff468c0-e426-48a0-8dc3-c3b9c85ef2d8 |
+| 18 | ドリブル・スラローム (Dribble Slalom) | ⚽ Soccer | [18-dribble-slalom.html](18-dribble-slalom.html) | https://claude.ai/code/artifact/e800db4a-d5d1-4dea-b3b4-c0be07a7ec47 |
 
 ---
 
@@ -46,6 +47,7 @@ Baseball ⚾
 ### 新機軸（当初バックログ完走後の新コンセプト）
 - ~~球審ジャッジ（ボール/ストライク判定）~~ (done #13)
 - ~~パス回し／崩し（ティキタカ）~~ (done #16)
+- ~~ドリブル・スラローム（ゲート通過タイムアタック）~~ (done #18)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - トーナメント/ワールドカップ制（連戦・勝ち上がり）
 - 選手育成・シーズンモード
