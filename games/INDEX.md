@@ -14,6 +14,7 @@
 | 07 | ダイビングキャッチ (Fly Ball Catch) | ⚾ Baseball | [07-fly-ball-catch.html](07-fly-ball-catch.html) | https://claude.ai/code/artifact/24f15633-27e2-49b4-9ae7-c9dcd5b0d10d |
 | 08 | カーブ・フリーキック (Curve Free Kick) | ⚽ Soccer | [08-free-kick.html](08-free-kick.html) | https://claude.ai/code/artifact/36d77776-41af-467f-a256-4ac6cf04d640 |
 | 09 | エース・ピッチャー (Ace Pitcher) | ⚾ Baseball | [09-ace-pitcher.html](09-ace-pitcher.html) | https://claude.ai/code/artifact/5d70501e-9141-4a3d-b3a0-1e5fc523ea14 |
+| 10 | リフティング名人 (Keepie Uppie) | ⚽ Soccer | [10-keepie-uppie.html](10-keepie-uppie.html) | https://claude.ai/code/artifact/84a8602e-199f-467c-ae92-bf78da297971 |
 
 ---
 
@@ -23,7 +24,7 @@ Soccer ⚽
 - ~~PKシュートアウト~~ (done #01)
 - ~~キャリア人生スゴロク（サイコロで選手を進める）~~ (done #03)
 - ~~フリーキック（壁越え・カーブ）~~ (done #08)
-- ヘディングリフティング / キープアップ
+- ~~リフティング / キープアップ~~ (done #10)
 - ~~ドリブル回避ランナー~~ (done #04)
 - ~~ゴールキーパー（守る側）リフレックス~~ (done #06)
 - ペナルティ・ターゲット射的
