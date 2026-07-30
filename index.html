@@ -14012,6 +14012,8 @@ const UNIQUE_JOBS=[
   check:(u)=>(u.kingsSlain||0)>=8&&S.units.every(o=>o.id===u.id||(o.kingsSlain||0)<=(u.kingsSlain||0))}, // 数多の個性ある「王」を最も多く討ち取った、王たちの天敵(討王の道)
  {key:"flawless_dancer",name:"無双の舞手",nickname:"傷一つ負わぬ舞手",
   check:(u)=>(u.injuryCount||0)===0&&(u.dungeonClearCount||0)>=8}, // 数多の迷宮を潜り抜けてなお、ただの一度も傷を負わなかった無双の達人(完全無傷で攻略を極める道)
+ {key:"hexad_master",name:"六芸を究めし者",nickname:"六芸を究めし者",
+  check:(u)=>{const se=skillEffects(u);return ["str","vit","int","agi","wis","lead"].every(k=>((u[k]||0)+(se[k]||0))>=90);}}, // 腕・体・魔・敏・知・統――得手不得手なく全六能を極限まで均しく鍛え上げ、いずれも高みに至らせた真の万能英傑(称号「六芸に通ず」の遥か頂点。一芸特化の武神・弓聖らと対をなす、全能を究める道)
 ];
 function checkUniqueJobOnHero(u){
   if(u.uniqueJob)return null;
