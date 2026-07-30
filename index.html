@@ -9696,6 +9696,16 @@ const UNIQUE_EVENTS=[
     {label:"魔祓いの儀を催し、民の不安を鎮める",hint:"治安↑ 民心↑↑",fx:{st:{order:3},mood:7,flag:{uq_demonVigil:true},log:"荘厳な魔祓いの儀が城下で営まれた。魔への備えが整ったと知らしめられ、民は久方ぶりに安んじて眠りについている。",logCls:"big"}},
     {label:"魔導の秘伝研究に蔵を開く",hint:"魔導↑ 国庫↓",fx:{gold:-70,st:{magic:4},flag:{uq_demonVigil:true},log:"魔軍の秘伝を紐解く研究に、惜しみなく蔵が開かれた。魔を識る知見が積み上がり、王国の魔導は一段と冴えを増している。",logCls:"big"}},
    ]})},
+ {key:"heroLegion", // 三人以上の兵が英雄格に達した折の一度きりの祝祭=名もなき志願兵を英雄まで育て上げた集大成・やりがいに物語の報酬を足す(意味ある三択・pure fx)
+  cond:()=>{if(S.flags&&S.flags.uq_heroLegion)return false;const n=(S.units||[]).filter(u=>u&&u.role==="active"&&typeof jobFor==="function"&&jobFor(u.cls,u.lv,u.route).key==="hero").length;return n>=3;},
+  build:()=>({tag:"精 鋭",title:"英雄たちの連なり",
+   body:"かつては名もなき志願兵だった者たちが、いまや幾人も、英雄と呼ぶべき域に達していた。一騎当千の兵が三人、四人と肩を並べて立つ光景に、長は育て上げてきた歳月の重みを噛みしめた。この精鋭たちを、どう遇しようか。",
+   speaker:"ガレオン「一人でも得難い英雄が、これほど揃うとは……名もなき者を英傑に育て上げた、長の眼力の賜物にございます」",
+   choices:[
+    {label:"精鋭を集めた奥義の研鑽会を開く",hint:"軍事↑↑ 民心↑",fx:{gold:-50,st:{military:5},mood:3,flag:{uq_heroLegion:true},log:"英雄格の兵が技を持ち寄る研鑽会が開かれた。互いの奥義をぶつけ合う手練れたちの姿に、若い兵は憧れと闘志を新たにしている。",logCls:"big"}},
+    {label:"英雄たちを城下に立たせ、民に示す",hint:"外交↑ 民心↑↑",fx:{st:{diplomacy:4},mood:7,flag:{uq_heroLegion:true},log:"幾人もの英雄が居並ぶ威容が城下に示された。これほどの精鋭を擁する王国の名は、諸国にいっそう轟いている。",logCls:"big"}},
+    {label:"武功を称える大盤振る舞いの宴を開く",hint:"民心↑↑ 国庫↓",fx:{gold:-70,mood:9,flag:{uq_heroLegion:true},log:"英雄たちの武功を称える盛大な宴が催された。かつての初陣を懐かしむ歴戦の兵たちの笑い声が、夜更けまで絶えなかった。",logCls:"big"}},
+   ]})},
 ];
 function checkUniqueEvents(){
   for(const ue of UNIQUE_EVENTS){
