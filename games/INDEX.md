@@ -11,6 +11,7 @@
 | 04 | ドリブル・ダッシュ (Dribble Dash) | ⚽ Soccer | [04-dribble-dash.html](04-dribble-dash.html) | https://claude.ai/code/artifact/6c1354b1-8e12-4106-aaf7-09dbb577139a |
 | 05 | ストラックアウト9 (Strike Out 9) | ⚾ Baseball | [05-strikeout9.html](05-strikeout9.html) | https://claude.ai/code/artifact/1e1c5daa-d5dd-49bf-9efe-04d9b2eed0c6 |
 | 06 | キーパー・リフレックス (Keeper Reflex) | ⚽ Soccer | [06-keeper-reflex.html](06-keeper-reflex.html) | https://claude.ai/code/artifact/e8a34610-0d7a-4ab8-a50e-32c69282c06a |
+| 07 | ダイビングキャッチ (Fly Ball Catch) | ⚾ Baseball | [07-fly-ball-catch.html](07-fly-ball-catch.html) | https://claude.ai/code/artifact/24f15633-27e2-49b4-9ae7-c9dcd5b0d10d |
 
 ---
 
@@ -29,7 +30,7 @@ Baseball ⚾
 - ~~バッティング（タイミングでホームラン）~~ (done #02)
 - ~~ストラックアウト（的当て）~~ (done #05)
 - ピッチング（球種で三振を取る）
-- 守備（フライキャッチ）
+- ~~守備（フライキャッチ）~~ (done #07)
 - 走塁 / スチール判定
 
 > 制作ルール: 毎回 `games/` を確認し、まだ作っていないコンセプトを選ぶ。番号は連番。
