@@ -1697,6 +1697,7 @@ const SKILL_DB=[
  {key:"nsk_devotion",name:"揺るがぬ忠義",tier:"gold",desc:"何があろうと長を裏切らぬ、鋼のごとき忠義の心を持つ",loyaltyGrow:0.4,lead:6},
  {key:"nsk_evasion",name:"見切りの達人",tier:"gold",desc:"あらゆる攻撃を紙一重で見切り、めったに傷を負わない",injuryMult:0.65,agi:8},
  {key:"nsk_quicklearn",name:"飲み込みの早さ",tier:"gold",desc:"物覚えが人並外れて早く、実戦から驚くほど速く多くを学び取る(昇格が速まる)",expMult:0.82,int:6},
+ {key:"nsk_autodidact",name:"研鑽の才",tier:"gold",desc:"貪欲に技を吸収する天性の学び手。昇進のたび、新たな技を掴み取る機会が大きく高まる",skillUpChance:0.95,wis:6},
  {key:"nsk_guardian",name:"戦友の盾",tier:"gold",desc:"共に潜る仲間を片時も見捨てぬ。同じ部隊の戦友が死線に立たされたとき、我が身を挺してその命を守り抜く",guardianSave:0.5,vit:10,lead:6},
  // 銀(レア・強力)
  {key:"mousho", name:"猛将",     tier:"silver",desc:"前に出れば出るほど輝く性分",str:10,vit:6},
@@ -2454,6 +2455,7 @@ function skillBoonSummary(sk){
   if(sk.moralGrow>0)parts.push("士気が旺盛に");
   if(sk.trainMult&&sk.trainMult>1)parts.push("成長が速く");
   if(sk.expMult&&sk.expMult<1)parts.push("経験の吸収が早く");
+  if(sk.skillUpChance)parts.push("新たな技を掴みやすく");
   return parts.length?parts.slice(0,2).join("、")+"なる":"";
 }
 function celebrateSkillGain(u,sk){
@@ -2530,7 +2532,7 @@ function trySkillUpOnPromotion(u,tierIndex){
   const sk=SKILL_DB.find(s=>s.key===k);celebrateSkillGain(u,sk);return sk;
 }
 function skillEffects(u){
-  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,goldFind:0,campSupport:0,fieldMedic:0,fortuneRoll:0,squadExpBonus:0,itemFind:0,marchDays:0,bossBane:0,dungeonFind:0,expeditionBoon:0,
+  const e={trainMult:1,injuryMult:1,deathMult:1,expMult:1,loyaltyGrow:0,moralGrow:0,ageResist:0,instructorMult:1,fatigueRecover:0,guardianSave:0,lootLuck:0,goldFind:0,campSupport:0,fieldMedic:0,fortuneRoll:0,squadExpBonus:0,itemFind:0,marchDays:0,bossBane:0,dungeonFind:0,expeditionBoon:0,skillUpChance:0,
     str:0,vit:0,int:0,agi:0,wis:0,lead:0};
   const stage=ageStageOf(u);
   for(const key of u.skills){
@@ -2565,6 +2567,7 @@ function skillEffects(u){
     if(s.bossBane)e.bossBane=Math.max(e.bossBane,s.bossBane);
     if(s.dungeonFind)e.dungeonFind=Math.max(e.dungeonFind,s.dungeonFind);
     if(s.expeditionBoon)e.expeditionBoon=Math.max(e.expeditionBoon,s.expeditionBoon);
+    if(s.skillUpChance)e.skillUpChance=Math.max(e.skillUpChance,s.skillUpChance); // 技の習得率を高めるスキル(研鑽の才)=昇進のたび新たな技を掴みやすくする自己研鑽ビルド
   }
   const eq=equipmentEffects(u);
   for(const k of["str","vit","int","agi","wis","lead"])e[k]+=eq[k];
@@ -17818,7 +17821,7 @@ function processLevelUps(u,silent,noRival){
           const routes=JOB_ROUTES[u.cls]||[];
           if(routes.length)u.route=routes[Math.floor(Math.random()*routes.length)].key;
         }
-        if(newJob.key!=="hero"&&newJob.key!=="captain"&&Math.random()<Math.min(0.98,(tr.skillUpChance||0.7)+(doctrineIs("inquiry")?0.15:0))){
+        if(newJob.key!=="hero"&&newJob.key!=="captain"&&Math.random()<Math.min(0.98,Math.max((tr.skillUpChance||0.7),(skillEffects(u).skillUpChance||0))+(doctrineIs("inquiry")?0.15:0))){
           const tierIndex=JOB_TREES[u.cls].chain.findIndex(c=>c.key===newJob.key)+1;
           trySkillUpOnPromotion(u,tierIndex);
         }
@@ -17835,7 +17838,7 @@ function processLevelUps(u,silent,noRival){
       else if(newJob.key==="elite"&&!u.route){if(u.age<20)grantTitle(u,"t_youngelite");pushEvent("routebranch_"+u.id);}
       else{
         chron(`${u.nm}が${newJob.name}に昇進した。`,"big");
-        if(Math.random()<Math.min(0.98,(tr.skillUpChance||0.7)+(doctrineIs("inquiry")?0.15:0))){
+        if(Math.random()<Math.min(0.98,Math.max((tr.skillUpChance||0.7),(skillEffects(u).skillUpChance||0))+(doctrineIs("inquiry")?0.15:0))){
           const tierIndex=JOB_TREES[u.cls].chain.findIndex(c=>c.key===newJob.key)+1;
           const learned=trySkillUpOnPromotion(u,tierIndex);
           if(learned&&(learned.tier==="gold"||learned.tier==="silver"))chron(`${u.nm}が「${learned.name}」(${SKILL_TIER_LABEL[learned.tier]})を身につけた。`,"big");
