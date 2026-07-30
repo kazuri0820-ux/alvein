@@ -9632,6 +9632,16 @@ const UNIQUE_EVENTS=[
      {label:"英傑たちを称える万国の宴を催す",hint:"民心↑↑ 国庫↓",fx:{gold:-90,mood:9,flag:{uq_greatsManyRegions:true},log:"あらゆる地の料理と音曲が並ぶ万国の宴が催された。異なる言葉で歌われる祝いの歌が夜通し重なり合い、城下は言葉の壁を越えた熱気に包まれている。",logCls:"big"}},
     ]};
   }},
+ {key:"fullRoster", // 兵舎が定員いっぱいの陣容(かつ十二名以上)に達した折の一度きりの祝祭=大軍を率い切った到達感・やりがいに物語の報酬を足す(意味ある三択・pure fx)
+  cond:()=>{const n=(S.units||[]).length;const cap=(typeof unitCap==="function")?unitCap():999;return n>=cap&&n>=12&&!(S.flags&&S.flags.uq_fullRoster);},
+  build:()=>({tag:"軍 容",title:"満ちたる陣容",
+   body:"気づけば、兵舎はもう一人の余地もないほどに満ちていた。訓練場に整列した兵の列は端が見えぬほど長く、その一人ひとりに名があり、越えてきた物語がある。これほどの軍を率いる日が来ようとは――長は、静かな感慨を噛みしめた。この大所帯を、どう活かそうか。",
+   speaker:"ガレオン「これほどの陣容、そうそう見られるものではありませぬ。定員を満たすまで人を集め、束ねきった――長の器量あればこそです」",
+   choices:[
+    {label:"総力を挙げた大調練を敷く",hint:"軍事↑↑ 民心↑",fx:{st:{military:5},mood:4,flag:{uq_fullRoster:true},log:"兵舎の全兵が加わる総力の大調練が敷かれた。地を埋め尽くす兵の演武に、見物の民からどよめきが起こっている。",logCls:"big"}},
+    {label:"満を持して壮麗な観兵式を催す",hint:"外交↑ 民心↑↑",fx:{st:{diplomacy:4},mood:7,flag:{uq_fullRoster:true},log:"城下の大通りを埋め尽くして壮麗な観兵式が催された。寸分の隙もなく整った軍列を、諸国の使者も息を呑んで見守っている。",logCls:"big"}},
+    {label:"全軍を労う大盤振る舞いの宴を開く",hint:"民心↑↑ 国庫↓",fx:{gold:-80,mood:9,flag:{uq_fullRoster:true},log:"満員の兵を残らず招いた盛大な宴が催された。名を呼び合い、肩を叩き合う兵たちの熱気が、夜更けまで谷を満たしている。",logCls:"big"}},
+   ]})},
 ];
 function checkUniqueEvents(){
   for(const ue of UNIQUE_EVENTS){
