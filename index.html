@@ -9605,6 +9605,16 @@ const UNIQUE_EVENTS=[
     {label:"英霊を軍神と讃え、その武を継げと説く",hint:"軍事↑ 民心↑",fx:{st:{military:4},mood:4,flag:{uq_hallReverence:true},log:"殿堂の英雄たちが軍神として讃えられた。その武勇にあやかろうと、兵たちは奮い立っている。",logCls:"big"}},
     {label:"事績を年代記に編み、後世へ遺す",hint:"外交↑ 民心↑",fx:{st:{diplomacy:3},mood:5,flag:{uq_hallReverence:true},log:"殿堂の英霊たちの事績が、克明な年代記として編まれた。王国の物語は、確かに次代へと受け継がれてゆく。",logCls:"big"}},
    ]})},
+ {key:"beastMenagerie", // 相棒獣を三頭以上抱えた折の一度きりの祝祭的選択=獣と兵の絆を集めた愛着に物語の報酬を足す(意味ある三択)
+  cond:()=>(((S.units||[]).filter(u=>u&&u.role==="active"&&u.beast).length)>=3)&&!(S.flags&&S.flags.uq_beastMenagerie),
+  build:()=>({tag:"相 棒",title:"獣たちと轡を並べて",
+   body:"いつしか幾人もの兵が、迷宮で結んだ獣を生涯の相棒として傍らに従えるようになった。狼、隼、大熊――兵と獣の絆は、この国ならではの頼もしき光景だ。この絆を、どう活かそうか。",
+   speaker:"ブロム「獣どもは兵によく懐いておる。ありゃあもう、ただの獣じゃねえ。戦友よ。うまく活かしてやりてえな」",
+   choices:[
+    {label:"獣と兵の合同調練場を設える",hint:"軍事↑ 民心↑",fx:{gold:-40,st:{military:4},mood:4,flag:{uq_beastMenagerie:true},log:"獣と兵がともに鍛える調練場が設えられた。呼吸を合わせた獣騎の連携に、見物の兵からも歓声が上がっている。",logCls:"big"}},
+    {label:"相棒獣を軍旗に描き、民に披露する",hint:"外交↑ 民心↑↑",fx:{st:{diplomacy:3},mood:7,flag:{uq_beastMenagerie:true},log:"勇壮な獣を描いた軍旗が城下に翻った。兵と轡を並べる獣たちの雄姿に、民は目を輝かせて喝采している。",logCls:"big"}},
+    {label:"獣と兵の絆を祝う祭を開く",hint:"民心↑↑ 国庫↓",fx:{gold:-60,mood:9,flag:{uq_beastMenagerie:true},log:"獣と兵の絆を祝う賑やかな祭が催された。広場を駆け回る獣と、それを追う子らの笑い声が、谷いっぱいに満ちている。",logCls:"big"}},
+   ]})},
 ];
 function checkUniqueEvents(){
   for(const ue of UNIQUE_EVENTS){
