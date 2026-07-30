@@ -9,6 +9,7 @@
 | 02 | ホームランダービー (Home Run Derby) | ⚾ Baseball | [02-homerun-derby.html](02-homerun-derby.html) | https://claude.ai/code/artifact/8d33042b-d865-4873-ab86-cdeb863dc59e |
 | 03 | サッカー人生スゴロク (Career Sugoroku) | ⚽ Soccer | [03-soccer-sugoroku.html](03-soccer-sugoroku.html) | https://claude.ai/code/artifact/bf290707-0869-464c-93a1-6e6ebc8fdc77 |
 | 04 | ドリブル・ダッシュ (Dribble Dash) | ⚽ Soccer | [04-dribble-dash.html](04-dribble-dash.html) | https://claude.ai/code/artifact/6c1354b1-8e12-4106-aaf7-09dbb577139a |
+| 05 | ストラックアウト9 (Strike Out 9) | ⚾ Baseball | [05-strikeout9.html](05-strikeout9.html) | https://claude.ai/code/artifact/1e1c5daa-d5dd-49bf-9efe-04d9b2eed0c6 |
 
 ---
 
@@ -25,6 +26,7 @@ Soccer ⚽
 
 Baseball ⚾
 - ~~バッティング（タイミングでホームラン）~~ (done #02)
+- ~~ストラックアウト（的当て）~~ (done #05)
 - ピッチング（球種で三振を取る）
 - ホームランダービー
 - 守備（フライキャッチ）
