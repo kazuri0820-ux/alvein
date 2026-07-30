@@ -1639,6 +1639,7 @@ const TRAIT_EPIC=[
  {key:"tre_25",name:"万物の理を解く者",desc:"あらゆる事象の裏に潜む理を見抜く、時代を超えた知性。学びの速さは常軌を逸する",gm:1.34,int:12,wis:8,expMult:0.8},
  {key:"tre_26",name:"王者の風格",desc:"生まれながらに万人を従える王者の風格。居るだけで隊の士気と忠が湧き上がり、麾下を惹きつけて離さない",gm:1.4,lead:12,moralGrow:0.2,loyaltyGrow:0.2},
  {key:"tre_27",name:"討王の宿星",desc:"強大な王を狩るべく生まれついた宿星の持ち主。伴う迷宮踏破では、名だたる王やボスを討ち取りやすく、その首にかかる特別な誉れと報酬を掴みやすい",gm:1.3,bossBane:0.22,str:8,lead:6},
+ {key:"tre_28",name:"遠国往来の才",desc:"遠き国々の道と人と物流を知り尽くした旅の大家。この者を加えた遠征は、持ち帰る財貨も部隊の成長も一段と大きくなる",gm:1.3,expeditionBoon:0.25,wis:8,lead:6},
 ];
 const TRAIT_LEGEND=[
  {key:"reborn",name:"転生者",desc:"この世界の者とは異なる知識の気配を纏っている",gm:2.0,injuryMult:0.3,deathMult:0.25,ageResist:0.8},
@@ -15907,6 +15908,7 @@ function traitEffectText(tr){
   if(tr.marchDays)parts.push(`迷宮の所要日数-${tr.marchDays}日`);
   if(tr.bossBane)parts.push(`部隊のボス撃破力+${Math.round(tr.bossBane*100)}%`);
   if(tr.dungeonFind)parts.push(`ダンジョン発見率+${Math.round(tr.dungeonFind*100)}%(先頭時)`);
+  if(tr.expeditionBoon)parts.push(`遠征の財貨・成長+${Math.round(tr.expeditionBoon*100)}%`);
   if(tr.squadSynergy)parts.push(`部隊の連携${tr.squadSynergy>=0?"+":""}${Math.round(tr.squadSynergy*100)}%`);
   if(tr.condFlag==="dragonPact")parts.push(`竜盟約締結中は戦力+${tr.condPw||0}`);
   return parts.join(" / ");
@@ -17278,7 +17280,7 @@ function resolveLongExpedition(id){
   let goldGain=0,itemGained=null,equipGained=null,dungeonFound=null,died=null,recruit=null;
   let grew=[]; // 遠征で各兵が何段育ったか(帰還報告で成長を felt にする)
   const gainedItems=[],gainedEquips=[];
-  const expBoon=squad.length?Math.max(0,...squad.map(u=>skillEffects(u).expeditionBoon||0)):0; // 「遠征の達人」を伴うと、遠征の実入り(財貨・成長)が増す=遠征に特化した編成の新レバー
+  const expBoon=squad.length?Math.max(0,...squad.map(u=>Math.max((traitInfo(u.trait).expeditionBoon)||0,skillEffects(u).expeditionBoon||0))):0; // 「遠征の達人」(スキル)「遠国往来の才」(特性)を伴うと、遠征の実入り(財貨・成長)が増す=遠征に特化した編成の新レバー(特性/スキル両対応)
   const dest=expeditionDest(exp.dest); // 遠征の目的地:持ち帰る実りの偏りを決める
   if(tier==="great"||tier==="success"){
     // 60〜90日ぶんの成果。5人の精鋭を長く拘束する重さに見合うよう、報酬を日数と練度で大きく伸ばす
