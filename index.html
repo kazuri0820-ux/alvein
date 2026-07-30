@@ -9683,6 +9683,16 @@ const UNIQUE_EVENTS=[
     {label:"競い合いを城下の民に見せる",hint:"外交↑ 民心↑↑",fx:{st:{diplomacy:3},mood:7,flag:{uq_rivalArena:true},log:"好敵手たちの熱戦が城下で披露された。互いに一歩も譲らぬ気迫の応酬に、見物の民は手に汗握って沸いている。",logCls:"big"}},
     {label:"健闘を称え、皆で杯を交わす",hint:"民心↑↑ 国庫↓",fx:{gold:-50,mood:9,flag:{uq_rivalArena:true},log:"競い合った好敵手たちが、勝敗を越えて杯を交わした。全力でぶつかり合った相手だからこそ通じ合う、不思議な友情がそこにはある。",logCls:"big"}},
    ]})},
+ {key:"demonVigil", // 対魔練度が高みに達した折の一度きりの決意=魔王討伐エンドゲームへの手応え・やりがいに物語の報酬を足す(意味ある三択・pure fx)
+  cond:()=>((S.demonArmyLevel||0)>=5)&&!(S.flags&&S.flags.uq_demonVigil),
+  build:()=>({tag:"対 魔",title:"魔に備えし国",
+   body:"魔軍の理を解き、幾度も異形を退けるうちに、アルヴェインの兵は魔への確かな備えを身につけていた。かつて怯えるほかなかった魔の脅威に、いまや正面から抗える――その手応えが、軍全体に静かな自信となって満ちている。この備えを、どう固めようか。",
+   speaker:"ガレオン「魔とてもはや、我らの敵ではありませぬ。いよいよ魔王その者へ刃を向ける日も、そう遠くはありますまい」",
+   choices:[
+    {label:"対魔の陣立てを全軍に叩き込む",hint:"軍事↑↑ 民心↑",fx:{st:{military:5},mood:3,flag:{uq_demonVigil:true},log:"魔軍の弱点を突く陣立てが全軍に徹底された。異形の群れをも臆せず崩す備えが、着実に王国軍へ根付いている。",logCls:"big"}},
+    {label:"魔祓いの儀を催し、民の不安を鎮める",hint:"治安↑ 民心↑↑",fx:{st:{order:3},mood:7,flag:{uq_demonVigil:true},log:"荘厳な魔祓いの儀が城下で営まれた。魔への備えが整ったと知らしめられ、民は久方ぶりに安んじて眠りについている。",logCls:"big"}},
+    {label:"魔導の秘伝研究に蔵を開く",hint:"魔導↑ 国庫↓",fx:{gold:-70,st:{magic:4},flag:{uq_demonVigil:true},log:"魔軍の秘伝を紐解く研究に、惜しみなく蔵が開かれた。魔を識る知見が積み上がり、王国の魔導は一段と冴えを増している。",logCls:"big"}},
+   ]})},
 ];
 function checkUniqueEvents(){
   for(const ue of UNIQUE_EVENTS){
