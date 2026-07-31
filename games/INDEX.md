@@ -43,6 +43,7 @@
 | 36 | ロンド (Rondo Keep-Away) | ⚽ Soccer | [36-rondo.html](36-rondo.html) | https://claude.ai/code/artifact/402f0bd3-5f94-4ff0-b04d-5e3d412b8fa5 |
 | 37 | ランダウン (Rundown / Pickle) | ⚾ Baseball | [37-rundown.html](37-rundown.html) | https://claude.ai/code/artifact/ed24a0e9-1ee6-4312-8b9b-3e0d2a8435c4 |
 | 38 | ピンポイントクロス (Pinpoint Cross) | ⚽ Soccer | [38-pinpoint-cross.html](38-pinpoint-cross.html) | https://claude.ai/code/artifact/9d2837e2-c806-4936-b770-e1059b9fab8c |
+| 39 | バックホーム (Play at the Plate) | ⚾ Baseball | [39-play-at-plate.html](39-play-at-plate.html) | https://claude.ai/code/artifact/48e97e93-c553-4634-b69f-6a5a025d12a7 |
 
 ---
 
@@ -79,6 +80,7 @@ Baseball ⚾
 - ~~ロンド（鳥かご：空いたレーンへ連続パスの一発勝負）~~ (done #36)
 - ~~ランダウン（挟殺：走者を塁間に挟んで送球タッチアウト）~~ (done #37)
 - ~~ピンポイントクロス（走り込む味方をリードして落とすクロス）~~ (done #38)
+- ~~バックホーム（本塁クロスプレー：スライド方向読み＋捕球後タッチ）~~ (done #39)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
