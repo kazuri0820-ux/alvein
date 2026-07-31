@@ -46,6 +46,7 @@
 | 38 | ピンポイントクロス (Pinpoint Cross) | ⚽ Soccer | [38-pinpoint-cross.html](38-pinpoint-cross.html) | https://claude.ai/code/artifact/9d2837e2-c806-4936-b770-e1059b9fab8c |
 | 39 | バックホーム (Play at the Plate) | ⚾ Baseball | [39-play-at-plate.html](39-play-at-plate.html) | https://claude.ai/code/artifact/48e97e93-c553-4634-b69f-6a5a025d12a7 |
 | 40 | ドリブル・キャリー (Dribble to Goal) | ⚽ Soccer | [40-dribble-carry.html](40-dribble-carry.html) | https://claude.ai/code/artifact/be60ed19-cd52-4228-8dea-8c210883a7b8 |
+| 41 | 特大ホームラン (Moonshot Derby) | ⚾ Baseball | [41-moonshot.html](41-moonshot.html) | https://claude.ai/code/artifact/35016617-1015-4084-9e07-edfae94d3322 |
 
 ---
 
@@ -84,6 +85,7 @@ Baseball ⚾
 - ~~ピンポイントクロス（走り込む味方をリードして落とすクロス）~~ (done #38)
 - ~~バックホーム（本塁クロスプレー：スライド方向読み＋捕球後タッチ）~~ (done #39)
 - ~~ドリブル・キャリー（連続操作でDFをかわしゴールへ運ぶ）~~ (done #40)
+- ~~特大ホームラン（ミート＋放物線physicsで飛距離を競うダービー）~~ (done #41)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
