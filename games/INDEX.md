@@ -36,6 +36,7 @@
 | 29 | タッチアップ (Tag Up & Score) | ⚾ Baseball | [29-tag-up.html](29-tag-up.html) | https://claude.ai/code/artifact/b4172aba-a27e-4d18-ac98-6318b1454d86 |
 | 30 | カウンター2対1 (2-on-1 Break) | ⚽ Soccer | [30-counter-2v1.html](30-counter-2v1.html) | https://claude.ai/code/artifact/66b5576b-550e-4d9d-9f8f-b969d96e84fb |
 | 31 | 内野ゴロ処理 (Field the Grounder) | ⚾ Baseball | [31-infield-grounder.html](31-infield-grounder.html) | https://claude.ai/code/artifact/1170e5b8-8c19-4ab3-9a5e-5879a9017fa9 |
+| 32 | スライディングタックル (Slide Tackle Timing) | ⚽ Soccer | [32-slide-tackle.html](32-slide-tackle.html) | https://claude.ai/code/artifact/26fa7c5c-95c0-4911-9311-a4a7a068cf50 |
 
 ---
 
@@ -65,6 +66,7 @@ Baseball ⚾
 - ~~1対1ドリブル突破（フェイントの揺さぶり）~~ (done #24)
 - ~~カウンター2対1（DFの逆を突く：パス/シュートの判断）~~ (done #30)
 - ~~内野ゴロ処理（バウンド読み＋ショートバウンド捕球＋送球）~~ (done #31)
+- ~~スライディングタックル（守備：タッチの瞬間を狙って奪取）~~ (done #32)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
