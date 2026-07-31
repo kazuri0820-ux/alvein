@@ -52,6 +52,7 @@
 | 44 | オフサイドトラップ (Spring the Trap) | ⚽ Soccer | [44-offside-trap.html](44-offside-trap.html) | https://claude.ai/code/artifact/3d06b868-0754-4e01-9fdb-873302e524bb |
 | 45 | ランニングホームラン (Round the Bases) | ⚾ Baseball | [45-baserunning.html](45-baserunning.html) | https://claude.ai/code/artifact/1bb00d79-e0ef-4157-886d-c44111d8fe6b |
 | 46 | クロスキャッチ (Command the Box) | ⚽ Soccer | [46-cross-claim.html](46-cross-claim.html) | https://claude.ai/code/artifact/30851c51-664d-4618-89d0-a77785fd4892 |
+| 47 | 牽制 (Hold the Runner) | ⚾ Baseball | [47-pickoff.html](47-pickoff.html) | https://claude.ai/code/artifact/83a174d0-5269-4463-83ed-0b640b72663c |
 
 ---
 
@@ -96,6 +97,7 @@ Baseball ⚾
 - ~~オフサイドトラップ（守備：ラインを上げてFWを罠にかける読み合い）~~ (done #44)
 - ~~ランニングホームラン（各塁ジャスト回塁＋返球との競争）~~ (done #45)
 - ~~クロスキャッチ（GK：競り合いを読んでキャッチ/パンチの判断）~~ (done #46)
+- ~~牽制（走者の意図を読む心理戦：牽制か投球か）~~ (done #47)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
