@@ -38,6 +38,7 @@
 | 31 | 内野ゴロ処理 (Field the Grounder) | ⚾ Baseball | [31-infield-grounder.html](31-infield-grounder.html) | https://claude.ai/code/artifact/1170e5b8-8c19-4ab3-9a5e-5879a9017fa9 |
 | 32 | スライディングタックル (Slide Tackle Timing) | ⚽ Soccer | [32-slide-tackle.html](32-slide-tackle.html) | https://claude.ai/code/artifact/26fa7c5c-95c0-4911-9311-a4a7a068cf50 |
 | 33 | 盗塁阻止 (Gun Down the Stealer) | ⚾ Baseball | [33-catcher-gun.html](33-catcher-gun.html) | https://claude.ai/code/artifact/8caa33a4-4e04-499b-9b2e-52a17b176f1f |
+| 34 | スルーパス (Through Ball & Offside) | ⚽ Soccer | [34-through-ball.html](34-through-ball.html) | https://claude.ai/code/artifact/57e19119-189e-4f6c-806b-0391733742c0 |
 
 ---
 
@@ -69,6 +70,7 @@ Baseball ⚾
 - ~~内野ゴロ処理（バウンド読み＋ショートバウンド捕球＋送球）~~ (done #31)
 - ~~スライディングタックル（守備：タッチの瞬間を狙って奪取）~~ (done #32)
 - ~~盗塁阻止（捕手：ポップタイム＋送球精度を1タップで）~~ (done #33)
+- ~~スルーパス（オフサイドライン読み＋裏へ通す駆け引き）~~ (done #34)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
