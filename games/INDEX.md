@@ -34,6 +34,7 @@
 | 27 | ホームラン・ロブ (Robbery at the Wall) | ⚾ Baseball | [27-robbery.html](27-robbery.html) | https://claude.ai/code/artifact/882257da-0cbd-416b-b13f-a584591601e1 |
 | 28 | ループシュート (Chip the Keeper) | ⚽ Soccer | [28-chip-shot.html](28-chip-shot.html) | https://claude.ai/code/artifact/ca9091fe-0123-4da9-82d9-745e3886fa29 |
 | 29 | タッチアップ (Tag Up & Score) | ⚾ Baseball | [29-tag-up.html](29-tag-up.html) | https://claude.ai/code/artifact/b4172aba-a27e-4d18-ac98-6318b1454d86 |
+| 30 | カウンター2対1 (2-on-1 Break) | ⚽ Soccer | [30-counter-2v1.html](30-counter-2v1.html) | https://claude.ai/code/artifact/66b5576b-550e-4d9d-9f8f-b969d96e84fb |
 
 ---
 
@@ -61,6 +62,7 @@ Baseball ⚾
 - ~~ドリブル・スラローム（ゲート通過タイムアタック）~~ (done #18)
 - ~~セットプレー・コーナーヘッド（クロス＋ヘディング）~~ (done #22)
 - ~~1対1ドリブル突破（フェイントの揺さぶり）~~ (done #24)
+- ~~カウンター2対1（DFの逆を突く：パス/シュートの判断）~~ (done #30)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
