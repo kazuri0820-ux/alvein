@@ -33,6 +33,7 @@
 | 26 | ボレーシュート (Volley Strike) | ⚽ Soccer | [26-volley-strike.html](26-volley-strike.html) | https://claude.ai/code/artifact/6c9c829d-35d1-41b4-a2c4-6daee13125e2 |
 | 27 | ホームラン・ロブ (Robbery at the Wall) | ⚾ Baseball | [27-robbery.html](27-robbery.html) | https://claude.ai/code/artifact/882257da-0cbd-416b-b13f-a584591601e1 |
 | 28 | ループシュート (Chip the Keeper) | ⚽ Soccer | [28-chip-shot.html](28-chip-shot.html) | https://claude.ai/code/artifact/ca9091fe-0123-4da9-82d9-745e3886fa29 |
+| 29 | タッチアップ (Tag Up & Score) | ⚾ Baseball | [29-tag-up.html](29-tag-up.html) | https://claude.ai/code/artifact/b4172aba-a27e-4d18-ac98-6318b1454d86 |
 
 ---
 
@@ -74,5 +75,6 @@ Baseball ⚾
 - ~~ボレーシュート（GKの重心読み＋クロスのジャストミート）~~ (done #26)
 - ~~ホームラン・ロブ（外野手の壁際ジャンプで好捕）~~ (done #27)
 - ~~ループシュート（飛び出すGKを距離読み＋パワーで越える）~~ (done #28)
+- ~~タッチアップ（犠牲フライ・捕球の瞬間に離塁＋スライディング）~~ (done #29)
 
 > 制作ルール: 毎回 `games/` を確認し、まだ作っていないコンセプトを選ぶ。番号は連番。当初候補は #12 までで完走済みのため、以降は上記「新機軸」から選ぶか新しい派生を考える。サッカー⚽と野球⚾を交互に。
