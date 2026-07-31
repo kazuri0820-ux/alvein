@@ -5,6 +5,7 @@
 
 | # | Game | Theme | File | Artifact |
 |---|------|-------|------|----------|
+| ★ | **オールスターズ・メドレー (All-Stars Medley)** ― 全作の名場面を合体した超高速ミニゲーム集 | ⚽⚾ Mix | [allstars-medley.html](allstars-medley.html) | https://claude.ai/code/artifact/6223f2e6-8e30-49eb-ac29-d088588f5290 |
 | 01 | PK シュートアウト (Penalty Shootout) | ⚽ Soccer | [01-penalty-shootout.html](01-penalty-shootout.html) | https://claude.ai/code/artifact/98f783a6-3a06-4896-b4ee-81e1a3ae6af5 |
 | 02 | ホームランダービー (Home Run Derby) | ⚾ Baseball | [02-homerun-derby.html](02-homerun-derby.html) | https://claude.ai/code/artifact/8d33042b-d865-4873-ab86-cdeb863dc59e |
 | 03 | サッカー人生スゴロク (Career Sugoroku) | ⚽ Soccer | [03-soccer-sugoroku.html](03-soccer-sugoroku.html) | https://claude.ai/code/artifact/bf290707-0869-464c-93a1-6e6ebc8fdc77 |
