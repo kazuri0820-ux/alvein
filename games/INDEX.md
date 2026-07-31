@@ -48,6 +48,7 @@
 | 40 | ドリブル・キャリー (Dribble to Goal) | ⚽ Soccer | [40-dribble-carry.html](40-dribble-carry.html) | https://claude.ai/code/artifact/be60ed19-cd52-4228-8dea-8c210883a7b8 |
 | 41 | 特大ホームラン (Moonshot Derby) | ⚾ Baseball | [41-moonshot.html](41-moonshot.html) | https://claude.ai/code/artifact/35016617-1015-4084-9e07-edfae94d3322 |
 | 42 | ワンツー突破 (Give-and-Go) | ⚽ Soccer | [42-one-two.html](42-one-two.html) | https://claude.ai/code/artifact/41a5842c-6cd1-4d26-a0b5-d3a4008414e5 |
+| 43 | ブロッキング (Block the Bouncer) | ⚾ Baseball | [43-blocking.html](43-blocking.html) | https://claude.ai/code/artifact/66873198-dfda-4227-af34-85870df5d9a9 |
 
 ---
 
@@ -88,6 +89,7 @@ Baseball ⚾
 - ~~ドリブル・キャリー（連続操作でDFをかわしゴールへ運ぶ）~~ (done #40)
 - ~~特大ホームラン（ミート＋放物線physicsで飛距離を競うダービー）~~ (done #41)
 - ~~ワンツー突破（壁パスの間合いを計って連続突破）~~ (done #42)
+- ~~ブロッキング（捕手：ストライクは捕球・ワンバウンドはブロックの見極め）~~ (done #43)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
