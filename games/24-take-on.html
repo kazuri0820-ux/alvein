@@ -1,0 +1,192 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ドリブル突破 — Take On / Beat the Defender</title>
+<style>
+  :root{--pitch:#1aa054;--pitch-d:#127a3d;--chalk:#eaf7ee;--gold:#ffcf3a;--hot:#ff5a3c;--cyan:#3ae8cf;--ink:#06210f;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:#04160c;font-family:"Arial Narrow","Roboto Condensed",system-ui,sans-serif;color:var(--chalk);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;-webkit-user-select:none;user-select:none;touch-action:none;}
+  #stage{position:relative;width:min(100vw,calc(100vh*0.667));aspect-ratio:2/3;max-height:100vh;
+    box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden;background:#1aa054;}
+  canvas{display:block;width:100%;height:100%}
+  #hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:clamp(6px,2vw,12px);pointer-events:none;gap:8px;}
+  .board{background:rgba(6,33,15,.72);backdrop-filter:blur(6px);border:1px solid rgba(58,232,207,.35);border-radius:10px;
+    padding:5px clamp(9px,2.5vw,15px);display:flex;flex-direction:column;line-height:1;}
+  .board .label{font-size:clamp(9px,2.4vw,12px);letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);opacity:.9}
+  .board .value{font-family:"Courier New",monospace;font-weight:700;font-size:clamp(20px,6vw,34px);font-variant-numeric:tabular-nums;}
+  #goals .value{color:var(--gold)} #miss .value{color:var(--hot)}
+  #msg{position:absolute;top:26%;left:0;right:0;text-align:center;pointer-events:none;font-weight:900;
+    font-size:clamp(26px,9vw,58px);color:#fff;opacity:0;transition:opacity .1s;text-transform:uppercase;
+    text-shadow:0 4px 0 rgba(0,0,0,.3),0 0 30px currentColor;}
+  #hint{position:absolute;bottom:0;left:0;right:0;text-align:center;padding:8px 12px calc(10px + env(safe-area-inset-bottom));
+    font-size:clamp(12px,3.4vw,16px);letter-spacing:.03em;color:var(--chalk);background:linear-gradient(transparent,rgba(6,33,15,.6));pointer-events:none;}
+  #hint b{color:var(--cyan)}
+  #overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(10px,3vw,20px);
+    text-align:center;padding:22px;background:radial-gradient(120% 70% at 50% 30%,rgba(26,160,84,.4),rgba(4,22,12,.93));backdrop-filter:blur(3px);z-index:5;transition:opacity .35s;}
+  #overlay.hidden{opacity:0;pointer-events:none}
+  #overlay h1{font-size:clamp(30px,11vw,64px);font-weight:900;letter-spacing:.02em;line-height:.9;text-transform:uppercase;color:var(--chalk);
+    text-shadow:0 5px 0 rgba(0,0,0,.35),0 0 36px rgba(58,232,207,.4);}
+  #overlay h1 span{display:block;color:var(--gold);font-size:.5em;letter-spacing:.2em}
+  #overlay p{max-width:27ch;font-size:clamp(14px,4vw,18px);line-height:1.45;opacity:.92}
+  #playBtn{pointer-events:auto;cursor:pointer;border:none;border-radius:100px;padding:clamp(13px,3vw,18px) clamp(32px,9vw,56px);
+    font-family:inherit;font-weight:900;font-size:clamp(18px,5vw,26px);letter-spacing:.12em;text-transform:uppercase;color:var(--ink);
+    background:linear-gradient(180deg,var(--cyan),#12b79c);box-shadow:0 8px 0 #0a6a5a,0 14px 30px rgba(0,0,0,.5);transition:transform .08s,box-shadow .08s;}
+  #playBtn:active{transform:translateY(5px);box-shadow:0 3px 0 #0a6a5a}
+  #playBtn:focus-visible{outline:3px solid var(--hot);outline-offset:4px}
+  .sub{font-size:clamp(11px,3vw,14px);letter-spacing:.2em;text-transform:uppercase;color:var(--cyan);opacity:.85}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div id="hud">
+    <div class="board" id="goals"><span class="label">Goals</span><span class="value" id="goals-v">0</span></div>
+    <div class="board" style="text-align:center"><span class="label">突破</span><span class="value" id="beat">0</span></div>
+    <div class="board" id="miss" style="text-align:right"><span class="label">奪われ</span><span class="value" id="miss-v">0<small style="font-size:.5em;opacity:.6">/3</small></span></div>
+  </div>
+  <div id="msg"></div>
+  <div id="hint"><b>ドラッグ / ← →</b> で緩急＆切り返し！ DFの逆を突いて抜け</div>
+  <div id="overlay">
+    <div class="sub">Soccer · 1-on-1</div>
+    <h1>ドリブル<span>突破</span></h1>
+    <p>迫るディフェンダーを<b style="color:var(--cyan)">フェイント</b>で抜き去れ。左右に揺さぶって相手を食いつかせ、勢いがついた瞬間に<b style="color:var(--gold)">逆へ切り返す</b>とかわせる。正面衝突はボールロスト。3人抜けば<b style="color:var(--gold)">ブレイクアウェイ・ゴール</b>！ 3回奪われたら終了。</p>
+    <button id="playBtn">Kick Off</button>
+    <div class="sub" style="opacity:.55">Drag / Arrows</div>
+  </div>
+</div>
+
+<script>
+(()=>{
+"use strict";
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const W=560,H=900;let dpr=Math.min(window.devicePixelRatio||1,2);
+function resize(){const r=cvs.getBoundingClientRect();cvs.width=Math.round(r.width*dpr);cvs.height=Math.round(r.height*dpr);
+  ctx.setTransform(cvs.width/W,0,0,cvs.height/H,0,0);}
+new ResizeObserver(resize).observe(cvs);resize();
+
+let AC=null;function ac(){if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,t='sine',v=.18,to=null){const a=ac();if(!a)return;const o=a.createOscillator(),g=a.createGain();
+  o.type=t;o.frequency.setValueAtTime(f,a.currentTime);if(to)o.frequency.exponentialRampToValueAtTime(to,a.currentTime+d);
+  g.gain.setValueAtTime(v,a.currentTime);g.gain.exponentialRampToValueAtTime(.0001,a.currentTime+d);
+  o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d);}
+function noise(d,v){const a=ac();if(!a)return;const n=a.createBuffer(1,a.sampleRate*d,a.sampleRate);const dd=n.getChannelData(0);
+  for(let i=0;i<dd.length;i++)dd[i]=(Math.random()*2-1)*(1-i/dd.length);const s=a.createBufferSource();s.buffer=n;const g=a.createGain();
+  g.gain.value=v;s.connect(g);g.connect(a.destination);s.start();}
+const sBeat=(c)=>tone(520+Math.min(700,c*40),.08,'square',.15,760+Math.min(700,c*40));
+const sGoal=()=>{tone(523,.1,'square',.24);setTimeout(()=>tone(659,.1,'square',.24),90);setTimeout(()=>tone(880,.22,'square',.26),180);};
+const sTackle=()=>{noise(.16,.26);tone(180,.24,'sawtooth',.22,70);};
+const sStep=()=>tone(300,.03,'square',.06,200);
+
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+const MARGIN=54, LINE=752, R=17;
+const S={IDLE:'idle',PLAY:'play',GOAL:'goal',OVER:'over'};
+let state=S.IDLE;
+let goals=0,beat=0,miss=0,best=0,runStreak=0,level=0.5;
+let you={x:280,vx:0}, defs=[], scroll=0, spawnGap=0, targetX=null, keys={};
+let particles=[], shake=0, flash=0, flashCol='#ffcf3a', tPrev=0, goalAnim=0;
+best=Number(store.get('to_best')||0);
+
+function reset(){you={x:280,vx:0};defs=[];scroll=0;spawnGap=40;goals=0;beat=0;miss=0;runStreak=0;level=0.5;targetX=null;particles=[];goalAnim=0;updateHUD();}
+function start(){reset();document.getElementById('overlay').classList.add('hidden');state=S.PLAY;spawnDef();}
+function spawnDef(){defs.push({x:280+(Math.random()*160-80),vx:0,y:-60,resolved:false,react:8.5+level*4.5,commit:0});}
+function updateHUD(){document.getElementById('goals-v').textContent=goals;document.getElementById('beat').textContent=beat;
+  document.getElementById('miss-v').innerHTML=miss+'<small style="font-size:.5em;opacity:.6">/3</small>';}
+let msgT=null;function showMsg(t,c){const m=document.getElementById('msg');m.textContent=t;m.style.color=c;m.style.opacity='1';
+  clearTimeout(msgT);msgT=setTimeout(()=>m.style.opacity='0',700);}
+function setHint(h){document.getElementById('hint').innerHTML=h;}
+
+// input
+let dragging=false;
+function ptx(e){const r=cvs.getBoundingClientRect();return (e.clientX-r.left)/r.width*W;}
+cvs.addEventListener('pointerdown',e=>{e.preventDefault();const a=ac();a&&a.resume&&a.resume();
+  if(state===S.IDLE||state===S.OVER)return;dragging=true;targetX=Math.max(MARGIN,Math.min(W-MARGIN,ptx(e)));});
+cvs.addEventListener('pointermove',e=>{if(dragging)targetX=Math.max(MARGIN,Math.min(W-MARGIN,ptx(e)));});
+window.addEventListener('pointerup',()=>{dragging=false;targetX=null;});
+window.addEventListener('keydown',e=>{const a=ac();a&&a.resume&&a.resume();
+  if(e.code==='Space'){e.preventDefault();if(state===S.IDLE||state===S.OVER)start();return;}
+  if(e.code==='ArrowLeft'||e.code==='KeyA'){keys.l=true;e.preventDefault();}if(e.code==='ArrowRight'||e.code==='KeyD'){keys.r=true;e.preventDefault();}});
+window.addEventListener('keyup',e=>{if(e.code==='ArrowLeft'||e.code==='KeyA')keys.l=false;if(e.code==='ArrowRight'||e.code==='KeyD')keys.r=false;});
+document.getElementById('playBtn').addEventListener('click',e=>{e.stopPropagation();ac()&&ac().resume&&ac().resume();start();});
+
+function beatDefender(d){d.resolved=true;d.beaten=true;beat++;runStreak++;combo();sBeat(beat);
+  for(let i=0;i<8;i++)particles.push({x:you.x,y:LINE,vx:(Math.random()*2-1)*4,vy:(Math.random()*2-1)*4,life:.8,col:'#3ae8cf',r:2+Math.random()*3});
+  if(runStreak>=3){breakawayGoal();}}
+function combo(){if(runStreak>1&&runStreak<3)showMsg('抜いた！','#3ae8cf');}
+function breakawayGoal(){runStreak=0;goals++;level=Math.min(0.92,level+0.05);state=S.GOAL;goalAnim=0;sGoal();flash=.6;flashCol='#ffcf3a';shake=8;
+  showMsg('ブレイクアウェイ・ゴール！','#ffcf3a');burst(280,200,['#ffcf3a','#3ae8cf','#fff'],30);
+  if(goals>best){best=goals;store.set('to_best',goals);}
+  updateHUD();setTimeout(()=>{defs=[];spawnGap=30;state=S.PLAY;setHint('<b>次の突破へ！</b>');},1500);}
+function tackled(d){d.resolved=true;miss++;runStreak=0;sTackle();shake=12;flash=.4;flashCol='#ff5a3c';showMsg('奪われた…','#ff5a3c');
+  burst(you.x,LINE,['#ff5a3c','#fff'],14);updateHUD();
+  if(miss>=3){state=S.OVER;setTimeout(endGame,700);}else{state=S.PLAY;you.x=280;you.vx=0;defs=[];spawnGap=45;}}
+function endGame(){const ov=document.getElementById('overlay');
+  const rating=goals>=8?'メッシ再来！':goals>=5?'ドリブルの魔術師':goals>=3?'突破のスペシャリスト':goals>=1?'いい仕掛け':'要練習';
+  ov.querySelector('.sub').textContent='Game over';
+  ov.querySelector('h1').innerHTML=goals+' ゴール<span>'+rating+'</span>';
+  ov.querySelector('p').innerHTML='<b style="color:var(--gold)">'+rating+'</b> ／ 通算突破 '+beat+' ・ ベスト '+best+'<br>揺さぶってから逆を突く緩急を掴め！';
+  ov.querySelector('#playBtn').textContent='Retry';ov.classList.remove('hidden');}
+
+function burst(x,y,cols,n){for(let i=0;i<n;i++){const a=Math.random()*7,s=1+Math.random()*5;
+  particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,col:cols[i%cols.length],r:2+Math.random()*3});}}
+
+function update(dt){
+  if(state===S.PLAY){
+    const diff=Math.min(1,level);
+    const approach=250+diff*150;
+    scroll+=approach*dt;
+    // you lateral
+    if(targetX!=null){const desired=Math.max(-760,Math.min(760,(targetX-you.x)*7));you.vx+=(desired-you.vx)*Math.min(1,dt*13);}
+    else{if(keys.l)you.vx-=1700*dt;if(keys.r)you.vx+=1700*dt;you.vx*=Math.pow(0.02,dt);}
+    you.x+=you.vx*dt;if(you.x<MARGIN){you.x=MARGIN;you.vx*=-0.3;}if(you.x>W-MARGIN){you.x=W-MARGIN;you.vx*=-0.3;}
+    // defenders
+    for(const d of defs){if(d.resolved){d.y+=approach*dt*1.2;continue;}
+      d.y+=approach*dt;
+      // track you with momentum -> jukeable
+      d.vx+=(you.x-d.x)*d.react*dt;d.vx*=Math.pow(0.16,dt);d.x+=d.vx*dt;
+      d.x=Math.max(30,Math.min(W-30,d.x));
+      if(d.y>=LINE-4){const dist=Math.abs(d.x-you.x);if(dist<40){tackled(d);}else{beatDefender(d);}}
+    }
+    defs=defs.filter(d=>d.y<H+80);
+    // spawn next when none pending
+    const pending=defs.some(d=>!d.resolved);
+    if(!pending){spawnGap-=approach*dt;if(spawnGap<=0){spawnDef();spawnGap=250+Math.random()*60;}}
+    updateHUD();
+  } else if(state===S.GOAL){goalAnim+=dt;for(const d of defs)d.y+=300*dt;}
+  for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=.2;p.life-=dt*1.3;if(p.life<=0)particles.splice(i,1);}
+  if(shake>0)shake=Math.max(0,shake-dt*30);if(flash>0)flash=Math.max(0,flash-dt*1.6);
+}
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function drawScene(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#1aa85a');g.addColorStop(1,'#127a3d');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  const stripeH=120,off=scroll%stripeH;for(let y=-stripeH+off;y<H;y+=stripeH){ctx.fillStyle='rgba(255,255,255,.04)';ctx.fillRect(0,y,W,stripeH/2);}
+  ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(20,0);ctx.lineTo(20,H);ctx.moveTo(W-20,0);ctx.lineTo(W-20,H);ctx.stroke();
+  // goal far up
+  ctx.fillStyle='#f4f7f4';ctx.fillRect(W/2-70,10,140,8);ctx.fillRect(W/2-70,10,8,26);ctx.fillRect(W/2+62,10,8,26);
+}
+function drawPlayer(x,y,color,opts){opts=opts||{};ctx.save();ctx.translate(x,y);
+  const lean=Math.max(-0.4,Math.min(0.4,(opts.vx||0)*0.001));ctx.rotate(lean);
+  ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(0,20,18,6,0,0,7);ctx.fill();
+  ctx.fillStyle=color;roundRect(-14,-34,28,40,8);ctx.fill();ctx.fillStyle='#e8b88a';ctx.beginPath();ctx.arc(0,-42,11,0,7);ctx.fill();
+  ctx.fillStyle='#fff';ctx.fillRect(-14,-6,28,8);ctx.restore();}
+function drawBall(x,y){ctx.save();ctx.translate(x,y);ctx.rotate((scroll+x)*0.03);
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,11,0,7);ctx.fill();ctx.fillStyle='#111';for(let i=0;i<5;i++){const a=i*1.256;ctx.beginPath();ctx.arc(Math.cos(a)*5,Math.sin(a)*5,2.4,0,7);ctx.fill();}
+  ctx.strokeStyle='rgba(0,0,0,.25)';ctx.lineWidth=1.3;ctx.beginPath();ctx.arc(0,0,11,0,7);ctx.stroke();ctx.restore();}
+function render(){
+  ctx.clearRect(0,0,W,H);ctx.save();
+  if(shake>0)ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
+  drawScene();
+  for(const d of defs){drawPlayer(d.x,d.y,d.beaten?'#a24040':'#e0503a',{vx:d.vx});}
+  if(state!==S.IDLE){drawPlayer(you.x,LINE,'#1f6fe0',{vx:you.vx});drawBall(you.x,LINE+30+Math.sin(scroll*0.05)*3);}
+  for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();}
+  ctx.globalAlpha=1;ctx.restore();
+  if(flash>0){ctx.fillStyle='rgba('+(flashCol==='#ff5a3c'?'255,90,60':'255,207,58')+','+(flash*0.2)+')';ctx.fillRect(0,0,W,H);}
+}
+function loop(t){if(!tPrev)tPrev=t;let dt=(t-tPrev)/1000;tPrev=t;if(dt>.04)dt=.04;update(dt);render();requestAnimationFrame(loop);}
+requestAnimationFrame(loop);state=S.IDLE;
+// test hook (inert unless URL hash has "test")
+if(location.hash.indexOf('test')>=0){window.__to={get state(){return state;},get you(){return {x:you.x};},
+  get nextDef(){let best=null,by=1e9;for(const d of defs){if(!d.resolved&&d.y<by){by=d.y;best=d;}}return best?{x:best.x,y:best.y}:null;},
+  get count(){return {goals,beat,miss};},setTarget(x){targetX=Math.max(MARGIN,Math.min(W-MARGIN,x));}};}
+})();
+</script>

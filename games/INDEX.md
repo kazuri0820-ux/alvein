@@ -28,6 +28,7 @@
 | 21 | レーザービーム (Outfield Assist) | ⚾ Baseball | [21-laser-beam.html](21-laser-beam.html) | https://claude.ai/code/artifact/021956ab-9d21-4ca3-ac01-679144edeb03 |
 | 22 | コーナーヘッド (Corner Kick Header) | ⚽ Soccer | [22-corner-header.html](22-corner-header.html) | https://claude.ai/code/artifact/06c2c61a-d979-42cd-82dc-e1cfd8214e2c |
 | 23 | 広角ヒッティング (Hit 'Em Where They Ain't) | ⚾ Baseball | [23-spray-hitting.html](23-spray-hitting.html) | https://claude.ai/code/artifact/7812f230-0c2d-4066-a149-f0e9deb4800d |
+| 24 | ドリブル突破 (Take On / Beat the Defender) | ⚽ Soccer | [24-take-on.html](24-take-on.html) | https://claude.ai/code/artifact/8d9b5c8a-92cc-4cb5-873f-0c61f7a24803 |
 
 ---
 
@@ -54,6 +55,7 @@ Baseball ⚾
 - ~~パス回し／崩し（ティキタカ）~~ (done #16)
 - ~~ドリブル・スラローム（ゲート通過タイムアタック）~~ (done #18)
 - ~~セットプレー・コーナーヘッド（クロス＋ヘディング）~~ (done #22)
+- ~~1対1ドリブル突破（フェイントの揺さぶり）~~ (done #24)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
