@@ -40,6 +40,7 @@
 | 33 | 盗塁阻止 (Gun Down the Stealer) | ⚾ Baseball | [33-catcher-gun.html](33-catcher-gun.html) | https://claude.ai/code/artifact/8caa33a4-4e04-499b-9b2e-52a17b176f1f |
 | 34 | スルーパス (Through Ball & Offside) | ⚽ Soccer | [34-through-ball.html](34-through-ball.html) | https://claude.ai/code/artifact/57e19119-189e-4f6c-806b-0391733742c0 |
 | 35 | 配球バトル (Pitch Sequencing Duel) | ⚾ Baseball | [35-pitch-duel.html](35-pitch-duel.html) | https://claude.ai/code/artifact/06a8773a-a662-47bd-bba7-ad33acb7f893 |
+| 36 | ロンド (Rondo Keep-Away) | ⚽ Soccer | [36-rondo.html](36-rondo.html) | https://claude.ai/code/artifact/402f0bd3-5f94-4ff0-b04d-5e3d412b8fa5 |
 
 ---
 
@@ -73,6 +74,7 @@ Baseball ⚾
 - ~~盗塁阻止（捕手：ポップタイム＋送球精度を1タップで）~~ (done #33)
 - ~~スルーパス（オフサイドライン読み＋裏へ通す駆け引き）~~ (done #34)
 - ~~配球バトル（ターン制：打者の狙いを外す投球の読み合い）~~ (done #35)
+- ~~ロンド（鳥かご：空いたレーンへ連続パスの一発勝負）~~ (done #36)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
