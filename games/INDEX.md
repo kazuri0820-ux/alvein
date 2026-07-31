@@ -39,6 +39,7 @@
 | 32 | スライディングタックル (Slide Tackle Timing) | ⚽ Soccer | [32-slide-tackle.html](32-slide-tackle.html) | https://claude.ai/code/artifact/26fa7c5c-95c0-4911-9311-a4a7a068cf50 |
 | 33 | 盗塁阻止 (Gun Down the Stealer) | ⚾ Baseball | [33-catcher-gun.html](33-catcher-gun.html) | https://claude.ai/code/artifact/8caa33a4-4e04-499b-9b2e-52a17b176f1f |
 | 34 | スルーパス (Through Ball & Offside) | ⚽ Soccer | [34-through-ball.html](34-through-ball.html) | https://claude.ai/code/artifact/57e19119-189e-4f6c-806b-0391733742c0 |
+| 35 | 配球バトル (Pitch Sequencing Duel) | ⚾ Baseball | [35-pitch-duel.html](35-pitch-duel.html) | https://claude.ai/code/artifact/06a8773a-a662-47bd-bba7-ad33acb7f893 |
 
 ---
 
@@ -71,6 +72,7 @@ Baseball ⚾
 - ~~スライディングタックル（守備：タッチの瞬間を狙って奪取）~~ (done #32)
 - ~~盗塁阻止（捕手：ポップタイム＋送球精度を1タップで）~~ (done #33)
 - ~~スルーパス（オフサイドライン読み＋裏へ通す駆け引き）~~ (done #34)
+- ~~配球バトル（ターン制：打者の狙いを外す投球の読み合い）~~ (done #35)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
