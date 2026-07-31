@@ -29,6 +29,7 @@
 | 22 | コーナーヘッド (Corner Kick Header) | ⚽ Soccer | [22-corner-header.html](22-corner-header.html) | https://claude.ai/code/artifact/06c2c61a-d979-42cd-82dc-e1cfd8214e2c |
 | 23 | 広角ヒッティング (Hit 'Em Where They Ain't) | ⚾ Baseball | [23-spray-hitting.html](23-spray-hitting.html) | https://claude.ai/code/artifact/7812f230-0c2d-4066-a149-f0e9deb4800d |
 | 24 | ドリブル突破 (Take On / Beat the Defender) | ⚽ Soccer | [24-take-on.html](24-take-on.html) | https://claude.ai/code/artifact/8d9b5c8a-92cc-4cb5-873f-0c61f7a24803 |
+| 25 | バント名人 (Safety Bunt Master) | ⚾ Baseball | [25-bunt-master.html](25-bunt-master.html) | https://claude.ai/code/artifact/0ad6e404-ee28-4509-8eee-72514bd96e0d |
 
 ---
 
@@ -66,5 +67,6 @@ Baseball ⚾
 - ~~一打席勝負・代打サヨナラ（見極め＋ミート）~~ (done #19)
 - ~~外野補殺・レーザービーム（送球判断＋精度）~~ (done #21)
 - ~~広角打法・狙い打ち（方向＋深さでギャップへ）~~ (done #23)
+- ~~セーフティバント（守備の逆を突く＋ボールを殺す）~~ (done #25)
 
 > 制作ルール: 毎回 `games/` を確認し、まだ作っていないコンセプトを選ぶ。番号は連番。当初候補は #12 までで完走済みのため、以降は上記「新機軸」から選ぶか新しい派生を考える。サッカー⚽と野球⚾を交互に。
