@@ -41,6 +41,7 @@
 | 34 | スルーパス (Through Ball & Offside) | ⚽ Soccer | [34-through-ball.html](34-through-ball.html) | https://claude.ai/code/artifact/57e19119-189e-4f6c-806b-0391733742c0 |
 | 35 | 配球バトル (Pitch Sequencing Duel) | ⚾ Baseball | [35-pitch-duel.html](35-pitch-duel.html) | https://claude.ai/code/artifact/06a8773a-a662-47bd-bba7-ad33acb7f893 |
 | 36 | ロンド (Rondo Keep-Away) | ⚽ Soccer | [36-rondo.html](36-rondo.html) | https://claude.ai/code/artifact/402f0bd3-5f94-4ff0-b04d-5e3d412b8fa5 |
+| 37 | ランダウン (Rundown / Pickle) | ⚾ Baseball | [37-rundown.html](37-rundown.html) | https://claude.ai/code/artifact/ed24a0e9-1ee6-4312-8b9b-3e0d2a8435c4 |
 
 ---
 
@@ -75,6 +76,7 @@ Baseball ⚾
 - ~~スルーパス（オフサイドライン読み＋裏へ通す駆け引き）~~ (done #34)
 - ~~配球バトル（ターン制：打者の狙いを外す投球の読み合い）~~ (done #35)
 - ~~ロンド（鳥かご：空いたレーンへ連続パスの一発勝負）~~ (done #36)
+- ~~ランダウン（挟殺：走者を塁間に挟んで送球タッチアウト）~~ (done #37)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
