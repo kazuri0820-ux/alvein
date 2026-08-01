@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ヘッドスライディング — Beat Out the Throw</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{width:100%;height:100%;background:#0a1622;overflow:hidden;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    touch-action:none;user-select:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;aspect-ratio:900/600;max-width:100%;max-height:100%;
+    width:auto;height:auto;box-shadow:0 0 60px rgba(0,0,0,.6);}
+  canvas{display:block;width:100%;height:100%;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="c" width="900" height="600"></canvas></div></div>
+<script>
+(function(){
+"use strict";
+const TEST=location.hash.indexOf('test')>=0;
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const W=900,H=600;
+let dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+function fit(){ dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1)); cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); }
+fit(); window.addEventListener('resize',fit);
+
+// ---- audio ----
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){AC=null;} } return AC; }
+function tone(f,d,type,g,f2){ const a=ac(); if(!a)return; const o=a.createOscillator(),gg=a.createGain();
+  o.type=type||'sine'; o.frequency.setValueAtTime(f,a.currentTime); if(f2)o.frequency.exponentialRampToValueAtTime(f2,a.currentTime+d);
+  gg.gain.setValueAtTime(0.0001,a.currentTime); gg.gain.exponentialRampToValueAtTime(g||0.2,a.currentTime+0.01);
+  gg.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d); o.connect(gg); gg.connect(a.destination); o.start(); o.stop(a.currentTime+d+0.02); }
+function noise(d,g,cut){ const a=ac(); if(!a)return; const n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n); const src=a.createBufferSource(); src.buffer=buf;
+  const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=cut||1200; const gg=a.createGain(); gg.gain.value=g||0.2;
+  src.connect(f); f.connect(gg); gg.connect(a.destination); src.start(); }
+const S={
+  crack(){ noise(0.05,0.4,2600); tone(240,0.07,'square',0.2,120); },
+  slide(){ noise(0.16,0.34,1100); tone(260,0.06,'square',0.1,170); },
+  safe(){ noise(0.08,0.4,2200); tone(520,0.14,'square',0.24,660); },
+  cheer(){ const a=ac(); if(!a)return; noise(0.8,0.26,1900); for(let i=0;i<6;i++)setTimeout(()=>tone(480+Math.random()*320,0.32,'sine',0.05),i*44); },
+  out(){ tone(300,0.26,'sawtooth',0.16,100); noise(0.08,0.16,1200); },
+  mitt(){ noise(0.05,0.34,1400); tone(320,0.05,'sine',0.16); },
+  run(){ noise(0.03,0.08,900); }, tick(){ tone(1000,0.03,'square',0.05); }
+};
+
+// ---- geometry ----
+const HOME={x:190,y:440}, FIRST={x:726,y:300};
+const FIELDERS=[{x:470,y:180},{x:560,y:150},{x:380,y:150}];   // SS / 2B / 3B-ish origins
+
+// ---- state ----
+let state='ready';   // ready, race, result, over
+let hits=0, outs=0, streak=0, best=0, level=0, playN=0;
+let runDur=1.3, throwArrive=1.22, tRace=0, runnerP=0;
+let fielder={x:470,y:180}, throwFrom={x:470,y:180};
+let slid=false, slideP=0, slideBonus=0, reachP=1, result=null, resolved=false;
+let msg='',msgT=0, subMsg='';
+let flash=0,flashCol='#fff',shakeT=0,shakeM=0, umpT=0, umpSafe=false;
+let parts=[], crowd=[], t=0, dust=0;
+
+const SW_LO=0.8, SW_HI=0.96, SW_MID=0.88, MAXB=0.14;
+try{ best=parseInt(localStorage.getItem('hs_best')||'0',10)||0; }catch(e){}
+for(let i=0;i<70;i++) crowd.push({x:Math.random()*W,y:6+Math.random()*40,c:['#e8544e','#f0c14b','#4a90d9','#fff','#5cc98a','#c98af0'][i%6],b:Math.random()*6.28});
+
+function saveBest(){ try{localStorage.setItem('hs_best',''+best);}catch(e){} }
+function levelUp(){ level=Math.min(9,Math.floor(hits/3)); }
+function reset(){ hits=0;outs=0;streak=0;level=0;playN=0; parts=[]; nextPlay(); }
+
+function nextPlay(){
+  levelUp(); playN++;
+  fielder=FIELDERS[Math.floor(Math.random()*FIELDERS.length)];
+  throwFrom={x:fielder.x,y:fielder.y};
+  runDur=Math.max(1.0,1.32-level*0.03);
+  // throw arrives just before a no-slide runner; tighter with level. A perfect slide (bonus MAXB) wins.
+  throwArrive = runDur - 0.02 - Math.random()*0.06 - level*0.004;
+  tRace=0; runnerP=0; slid=false; slideP=0; slideBonus=0; reachP=1; result=null; resolved=false; dust=0;
+  state='race';
+  if(playN<=2){ msg='一塁へ全力疾走！ ベース手前でタップ＝ヘッドスライディング'; msgT=170; subMsg=''; }
+  else { msg=''; msgT=0; subMsg=''; }
+  S.crack();
+}
+
+function slide(){
+  if(state!=='race'||slid) return;
+  slid=true; slideP=runnerP; S.slide(); dust=1;
+  // bonus peaks at SW_MID, zero outside the window
+  const d=Math.abs(runnerP-SW_MID);
+  if(runnerP<SW_LO-0.06){ slideBonus=-0.05; }              // way too early: stumble (slower)
+  else slideBonus = Math.max(0, MAXB*(1 - d/0.11));
+}
+function resolveRace(){
+  if(resolved) return; resolved=true;
+  const reachTime = runDur - slideBonus;
+  const safe = reachTime < throwArrive;
+  umpT=1; umpSafe=safe;
+  if(safe){ hits++; streak++; if(streak>best){best=streak;saveBest();}
+    const margin=throwArrive-reachTime;
+    result='safe'; msg = margin<0.03?'きわどい… セーフ！！':'セーフ！ 内野安打';
+    subMsg = slideBonus>=MAXB*0.85?'値千金のヘッドスライディング！':''; S.safe(); setTimeout(S.cheer,60);
+    flash=0.4; flashCol='#eafff0'; shakeT=10; shakeM=3; burst(FIRST.x,FIRST.y,'#eaffe0',14);
+  } else { outs++; streak=0; result='out'; msg = slid?'わずかに及ばず… アウト':'スライディングせず… アウト'; subMsg='';
+    S.out(); shakeT=8; shakeM=3; }
+  state='result'; msgT=115;
+  if(!safe && outs>=3){ setTimeout(()=>{ state='over'; msg='スリーアウト・終了'; msgT=99999; }, 900); }
+  else setTimeout(()=>{ if(state==='result') nextPlay(); }, safe?1100:1000);
+}
+
+function burst(x,y,col,n){ for(let i=0;i<n;i++){ const a=Math.random()*6.28,sp=1+Math.random()*4;
+  parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1.5,life:1,col,r:2+Math.random()*3}); } }
+
+// ---- input ----
+function press(){ const a=ac(); if(a&&a.state==='suspended')a.resume();
+  if(state==='ready'||state==='over'){ reset(); return; }
+  if(state==='race'){ slide(); }
+}
+cv.addEventListener('pointerdown',e=>{ e.preventDefault(); press(); });
+window.addEventListener('keydown',e=>{ if(e.code==='Space'||e.code==='Enter'){ e.preventDefault(); press(); } });
+
+// ---- update ----
+let last=0;
+function update(dt){
+  t+=dt; if(msgT>0)msgT--; if(flash>0)flash=Math.max(0,flash-dt*2); if(shakeT>0)shakeT--; if(umpT>0)umpT=Math.max(0,umpT-dt*1.3); if(dust>0)dust=Math.max(0,dust-dt*1.4);
+  if(state==='race'){
+    tRace+=dt;
+    const reachTime = runDur - (slid?slideBonus:0);
+    runnerP=Math.min(1, tRace/reachTime);
+    if((tRace*20|0)%3===0)S.run();
+    // resolve at the bang-bang moment: whichever of runner-touch / throw-arrival comes first
+    if(tRace>=reachTime || tRace>=throwArrive){ resolveRace(); }
+  }
+  for(let i=parts.length-1;i>=0;i--){ const q=parts[i]; q.x+=q.vx;q.y+=q.vy;q.vy+=0.16;q.life-=dt*1.1; if(q.life<=0)parts.splice(i,1); }
+}
+
+// ---- draw ----
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+function runnerPos(){ return {x:HOME.x+(FIRST.x-HOME.x)*runnerP, y:HOME.y+(FIRST.y-HOME.y)*runnerP}; }
+function throwPos(){ const pr=Math.min(1,tRace/throwArrive); return {x:throwFrom.x+(FIRST.x-throwFrom.x)*pr, y:throwFrom.y+(FIRST.y-throwFrom.y)*pr - Math.sin(pr*Math.PI)*24}; }
+
+function drawField(){
+  const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#12314c'); g.addColorStop(1,'#1c7a44');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#0c1c28'; ctx.fillRect(0,0,W,40);
+  for(const c of crowd){ const yy=c.y+Math.sin(t*3+c.b)*1.1; ctx.fillStyle=c.c; ctx.globalAlpha=.5; ctx.fillRect(c.x,yy,5,4); }
+  ctx.globalAlpha=1;
+  // baseline dirt (home -> first)
+  ctx.strokeStyle='#b5763e'; ctx.lineWidth=46; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(HOME.x,HOME.y); ctx.lineTo(FIRST.x,FIRST.y); ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(HOME.x,HOME.y+20); ctx.lineTo(FIRST.x,FIRST.y+20); ctx.stroke();
+  // infield dirt around fielders
+  ctx.fillStyle='#b5763e'; ctx.beginPath(); ctx.ellipse(470,190,220,110,0,0,6.28); ctx.fill();
+  // home plate + first base
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.moveTo(HOME.x-11,HOME.y-2);ctx.lineTo(HOME.x+11,HOME.y-2);ctx.lineTo(HOME.x+11,HOME.y+6);ctx.lineTo(HOME.x,HOME.y+14);ctx.lineTo(HOME.x-11,HOME.y+6);ctx.closePath(); ctx.fill();
+  ctx.save(); ctx.translate(FIRST.x,FIRST.y+16); ctx.rotate(Math.PI/4); ctx.fillStyle='#fff'; ctx.fillRect(-11,-11,22,22); ctx.restore();
+  // slide window marker on the baseline
+  if(state==='race'){
+    const a={x:HOME.x+(FIRST.x-HOME.x)*SW_LO,y:HOME.y+(FIRST.y-HOME.y)*SW_LO+20};
+    const b={x:HOME.x+(FIRST.x-HOME.x)*SW_HI,y:HOME.y+(FIRST.y-HOME.y)*SW_HI+20};
+    ctx.strokeStyle='rgba(140,255,168,.6)'; ctx.lineWidth=6; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+  }
+  // first baseman
+  fig(FIRST.x+26,FIRST.y-4,'#e8544e',0);
+}
+function fig(x,y,col,lean){ ctx.save(); ctx.translate(x,y); ctx.rotate(lean||0);
+  ctx.fillStyle='rgba(0,0,0,.24)'; ctx.beginPath(); ctx.ellipse(0,12,13,4,0,0,6.28); ctx.fill();
+  ctx.fillStyle=col; rr(-10,-24,20,28,6); ctx.fill(); ctx.fillStyle='#f0c39a'; ctx.beginPath(); ctx.arc(0,-30,7,0,6.28); ctx.fill(); ctx.restore(); }
+function drawRunner(){
+  if(state==='over'||state==='ready') return;
+  const r=runnerPos();
+  if(dust>0){ ctx.globalAlpha=dust*0.6; ctx.fillStyle='#d8c9a8'; for(let i=0;i<7;i++){ const a=Math.random()*6.28; ctx.beginPath(); ctx.arc(r.x-14+Math.cos(a)*14,r.y+10+Math.sin(a)*6,4,0,6.28); ctx.fill(); } ctx.globalAlpha=1; }
+  ctx.save(); ctx.translate(r.x,r.y);
+  if(slid){ // diving head-first
+    ctx.rotate(-0.9);
+    ctx.fillStyle='rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(6,16,22,6,0,0,6.28); ctx.fill();
+    ctx.fillStyle='#2f7fd6'; rr(-16,-8,40,16,7); ctx.fill();
+    ctx.fillStyle='#f0c39a'; ctx.beginPath(); ctx.arc(24,-2,8,0,6.28); ctx.fill();
+    ctx.strokeStyle='#2f7fd6'; ctx.lineWidth=7; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(20,-2); ctx.lineTo(38,-6); ctx.stroke();  // arms reaching
+  } else {
+    ctx.fillStyle='rgba(0,0,0,.24)'; ctx.beginPath(); ctx.ellipse(0,14,14,5,0,0,6.28); ctx.fill();
+    const run=Math.sin(t*24)*8;
+    ctx.strokeStyle='#20304a'; ctx.lineWidth=7; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(0,-6); ctx.lineTo(-5-run*0.3,16); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-6); ctx.lineTo(6+run*0.3,16); ctx.stroke();
+    ctx.fillStyle='#2f7fd6'; rr(-11,-30,22,26,7); ctx.fill(); ctx.fillStyle='#f0c39a'; ctx.beginPath(); ctx.arc(0,-37,8,0,6.28); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawThrow(){
+  if(state==='race' || (state==='result'&&result==='out')){ const b=throwPos();
+    ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(throwFrom.x,throwFrom.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(b.x,b.y,6,0,6.28); ctx.fill(); ctx.strokeStyle='#123'; ctx.lineWidth=1.2; ctx.stroke(); }
+  // fielder who threw
+  fig(throwFrom.x,throwFrom.y,'#4a90d9',0);
+}
+function drawUmp(){
+  if(umpT<=0) return; ctx.textAlign='center';
+  ctx.font='bold 42px sans-serif'; ctx.globalAlpha=Math.min(1,umpT*1.5);
+  ctx.fillStyle=umpSafe?'#8effa8':'#ff6a5a'; ctx.fillText(umpSafe?'SAFE':'OUT', FIRST.x, FIRST.y-70); ctx.globalAlpha=1; ctx.textAlign='left';
+}
+
+function hud(x,y,w,h,lab,val,col){
+  ctx.fillStyle='rgba(6,20,14,.62)'; rr(x,y,w,h,9); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font='11px sans-serif'; ctx.textAlign='left'; ctx.fillText(lab,x+12,y+19);
+  ctx.fillStyle=col||'#fff'; ctx.font='bold 24px sans-serif'; ctx.fillText(val,x+12,y+44);
+}
+function drawHUD(){
+  hud(20,14,150,56,'内野安打 HITS',''+hits,'#8effa8');
+  hud(W/2-75,14,150,56,'連続 STREAK',''+streak,'#ffd23e');
+  const oc=outs>=2?'#ff6a5a':'#fff';
+  hud(W-170,14,150,56,'アウト OUT',outs+' /3',oc); ctx.textAlign='left';
+  ctx.fillStyle='rgba(255,255,255,.5)'; ctx.font='12px sans-serif'; ctx.fillText('自己ベスト連続 '+best,22,88);
+}
+function drawMsg(){
+  if(msgT>0&&msg){ ctx.textAlign='center'; ctx.font='bold 26px sans-serif'; const w=ctx.measureText(msg).width;
+    ctx.fillStyle='rgba(6,18,10,.75)'; rr(450-w/2-18,H-96,w+40,40,10); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.fillText(msg,450,H-69);
+    if(subMsg){ ctx.font='bold 16px sans-serif'; ctx.fillStyle='rgba(140,255,168,.95)'; ctx.fillText(subMsg,450,H-44); }
+    ctx.textAlign='left'; }
+}
+function drawHint(){ if(state==='race'){ ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.7)'; ctx.font='14px sans-serif';
+  ctx.fillText('緑のゾーン（ベース手前）でタップ＝ヘッドスライディング',450,H-22); ctx.textAlign='left'; } }
+function drawOverlay(){
+  ctx.fillStyle='rgba(6,16,14,.76)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+  ctx.fillStyle='rgba(140,255,168,.9)'; ctx.font='600 15px sans-serif'; ctx.fillText('BASEBALL · BEAT OUT THE THROW',450,138);
+  ctx.fillStyle='#fff'; ctx.font='bold 46px sans-serif'; ctx.fillText('ヘッドスライディング',450,196);
+  ctx.fillStyle='#ffd23e'; ctx.font='bold 21px sans-serif'; ctx.fillText('Beat Out the Throw',450,228);
+  ctx.fillStyle='rgba(255,255,255,.9)'; ctx.font='16px sans-serif';
+  const L=['ゴロを打って一塁へ猛ダッシュ！ 送球との競争だ。',
+    'ベース手前の緑ゾーンでタップ＝ヘッドスライディングで到達を早める。',
+    'ジャストのスライディングが際どいセーフを生む。',
+    '早すぎると失速、遅い／しないと送球が先に届く。',
+    '送球が先ならアウト。3アウトで終了。'];
+  for(let i=0;i<L.length;i++) ctx.fillText(L[i],450,266+i*25);
+  ctx.fillStyle='#e8544e'; rr(450-95,418,190,54,27); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='bold 24px sans-serif'; ctx.fillText('プレイボール',450,452);
+  ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font='14px sans-serif'; ctx.fillText('タップ / Space でスライディング',450,496);
+  ctx.textAlign='left';
+}
+function drawOver(){
+  ctx.fillStyle='rgba(6,16,14,.84)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+  ctx.fillStyle='#fff'; ctx.font='bold 46px sans-serif'; ctx.fillText('スリーアウト・終了',450,232);
+  ctx.fillStyle='#8effa8'; ctx.font='bold 30px sans-serif'; ctx.fillText('内野安打 '+hits+' 本',450,286);
+  ctx.fillStyle='#ffd23e'; ctx.font='20px sans-serif'; ctx.fillText('自己ベスト連続 '+best,450,322);
+  ctx.fillStyle='#2f7fd6'; rr(450-95,372,190,54,27); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='bold 22px sans-serif'; ctx.fillText('もう一度',450,406);
+  ctx.textAlign='left';
+}
+
+function render(){
+  ctx.save();
+  if(shakeT>0){ ctx.translate((Math.random()*2-1)*shakeM,(Math.random()*2-1)*shakeM); }
+  drawField(); drawThrow(); drawRunner();
+  for(const q of parts){ ctx.globalAlpha=Math.max(0,q.life); ctx.fillStyle=q.col; ctx.beginPath(); ctx.arc(q.x,q.y,q.r,0,6.28); ctx.fill(); }
+  ctx.globalAlpha=1;
+  drawUmp(); drawHUD(); drawMsg(); drawHint();
+  ctx.restore();
+  if(flash>0){ ctx.fillStyle=flashCol; ctx.globalAlpha=flash; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1; }
+  if(state==='ready') drawOverlay();
+  if(state==='over') drawOver();
+}
+function loop(ts){ if(!last)last=ts; let dt=(ts-last)/1000; last=ts; if(dt>0.05)dt=0.05; update(dt); render(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+if(TEST){
+  window.__hs={
+    get state(){return state;},
+    get runnerP(){return runnerP;},
+    swLo:SW_LO, swHi:SW_HI, swMid:SW_MID,
+    get result(){return result;},
+    get count(){return {hits,outs,streak};},
+    slide(){ slide(); },
+    tap(){ if(state==='ready'||state==='over')reset(); }
+  };
+}
+})();
+</script>
+</body>
+</html>

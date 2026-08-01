@@ -70,6 +70,7 @@
 | 62 | アエリアルデュエル (Win the Header) | ⚽ Soccer | [62-aerial-duel.html](62-aerial-duel.html) | https://claude.ai/code/artifact/7e589784-d1c1-46ca-84cd-b51dc1e55288 |
 | 63 | アラウンドザホーン (Around the Horn) | ⚾ Baseball | [63-around-the-horn.html](63-around-the-horn.html) | https://claude.ai/code/artifact/ce7e60f6-5820-4f91-b7f3-ec45ce4d87b4 |
 | 64 | ウォールジャンプ (Man the Wall) | ⚽ Soccer | [64-wall-jump.html](64-wall-jump.html) | https://claude.ai/code/artifact/e494f27c-3398-452d-ae61-664f641c5ced |
+| 65 | ヘッドスライディング (Beat Out the Throw) | ⚾ Baseball | [65-headfirst-slide.html](65-headfirst-slide.html) | https://claude.ai/code/artifact/4c42f447-3d34-4e4a-9b04-2ba615b1e52c |
 
 ---
 
@@ -132,6 +133,7 @@ Baseball ⚾
 - ~~アエリアルデュエル（クロスの空中戦：ジャンプ頂点をボールに合わせDFに競り勝つ）~~ (done #62)
 - ~~アラウンドザホーン（内野連係リズム：回るボールの到達タイミングでジャストリレー）~~ (done #63)
 - ~~ウォールジャンプ（FKの壁：高い弾道はジャンプ、低い弾道は構えて止める判断＋跳躍）~~ (done #64)
+- ~~ヘッドスライディング（内野安打：送球と競争しベース手前でジャストスライディング）~~ (done #65)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
