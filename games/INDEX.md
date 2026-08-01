@@ -54,6 +54,7 @@
 | 46 | クロスキャッチ (Command the Box) | ⚽ Soccer | [46-cross-claim.html](46-cross-claim.html) | https://claude.ai/code/artifact/30851c51-664d-4618-89d0-a77785fd4892 |
 | 47 | 牽制 (Hold the Runner) | ⚾ Baseball | [47-pickoff.html](47-pickoff.html) | https://claude.ai/code/artifact/83a174d0-5269-4463-83ed-0b640b72663c |
 | 48 | ヘディング・クリア (Clear the Danger) | ⚽ Soccer | [48-header-clear.html](48-header-clear.html) | https://claude.ai/code/artifact/18e23f27-1dd0-4fe9-9c68-8a2879726d16 |
+| 49 | 変化球ヒッティング (Read the Pitch) | ⚾ Baseball | [49-breaking-ball.html](49-breaking-ball.html) | https://claude.ai/code/artifact/b85fd9fc-5cd4-42d3-84c0-a08c53cffa63 |
 
 ---
 
@@ -100,6 +101,7 @@ Baseball ⚾
 - ~~クロスキャッチ（GK：競り合いを読んでキャッチ/パンチの判断）~~ (done #46)
 - ~~牽制（走者の意図を読む心理戦：牽制か投球か）~~ (done #47)
 - ~~ヘディング・クリア（守備サバイバル：連続クロスを落下点タップで処理）~~ (done #48)
+- ~~変化球ヒッティング（球種を出だしで見極め＋スイング遅延を計るタイミング打撃）~~ (done #49)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
