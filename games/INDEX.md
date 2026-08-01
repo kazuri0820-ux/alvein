@@ -73,6 +73,7 @@
 | 65 | ヘッドスライディング (Beat Out the Throw) | ⚾ Baseball | [65-headfirst-slide.html](65-headfirst-slide.html) | https://claude.ai/code/artifact/4c42f447-3d34-4e4a-9b04-2ba615b1e52c |
 | 66 | サッカー・ピンボール (Soccer Pinball) | ⚽ Soccer | [66-soccer-pinball.html](66-soccer-pinball.html) | https://claude.ai/code/artifact/b9923662-4ede-483f-ba73-0000800cb000 |
 | 67 | バント処理 (Field the Bunt) | ⚾ Baseball | [67-field-the-bunt.html](67-field-the-bunt.html) | https://claude.ai/code/artifact/bd72f87f-ba7c-4cda-beec-b3ecc88042ec |
+| 68 | ロングスロー (Long Throw-In) | ⚽ Soccer | [68-long-throw.html](68-long-throw.html) | https://claude.ai/code/artifact/742197d1-7682-414c-87a4-a830581c2a55 |
 
 ---
 
@@ -138,6 +139,7 @@ Baseball ⚾
 - ~~ヘッドスライディング（内野安打：送球と競争しベース手前でジャストスライディング）~~ (done #65)
 - ~~サッカー・ピンボール（物理ピンボール：フリッパー＋バンパー＋ゴール、サッカー版#15）~~ (done #66)
 - ~~バント処理（守備判断：好捕タイミング＋封殺/確実の送球先リスク&リワード）~~ (done #67)
+- ~~ロングスロー（長押しチャージ：飛距離を溜め走り込む味方の落下点にリード）~~ (done #68)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
