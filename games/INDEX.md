@@ -56,6 +56,7 @@
 | 48 | ヘディング・クリア (Clear the Danger) | ⚽ Soccer | [48-header-clear.html](48-header-clear.html) | https://claude.ai/code/artifact/18e23f27-1dd0-4fe9-9c68-8a2879726d16 |
 | 49 | 変化球ヒッティング (Read the Pitch) | ⚾ Baseball | [49-breaking-ball.html](49-breaking-ball.html) | https://claude.ai/code/artifact/b85fd9fc-5cd4-42d3-84c0-a08c53cffa63 |
 | 50 | ファーストタッチ・フィニッシュ (First Touch Finish) | ⚽ Soccer | [50-first-touch.html](50-first-touch.html) | https://claude.ai/code/artifact/3fe830db-f6fc-4e79-a9a2-e4e8182c69ff |
+| 51 | カットオフ・中継プレー (Cut the Runner Down) | ⚾ Baseball | [51-cutoff-relay.html](51-cutoff-relay.html) | https://claude.ai/code/artifact/e6b8035f-337d-490d-896f-c238da597dca |
 
 ---
 
@@ -104,6 +105,7 @@ Baseball ⚾
 - ~~ヘディング・クリア（守備サバイバル：連続クロスを落下点タップで処理）~~ (done #48)
 - ~~変化球ヒッティング（球種を出だしで見極め＋スイング遅延を計るタイミング打撃）~~ (done #49)
 - ~~ファーストタッチ・フィニッシュ（浮き球トラップの精度→GKの重心読みでフィニッシュの2段階）~~ (done #50)
+- ~~カットオフ・中継プレー（外野手→カットマン→本塁の2段中継を走者と競争）~~ (done #51)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
