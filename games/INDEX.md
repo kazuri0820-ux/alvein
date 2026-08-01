@@ -62,6 +62,7 @@
 | 54 | 1対1 決定機 (One-on-One: Clean Through) | ⚽ Soccer | [54-one-on-one.html](54-one-on-one.html) | https://claude.ai/code/artifact/7863bf4f-edd4-4985-a2ab-2b192a4a0f07 |
 | 55 | 内野ノック (Field the Grounders) | ⚾ Baseball | [55-infield-drill.html](55-infield-drill.html) | https://claude.ai/code/artifact/3762d464-b887-4742-8278-827169fb9899 |
 | 56 | 曲げて決めろ (Bend It: Free Kick) | ⚽ Soccer | [56-bend-it.html](56-bend-it.html) | https://claude.ai/code/artifact/6a061c67-9cf4-4c7a-9375-4040ff537460 |
+| 57 | スクイズ (Suicide Squeeze) | ⚾ Baseball | [57-squeeze.html](57-squeeze.html) | https://claude.ai/code/artifact/ca8bed4e-ca1f-454e-8bd9-d4dd08c4ae85 |
 
 ---
 
@@ -116,6 +117,7 @@ Baseball ⚾
 - ~~1対1 決定機（抜け出しフィニッシュ：飛び出すGKの動きを読んで逆へ流す/チップ）~~ (done #54)
 - ~~内野ノック（2D守備：ゴロの前に入って好捕→一塁送球、イレギュラー処理）~~ (done #55)
 - ~~曲げて決めろ（スワイプで弧を描く直接FK：カーブ物理＋軌道プレビューで壁を巻く）~~ (done #56)
+- ~~スクイズ（三塁走者突入：空いた側へバント方向＋接触タイミングを1タップ、ピッチアウト）~~ (done #57)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
