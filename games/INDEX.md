@@ -67,6 +67,7 @@
 | 59 | フレーミング (Steal the Strike) | ⚾ Baseball | [59-framing.html](59-framing.html) | https://claude.ai/code/artifact/dde8801f-c1a6-4ca8-911d-7e84445f5fd1 |
 | 60 | クロスバー・チャレンジ (Hit the Bar) | ⚽ Soccer | [60-crossbar.html](60-crossbar.html) | https://claude.ai/code/artifact/bebe353e-602f-4788-8a5d-d3744c67bd63 |
 | 61 | ダイビングキャッチ (Diving Catch) | ⚾ Baseball | [61-diving-catch.html](61-diving-catch.html) | https://claude.ai/code/artifact/e4eba07e-06a7-4ae8-8e44-c1010b4a833c |
+| 62 | アエリアルデュエル (Win the Header) | ⚽ Soccer | [62-aerial-duel.html](62-aerial-duel.html) | https://claude.ai/code/artifact/7e589784-d1c1-46ca-84cd-b51dc1e55288 |
 
 ---
 
@@ -126,6 +127,7 @@ Baseball ⚾
 - ~~フレーミング（捕手：際どい球をジャスト捕球で盗む＋信頼度で枠が伸縮）~~ (done #59)
 - ~~クロスバー・チャレンジ（軌道の弧を見てバー直撃を狙う精密キック＋球稼ぎループ）~~ (done #60)
 - ~~ダイビングキャッチ（外野：自動疾走＋グラブ収球の一瞬をタップ、ライナーは窓狭）~~ (done #61)
+- ~~アエリアルデュエル（クロスの空中戦：ジャンプ頂点をボールに合わせDFに競り勝つ）~~ (done #62)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
