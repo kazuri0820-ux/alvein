@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>カットで粘れ — Foul It Off</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{width:100%;height:100%;background:#0a0e18;overflow:hidden;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    touch-action:none;user-select:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;aspect-ratio:900/600;max-width:100%;max-height:100%;
+    width:auto;height:auto;box-shadow:0 0 60px rgba(0,0,0,.6);}
+  canvas{display:block;width:100%;height:100%;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="c" width="900" height="600"></canvas></div></div>
+<script>
+(function(){
+"use strict";
+const TEST=location.hash.indexOf('test')>=0;
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const W=900,H=600;
+let dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+function fit(){ dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1)); cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); }
+fit(); window.addEventListener('resize',fit);
+
+// ---- audio ----
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){AC=null;} } return AC; }
+function tone(f,d,type,g,f2){ const a=ac(); if(!a)return; const o=a.createOscillator(),gg=a.createGain();
+  o.type=type||'sine'; o.frequency.setValueAtTime(f,a.currentTime); if(f2)o.frequency.exponentialRampToValueAtTime(f2,a.currentTime+d);
+  gg.gain.setValueAtTime(0.0001,a.currentTime); gg.gain.exponentialRampToValueAtTime(g||0.2,a.currentTime+0.01);
+  gg.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d); o.connect(gg); gg.connect(a.destination); o.start(); o.stop(a.currentTime+d+0.02); }
+function noise(d,g,cut){ const a=ac(); if(!a)return; const n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n); const src=a.createBufferSource(); src.buffer=buf;
+  const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=cut||1200; const gg=a.createGain(); gg.gain.value=g||0.2;
+  src.connect(f); f.connect(gg); gg.connect(a.destination); src.start(); }
+const S={
+  pitch(){ tone(520,0.16,'sine',0.05,300); },
+  foul(){ noise(0.05,0.3,3200); tone(1400,0.05,'square',0.1,900); },   // sharp tick
+  hit(){ noise(0.05,0.4,2600); tone(300,0.16,'triangle',0.24,150); setTimeout(()=>tone(660,0.12,'square',0.12),20); },
+  big(){ noise(0.08,0.5,2400); tone(200,0.3,'triangle',0.3,90); },
+  ball(){ tone(360,0.1,'sine',0.12,440); },
+  strike(){ noise(0.12,0.3,700); tone(160,0.2,'sawtooth',0.16,80); },
+  walk(){ tone(520,0.1,'sine',0.14,660); setTimeout(()=>tone(700,0.16,'sine',0.14),90); },
+  out(){ noise(0.2,0.34,600); tone(150,0.3,'sawtooth',0.16,70); },
+  cheer(){ const a=ac(); if(!a)return; noise(0.7,0.24,1900); for(let i=0;i<5;i++)setTimeout(()=>tone(500+Math.random()*320,0.3,'sine',0.05),i*46); }
+};
+
+// ---- geometry ----
+const PLATEY=452;          // ball crosses plate plane here
+const MOUNDX=450, MOUNDY=120;
+const ZW=132, ZH=150;      // strike-zone box
+const ZX=450-ZW/2, ZY=PLATEY-ZH-6;   // zone top-left
+const zoneMeatR=42;        // "meatball" central radius
+
+// ---- state ----
+let state='ready';         // ready, play, over
+let balls=0,strikes=0,outs=0,score=0,batters=0,foulStreak=0,bestFoul=0,level=0;
+let best=0; try{ best=parseInt(localStorage.getItem('foul_best')||'0',10)||0; }catch(e){}
+
+let pitch=null;            // {sx,sy,tx,ty,dur,pt,inZone,meat,resolved,speed}
+let waitT=0;               // delay before next pitch
+let swingAnim=0;           // bat swing animation timer
+let lastCall='';           // last outcome label
+let msg='',msgT=0, popText='',popT=0,popX=450,popY=PLATEY,popCol='#fff';
+let flash=0,flashCol='#fff',shakeT=0,shakeM=0;
+let parts=[], crowd=[], t=0, hitBall=null;
+
+for(let i=0;i<64;i++) crowd.push({x:Math.random()*W,y:4+Math.random()*26,c:['#e8544e','#f0c14b','#4a90d9','#fff','#5cc98a','#c98af0'][i%6]});
+
+function saveBest(){ try{localStorage.setItem('foul_best',''+best);}catch(e){} }
+
+function reset(){ balls=0;strikes=0;outs=0;score=0;batters=0;foulStreak=0;level=0; parts=[];hitBall=null;pitch=null;
+  state='play'; msg='ボール球は見送り、ストライクはカットで粘れ！'; msgT=200; waitT=0.7; }
+
+function newBatter(){ balls=0;strikes=0; batters++; }
+
+function throwPitch(){
+  level=Math.min(9,Math.floor(score/5));
+  const dur=Math.max(0.5,0.86-level*0.03);
+  // decide location: mix of balls, edge strikes, and occasional meatballs
+  const r=Math.random();
+  let tx,ty;
+  if(r<0.30){ // clear ball (out of zone)
+    const side=Math.random()<0.5?-1:1, ax=Math.random()<0.5;
+    if(ax){ tx=450+side*(ZW/2+18+Math.random()*40); ty=ZY+Math.random()*ZH; }
+    else { tx=450+(Math.random()*ZW-ZW/2); ty=(Math.random()<0.5? ZY-14-Math.random()*36 : PLATEY-6+8+Math.random()*30); }
+  } else if(r<0.30+Math.min(0.20,0.06+level*0.02)){ // juicy meatball
+    tx=450+(Math.random()*2-1)*zoneMeatR*0.6; ty=(ZY+ZH/2)+(Math.random()*2-1)*zoneMeatR*0.6;
+  } else { // edge strike (in zone, near border)
+    const m=14;
+    tx=ZX+m+Math.random()*(ZW-2*m); ty=ZY+m+Math.random()*(ZH-2*m);
+    // bias toward edges
+    if(Math.random()<0.6){ tx = Math.random()<0.5? ZX+m+Math.random()*24 : ZX+ZW-m-Math.random()*24; }
+  }
+  const inZone = (tx>=ZX&&tx<=ZX+ZW&&ty>=ZY&&ty<=ZY+ZH);
+  const meat = Math.hypot(tx-450,ty-(ZY+ZH/2))<zoneMeatR && inZone;
+  // small break: curve the horizontal path a touch
+  const brk=(Math.random()*2-1)*(18+level*4);
+  pitch={ sx:MOUNDX, sy:MOUNDY, tx, ty, cx:MOUNDX+brk, dur, pt:0, inZone, meat, resolved:false, swung:false };
+  S.pitch();
+}
+
+function ballPos(p){ // quadratic-ish path with slight break via control cx
+  const pp=p<0?0:p; const a=pitch;
+  const x=(1-pp)*(1-pp)*a.sx + 2*(1-pp)*pp*a.cx + pp*pp*a.tx;
+  const y=a.sy+(a.ty-a.sy)*pp;
+  return {x,y};
+}
+
+function doSwing(){
+  if(!pitch||pitch.resolved||pitch.swung) return;
+  pitch.swung=true; swingAnim=1;
+  const p=pitch.pt/pitch.dur;
+  // timing quality: best when ball at plate plane (p=1). allow slight early.
+  const err=Math.abs(1-p);
+  const q=Math.max(0,1-err/0.22);
+  const a=ac(); if(a&&a.state==='suspended')a.resume();
+  if(!pitch.inZone){
+    // chased a ball
+    if(q>0.9){ resolveFoul(true); } else { resolveWhiff(); }
+    return;
+  }
+  if(pitch.meat && q>0.82){ resolveHit(q); return; }
+  if(q>0.5){ resolveFoul(false); return; }
+  resolveWhiff();
+}
+
+function resolveHit(q){
+  pitch.resolved=true;
+  const big=q>0.94;
+  score += big?3:1;
+  if(score>best){best=score;saveBest();}
+  const pos=ballPos(1);
+  lastCall=big?'長打！':'ヒット！';
+  popText=lastCall+' +'+(big?3:1); popCol=big?'#ffd23e':'#8effa8'; popX=450;popY=PLATEY-60;popT=1.2;
+  flash=big?0.4:0.25; flashCol='#eafff0'; shakeT=big?12:7; shakeM=big?4:3;
+  burst(pos.x,pos.y,big?'#ffe08a':'#eaffe0',big?22:14);
+  if(big)S.big(); else S.hit(); setTimeout(S.cheer,50);
+  // launch a ball flying away for flavor
+  const ang=-1.15+ (Math.random()*0.5-0.25); const sp=big?15:11;
+  hitBall={x:pos.x,y:pos.y,vx:Math.cos(ang)*sp*(Math.random()<0.5?-1:1),vy:Math.sin(ang)*sp,life:1.4};
+  foulStreak=0; newBatter(); nextPitch(1.0);
+}
+function resolveFoul(tip){
+  pitch.resolved=true;
+  foulStreak++; if(foulStreak>bestFoul)bestFoul=foulStreak;
+  if(strikes<2) strikes++;   // classic: foul only advances to 2
+  lastCall=tip?'ファウルチップ':'ファウル';
+  popText='カット！ 粘り '+foulStreak; popCol='#7fd0ff'; popX=450;popY=PLATEY-56;popT=1;
+  const pos=ballPos(1); burst(pos.x,pos.y,'#cfe8ff',7); shakeT=4;shakeM=2; S.foul();
+  nextPitch(0.7);
+}
+function resolveWhiff(){
+  pitch.resolved=true; foulStreak=0;
+  strikes++;
+  lastCall='空振り';
+  popText='空振り…'; popCol='#ff8a5a'; popX=450;popY=PLATEY-56;popT=1; shakeT=5;shakeM=2; S.strike();
+  if(strikes>=3){ strikeout(); return; }
+  nextPitch(0.75);
+}
+function resolveTake(){
+  pitch.resolved=true;
+  if(pitch.inZone){
+    strikes++; foulStreak=0; lastCall='見逃しストライク';
+    popText='見逃し… ストライク'; popCol='#ff8a5a'; popX=450;popY=PLATEY-56;popT=1; S.strike(); shakeT=4;shakeM=2;
+    if(strikes>=3){ strikeout(); return; }
+    nextPitch(0.75);
+  } else {
+    balls++; lastCall='ボール';
+    popText='ボール '+balls; popCol='#8effa8'; popX=450;popY=PLATEY-56;popT=1; S.ball();
+    if(balls>=4){ walk(); return; }
+    nextPitch(0.7);
+  }
+}
+function strikeout(){
+  outs++; foulStreak=0; lastCall='三振';
+  popText='三振！ アウト'; popCol='#ff6a5a'; popX=450;popY=PLATEY-56;popT=1.2; S.out(); shakeT=10;shakeM=3; flash=0.25;flashCol='#ffdede';
+  if(outs>=3){ gameOver(); return; }
+  newBatter(); nextPitch(1.0);
+}
+function walk(){
+  score+=1; if(score>best){best=score;saveBest();}
+  lastCall='四球'; popText='四球で出塁！ +1'; popCol='#8effa8'; popX=450;popY=PLATEY-60;popT=1.2; S.walk(); setTimeout(S.cheer,40);
+  flash=0.2;flashCol='#eafff0'; shakeT=6;shakeM=2; foulStreak=0; newBatter(); nextPitch(1.0);
+}
+function gameOver(){ state='over'; msg='スリーアウト・チェンジ'; msgT=99999; }
+
+function nextPitch(delay){ pitch=null; waitT=delay; }
+
+function burst(x,y,col,n){ for(let i=0;i<n;i++){ const a=Math.random()*6.28,sp=1+Math.random()*4;
+  parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1.5,life:1,col,r:2+Math.random()*3}); } }
+
+// ---- input ----
+cv.addEventListener('pointerdown',e=>{ e.preventDefault(); const a=ac(); if(a&&a.state==='suspended')a.resume();
+  if(state==='ready'||state==='over'){ reset(); return; }
+  if(state==='play') doSwing();
+});
+window.addEventListener('keydown',e=>{ if(e.code==='Space'||e.code==='Enter'){ e.preventDefault();
+  if(state==='ready'||state==='over'){ reset(); return; } if(state==='play') doSwing(); } });
+
+// ---- update ----
+function update(dt){
+  t+=dt; if(msgT>0)msgT--; if(flash>0)flash=Math.max(0,flash-dt*2); if(shakeT>0)shakeT--; if(popT>0)popT=Math.max(0,popT-dt*1.1);
+  if(swingAnim>0)swingAnim=Math.max(0,swingAnim-dt*4);
+  if(state==='play'){
+    if(!pitch){ waitT-=dt; if(waitT<=0) throwPitch(); }
+    else if(!pitch.resolved){
+      pitch.pt+=dt;
+      const p=pitch.pt/pitch.dur;
+      if(p>=1.12){ resolveTake(); }   // ball passed, no swing => take
+    }
+  }
+  for(let i=parts.length-1;i>=0;i--){ const q=parts[i]; q.x+=q.vx;q.y+=q.vy;q.vy+=0.14;q.life-=dt*1.1; if(q.life<=0)parts.splice(i,1); }
+  if(hitBall){ hitBall.x+=hitBall.vx; hitBall.y+=hitBall.vy; hitBall.vy+=0.12; hitBall.life-=dt; if(hitBall.life<=0)hitBall=null; }
+}
+
+// ---- draw ----
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+function drawField(){
+  const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#123a5e'); g.addColorStop(0.42,'#1a6a3e'); g.addColorStop(1,'#22803f');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#0a1424'; ctx.fillRect(0,0,W,28);
+  for(const c of crowd){ ctx.fillStyle=c.c; ctx.globalAlpha=.32; ctx.fillRect(c.x,c.y,4,3);} ctx.globalAlpha=1;
+  // dirt circle around mound
+  ctx.fillStyle='#8a5a34'; ctx.globalAlpha=.5; ctx.beginPath(); ctx.ellipse(MOUNDX,MOUNDY+18,66,26,0,0,6.28); ctx.fill(); ctx.globalAlpha=1;
+  // batter's box dirt near plate
+  ctx.fillStyle='#9a6a40'; ctx.globalAlpha=.55; ctx.beginPath(); ctx.ellipse(450,PLATEY+30,180,60,0,0,6.28); ctx.fill(); ctx.globalAlpha=1;
+  // home plate
+  ctx.fillStyle='#eee'; ctx.beginPath(); ctx.moveTo(450,PLATEY+40); ctx.lineTo(474,PLATEY+26); ctx.lineTo(470,PLATEY+8); ctx.lineTo(430,PLATEY+8); ctx.lineTo(426,PLATEY+26); ctx.closePath(); ctx.fill();
+  // pitcher
+  ctx.save(); ctx.translate(MOUNDX,MOUNDY);
+  ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0,20,16,5,0,0,6.28); ctx.fill();
+  ctx.fillStyle='#d64f48'; rr(-11,-16,22,28,7); ctx.fill(); ctx.fillStyle='#f0c39a'; ctx.beginPath(); ctx.arc(0,-22,7,0,6.28); ctx.fill();
+  ctx.restore();
+}
+function drawZone(){
+  // strike zone
+  ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=2.5; ctx.setLineDash([7,6]); ctx.strokeRect(ZX,ZY,ZW,ZH); ctx.setLineDash([]);
+  // 3x3 guide
+  ctx.strokeStyle='rgba(255,255,255,.14)'; ctx.lineWidth=1;
+  for(let i=1;i<3;i++){ ctx.beginPath(); ctx.moveTo(ZX+ZW*i/3,ZY); ctx.lineTo(ZX+ZW*i/3,ZY+ZH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ZX,ZY+ZH*i/3); ctx.lineTo(ZX+ZW,ZY+ZH*i/3); ctx.stroke(); }
+  // meatball hint (subtle)
+  ctx.strokeStyle='rgba(255,210,62,.16)'; ctx.beginPath(); ctx.arc(450,ZY+ZH/2,zoneMeatR,0,6.28); ctx.stroke();
+  // plate plane line
+  ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.setLineDash([4,8]); ctx.beginPath(); ctx.moveTo(300,PLATEY); ctx.lineTo(600,PLATEY); ctx.stroke(); ctx.setLineDash([]);
+}
+function drawBatter(){
+  const sw=swingAnim>0? Math.sin((1-swingAnim)*3.14)*1 : 0;
+  ctx.save(); ctx.translate(566,PLATEY+2);
+  ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(-6,44,26,7,0,0,6.28); ctx.fill();
+  // legs
+  ctx.strokeStyle='#20304a'; ctx.lineWidth=7; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-4,10); ctx.lineTo(-14,44); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-4,10); ctx.lineTo(6,44); ctx.stroke();
+  // body
+  ctx.fillStyle='#2f7fd6'; rr(-16,-24,26,36,8); ctx.fill();
+  // head + helmet
+  ctx.fillStyle='#f0c39a'; ctx.beginPath(); ctx.arc(-3,-32,9,0,6.28); ctx.fill();
+  ctx.fillStyle='#173a6a'; ctx.beginPath(); ctx.arc(-3,-34,10,3.4,6.4); ctx.fill();
+  // arms + bat
+  ctx.save(); ctx.translate(-6,-14); ctx.rotate(-2.2+sw*2.5);
+  ctx.strokeStyle='#f0c39a'; ctx.lineWidth=6; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(20,-2); ctx.stroke();
+  ctx.strokeStyle='#c8935a'; ctx.lineWidth=8; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(18,-2); ctx.lineTo(64,-6); ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+  // catcher (behind plate, small)
+  ctx.save(); ctx.translate(450,PLATEY+52); ctx.fillStyle='#7a4a2a'; rr(-14,-14,28,26,8); ctx.fill();
+  ctx.fillStyle='#556'; ctx.beginPath(); ctx.arc(0,-16,8,0,6.28); ctx.fill(); ctx.restore();
+}
+function drawBall(){
+  if(pitch&&!pitch.resolved){
+    const p=Math.min(1.12,pitch.pt/pitch.dur); const b=ballPos(p);
+    const r=5+p*8;   // grows toward plate
+    // motion shadow
+    const b0=ballPos(Math.max(0,p-0.06));
+    ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=r*0.8; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(b0.x,b0.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(b.x,b.y,r,0,6.28); ctx.fill();
+    ctx.strokeStyle='#c33'; ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(b.x-r*0.3,b.y,r*0.7,-0.6,0.6); ctx.stroke();
+  }
+  if(hitBall){ ctx.globalAlpha=Math.min(1,hitBall.life); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(hitBall.x,hitBall.y,6,0,6.28); ctx.fill(); ctx.globalAlpha=1; }
+}
+function drawPop(){ if(popT>0&&popText){ ctx.textAlign='center'; ctx.globalAlpha=Math.min(1,popT*1.2); ctx.font='bold 26px sans-serif'; ctx.fillStyle=popCol; ctx.fillText(popText,popX,popY-(1-Math.min(1,popT))*14); ctx.globalAlpha=1; ctx.textAlign='left'; } }
+
+function light(on,col){ return on?col:'rgba(255,255,255,.16)'; }
+function drawHUD(){
+  // count board (balls / strikes / outs)
+  const bx=20,by=44;
+  ctx.fillStyle='rgba(6,14,26,.66)'; rr(bx-8,by-30,214,86,10); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.7)'; ctx.font='11px sans-serif'; ctx.textAlign='left';
+  ctx.fillText('B',bx,by-14); ctx.fillText('S',bx,by+10); ctx.fillText('O',bx,by+34);
+  for(let i=0;i<3;i++){ ctx.fillStyle=light(balls>i,'#7fe08a'); ctx.beginPath(); ctx.arc(bx+30+i*22,by-18,8,0,6.28); ctx.fill(); }
+  ctx.fillStyle=light(balls>=4,'#7fe08a'); ctx.beginPath(); ctx.arc(bx+30+3*22,by-18,8,0,6.28); ctx.fill();
+  for(let i=0;i<2;i++){ ctx.fillStyle=light(strikes>i,'#ffd23e'); ctx.beginPath(); ctx.arc(bx+30+i*22,by+6,8,0,6.28); ctx.fill(); }
+  for(let i=0;i<2;i++){ ctx.fillStyle=light(outs>i,'#ff6a5a'); ctx.beginPath(); ctx.arc(bx+30+i*22,by+30,8,0,6.28); ctx.fill(); }
+  // score + streak
+  ctx.fillStyle='rgba(6,14,26,.66)'; rr(W-186,14,170,56,10); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font='11px sans-serif'; ctx.fillText('得点 RUNS',W-172,33);
+  ctx.fillStyle='#8effa8'; ctx.font='bold 26px sans-serif'; ctx.fillText(''+score,W-172,60);
+  ctx.fillStyle='rgba(255,255,255,.55)'; ctx.font='12px sans-serif'; ctx.textAlign='right';
+  ctx.fillText('自己ベスト '+best,W-20,33); ctx.fillText('最長粘り '+bestFoul+'球',W-20,52); ctx.textAlign='left';
+  // current foul streak center-top
+  if(foulStreak>=2){ ctx.textAlign='center'; ctx.fillStyle='rgba(127,208,255,.95)'; ctx.font='bold 18px sans-serif';
+    ctx.fillText('粘り '+foulStreak+'球連続カット！',450,44); ctx.textAlign='left'; }
+}
+function drawMsg(){
+  if(msgT>0&&msg){ ctx.textAlign='center'; ctx.font='bold 22px sans-serif'; const w=ctx.measureText(msg).width;
+    ctx.fillStyle='rgba(6,14,26,.72)'; rr(450-w/2-16,H-52,w+32,36,9); ctx.fill(); ctx.fillStyle='#fff'; ctx.fillText(msg,450,H-28); ctx.textAlign='left'; }
+}
+function drawHint(){ if(state==='play'){ ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.62)'; ctx.font='13px sans-serif';
+  ctx.fillText('タップ／スペースでスイング。ボール球は見送り＝四球、ゾーンは打つかカット', 450, H-8); ctx.textAlign='left'; } }
+function drawOverlay(){
+  ctx.fillStyle='rgba(6,12,22,.78)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+  ctx.fillStyle='rgba(140,255,168,.9)'; ctx.font='600 15px sans-serif'; ctx.fillText('BASEBALL · TWO-STRIKE BATTLE',450,120);
+  ctx.fillStyle='#fff'; ctx.font='bold 52px sans-serif'; ctx.fillText('カットで粘れ',450,180);
+  ctx.fillStyle='#ffd23e'; ctx.font='bold 21px sans-serif'; ctx.fillText('Foul It Off',450,212);
+  ctx.fillStyle='rgba(255,255,255,.9)'; ctx.font='16px sans-serif';
+  const L=['粘り強い打者になってスリーアウトまで得点を稼ぐ。',
+    'ボール球（枠外）は見送り → 4つで四球・出塁＝得点。',
+    'ストライク（枠内）はジャストで打てばヒット、',
+    'タイミングが合わなければカット＝ファウルで粘る。',
+    '見逃し／空振りでストライク3つ＝三振。3アウトで終了。'];
+  for(let i=0;i<L.length;i++) ctx.fillText(L[i],450,248+i*25);
+  ctx.fillStyle='#d64f48'; rr(450-95,400,190,54,27); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='bold 24px sans-serif'; ctx.fillText('プレイボール',450,434);
+  ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font='14px sans-serif'; ctx.fillText('タップ／スペースで開始',450,478);
+  ctx.textAlign='left';
+}
+function drawOver(){
+  ctx.fillStyle='rgba(6,12,22,.86)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+  ctx.fillStyle='#fff'; ctx.font='bold 46px sans-serif'; ctx.fillText('スリーアウト・チェンジ',450,222);
+  ctx.fillStyle='#8effa8'; ctx.font='bold 34px sans-serif'; ctx.fillText('得点 '+score,450,282);
+  ctx.fillStyle='#7fd0ff'; ctx.font='19px sans-serif'; ctx.fillText('最長粘り '+bestFoul+'球連続カット',450,316);
+  ctx.fillStyle='#ffd23e'; ctx.font='20px sans-serif'; ctx.fillText('自己ベスト '+best,450,348);
+  ctx.fillStyle='#2f7fd6'; rr(450-95,388,190,54,27); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='bold 22px sans-serif'; ctx.fillText('もう一度',450,422);
+  ctx.textAlign='left';
+}
+
+function render(){
+  ctx.save();
+  if(shakeT>0){ ctx.translate((Math.random()*2-1)*shakeM,(Math.random()*2-1)*shakeM); }
+  drawField(); drawZone(); drawBatter(); drawBall();
+  for(const q of parts){ ctx.globalAlpha=Math.max(0,q.life); ctx.fillStyle=q.col; ctx.beginPath(); ctx.arc(q.x,q.y,q.r,0,6.28); ctx.fill(); }
+  ctx.globalAlpha=1;
+  drawPop(); drawHUD(); drawMsg(); drawHint();
+  ctx.restore();
+  if(flash>0){ ctx.fillStyle=flashCol; ctx.globalAlpha=flash; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1; }
+  if(state==='ready') drawOverlay();
+  if(state==='over') drawOver();
+}
+let last=0;
+function loop(ts){ if(!last)last=ts; let dt=(ts-last)/1000; last=ts; if(dt>0.05)dt=0.05; update(dt); render(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+if(TEST){
+  window.__ct={
+    get state(){return state;},
+    get count(){return {balls,strikes,outs,score,batters,foulStreak};},
+    get pitch(){ if(!pitch)return null; return {active:!pitch.resolved, p:pitch.pt/pitch.dur, inZone:pitch.inZone, meat:pitch.meat, resolved:pitch.resolved}; },
+    get last(){return lastCall;},
+    swingNow(){ doSwing(); },
+    tap(){ if(state==='ready'||state==='over')reset(); }
+  };
+}
+})();
+</script>
+</body>
+</html>

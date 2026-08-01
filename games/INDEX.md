@@ -76,6 +76,7 @@
 | 68 | ロングスロー (Long Throw-In) | ⚽ Soccer | [68-long-throw.html](68-long-throw.html) | https://claude.ai/code/artifact/742197d1-7682-414c-87a4-a830581c2a55 |
 | 69 | 盗塁 (Steal Second) | ⚾ Baseball | [69-steal-second.html](69-steal-second.html) | https://claude.ai/code/artifact/89ce93d8-a3ea-40d4-a04a-aee106ac4d2c |
 | 70 | インターセプト (Piggy in the Middle) | ⚽ Soccer | [70-intercept.html](70-intercept.html) | https://claude.ai/code/artifact/62bd1d45-b27e-4104-889f-83ff70e81ea0 |
+| 71 | カットで粘れ (Foul It Off) | ⚾ Baseball | [71-foul-it-off.html](71-foul-it-off.html) | https://claude.ai/code/artifact/5753b35c-976c-440d-a448-dce0bc1b49c8 |
 
 ---
 
@@ -144,6 +145,7 @@ Baseball ⚾
 - ~~ロングスロー（長押しチャージ：飛距離を溜め走り込む味方の落下点にリード）~~ (done #68)
 - ~~盗塁（走者視点：投手の投球/けん制を見極め即スタート、早撃ち厳禁の反応勝負）~~ (done #69)
 - ~~インターセプト（鳥かご守備者：赤い矢印でパス先を先読みしコースに入って奪う）~~ (done #70)
+- ~~カットで粘れ（打者の選球眼＋カット：ボール球を見送り四球、ストライクは打つかファウルで粘る2ストライク勝負）~~ (done #71)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
