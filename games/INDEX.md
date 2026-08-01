@@ -69,6 +69,7 @@
 | 61 | ダイビングキャッチ (Diving Catch) | ⚾ Baseball | [61-diving-catch.html](61-diving-catch.html) | https://claude.ai/code/artifact/e4eba07e-06a7-4ae8-8e44-c1010b4a833c |
 | 62 | アエリアルデュエル (Win the Header) | ⚽ Soccer | [62-aerial-duel.html](62-aerial-duel.html) | https://claude.ai/code/artifact/7e589784-d1c1-46ca-84cd-b51dc1e55288 |
 | 63 | アラウンドザホーン (Around the Horn) | ⚾ Baseball | [63-around-the-horn.html](63-around-the-horn.html) | https://claude.ai/code/artifact/ce7e60f6-5820-4f91-b7f3-ec45ce4d87b4 |
+| 64 | ウォールジャンプ (Man the Wall) | ⚽ Soccer | [64-wall-jump.html](64-wall-jump.html) | https://claude.ai/code/artifact/e494f27c-3398-452d-ae61-664f641c5ced |
 
 ---
 
@@ -130,6 +131,7 @@ Baseball ⚾
 - ~~ダイビングキャッチ（外野：自動疾走＋グラブ収球の一瞬をタップ、ライナーは窓狭）~~ (done #61)
 - ~~アエリアルデュエル（クロスの空中戦：ジャンプ頂点をボールに合わせDFに競り勝つ）~~ (done #62)
 - ~~アラウンドザホーン（内野連係リズム：回るボールの到達タイミングでジャストリレー）~~ (done #63)
+- ~~ウォールジャンプ（FKの壁：高い弾道はジャンプ、低い弾道は構えて止める判断＋跳躍）~~ (done #64)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
