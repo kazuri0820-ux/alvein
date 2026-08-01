@@ -59,6 +59,7 @@
 | 51 | カットオフ・中継プレー (Cut the Runner Down) | ⚾ Baseball | [51-cutoff-relay.html](51-cutoff-relay.html) | https://claude.ai/code/artifact/e6b8035f-337d-490d-896f-c238da597dca |
 | 52 | PKストップ (Penalty Save) | ⚽ Soccer | [52-penalty-save.html](52-penalty-save.html) | https://claude.ai/code/artifact/4df22b16-92cb-47cf-bd96-6fcf25f10404 |
 | 53 | セーブ・シチュエーション (Closer: Paint the Corners) | ⚾ Baseball | [53-closer.html](53-closer.html) | https://claude.ai/code/artifact/f5cbbef7-2425-4dc2-a472-188d4e863635 |
+| 54 | 1対1 決定機 (One-on-One: Clean Through) | ⚽ Soccer | [54-one-on-one.html](54-one-on-one.html) | https://claude.ai/code/artifact/7863bf4f-edd4-4985-a2ab-2b192a4a0f07 |
 
 ---
 
@@ -110,6 +111,7 @@ Baseball ⚾
 - ~~カットオフ・中継プレー（外野手→カットマン→本塁の2段中継を走者と競争）~~ (done #51)
 - ~~PKストップ（GK視点：キッカーの重心を読んでダイブ、パネンカの駆け引き）~~ (done #52)
 - ~~セーブ・シチュエーション（守護神：動くクロスヒットで四隅に投げ分け三振を奪う）~~ (done #53)
+- ~~1対1 決定機（抜け出しフィニッシュ：飛び出すGKの動きを読んで逆へ流す/チップ）~~ (done #54)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
