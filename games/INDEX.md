@@ -65,6 +65,7 @@
 | 57 | スクイズ (Suicide Squeeze) | ⚾ Baseball | [57-squeeze.html](57-squeeze.html) | https://claude.ai/code/artifact/ca8bed4e-ca1f-454e-8bd9-d4dd08c4ae85 |
 | 58 | ドリブル・ルート (Draw the Run) | ⚽ Soccer | [58-draw-the-run.html](58-draw-the-run.html) | https://claude.ai/code/artifact/3e134e33-728d-489a-8e93-6b5b03a2ba3f |
 | 59 | フレーミング (Steal the Strike) | ⚾ Baseball | [59-framing.html](59-framing.html) | https://claude.ai/code/artifact/dde8801f-c1a6-4ca8-911d-7e84445f5fd1 |
+| 60 | クロスバー・チャレンジ (Hit the Bar) | ⚽ Soccer | [60-crossbar.html](60-crossbar.html) | https://claude.ai/code/artifact/bebe353e-602f-4788-8a5d-d3744c67bd63 |
 
 ---
 
@@ -122,6 +123,7 @@ Baseball ⚾
 - ~~スクイズ（三塁走者突入：空いた側へバント方向＋接触タイミングを1タップ、ピッチアウト）~~ (done #57)
 - ~~ドリブル・ルート（指でルートを描いて突破：追走DFの間を縫うルート描画）~~ (done #58)
 - ~~フレーミング（捕手：際どい球をジャスト捕球で盗む＋信頼度で枠が伸縮）~~ (done #59)
+- ~~クロスバー・チャレンジ（軌道の弧を見てバー直撃を狙う精密キック＋球稼ぎループ）~~ (done #60)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
