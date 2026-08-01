@@ -60,6 +60,7 @@
 | 52 | PKストップ (Penalty Save) | ⚽ Soccer | [52-penalty-save.html](52-penalty-save.html) | https://claude.ai/code/artifact/4df22b16-92cb-47cf-bd96-6fcf25f10404 |
 | 53 | セーブ・シチュエーション (Closer: Paint the Corners) | ⚾ Baseball | [53-closer.html](53-closer.html) | https://claude.ai/code/artifact/f5cbbef7-2425-4dc2-a472-188d4e863635 |
 | 54 | 1対1 決定機 (One-on-One: Clean Through) | ⚽ Soccer | [54-one-on-one.html](54-one-on-one.html) | https://claude.ai/code/artifact/7863bf4f-edd4-4985-a2ab-2b192a4a0f07 |
+| 55 | 内野ノック (Field the Grounders) | ⚾ Baseball | [55-infield-drill.html](55-infield-drill.html) | https://claude.ai/code/artifact/3762d464-b887-4742-8278-827169fb9899 |
 
 ---
 
@@ -112,6 +113,7 @@ Baseball ⚾
 - ~~PKストップ（GK視点：キッカーの重心を読んでダイブ、パネンカの駆け引き）~~ (done #52)
 - ~~セーブ・シチュエーション（守護神：動くクロスヒットで四隅に投げ分け三振を奪う）~~ (done #53)
 - ~~1対1 決定機（抜け出しフィニッシュ：飛び出すGKの動きを読んで逆へ流す/チップ）~~ (done #54)
+- ~~内野ノック（2D守備：ゴロの前に入って好捕→一塁送球、イレギュラー処理）~~ (done #55)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
