@@ -72,6 +72,7 @@
 | 64 | ウォールジャンプ (Man the Wall) | ⚽ Soccer | [64-wall-jump.html](64-wall-jump.html) | https://claude.ai/code/artifact/e494f27c-3398-452d-ae61-664f641c5ced |
 | 65 | ヘッドスライディング (Beat Out the Throw) | ⚾ Baseball | [65-headfirst-slide.html](65-headfirst-slide.html) | https://claude.ai/code/artifact/4c42f447-3d34-4e4a-9b04-2ba615b1e52c |
 | 66 | サッカー・ピンボール (Soccer Pinball) | ⚽ Soccer | [66-soccer-pinball.html](66-soccer-pinball.html) | https://claude.ai/code/artifact/b9923662-4ede-483f-ba73-0000800cb000 |
+| 67 | バント処理 (Field the Bunt) | ⚾ Baseball | [67-field-the-bunt.html](67-field-the-bunt.html) | https://claude.ai/code/artifact/bd72f87f-ba7c-4cda-beec-b3ecc88042ec |
 
 ---
 
@@ -136,6 +137,7 @@ Baseball ⚾
 - ~~ウォールジャンプ（FKの壁：高い弾道はジャンプ、低い弾道は構えて止める判断＋跳躍）~~ (done #64)
 - ~~ヘッドスライディング（内野安打：送球と競争しベース手前でジャストスライディング）~~ (done #65)
 - ~~サッカー・ピンボール（物理ピンボール：フリッパー＋バンパー＋ゴール、サッカー版#15）~~ (done #66)
+- ~~バント処理（守備判断：好捕タイミング＋封殺/確実の送球先リスク&リワード）~~ (done #67)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
