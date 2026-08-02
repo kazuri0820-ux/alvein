@@ -83,6 +83,7 @@
 | 75 | サイクルヒット (Hit for the Cycle) | ⚾ Baseball | [75-hit-for-cycle.html](75-hit-for-cycle.html) | https://claude.ai/code/artifact/4ba7a43b-a8c8-4c6f-b9d6-a16772790cc0 |
 | 76 | ボールキープ (Keep Ball) | ⚽ Soccer | [76-keep-ball.html](76-keep-ball.html) | https://claude.ai/code/artifact/95f52b82-8037-423c-8fcc-a57f0772a006 |
 | 77 | ノック (Fungo Fielding) | ⚾ Baseball | [77-fungo-fielding.html](77-fungo-fielding.html) | https://claude.ai/code/artifact/a1ba4c1c-3fd7-460d-bcb6-e3bb7613276f |
+| 78 | スキルドリブル (Skill Dribble) | ⚽ Soccer | [78-skill-dribble.html](78-skill-dribble.html) | https://claude.ai/code/artifact/37367071-ef3e-4021-a4d0-380846ff0905 |
 
 ---
 
@@ -158,6 +159,7 @@ Baseball ⚾
 - ~~サイクルヒット（往復する針を指示バンドで止める精密タイミング：単打→二塁打→三塁打→本塁打の順に狙い打ち、サイクル達成ボーナス）~~ (done #75)
 - ~~ボールキープ（鬼ごっこ型サバイバル：迫るDFをかわしてキープ、ギリギリ回避で連続ボーナス＋ダッシュで振り切る）~~ (done #76)
 - ~~ノック（複数ターゲット反応＋タイミング：五人の野手へ次々飛ぶ打球を届く瞬間にタップ、早撃ちはお手玉エラー、連続捕球ボーナス）~~ (done #77)
+- ~~スキルドリブル（4レーン音ゲー：落ちる矢印をラインで入力、リズムよくスキルムーブでDFを抜き前進、ゲージ満タンでゴール）~~ (done #78)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
