@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>サイクルヒット — Hit for the Cycle</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{width:100%;height:100%;background:#0a1220;overflow:hidden;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    touch-action:none;user-select:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;aspect-ratio:900/600;max-width:100%;max-height:100%;
+    width:auto;height:auto;box-shadow:0 0 60px rgba(0,0,0,.6);}
+  canvas{display:block;width:100%;height:100%;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="c" width="900" height="600"></canvas></div></div>
+<script>
+(function(){
+"use strict";
+const TEST=location.hash.indexOf('test')>=0;
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const W=900,H=600;
+let dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+function fit(){ dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1)); cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); }
+fit(); window.addEventListener('resize',fit);
+
+// ---- audio ----
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){AC=null;} } return AC; }
+function tone(f,d,type,g,f2){ const a=ac(); if(!a)return; const o=a.createOscillator(),gg=a.createGain();
+  o.type=type||'sine'; o.frequency.setValueAtTime(f,a.currentTime); if(f2)o.frequency.exponentialRampToValueAtTime(f2,a.currentTime+d);
+  gg.gain.setValueAtTime(0.0001,a.currentTime); gg.gain.exponentialRampToValueAtTime(g||0.2,a.currentTime+0.01);
+  gg.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d); o.connect(gg); gg.connect(a.destination); o.start(); o.stop(a.currentTime+d+0.02); }
+function noise(d,g,cut){ const a=ac(); if(!a)return; const n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n); const src=a.createBufferSource(); src.buffer=buf;
+  const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=cut||1200; const gg=a.createGain(); gg.gain.value=g||0.2;
+  src.connect(f); f.connect(gg); gg.connect(a.destination); src.start(); }
+const S={
+  tick(){ tone(760,0.02,'square',0.03); },
+  hit(t){ noise(0.05,0.4,2600); tone(240+t*60,0.14,'triangle',0.24,150); setTimeout(()=>tone(560+t*80,0.12,'square',0.12),18); },
+  hr(){ noise(0.08,0.5,2400); tone(200,0.3,'triangle',0.3,90); setTimeout(()=>tone(500,0.2,'square',0.16),40); },
+  miss(){ noise(0.14,0.28,600); tone(180,0.2,'sawtooth',0.14,80); },
+  near(){ tone(420,0.1,'sine',0.12,300); },
+  cycle(){ const a=ac(); if(!a)return; [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,0.24,'square',0.14),i*90)); },
+  cheer(){ const a=ac(); if(!a)return; noise(0.8,0.24,2000); for(let i=0;i<6;i++)setTimeout(()=>tone(500+Math.random()*340,0.3,'sine',0.05),i*44); }
+};
+
+// ---- hit-band model (needle position 0..1, symmetric around 0.5) ----
+// types: 0=単打 1=二塁打 2=三塁打 3=本塁打 ; -1 = miss (edges)
+const TYPES=['単打','二塁打','三塁打','本塁打'];
+const TYPECOL=['#7fd0ff','#8effa8','#ffd23e','#ff7a4e'];
+// half-widths from center for each boundary (outer->inner)
+function bands(){
+  // returns array of {t, a, b} intervals in [0,1]
+  const c=0.5;
+  const hr=0.035, tr=0.078, db=0.17, sg=0.40;   // half-extents of each type's outer edge from center (miss zone kept small)
+  return [
+    {t:-1,a:0.0,b:c-sg},
+    {t:0, a:c-sg,b:c-db},
+    {t:1, a:c-db,b:c-tr},
+    {t:2, a:c-tr,b:c-hr},
+    {t:3, a:c-hr,b:c+hr},
+    {t:2, a:c+hr,b:c+tr},
+    {t:1, a:c+tr,b:c+db},
+    {t:0, a:c+db,b:c+sg},
+    {t:-1,a:c+sg,b:1.0},
+  ];
+}
+function typeAt(pos){ for(const bd of bands()){ if(pos>=bd.a && pos<bd.b) return bd.t; } return -1; }
+function targetInterval(type){ // central-most interval range for a requested type (union of both sides)
+  const bs=bands().filter(b=>b.t===type); return bs; }
+
+// ---- state ----
+let state='ready';   // ready, play, resolve, over
+let score=0, outs=0, cycles=0, level=0, atbats=0, bestScore=0;
+let best=0; try{ best=parseInt(localStorage.getItem('cyc_best')||'0',10)||0; }catch(e){}
+
+let needle=0, dir=1, speed=0.9;      // needle sweeps 0..1
+let requested=0;                      // required hit type index (cycle order)
+let cycleStep=0;                      // 0..3 within current cycle
+let frozen=false, frozenPos=0.5, gotType=-1;
+let msg='',msgT=0, popText='',popT=0,popCol='#fff', popSub='';
+let flash=0,flashCol='#fff',shakeT=0,shakeM=0, resT=0, waitT=0;
+let parts=[], crowd=[], t=0, hitBall=null, runnerT=0, runnerTo=0;
+let lastTickCell=-1;
+
+for(let i=0;i<70;i++) crowd.push({x:Math.random()*W,y:2+Math.random()*24,c:['#e8544e','#f0c14b','#4a90d9','#fff','#5cc98a','#c98af0'][i%6]});
+
+function saveBest(){ try{localStorage.setItem('cyc_best',''+best);}catch(e){} }
+
+function reset(){ score=0;outs=0;cycles=0;level=0;atbats=0; parts=[];hitBall=null; cycleStep=0; state='play';
+  msg='指示された打球を狙え！ 針をそのバンドで止めろ'; msgT=200; nextAtBat(); }
+
+function nextAtBat(){
+  state='play'; frozen=false; gotType=-1; hitBall=null; runnerT=0;
+  requested=cycleStep;   // must hit in cycle order: 単打→二塁打→三塁打→本塁打
+  level=Math.min(9,cycles*1 + Math.floor(score/6));
+  speed=0.82+level*0.10 + requested*0.05;   // faster needle for harder requests / higher level
+  needle=Math.random(); dir=Math.random()<0.5?1:-1;
+  atbats++;
+}
+function swing(){
+  if(state!=='play'||frozen) return;
+  const a=ac(); if(a&&a.state==='suspended')a.resume();
+  frozen=true; frozenPos=needle; gotType=typeAt(needle);
+  state='resolve'; resT=0;
+  if(gotType===-1){ // whiff / weak out
+    outs++; popText='空振り／凡打'; popCol='#ff6a5a'; popSub='アウト'; S.miss(); shakeT=8;shakeM=3; flash=0.2;flashCol='#ffdede';
+    waitT=1.0; if(outs>=3){ /* handled after wait */ }
+    return;
+  }
+  if(gotType===requested){
+    score++; if(score>best){best=score;saveBest();}
+    const t=gotType; popText=TYPES[t]+'！'; popCol=TYPECOL[t]; popSub='指示どおり！ +1';
+    if(t===3){ S.hr(); flash=0.34;flashCol='#fff2d8'; shakeT=12;shakeM=4; } else { S.hit(t); flash=0.18;flashCol='#eafff0'; shakeT=6;shakeM=2; }
+    burst(450,300,TYPECOL[t], t===3?24:12); setTimeout(S.cheer,40);
+    // fly ball + runner
+    launchHit(t); runnerTo=Math.min(4,t+1); runnerT=0.0001;
+    cycleStep++;
+    if(cycleStep>=4){ // completed the cycle!
+      cycles++; score+=3; if(score>best){best=score;saveBest();}
+      popSub='サイクル達成！ +3 ボーナス'; S.cycle();
+      cycleStep=0; flash=0.4;flashCol='#fff2d8'; shakeT=14;shakeM=4; burst(450,300,'#ffd23e',30);
+    }
+    waitT= t===3?1.4:1.1;
+  } else {
+    // a clean hit but not what was called -> no advance, no out (soft)
+    const t=gotType; popText=TYPES[t]+'…（指示と違う）'; popCol='#c9d2dc'; popSub='指示は「'+TYPES[requested]+'」';
+    S.near(); shakeT=4;shakeM=2; launchHit(t); runnerTo=Math.min(4,t+1); runnerT=0.0001;
+    waitT=1.0;
+  }
+}
+function launchHit(t){
+  // distance grows with type; angle higher for HR
+  const dist=[150,260,360,470][t]; const ang=[-0.5,-0.75,-0.95,-1.15][t];
+  hitBall={x:450,y:360,vx:Math.cos(ang)*(6+t*2.5)*(Math.random()<0.5?-1:1)*0.4+ (t>=2?0: (Math.random()*2-1)*2), vy:Math.sin(ang)*(9+t*3), life:1.6, t};
+  // aim horizontally toward a gap: give a target x
+  hitBall.vx = ((Math.random()*2-1)*(3+t))*1.1;
+}
+
+function burst(x,y,col,n){ for(let i=0;i<n;i++){ const a=Math.random()*6.28,sp=1+Math.random()*4.5;
+  parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1.6,life:1,col,r:2+Math.random()*3}); } }
+
+// ---- input ----
+cv.addEventListener('pointerdown',e=>{ e.preventDefault(); const a=ac(); if(a&&a.state==='suspended')a.resume();
+  if(state==='ready'||state==='over'){ reset(); return; } if(state==='play') swing(); });
+window.addEventListener('keydown',e=>{ if(e.code==='Space'||e.code==='Enter'){ e.preventDefault();
+  if(state==='ready'||state==='over'){ reset(); return; } if(state==='play') swing(); } });
+
+// ---- update ----
+function update(dt){
+  t+=dt; if(msgT>0)msgT--; if(flash>0)flash=Math.max(0,flash-dt*2); if(shakeT>0)shakeT--; if(popT>0)popT=Math.max(0,popT-dt*0.9);
+  if(state==='play'){
+    needle+=dir*speed*dt; if(needle>=1){needle=1;dir=-1;} if(needle<=0){needle=0;dir=1;}
+    const cell=Math.floor(needle*20); if(cell!==lastTickCell){ lastTickCell=cell; /* subtle */ }
+  } else if(state==='resolve'){
+    resT+=dt; waitT-=dt;
+    if(runnerT>0) runnerT=Math.min(1,runnerT+dt*1.3);
+    if(waitT<=0){ if(outs>=3){ state='over'; msg=''; msgT=99999; } else nextAtBat(); }
+  }
+  if(hitBall){ hitBall.x+=hitBall.vx; hitBall.y+=hitBall.vy; hitBall.vy+=0.22; hitBall.life-=dt; if(hitBall.life<=0)hitBall=null; }
+  for(let i=parts.length-1;i>=0;i--){ const q=parts[i]; q.x+=q.vx;q.y+=q.vy;q.vy+=0.14;q.life-=dt*1.0; if(q.life<=0)parts.splice(i,1); }
+}
+
+// ---- draw ----
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+function drawScene(){
+  const sky=ctx.createLinearGradient(0,0,0,H); sky.addColorStop(0,'#15304f'); sky.addColorStop(0.5,'#1a5c86'); sky.addColorStop(0.51,'#1a6a3a'); sky.addColorStop(1,'#22803f');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#0c1a2c'; ctx.fillRect(0,0,W,90);
+  for(const c of crowd){ ctx.fillStyle=c.c; ctx.globalAlpha=.3; ctx.fillRect(c.x,c.y,4,3);} ctx.globalAlpha=1;
+  // outfield fence arc
+  ctx.strokeStyle='rgba(255,255,255,.2)'; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(450,470,300,3.4,6.02); ctx.stroke();
+  // infield diamond (small, upper)
+  ctx.save(); ctx.translate(450,392); ctx.scale(1,0.5); ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=2;
+  ctx.strokeStyle='#a9713f'; ctx.fillStyle='#a9713f'; ctx.beginPath(); ctx.moveTo(0,60); ctx.lineTo(60,0); ctx.lineTo(0,-60); ctx.lineTo(-60,0); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  // bases (diamond points) for runner
+  drawDiamond();
+}
+const BASES=[{x:450,y:392+30},{x:512,y:392},{x:450,y:392-30},{x:388,y:392}]; // home,1,2,3 (approx)
+function drawDiamond(){
+  const pts=[{x:450,y:430},{x:520,y:392},{x:450,y:354},{x:380,y:392}]; // home,1B,2B,3B
+  ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.lineWidth=2; ctx.beginPath();
+  ctx.moveTo(pts[0].x,pts[0].y); for(let i=1;i<4;i++)ctx.lineTo(pts[i].x,pts[i].y); ctx.closePath(); ctx.stroke();
+  for(let i=0;i<4;i++){ ctx.fillStyle='#fff'; ctx.save(); ctx.translate(pts[i].x,pts[i].y); ctx.rotate(0.785); ctx.fillRect(-4,-4,8,8); ctx.restore(); }
+  // runner advancing
+  if((state==='resolve')&&runnerT>0&&runnerTo>0){
+    const from=pts[0]; // start home->
+    const seq=[pts[0],pts[1],pts[2],pts[3],pts[0]]; // home,1,2,3,home(for HR)
+    const total=runnerTo; const prog=runnerT*total; const seg=Math.min(total-1,Math.floor(prog)); const f=prog-seg;
+    const a=seq[seg], b=seq[seg+1]; const rx=a.x+(b.x-a.x)*f, ry=a.y+(b.y-a.y)*f;
+    ctx.fillStyle='#2f7fd6'; ctx.beginPath(); ctx.arc(rx,ry,7,0,6.28); ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+  }
+}
+function drawBatter(){
+  ctx.save(); ctx.translate(450,438); const sw= (state==='resolve'&&resT<0.3)? Math.sin(resT/0.3*3.14):0;
+  ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0,20,20,6,0,0,6.28); ctx.fill();
+  ctx.strokeStyle='#20304a'; ctx.lineWidth=6; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(-2,4); ctx.lineTo(-10,22); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-2,4); ctx.lineTo(8,22); ctx.stroke();
+  ctx.fillStyle='#2f7fd6'; rr(-12,-20,24,28,7); ctx.fill();
+  ctx.fillStyle='#f0c39a'; ctx.beginPath(); ctx.arc(0,-26,7,0,6.28); ctx.fill(); ctx.fillStyle='#173a6a'; ctx.beginPath(); ctx.arc(0,-28,8,3.4,6.4); ctx.fill();
+  ctx.save(); ctx.translate(6,-10); ctx.rotate(-2.0+sw*2.4); ctx.strokeStyle='#c8935a'; ctx.lineWidth=6; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(42,-4); ctx.stroke(); ctx.restore();
+  ctx.restore();
+  if(hitBall){ ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(hitBall.x,hitBall.y,6,0,6.28); ctx.fill(); ctx.strokeStyle='#c33'; ctx.lineWidth=1; ctx.stroke(); }
+}
+
+const MX=130, MW=640, MY=512, MH=34;   // meter geometry
+function drawMeter(){
+  // request banner
+  ctx.textAlign='center';
+  ctx.font='bold 15px sans-serif'; ctx.fillStyle='rgba(255,255,255,.7)'; ctx.fillText('コーチの指示',450,470);
+  ctx.font='bold 30px sans-serif'; ctx.fillStyle=TYPECOL[requested]; ctx.fillText('▶ '+TYPES[requested]+' を打て',450,500);
+  ctx.textAlign='left';
+  // meter background
+  ctx.fillStyle='rgba(6,14,24,.7)'; rr(MX-6,MY-6,MW+12,MH+12,8); ctx.fill();
+  // bands
+  for(const bd of bands()){ const x=MX+bd.a*MW, w=(bd.b-bd.a)*MW;
+    let col='rgba(255,255,255,.06)';
+    if(bd.t>=0) col = bd.t===requested? TYPECOL[bd.t] : 'rgba(255,255,255,.10)';
+    ctx.fillStyle=col; ctx.globalAlpha= bd.t===requested?0.85:1; ctx.fillRect(x,MY,w,MH); ctx.globalAlpha=1;
+    ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.lineWidth=1; ctx.strokeRect(x,MY,w,MH);
+  }
+  // label the target band
+  for(const bd of targetInterval(requested)){ const cx=MX+(bd.a+bd.b)/2*MW; ctx.textAlign='center'; ctx.fillStyle='#0a1220'; ctx.font='bold 12px sans-serif'; if((bd.b-bd.a)*MW>26)ctx.fillText(TYPES[requested].slice(0,2),cx,MY+22); ctx.textAlign='left'; }
+  // needle
+  const nx=MX+ (frozen?frozenPos:needle)*MW;
+  ctx.fillStyle= frozen? (gotType===requested?'#8effa8':(gotType===-1?'#ff6a5a':'#fff')) : '#fff';
+  ctx.fillRect(nx-2,MY-10,4,MH+20);
+  ctx.beginPath(); ctx.moveTo(nx,MY-10); ctx.lineTo(nx-7,MY-20); ctx.lineTo(nx+7,MY-20); ctx.closePath(); ctx.fill();
+  // meter ends legend
+  ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.4)'; ctx.font='11px sans-serif';
+  ctx.fillText('凡打',MX+18,MY+MH+16); ctx.fillText('本塁打',450,MY+MH+16); ctx.fillText('凡打',MX+MW-18,MY+MH+16); ctx.textAlign='left';
+}
+function drawPop(){
+  if(popT>0&&popText){ ctx.textAlign='center'; ctx.globalAlpha=Math.min(1,popT*1.1);
+    ctx.font='bold 34px sans-serif'; ctx.fillStyle=popCol; ctx.fillText(popText,450,250);
+    if(popSub){ ctx.font='bold 18px sans-serif'; ctx.fillStyle='#fff'; ctx.fillText(popSub,450,284); }
+    ctx.globalAlpha=1; ctx.textAlign='left'; }
+}
+function drawHUD(){
+  ctx.fillStyle='rgba(6,14,24,.6)'; rr(20,20,150,54,9); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font='11px sans-serif'; ctx.fillText('スコア SCORE',32,39); ctx.fillStyle='#8effa8'; ctx.font='bold 24px sans-serif'; ctx.fillText(''+score,32,64);
+  ctx.fillStyle='rgba(6,14,24,.6)'; rr(W-170,20,150,54,9); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font='11px sans-serif'; ctx.fillText('アウト OUT',W-158,39);
+  for(let i=0;i<3;i++){ ctx.fillStyle=outs>i?'#ff6a5a':'rgba(255,255,255,.16)'; ctx.beginPath(); ctx.arc(W-146+i*24,60,9,0,6.28); ctx.fill(); }
+  // cycle progress pips
+  ctx.textAlign='center'; ctx.fillStyle='rgba(255,255,255,.7)'; ctx.font='12px sans-serif'; ctx.fillText('サイクル進行',450,34); ctx.textAlign='left';
+  for(let i=0;i<4;i++){ const x=450-66+i*36; const done=i<cycleStep;
+    ctx.fillStyle= done?TYPECOL[i]:(i===cycleStep?'rgba(255,255,255,.5)':'rgba(255,255,255,.14)');
+    rr(x,44,30,16,4); ctx.fill(); ctx.fillStyle= done?'#0a1220':'rgba(255,255,255,.7)'; ctx.font='10px sans-serif'; ctx.textAlign='center'; ctx.fillText(TYPES[i].slice(0,2),x+15,56); ctx.textAlign='left'; }
+  ctx.fillStyle='rgba(255,255,255,.5)'; ctx.font='12px sans-serif'; ctx.textAlign='center'; ctx.fillText('達成サイクル '+cycles+'　自己ベスト '+best,450,80); ctx.textAlign='left';
+}
+function drawMsg(){ if(msgT>0&&msg){ ctx.textAlign='center'; ctx.font='bold 18px sans-serif'; const w=ctx.measureText(msg).width;
+  ctx.fillStyle='rgba(6,14,24,.72)'; rr(450-w/2-14,H-30,w+28,26,8); ctx.fill(); ctx.fillStyle='#fff'; ctx.fillText(msg,450,H-12); ctx.textAlign='left'; } }
+function drawOverlay(){
+  ctx.fillStyle='rgba(6,12,22,.8)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+  ctx.fillStyle='rgba(140,255,168,.9)'; ctx.font='600 15px sans-serif'; ctx.fillText('BASEBALL · HIT FOR THE CYCLE',450,110);
+  ctx.fillStyle='#fff'; ctx.font='bold 50px sans-serif'; ctx.fillText('サイクルヒット',450,166);
+  ctx.fillStyle='#ffd23e'; ctx.font='bold 21px sans-serif'; ctx.fillText('Hit for the Cycle',450,198);
+  ctx.fillStyle='rgba(255,255,255,.9)'; ctx.font='16px sans-serif';
+  const L=['単打→二塁打→三塁打→本塁打の順で「指示どおりの打球」を狙え！',
+    'メーターの針が往復する。指示された色のバンドで止めれば成功。',
+    '中央ほど長打で、本塁打バンドは極細＝高難度。',
+    '4種を連続で決めればサイクル達成で大ボーナス。',
+    '外側の凡打ゾーンで止めると空振り＝アウト。3アウトで終了。'];
+  for(let i=0;i<L.length;i++) ctx.fillText(L[i],450,238+i*25);
+  ctx.fillStyle='#e8544e'; rr(450-95,392,190,54,27); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='bold 24px sans-serif'; ctx.fillText('プレイボール',450,426);
+  ctx.fillStyle='rgba(255,255,255,.6)'; ctx.font='14px sans-serif'; ctx.fillText('タップ／スペースでスイング',450,470);
+  ctx.textAlign='left';
+}
+function drawOver(){
+  ctx.fillStyle='rgba(6,12,22,.88)'; ctx.fillRect(0,0,W,H); ctx.textAlign='center';
+  ctx.fillStyle='#fff'; ctx.font='bold 46px sans-serif'; ctx.fillText('スリーアウト・チェンジ',450,210);
+  ctx.fillStyle='#8effa8'; ctx.font='bold 34px sans-serif'; ctx.fillText('スコア '+score,450,270);
+  ctx.fillStyle='#ffd23e'; ctx.font='19px sans-serif'; ctx.fillText('達成サイクル '+cycles+' 回',450,304);
+  ctx.fillStyle='#ffd23e'; ctx.font='20px sans-serif'; ctx.fillText('自己ベスト '+best,450,336);
+  ctx.fillStyle='#2f7fd6'; rr(450-95,378,190,54,27); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='bold 22px sans-serif'; ctx.fillText('もう一度',450,412);
+  ctx.textAlign='left';
+}
+
+function render(){
+  ctx.save();
+  if(shakeT>0){ ctx.translate((Math.random()*2-1)*shakeM,(Math.random()*2-1)*shakeM); }
+  drawScene(); drawBatter();
+  for(const q of parts){ ctx.globalAlpha=Math.max(0,q.life); ctx.fillStyle=q.col; ctx.beginPath(); ctx.arc(q.x,q.y,q.r,0,6.28); ctx.fill(); }
+  ctx.globalAlpha=1;
+  drawMeter(); drawPop(); drawHUD(); drawMsg();
+  ctx.restore();
+  if(flash>0){ ctx.fillStyle=flashCol; ctx.globalAlpha=flash; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1; }
+  if(state==='ready') drawOverlay();
+  if(state==='over') drawOver();
+}
+let last=0;
+function loop(ts){ if(!last)last=ts; let dt=(ts-last)/1000; last=ts; if(dt>0.05)dt=0.05; update(dt); render(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+if(TEST){
+  window.__cy={
+    get state(){return state;},
+    get needle(){return needle;},
+    get dir(){return dir;},
+    get requested(){return requested;},
+    get requestedName(){return TYPES[requested];},
+    get target(){ return targetInterval(requested).map(b=>({a:b.a,b:b.b})); },
+    get got(){return gotType;},
+    get count(){return {score,outs,cycles,cycleStep,atbats};},
+    typeAt(p){ return typeAt(p); },
+    swing(){ swing(); },
+    tap(){ if(state==='ready'||state==='over')reset(); }
+  };
+}
+})();
+</script>
+</body>
+</html>
