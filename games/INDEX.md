@@ -90,6 +90,7 @@
 | 82 | ゴール前の詰め (Poacher) | ⚽ Soccer | [82-poacher.html](82-poacher.html) | https://claude.ai/code/artifact/cba95b47-b309-4ec6-adb7-e0066cefd183 |
 | 83 | 内野ポップフライ (Camp Under It) | ⚾ Baseball | [83-pop-up.html](83-pop-up.html) | https://claude.ai/code/artifact/5be06a67-7605-48b4-916e-967358d8f255 |
 | 84 | キーパーの配球 (Launch the Counter) | ⚽ Soccer | [84-distribution.html](84-distribution.html) | https://claude.ai/code/artifact/25cabf72-63a8-4d5f-ade3-55566f7408f9 |
+| 85 | 豪速球チャレンジ (Fireballer) | ⚾ Baseball | [85-fireballer.html](85-fireballer.html) | https://claude.ai/code/artifact/6fe081e2-8609-4b1d-9a46-6720ffdef67e |
 
 ---
 
@@ -172,6 +173,7 @@ Baseball ⚾
 - ~~ゴール前の詰め（ポーチャー：こぼれ球に詰めて一発で押し込む。合わせる左右でシュート方向が変わり、GKの逆を突く。空振り・クリアで3チャンス失うと終了）~~ (done #82)
 - ~~内野ポップフライ（落下点に入れ：高く上がった打球を風の流れと太陽の眩しさに逆らって影に入り自動キャッチ、2Dで野手を動かす守備位置取りゲー、3落球で終了）~~ (done #83)
 - ~~キーパーの配球（セーブ後の配球でカウンター始動：空いたパスコースの味方を見極め、寄せ切られる前にタップでパス、遠い味方ほど高得点、カット・被寄せ3回で終了の判断ゲー）~~ (done #84)
+- ~~豪速球チャレンジ（投球フォームを3拍のリズムで刻むピッチング：セット・踏込・リリースを合わせるほど球速＆制球アップ、ミトへズバッ、リズム乱れで暴投、制球ミス3回で降板）~~ (done #85)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
