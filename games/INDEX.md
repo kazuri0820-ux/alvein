@@ -86,6 +86,7 @@
 | 78 | スキルドリブル (Skill Dribble) | ⚽ Soccer | [78-skill-dribble.html](78-skill-dribble.html) | https://claude.ai/code/artifact/37367071-ef3e-4021-a4d0-380846ff0905 |
 | 79 | 選球眼 (Work the Count) | ⚾ Baseball | [79-plate-discipline.html](79-plate-discipline.html) | https://claude.ai/code/artifact/cb14d197-37c9-4c41-b6ac-fab7c91b3deb |
 | 80 | ゴールを死守 (Last-Ditch Block) | ⚽ Soccer | [80-last-ditch-block.html](80-last-ditch-block.html) | https://claude.ai/code/artifact/0438e611-0fb3-451a-8693-61a2096df0bd |
+| 81 | ホットコーナー (Hot Corner) | ⚾ Baseball | [81-hot-corner.html](81-hot-corner.html) | https://claude.ai/code/artifact/e22c307c-0b4a-4397-9823-b1abe10e3a21 |
 
 ---
 
@@ -164,6 +165,7 @@ Baseball ⚾
 - ~~スキルドリブル（4レーン音ゲー：落ちる矢印をラインで入力、リズムよくスキルムーブでDFを抜き前進、ゲージ満タンでゴール）~~ (done #78)
 - ~~選球眼（打者視点で球種の遅い変化を読み、ストライクだけをジャストミートで振る。ボール球は見送り四球で出塁、3アウトまで得点を稼ぐ判断＋タイミングゲー）~~ (done #79)
 - ~~ゴールを死守（最後のDFとしてシュートを止め続ける。狙いを読んで軌道に体を入れ、スライディングで射程を伸ばしブロック。見せ球や枠外に飛び込むと隙、3失点で終了）~~ (done #80)
+- ~~ホットコーナー（三塁の反射神経ゲー：襲い来る打球の方向を瞬時に読み←→↑↓の正しいグラブさばきを入力、ファウルは見送り、逆を突かれると失策、3エラーで終了）~~ (done #81)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
