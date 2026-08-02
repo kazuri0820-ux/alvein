@@ -85,6 +85,7 @@
 | 77 | ノック (Fungo Fielding) | ⚾ Baseball | [77-fungo-fielding.html](77-fungo-fielding.html) | https://claude.ai/code/artifact/a1ba4c1c-3fd7-460d-bcb6-e3bb7613276f |
 | 78 | スキルドリブル (Skill Dribble) | ⚽ Soccer | [78-skill-dribble.html](78-skill-dribble.html) | https://claude.ai/code/artifact/37367071-ef3e-4021-a4d0-380846ff0905 |
 | 79 | 選球眼 (Work the Count) | ⚾ Baseball | [79-plate-discipline.html](79-plate-discipline.html) | https://claude.ai/code/artifact/cb14d197-37c9-4c41-b6ac-fab7c91b3deb |
+| 80 | ゴールを死守 (Last-Ditch Block) | ⚽ Soccer | [80-last-ditch-block.html](80-last-ditch-block.html) | https://claude.ai/code/artifact/0438e611-0fb3-451a-8693-61a2096df0bd |
 
 ---
 
@@ -162,6 +163,7 @@ Baseball ⚾
 - ~~ノック（複数ターゲット反応＋タイミング：五人の野手へ次々飛ぶ打球を届く瞬間にタップ、早撃ちはお手玉エラー、連続捕球ボーナス）~~ (done #77)
 - ~~スキルドリブル（4レーン音ゲー：落ちる矢印をラインで入力、リズムよくスキルムーブでDFを抜き前進、ゲージ満タンでゴール）~~ (done #78)
 - ~~選球眼（打者視点で球種の遅い変化を読み、ストライクだけをジャストミートで振る。ボール球は見送り四球で出塁、3アウトまで得点を稼ぐ判断＋タイミングゲー）~~ (done #79)
+- ~~ゴールを死守（最後のDFとしてシュートを止め続ける。狙いを読んで軌道に体を入れ、スライディングで射程を伸ばしブロック。見せ球や枠外に飛び込むと隙、3失点で終了）~~ (done #80)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
