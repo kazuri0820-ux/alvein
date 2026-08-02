@@ -100,6 +100,7 @@
 | 92 | サインプレー (Set-Piece Routine) | ⚽ Soccer | [92-set-piece.html](92-set-piece.html) | https://claude.ai/code/artifact/80e52844-e73b-45cf-8876-b086cf06c67d |
 | 93 | ホームスチール (Steal Home) | ⚾ Baseball | [93-steal-home.html](93-steal-home.html) | https://claude.ai/code/artifact/20c5e637-3d6a-4337-bc6b-4c1da2f98487 |
 | 94 | クロスに合わせろ (Attack the Cross) | ⚽ Soccer | [94-attack-the-cross.html](94-attack-the-cross.html) | https://claude.ai/code/artifact/7b8131ae-7b13-4362-a409-0f0ec73f5cba |
+| 95 | フィールダースチョイス (Where's the Play) | ⚾ Baseball | [95-wheres-the-play.html](95-wheres-the-play.html) | https://claude.ai/code/artifact/b821f3d1-effb-44be-8832-9df49bb55755 |
 
 ---
 
@@ -192,6 +193,7 @@ Baseball ⚾
 - ~~サインプレー（記憶系サイモン：光る拠点の順番を覚えて同じ順にタップ、全部つなげばサインプレー成功でゴール、手数が毎R増える、順番ミス・時間切れで失敗、3失敗で終了）~~ (done #92)
 - ~~ホームスチール（本盗：投手の投球モーション"今"にスタート＝早すぎ牽制/遅れ間に合わず、本塁前でスライド、スタート＋スライドの二拍でセーフ、3アウトで終了）~~ (done #93)
 - ~~クロスに合わせろ（クロスにヘディング：落下点へ入りDFより先に頭で合わせる、合わせる左右でコースが変わりGKの逆へ流し込む、届かず・被クリア・被セーブ・タイミングミスで失敗、3回で終了）~~ (done #94)
+- ~~フィールダースチョイス（守備判断：ゴロを捕り走者のカウントダウンを読んで投げる塁を選ぶ、本塁で刺せば失点阻止＆高得点、無駄投げや本塁を刺せず失点で3失点終了の新機構）~~ (done #95)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
