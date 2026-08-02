@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>内野ポップフライ — Camp Under It</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{width:100%;height:100%;background:#0b1508;overflow:hidden;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    touch-action:none;user-select:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;aspect-ratio:900/600;max-width:100%;max-height:100%;
+    width:auto;height:auto;box-shadow:0 0 60px rgba(0,0,0,.6);}
+  canvas{display:block;width:100%;height:100%;border-radius:6px;cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="c" width="900" height="600"></canvas></div></div>
+<script>
+(function(){
+"use strict";
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const W=900,H=600;
+let dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+function fit(){ dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1)); cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); }
+fit(); window.addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){AC=null;} } return AC; }
+function tone(f,d,type,g,f2){ const a=ac(); if(!a)return; const o=a.createOscillator(),gg=a.createGain();
+  o.type=type||'sine'; o.frequency.setValueAtTime(f,a.currentTime); if(f2)o.frequency.exponentialRampToValueAtTime(Math.max(30,f2),a.currentTime+d);
+  gg.gain.setValueAtTime(0.0001,a.currentTime); gg.gain.exponentialRampToValueAtTime(g||0.2,a.currentTime+0.01);
+  gg.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d); o.connect(gg); gg.connect(a.destination); o.start(); o.stop(a.currentTime+d+0.02); }
+function noise(d,g,cut){ const a=ac(); if(!a)return; const n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n); const src=a.createBufferSource(); src.buffer=buf;
+  const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=cut||1200; const gg=a.createGain(); gg.gain.value=g||0.2;
+  src.connect(f); f.connect(gg); gg.connect(a.destination); src.start(); }
+const S={
+  pop(){ noise(0.05,0.4,3600); tone(300,0.06,'square',0.14,150); },
+  catch(){ noise(0.06,0.4,1800); tone(420,0.08,'square',0.14,600); },
+  out(){ tone(720,0.08,'square',0.1); setTimeout(()=>tone(980,0.12,'square',0.09),70); },
+  drop(){ noise(0.22,0.32,600); tone(160,0.28,'sawtooth',0.14,70); },
+  wind(){ noise(0.5,0.06,500); },
+  over(){ noise(0.3,0.3,600); tone(150,0.4,'sawtooth',0.16,60); },
+  cheer(){ const a=ac(); if(!a)return; noise(0.7,0.2,1900); for(let i=0;i<5;i++)setTimeout(()=>tone(500+Math.random()*320,0.3,'sine',0.05),i*46); }
+};
+
+// ---------- geometry (3/4 top-down) ----------
+const HOME=[450,548], MOUND=[450,372];
+const B1=[602,432], B2=[450,318], B3=[298,432];
+
+// ---------- state ----------
+let state='title';
+let catches=0, errors=0, score=0, combo=0, bestCombo=0;
+let best=+(localStorage.getItem('pu_best')||0);
+let pop=null, nextTimer=0, gap=0;
+let me={x:450,y:392, tx:450, ty:392};
+let sun={x:700,y:104,r:52};
+let parts=[], floats=[], shake=0, flashG=0, flashR=0, windArrow=null;
+let last=performance.now();
+const MAXERR=3, SPD=0.30, CATCHR=36;
+
+function reset(){ catches=0; errors=0; score=0; combo=0; bestCombo=0; pop=null; nextTimer=500; parts=[]; floats=[]; me.x=me.tx=450; me.y=me.ty=392; }
+function level(){ return Math.floor(catches/4); }
+function rr(a,b){ return a+Math.random()*(b-a); }
+
+function spawn(){
+  const lv=level();
+  // landing spot somewhere around the infield / shallow foul
+  const lx=rr(250,650), ly=rr(300,470);
+  const D=Math.max(1300, 2050 - lv*90);
+  const maxH=270 + lv*18 + rr(-20,40);
+  const windSign=Math.random()<0.5?-1:1;
+  const windAmp=(50+lv*10)*windSign;                 // mid-flight bulge
+  const gustX=rr(-1,1)*(20+lv*12);                   // late landing shift
+  sun.x=rr(180,760);
+  pop={ sx:HOME[0]+rr(-30,30), sy:HOME[1], lx, ly, D, el:0, maxH, windAmp, gustX,
+        gx:HOME[0], gy:HOME[1], h:0, t:0, live:true, done:false };
+  windArrow={life:1,sign:windSign}; S.pop(); S.wind();
+}
+function easeT(t){ return t; }
+function popUpdatePos(){
+  const t=Math.min(1,pop.t);
+  const land_lx = pop.lx + pop.gustX*Math.max(0,(t-0.65)/0.35);
+  pop.gx = pop.sx + (land_lx-pop.sx)*t + pop.windAmp*Math.sin(t*Math.PI);
+  pop.gy = pop.sy + (pop.ly-pop.sy)*t;
+  pop.h  = pop.maxH*Math.sin(Math.min(1,pop.t)*Math.PI); // up then down
+}
+function ballScreen(){ return {x:pop.gx, y:pop.gy - pop.h}; }
+function inGlare(){ if(!pop)return false; const b=ballScreen(); return pop.h>pop.maxH*0.45 && Math.abs(b.x-sun.x)<sun.r+24; }
+
+function resolvePop(kind){
+  pop.done=true; pop.live=false;
+  if(kind==='catch'){
+    catches++; combo++; if(combo>bestCombo)bestCombo=combo; const pts=100+combo*20; score+=pts;
+    flashG=0.4; S.catch(); setTimeout(()=>S.out(),160); floatText(pop.gx,pop.gy-20,'キャッチ！ +'+pts,'#8effa8');
+    for(let i=0;i<16;i++){ const a=Math.random()*Math.PI*2,s=rr(1,5); parts.push({x:pop.gx,y:pop.gy,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,col:i%2?'#8effa8':'#fff',g:0.14,sz:rr(2,4)}); }
+    if(combo>0&&combo%5===0) setTimeout(()=>S.cheer(),150);
+    gap=520;
+  }else{
+    errors++; combo=0; flashR=0.6; shake=9; S.drop(); floatText(pop.gx,pop.gy-10,'落球…エラー','#ff6b6b');
+    for(let i=0;i<12;i++){ const a=Math.random()*Math.PI*2,s=rr(1,4); parts.push({x:pop.gx,y:pop.gy,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,col:'#c9b48c',g:0.16,sz:rr(2,4)}); }
+    gap=760; if(errors>=MAXERR){ setTimeout(gameOver,850); }
+  }
+  setTimeout(()=>{ pop=null; nextTimer=gap; }, 260);
+}
+function gameOver(){ state='over'; if(score>best){ best=score; try{localStorage.setItem('pu_best',best);}catch(e){} } S.over(); }
+function floatText(x,y,t,c){ floats.push({x,y,t,c:c||'#fff',life:1}); }
+
+// ---------- input ----------
+function evXY(e){ const r=cv.getBoundingClientRect(); return [(e.clientX-r.left)/r.width*W,(e.clientY-r.top)/r.height*H]; }
+let ptDown=false;
+function press(){ ac(); if(state==='title'){ reset(); state='play'; return; } if(state==='over'){ state='title'; return; } }
+cv.addEventListener('pointerdown',e=>{ e.preventDefault(); ac(); if(state!=='play'){ press(); return; } ptDown=true; const [x,y]=evXY(e); me.tx=x; me.ty=y; });
+cv.addEventListener('pointermove',e=>{ if(state!=='play')return; const [x,y]=evXY(e); if(ptDown||e.pointerType==='mouse'){ me.tx=x; me.ty=y; } });
+cv.addEventListener('pointerup',()=>{ ptDown=false; });
+window.addEventListener('keydown',e=>{
+  if(state!=='play'){ if(e.code==='Space'||e.code==='Enter'){ e.preventDefault(); press(); } return; }
+  if(e.code==='ArrowLeft'||e.code==='KeyA'){ me.tx-=40; }
+  else if(e.code==='ArrowRight'||e.code==='KeyD'){ me.tx+=40; }
+  else if(e.code==='ArrowUp'||e.code==='KeyW'){ me.ty-=40; }
+  else if(e.code==='ArrowDown'||e.code==='KeyS'){ me.ty+=40; }
+});
+
+// ---------- update ----------
+function update(dt){
+  if(shake>0)shake=Math.max(0,shake-dt/24);
+  if(flashG>0)flashG=Math.max(0,flashG-dt/280);
+  if(flashR>0)flashR=Math.max(0,flashR-dt/360);
+  if(windArrow){ windArrow.life-=dt/1400; if(windArrow.life<=0)windArrow=null; }
+  for(const p of parts){ p.x+=p.vx; p.y+=p.vy; p.vy+=p.g; p.life-=dt/900; } parts=parts.filter(p=>p.life>0);
+  for(const f of floats){ f.y-=dt*0.02; f.life-=dt/1000; } floats=floats.filter(f=>f.life>0);
+  if(state!=='play') return;
+  // fielder move (clamped speed, 2D)
+  me.tx=Math.max(60,Math.min(840,me.tx)); me.ty=Math.max(200,Math.min(560,me.ty));
+  const dx=me.tx-me.x, dy=me.ty-me.y, d=Math.hypot(dx,dy)||1; const step=Math.min(d,SPD*dt);
+  me.x+=dx/d*step; me.y+=dy/d*step;
+  if(pop&&pop.live){
+    pop.el+=dt; pop.t=pop.el/pop.D; popUpdatePos();
+    if(pop.t>=1){ // reached the ground
+      const dist=Math.hypot(me.x-pop.gx,me.y-pop.gy);
+      resolvePop(dist<CATCHR? 'catch':'drop');
+    }
+    return;
+  }
+  if(!pop){ nextTimer-=dt; if(nextTimer<=0) spawn(); }
+}
+
+// ---------- render ----------
+function field(){
+  // sky
+  let sky=ctx.createLinearGradient(0,0,0,180); sky.addColorStop(0,'#3a6ea5'); sky.addColorStop(1,'#8fb8d8');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,W,180);
+  // sun
+  if(state==='play'&&pop){ const gg=ctx.createRadialGradient(sun.x,sun.y,4,sun.x,sun.y,sun.r+40); gg.addColorStop(0,'rgba(255,250,210,0.95)'); gg.addColorStop(0.5,'rgba(255,244,180,0.5)'); gg.addColorStop(1,'rgba(255,244,180,0)'); ctx.fillStyle=gg; ctx.fillRect(sun.x-sun.r-40,sun.y-sun.r-40,(sun.r+40)*2,(sun.r+40)*2); ctx.fillStyle='#fff6c8'; ctx.beginPath(); ctx.arc(sun.x,sun.y,sun.r*0.55,0,Math.PI*2); ctx.fill(); }
+  // grass
+  let gr=ctx.createLinearGradient(0,150,0,H); gr.addColorStop(0,'#1c5a2c'); gr.addColorStop(1,'#124020');
+  ctx.fillStyle=gr; ctx.fillRect(0,150,W,H-150);
+  for(let i=0;i<8;i++){ ctx.fillStyle=i%2?'rgba(255,255,255,0.025)':'rgba(0,0,0,0.04)'; ctx.fillRect(0,150+i*((H-150)/8),W,(H-150)/16); }
+  // infield dirt diamond
+  ctx.fillStyle='#8a6038'; ctx.beginPath(); ctx.moveTo(HOME[0],HOME[1]); ctx.lineTo(B1[0]+40,B1[1]); ctx.lineTo(B2[0],B2[1]-40); ctx.lineTo(B3[0]-40,B3[1]); ctx.closePath(); ctx.fill();
+  // base paths
+  ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(HOME[0],HOME[1]); ctx.lineTo(B1[0],B1[1]); ctx.lineTo(B2[0],B2[1]); ctx.lineTo(B3[0],B3[1]); ctx.closePath(); ctx.stroke();
+  // mound
+  ctx.fillStyle='#9a6f42'; ctx.beginPath(); ctx.arc(MOUND[0],MOUND[1],26,0,Math.PI*2); ctx.fill();
+  // bases
+  for(const b of [B1,B2,B3]){ ctx.save(); ctx.translate(b[0],b[1]); ctx.rotate(Math.PI/4); ctx.fillStyle='#f2f2f2'; ctx.fillRect(-8,-8,16,16); ctx.restore(); }
+  ctx.fillStyle='#eee'; ctx.beginPath(); ctx.moveTo(HOME[0]-11,HOME[1]-5); ctx.lineTo(HOME[0]+11,HOME[1]-5); ctx.lineTo(HOME[0]+11,HOME[1]+5); ctx.lineTo(HOME[0],HOME[1]+13); ctx.lineTo(HOME[0]-11,HOME[1]+5); ctx.closePath(); ctx.fill();
+}
+function fielder(){
+  const reach = pop&&pop.live&&Math.hypot(me.x-pop.gx,me.y-pop.gy)<CATCHR && pop.h<120;
+  ctx.strokeStyle=reach?'rgba(140,255,168,0.55)':'rgba(255,255,255,0.16)'; ctx.lineWidth=2; ctx.setLineDash([5,7]);
+  ctx.beginPath(); ctx.arc(me.x,me.y,CATCHR,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(me.x,me.y+14,14,5,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#eeeeee'; ctx.beginPath(); ctx.ellipse(me.x,me.y-6,11,15,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#f0c9a0'; ctx.beginPath(); ctx.arc(me.x,me.y-22,8,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#12306a'; ctx.beginPath(); ctx.arc(me.x,me.y-25,9,Math.PI,0); ctx.fill();
+  // glove up
+  ctx.fillStyle='#6b4423'; ctx.beginPath(); ctx.arc(me.x+8,me.y-16,7,0,Math.PI*2); ctx.fill();
+}
+function popDraw(){
+  if(!pop||!pop.live) return;
+  const b=ballScreen(); const glare=inGlare();
+  // shadow / landing marker
+  if(!glare){
+    const near=1-pop.h/pop.maxH; const sr=13+near*15;
+    ctx.strokeStyle='rgba(15,15,15,0.5)'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.ellipse(pop.gx,pop.gy,sr,sr*0.5,0,0,Math.PI*2); ctx.stroke();
+    // time-to-land ring (only while descending)
+    if(pop.t>0.5){ const rem=1-pop.t; ctx.strokeStyle='rgba(255,210,62,0.8)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(pop.gx,pop.gy,sr+8,-Math.PI/2,-Math.PI/2+rem/0.5*Math.PI*2); ctx.stroke(); }
+    ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(pop.gx,pop.gy,sr*0.6,sr*0.3,0,0,Math.PI*2); ctx.fill();
+  }else{
+    ctx.fillStyle='rgba(255,250,210,0.22)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#ffe14d'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center'; ctx.fillText('☀ 太陽が眩しい！',W/2,200);
+  }
+  // ball (smaller when higher)
+  const br=Math.max(4,10-pop.h*0.012);
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(b.x,b.y,br,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#c33'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(b.x-br*0.4,b.y,br*0.9,-0.8,0.8); ctx.stroke();
+}
+function windHUD(){
+  if(!windArrow) return; const a=Math.max(0,windArrow.life);
+  ctx.save(); ctx.globalAlpha=a*0.9; ctx.translate(W/2,168); ctx.strokeStyle='#dff0ff'; ctx.lineWidth=3; ctx.lineCap='round';
+  const s=windArrow.sign; ctx.beginPath(); ctx.moveTo(-40*s,0); ctx.lineTo(40*s,0); ctx.lineTo(24*s,-10); ctx.moveTo(40*s,0); ctx.lineTo(24*s,10); ctx.stroke();
+  ctx.globalAlpha=a; ctx.fillStyle='#dff0ff'; ctx.font='bold 13px sans-serif'; ctx.textAlign='center'; ctx.fillText('風',0,-18); ctx.restore();
+}
+function hud(){
+  ctx.save(); ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(6,20,10,0.4)'; ctx.fillRect(0,0,W,42);
+  for(let i=0;i<MAXERR;i++){ ctx.strokeStyle=i<errors?'#ff6b6b':'#889'; ctx.lineWidth=3; const ex=24+i*28; ctx.beginPath(); ctx.moveTo(ex-6,15-6); ctx.lineTo(ex+6,15+6); ctx.moveTo(ex+6,15-6); ctx.lineTo(ex-6,15+6); ctx.stroke(); }
+  ctx.fillStyle='#cfe0ee'; ctx.font='bold 12px sans-serif'; ctx.textAlign='left'; ctx.fillText('E',24+MAXERR*28-2,15);
+  ctx.textAlign='center'; ctx.fillStyle='#fff'; ctx.font='bold 24px sans-serif'; ctx.fillText('SCORE '+score,W/2,17);
+  ctx.fillStyle='#cfe0ee'; ctx.font='bold 12px sans-serif'; ctx.fillText('捕球 '+catches+'　BEST '+best,W/2,35);
+  if(combo>=2){ ctx.textAlign='right'; ctx.fillStyle='#ffd23e'; ctx.font='bold 19px sans-serif'; ctx.fillText('連続 ×'+combo,W-18,18); }
+  ctx.restore();
+}
+function drawTitle(){
+  ctx.save(); ctx.fillStyle='rgba(4,14,8,0.58)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#fff'; ctx.font='bold 56px sans-serif'; ctx.fillText('内野ポップフライ',W/2,132);
+  ctx.fillStyle='#ffd23e'; ctx.font='bold 22px sans-serif'; ctx.fillText('Camp Under It — 落下点に入れ',W/2,178);
+  ctx.fillStyle='#dfe6f0'; ctx.font='16px sans-serif';
+  const lines=['高く上がったポップフライを捕れ！','ドラッグ / マウス / ←→↑↓ で野手を動かす。','落下点の影に入れば自動でキャッチ。','風で打球は流れ、終盤にもうひと流れ。','太陽が眩しいと影が消える…落下点を予測せよ。','3落球でゲームオーバー。'];
+  for(let i=0;i<lines.length;i++) ctx.fillText(lines[i],W/2,232+i*28);
+  ctx.fillStyle='#8effa8'; ctx.font='bold 22px sans-serif'; ctx.fillText('タップでプレイボール',W/2,H-70);
+  if(best>0){ ctx.fillStyle='#9fb0c8'; ctx.font='15px sans-serif'; ctx.fillText('ベストスコア '+best,W/2,H-42); }
+  ctx.restore();
+}
+function drawOver(){
+  ctx.save(); ctx.fillStyle='rgba(4,14,8,0.76)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#fff'; ctx.font='bold 46px sans-serif'; ctx.fillText('スリーアウト',W/2,132);
+  ctx.fillStyle='#ffd23e'; ctx.font='bold 64px sans-serif'; ctx.fillText(score+' pts',W/2,206);
+  const stats=[['捕球数',catches+' 個'],['最高連続',bestCombo+' 連続'],['エラー',errors]];
+  ctx.font='19px sans-serif';
+  for(let i=0;i<stats.length;i++){ const yy=272+i*36; ctx.textAlign='right'; ctx.fillStyle='#9fb0c8'; ctx.fillText(stats[i][0],W/2-14,yy); ctx.textAlign='left'; ctx.fillStyle='#fff'; ctx.fillText(''+stats[i][1],W/2+14,yy); }
+  if(score>=best&&score>0){ ctx.textAlign='center'; ctx.fillStyle='#8effa8'; ctx.font='bold 20px sans-serif'; ctx.fillText('★ ベスト更新！ ★',W/2,272+stats.length*36+6); }
+  ctx.textAlign='center'; ctx.fillStyle='#8effa8'; ctx.font='bold 20px sans-serif'; ctx.fillText('タップでもう一度',W/2,H-54);
+  ctx.restore();
+}
+function render(){
+  ctx.save(); if(shake>0) ctx.translate(rr(-shake,shake),rr(-shake,shake));
+  field();
+  if(state==='play'){ fielder(); popDraw(); windHUD(); }
+  for(const p of parts){ ctx.globalAlpha=Math.max(0,p.life); ctx.fillStyle=p.col; ctx.fillRect(p.x,p.y,p.sz,p.sz); }
+  ctx.globalAlpha=1;
+  for(const f of floats){ ctx.globalAlpha=Math.max(0,f.life); ctx.fillStyle=f.c; ctx.font='bold 22px sans-serif'; ctx.textAlign='center'; ctx.fillText(f.t,f.x,f.y); }
+  ctx.globalAlpha=1;
+  if(state==='play') hud();
+  ctx.restore();
+  if(flashG>0){ ctx.fillStyle='rgba(140,255,168,'+(flashG*0.22)+')'; ctx.fillRect(0,0,W,H); }
+  if(flashR>0){ ctx.fillStyle='rgba(255,60,60,'+(flashR*0.34)+')'; ctx.fillRect(0,0,W,H); }
+  if(state==='title') drawTitle();
+  if(state==='over') drawOver();
+}
+function frame(now){ let dt=now-last; last=now; if(dt>60)dt=60; update(dt); render(); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__pu={
+  get state(){return state;},
+  get catches(){return catches;}, get errors(){return errors;}, get score(){return score;}, get combo(){return combo;},
+  get pop(){ return (pop&&pop.live)?{gx:pop.gx,gy:pop.gy,h:pop.h,t:pop.t,maxH:pop.maxH,glare:inGlare()}:null; },
+  get me(){ return {x:me.x,y:me.y}; }, get catchR(){ return CATCHR; },
+  move(x,y){ me.tx=x; me.ty=y; }, tap(){ press(); }, start(){ if(state!=='play')press(); }
+};
+})();
+</script>
+</body>
+</html>

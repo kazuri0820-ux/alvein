@@ -88,6 +88,7 @@
 | 80 | ゴールを死守 (Last-Ditch Block) | ⚽ Soccer | [80-last-ditch-block.html](80-last-ditch-block.html) | https://claude.ai/code/artifact/0438e611-0fb3-451a-8693-61a2096df0bd |
 | 81 | ホットコーナー (Hot Corner) | ⚾ Baseball | [81-hot-corner.html](81-hot-corner.html) | https://claude.ai/code/artifact/e22c307c-0b4a-4397-9823-b1abe10e3a21 |
 | 82 | ゴール前の詰め (Poacher) | ⚽ Soccer | [82-poacher.html](82-poacher.html) | https://claude.ai/code/artifact/cba95b47-b309-4ec6-adb7-e0066cefd183 |
+| 83 | 内野ポップフライ (Camp Under It) | ⚾ Baseball | [83-pop-up.html](83-pop-up.html) | https://claude.ai/code/artifact/5be06a67-7605-48b4-916e-967358d8f255 |
 
 ---
 
@@ -168,6 +169,7 @@ Baseball ⚾
 - ~~ゴールを死守（最後のDFとしてシュートを止め続ける。狙いを読んで軌道に体を入れ、スライディングで射程を伸ばしブロック。見せ球や枠外に飛び込むと隙、3失点で終了）~~ (done #80)
 - ~~ホットコーナー（三塁の反射神経ゲー：襲い来る打球の方向を瞬時に読み←→↑↓の正しいグラブさばきを入力、ファウルは見送り、逆を突かれると失策、3エラーで終了）~~ (done #81)
 - ~~ゴール前の詰め（ポーチャー：こぼれ球に詰めて一発で押し込む。合わせる左右でシュート方向が変わり、GKの逆を突く。空振り・クリアで3チャンス失うと終了）~~ (done #82)
+- ~~内野ポップフライ（落下点に入れ：高く上がった打球を風の流れと太陽の眩しさに逆らって影に入り自動キャッチ、2Dで野手を動かす守備位置取りゲー、3落球で終了）~~ (done #83)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
