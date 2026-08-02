@@ -79,6 +79,7 @@
 | 71 | カットで粘れ (Foul It Off) | ⚾ Baseball | [71-foul-it-off.html](71-foul-it-off.html) | https://claude.ai/code/artifact/5753b35c-976c-440d-a448-dce0bc1b49c8 |
 | 72 | オーバーヘッドキック (Bicycle Kick) | ⚽ Soccer | [72-bicycle-kick.html](72-bicycle-kick.html) | https://claude.ai/code/artifact/9810961e-e1cb-4ace-bd28-743cd1f22e16 |
 | 73 | ヒットエンドラン (Hit and Run) | ⚾ Baseball | [73-hit-and-run.html](73-hit-and-run.html) | https://claude.ai/code/artifact/07ea47a2-dbfc-47e4-9801-5ccf72eed581 |
+| 74 | フリーキック弾道 (Over the Wall) | ⚽ Soccer | [74-free-kick-wall.html](74-free-kick-wall.html) | https://claude.ai/code/artifact/af1019b0-3b71-4052-aff0-2490d98ddb3e |
 
 ---
 
@@ -150,6 +151,7 @@ Baseball ⚾
 - ~~カットで粘れ（打者の選球眼＋カット：ボール球を見送り四球、ストライクは打つかファウルで粘る2ストライク勝負）~~ (done #71)
 - ~~オーバーヘッドキック（頭上に落ちるクロスをバイシクル：落下点タイミング＋往復する狙い印でGKの逆を突く）~~ (done #72)
 - ~~ヒットエンドラン（走者スタート＋二塁カバーで空いた穴を読み、方向＋タイミングで打球を転がす。空振りは盗塁死）~~ (done #73)
+- ~~フリーキック弾道（横視点2D物理：パチンコ式ドラッグで角度＋強さ、壁を越えバーの下・GKの逆へ。弾道プレビュー付き）~~ (done #74)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
