@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ホームスチール — Steal Home</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{width:100%;height:100%;background:#0b1508;overflow:hidden;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    touch-action:none;user-select:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;aspect-ratio:900/600;max-width:100%;max-height:100%;
+    width:auto;height:auto;box-shadow:0 0 60px rgba(0,0,0,.6);}
+  canvas{display:block;width:100%;height:100%;border-radius:6px;cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="c" width="900" height="600"></canvas></div></div>
+<script>
+(function(){
+"use strict";
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const W=900,H=600;
+let dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+function fit(){ dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1)); cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); }
+fit(); window.addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){AC=null;} } return AC; }
+function tone(f,d,type,g,f2){ const a=ac(); if(!a)return; const o=a.createOscillator(),gg=a.createGain();
+  o.type=type||'sine'; o.frequency.setValueAtTime(f,a.currentTime); if(f2)o.frequency.exponentialRampToValueAtTime(Math.max(30,f2),a.currentTime+d);
+  gg.gain.setValueAtTime(0.0001,a.currentTime); gg.gain.exponentialRampToValueAtTime(g||0.2,a.currentTime+0.01);
+  gg.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d); o.connect(gg); gg.connect(a.destination); o.start(); o.stop(a.currentTime+d+0.02); }
+function noise(d,g,cut){ const a=ac(); if(!a)return; const n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n); const src=a.createBufferSource(); src.buffer=buf;
+  const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=cut||1200; const gg=a.createGain(); gg.gain.value=g||0.2;
+  src.connect(f); f.connect(gg); gg.connect(a.destination); src.start(); }
+const S={
+  set(){ tone(300,0.1,'sine',0.05,360); },
+  commit(){ tone(680,0.06,'square',0.08,900); },
+  go(){ noise(0.2,0.16,1000); tone(300,0.08,'triangle',0.08,420); },
+  slide(){ noise(0.26,0.2,900); },
+  safe(){ tone(440,0.1,'square',0.12,660); setTimeout(()=>tone(720,0.14,'square',0.1),70); setTimeout(()=>tone(960,0.16,'square',0.09),150); },
+  out(){ noise(0.24,0.32,600); tone(160,0.3,'sawtooth',0.14,70); },
+  over(){ noise(0.3,0.3,600); tone(150,0.4,'sawtooth',0.16,60); },
+  cheer(){ const a=ac(); if(!a)return; noise(0.7,0.2,1900); for(let i=0;i<5;i++)setTimeout(()=>tone(500+Math.random()*320,0.3,'sine',0.05),i*46); }
+};
+
+// ---------- geometry (angled view) ----------
+const B3=[168,318], HOME=[726,470], MOUND=[452,300];
+function lerp(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]; }
+
+// ---------- state ----------
+let state='title';
+let steals=0, outs=0, score=0, combo=0, bestCombo=0;
+let best=+(localStorage.getItem('sh_best')||0);
+let play=null, nextTimer=0, res=null;
+let parts=[], floats=[], shake=0, flashG=0, flashR=0;
+let last=performance.now();
+const MAXOUT=3;
+
+function reset(){ steals=0; outs=0; score=0; combo=0; bestCombo=0; play=null; res=null; nextTimer=500; parts=[]; floats=[]; }
+function level(){ return Math.floor(steals/3); }
+function rr(a,b){ return a+Math.random()*(b-a); }
+
+function spawn(){
+  const lv=level();
+  const setDur=rr(500,950);
+  const tc=rr(360,640);                                  // commit delay after delivery start
+  const win=Math.max(160,300-lv*22);                     // commit window length
+  play={ phase:'set', el:0, setDur, tc, tr:tc+win, jumpQ:0, broke:false,
+         runEl:0, runDur:0, slideEl:-1, slideQ:0, resolved:false, ball:null };
+  S.set();
+}
+
+function press(){ ac(); if(state==='title'){ reset(); state='play'; return; } if(state==='over'){ state='title'; return; }
+  if(state!=='play'||!play||play.resolved) return;
+  if(play.phase==='set'){ doBreak(); }
+  else if(play.phase==='deliver'){ doBreak(); }
+  else if(play.phase==='run'){ doSlide(); }
+}
+
+function doBreak(){
+  if(play.broke) return;
+  const t=play.phase==='set'? -1 : play.el;              // during set it's obviously too early
+  if(t<play.tc){ play.broke=true; resolve('early'); return; }   // picked off
+  if(t>play.tr){ play.broke=true; resolve('late'); return; }
+  play.broke=true; play.jumpQ=Math.max(0,1-(t-play.tc)/(play.tr-play.tc));
+  play.runDur=820-play.jumpQ*230; play.phase='run'; play.runEl=0; S.go();
+  // pitch to the plate (visual race)
+  play.ball={el:0,D:play.runDur+40};
+}
+function doSlide(){
+  if(play.slideEl>=0) return;
+  play.slideEl=play.runEl;
+  const ideal=play.runDur-120, winw=170;
+  play.slideQ=Math.max(0,1-Math.abs(play.slideEl-ideal)/winw);
+  S.slide();
+}
+
+function resolve(kind){
+  play.resolved=true;
+  if(kind==='safe'){
+    steals++; combo++; if(combo>bestCombo)bestCombo=combo;
+    const pts=150+Math.round(play.jumpQ*60)+Math.round(play.slideQ*40)+combo*25; score+=pts;
+    flashG=0.45; S.safe(); setTimeout(()=>S.cheer(),120); floatText(HOME[0]-30,HOME[1]-50,'セーフ！ホームスチール成功！ +'+pts,'#8effa8');
+    for(let k=0;k<22;k++){ const a=Math.random()*Math.PI*2,s=rr(1,6); parts.push({x:HOME[0],y:HOME[1]-10,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,col:k%2?'#8effa8':'#fff',g:0.14,sz:rr(2,5)}); }
+    nextTimer=900;
+  }else{
+    outs++; combo=0; flashR=0.6; shake=9; S.out();
+    const msg={early:'早すぎ！牽制でアウト',late:'出遅れ！間に合わず',tag:'タッチアウト'}[kind]||'アウト';
+    floatText((B3[0]+HOME[0])/2,300,'アウト…'+msg,'#ff6b6b');
+    for(let k=0;k<10;k++){ const a=Math.random()*Math.PI*2,s=rr(1,4); parts.push({x:HOME[0]-40,y:HOME[1]-10,vx:Math.cos(a)*s,vy:-Math.abs(Math.sin(a))*s,life:1,col:'#c9b48c',g:0.16,sz:rr(2,4)}); }
+    nextTimer=980; if(outs>=MAXOUT) setTimeout(gameOver,980);
+  }
+  res={kind}; setTimeout(()=>{ play=null; res=null; }, 600);
+}
+function gameOver(){ state='over'; if(score>best){ best=score; try{localStorage.setItem('sh_best',best);}catch(e){} } S.over(); }
+function floatText(x,y,t,c){ floats.push({x,y,t,c:c||'#fff',life:1}); }
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{ e.preventDefault(); ac(); press(); });
+window.addEventListener('keydown',e=>{ if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'){ e.preventDefault(); press(); } });
+
+// ---------- update ----------
+function update(dt){
+  if(shake>0)shake=Math.max(0,shake-dt/24);
+  if(flashG>0)flashG=Math.max(0,flashG-dt/280);
+  if(flashR>0)flashR=Math.max(0,flashR-dt/360);
+  for(const p of parts){ p.x+=p.vx; p.y+=p.vy; p.vy+=p.g; p.life-=dt/900; } parts=parts.filter(p=>p.life>0);
+  for(const f of floats){ f.y-=dt*0.02; f.life-=dt/1000; } floats=floats.filter(f=>f.life>0);
+  if(state!=='play') return;
+  if(!play){ nextTimer-=dt; if(nextTimer<=0) spawn(); return; }
+  if(play.resolved) return;
+  if(play.phase==='set'){ play.el+=dt; if(play.el>=play.setDur){ play.phase='deliver'; play.el=0; } }
+  else if(play.phase==='deliver'){ play.el+=dt;
+    if(!play.commitSfx && play.el>=play.tc){ play.commitSfx=true; S.commit(); }
+    if(play.el>=play.tr && !play.broke){ resolve('late'); }               // never went
+  }
+  else if(play.phase==='run'){ play.runEl+=dt; if(play.ball)play.ball.el+=dt;
+    if(play.runEl>=play.runDur){ // arrive at plate -> judge
+      const total=play.jumpQ*0.62 + play.slideQ*0.38;
+      resolve(total>0.5?'safe':'tag');
+    }
+  }
+}
+
+// ---------- render ----------
+function fieldbg(){
+  let g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#1c5a2c'); g.addColorStop(1,'#124020');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  for(let i=0;i<10;i++){ ctx.fillStyle=i%2?'rgba(255,255,255,0.025)':'rgba(0,0,0,0.04)'; ctx.fillRect(0,i*(H/10),W,H/20); }
+  // dirt path 3B -> home
+  ctx.strokeStyle='#8a6038'; ctx.lineWidth=40; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(B3[0],B3[1]); ctx.lineTo(HOME[0],HOME[1]); ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(B3[0],B3[1]); ctx.lineTo(HOME[0],HOME[1]); ctx.stroke();
+  // mound dirt
+  ctx.fillStyle='#9a6f42'; ctx.beginPath(); ctx.arc(MOUND[0],MOUND[1],30,0,Math.PI*2); ctx.fill();
+  // third base bag
+  ctx.save(); ctx.translate(B3[0],B3[1]); ctx.rotate(Math.PI/4); ctx.fillStyle='#f2f2f2'; ctx.fillRect(-11,-11,22,22); ctx.restore();
+  // home plate
+  ctx.fillStyle='#eee'; ctx.beginPath(); ctx.moveTo(HOME[0]-16,HOME[1]-7); ctx.lineTo(HOME[0]+16,HOME[1]-7); ctx.lineTo(HOME[0]+16,HOME[1]+7); ctx.lineTo(HOME[0],HOME[1]+18); ctx.lineTo(HOME[0]-16,HOME[1]+7); ctx.closePath(); ctx.fill();
+}
+function drawGuy(x,y,col,lean){
+  ctx.save(); ctx.translate(x,y); if(lean) ctx.rotate(lean);
+  ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(0,16,12,4,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=col; ctx.beginPath(); ctx.ellipse(0,-2,11,15,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#f0c9a0'; ctx.beginPath(); ctx.arc(0,-20,8,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function scene(){
+  if(!play) return;
+  // pitcher (leg lift telegraph in the commit window)
+  let lift=0;
+  if(play.phase==='deliver'){ const p=play.el; if(p>play.tc-140 && p<play.tr){ lift=Math.min(1,(p-(play.tc-140))/220); } if(p>=play.tr)lift=1; }
+  ctx.save(); ctx.translate(MOUND[0],MOUND[1]-6);
+  ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(0,20,20,7,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#dfe6f0'; ctx.beginPath(); ctx.ellipse(0,-6,13,18,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#e8c9a0'; ctx.beginPath(); ctx.arc(0,-28,9,0,Math.PI*2); ctx.fill();
+  // lifted leg
+  ctx.strokeStyle='#dfe6f0'; ctx.lineWidth=7; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(0,10); ctx.lineTo(-10-lift*10,10-lift*22); ctx.stroke();
+  ctx.restore();
+  // commit cue
+  if(play.phase==='deliver' && play.el>=play.tc && play.el<=play.tr && !play.broke){
+    ctx.fillStyle='#ffd23e'; ctx.font='bold 26px sans-serif'; ctx.textAlign='center'; ctx.fillText('今だ！スタート！',MOUND[0],MOUND[1]-70);
+  }
+  // catcher at home
+  drawGuy(HOME[0]+16,HOME[1]-16,'#25324a',0);
+  // pitch ball toward the plate during run
+  if(play.ball){ const t=Math.min(1,play.ball.el/play.ball.D); const p=lerp(MOUND,[HOME[0]-6,HOME[1]-14],t); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(p[0],p[1]-Math.sin(t*Math.PI)*20,7,0,Math.PI*2); ctx.fill(); }
+  // runner
+  let rp, lean=0;
+  if(play.phase==='run'){ const t=Math.min(1,play.runEl/play.runDur); rp=lerp(B3,HOME,t);
+    const sliding=play.slideEl>=0 && play.runEl>=play.slideEl; lean=sliding?0.9:0.25; }
+  else { rp=[B3[0]+24, B3[1]]; }
+  drawGuy(rp[0],rp[1],'#e0524a',lean);
+  // slide-window hint
+  if(play.phase==='run'){ const ws=play.runDur-170; if(play.runEl>ws && play.slideEl<0){ ctx.strokeStyle='rgba(140,255,168,0.7)'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(rp[0],rp[1],26,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle='#8effa8'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center'; ctx.fillText('スライド！',rp[0],rp[1]-36); } }
+}
+function hud(){
+  ctx.save(); ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(6,20,10,0.4)'; ctx.fillRect(0,0,W,42);
+  for(let i=0;i<MAXOUT;i++){ ctx.strokeStyle=i<outs?'#ff6b6b':'#889'; ctx.lineWidth=3; const ex=24+i*28; ctx.beginPath(); ctx.moveTo(ex-6,9); ctx.lineTo(ex+6,21); ctx.moveTo(ex+6,9); ctx.lineTo(ex-6,21); ctx.stroke(); }
+  ctx.fillStyle='#cfe0ee'; ctx.font='bold 12px sans-serif'; ctx.textAlign='left'; ctx.fillText('OUT',24+MAXOUT*28-4,15);
+  ctx.textAlign='center'; ctx.fillStyle='#fff'; ctx.font='bold 24px sans-serif'; ctx.fillText('SCORE '+score,W/2,17);
+  ctx.fillStyle='#cfe0ee'; ctx.font='bold 12px sans-serif'; ctx.fillText('成功 '+steals+'　BEST '+best,W/2,35);
+  if(combo>=2){ ctx.textAlign='right'; ctx.fillStyle='#ffd23e'; ctx.font='bold 19px sans-serif'; ctx.fillText('連続 ×'+combo,W-18,18); }
+  ctx.restore();
+  // phase prompt
+  if(play){ ctx.textAlign='center'; ctx.textBaseline='middle';
+    if(play.phase==='set'){ ctx.fillStyle='#9fb0c8'; ctx.font='bold 18px sans-serif'; ctx.fillText('投手セット… リードして待て',450,560); }
+    else if(play.phase==='deliver'&&!play.broke){ ctx.fillStyle='#ffd23e'; ctx.font='bold 18px sans-serif'; ctx.fillText('投球モーションに入る“今”を狙え（タップ/スペース）',450,560); }
+  }
+}
+function drawTitle(){
+  ctx.save(); ctx.fillStyle='rgba(6,14,6,0.6)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#fff'; ctx.font='bold 56px sans-serif'; ctx.fillText('ホームスチール',W/2,120);
+  ctx.fillStyle='#ffd23e'; ctx.font='bold 21px sans-serif'; ctx.fillText('Steal Home — 一か八かの本盗',W/2,164);
+  ctx.fillStyle='#dfe6f0'; ctx.font='16px sans-serif';
+  const lines=['三塁から本盗を決めろ！','投手が投球モーションに入る“今”にタップ/スペースでスタート。','早すぎると牽制でアウト、遅れると間に合わない。','本塁手前でもう一度タップ＝スライドでタッチをかわせ。','良いスタート＋良いスライドでセーフ。3アウトで終了。'];
+  for(let i=0;i<lines.length;i++) ctx.fillText(lines[i],W/2,226+i*29);
+  ctx.fillStyle='#8effa8'; ctx.font='bold 22px sans-serif'; ctx.fillText('タップでプレイボール',W/2,H-70);
+  if(best>0){ ctx.fillStyle='#9fb0c8'; ctx.font='15px sans-serif'; ctx.fillText('ベストスコア '+best,W/2,H-42); }
+  ctx.restore();
+}
+function drawOver(){
+  ctx.save(); ctx.fillStyle='rgba(6,14,6,0.76)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#fff'; ctx.font='bold 46px sans-serif'; ctx.fillText('スリーアウト',W/2,132);
+  ctx.fillStyle='#ffd23e'; ctx.font='bold 64px sans-serif'; ctx.fillText(score+' pts',W/2,206);
+  const stats=[['本盗成功',steals+' 回'],['最高連続',bestCombo+' 連続'],['アウト',outs]];
+  ctx.font='19px sans-serif';
+  for(let i=0;i<stats.length;i++){ const yy=272+i*36; ctx.textAlign='right'; ctx.fillStyle='#9fb0c8'; ctx.fillText(stats[i][0],W/2-14,yy); ctx.textAlign='left'; ctx.fillStyle='#fff'; ctx.fillText(''+stats[i][1],W/2+14,yy); }
+  if(score>=best&&score>0){ ctx.textAlign='center'; ctx.fillStyle='#8effa8'; ctx.font='bold 20px sans-serif'; ctx.fillText('★ ベスト更新！ ★',W/2,272+stats.length*36+6); }
+  ctx.textAlign='center'; ctx.fillStyle='#8effa8'; ctx.font='bold 20px sans-serif'; ctx.fillText('タップでもう一度',W/2,H-54);
+  ctx.restore();
+}
+function render(){
+  ctx.save(); if(shake>0) ctx.translate(rr(-shake,shake),rr(-shake,shake));
+  fieldbg();
+  if(state==='play') scene();
+  for(const p of parts){ ctx.globalAlpha=Math.max(0,p.life); ctx.fillStyle=p.col; ctx.fillRect(p.x,p.y,p.sz,p.sz); }
+  ctx.globalAlpha=1;
+  for(const f of floats){ ctx.globalAlpha=Math.max(0,f.life); ctx.fillStyle=f.c; ctx.font='bold 22px sans-serif'; ctx.textAlign='center'; ctx.fillText(f.t,f.x,f.y); }
+  ctx.globalAlpha=1;
+  if(state==='play') hud();
+  ctx.restore();
+  if(flashG>0){ ctx.fillStyle='rgba(140,255,168,'+(flashG*0.2)+')'; ctx.fillRect(0,0,W,H); }
+  if(flashR>0){ ctx.fillStyle='rgba(255,60,60,'+(flashR*0.3)+')'; ctx.fillRect(0,0,W,H); }
+  if(state==='title') drawTitle();
+  if(state==='over') drawOver();
+}
+function frame(now){ let dt=now-last; last=now; if(dt>60)dt=60; update(dt); render(); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__sh={
+  get state(){return state;},
+  get steals(){return steals;}, get outs(){return outs;}, get score(){return score;}, get combo(){return combo;},
+  get info(){ if(!play)return null; return {phase:play.phase, el:play.el, tc:play.tc, tr:play.tr, broke:play.broke,
+    runEl:play.runEl, runDur:play.runDur, slideStart:play.runDur-170, slid:play.slideEl>=0, resolved:play.resolved}; },
+  press(){ press(); }, tap(){ press(); }, start(){ if(state!=='play')press(); }
+};
+})();
+</script>
+</body>
+</html>
