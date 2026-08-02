@@ -94,6 +94,7 @@
 | 86 | 守護神 1対1 (Sweeper Keeper) | ⚽ Soccer | [86-sweeper-keeper.html](86-sweeper-keeper.html) | https://claude.ai/code/artifact/fe267a13-e6d9-489f-b12f-eae55a311404 |
 | 87 | ショートバウンド (Pick It) | ⚾ Baseball | [87-pick-it.html](87-pick-it.html) | https://claude.ai/code/artifact/0317a65e-17dd-4381-b396-7004edc112e0 |
 | 88 | 股抜きドリブル (Nutmeg Run) | ⚽ Soccer | [88-nutmeg.html](88-nutmeg.html) | https://claude.ai/code/artifact/7dbccd03-2253-4e5f-bcda-e85826557825 |
+| 89 | ヤマ張り (Guess & Crush) | ⚾ Baseball | [89-guess-hitting.html](89-guess-hitting.html) | https://claude.ai/code/artifact/15c32f00-a873-4467-aa77-a61cd8d20929 |
 
 ---
 
@@ -180,6 +181,7 @@ Baseball ⚾
 - ~~守護神1対1（GKの飛び出しタイミング：ドリブル突破に対しボールが足元から離れた瞬間に詰めて奪う、足元で出るとかわされ遅れると撃たれる、3失点で終了）~~ (done #86)
 - ~~ショートバウンド（一塁のスクープ：ワンバウンド送球を「ショートバウンド」か「大きな跳ね」の2つの好機で掬う、中途半端ではじく、速い走者は短い好機で刺せ、二段スイートスポット＋走者レースの新タイミング機構）~~ (done #87)
 - ~~股抜きドリブル（向かってくるDFの股を足が開いた瞬間に抜く連続タイミングゲー：早すぎ遅すぎ・フェイントの早い開きに釣られると奪われる、連続コンボ、3ロストで終了）~~ (done #88)
+- ~~ヤマ張り（読みの打撃：捕手のミットからコースを予測して狙う枠にヤマを張り、ズバリなら特大アーチ、外れて泳ぐと空振り、ミットに騙しあり、予測＋配置＋スイングタイミングの新機構、3アウトで終了）~~ (done #89)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
