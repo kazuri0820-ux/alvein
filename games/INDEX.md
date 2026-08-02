@@ -93,6 +93,7 @@
 | 85 | 豪速球チャレンジ (Fireballer) | ⚾ Baseball | [85-fireballer.html](85-fireballer.html) | https://claude.ai/code/artifact/6fe081e2-8609-4b1d-9a46-6720ffdef67e |
 | 86 | 守護神 1対1 (Sweeper Keeper) | ⚽ Soccer | [86-sweeper-keeper.html](86-sweeper-keeper.html) | https://claude.ai/code/artifact/fe267a13-e6d9-489f-b12f-eae55a311404 |
 | 87 | ショートバウンド (Pick It) | ⚾ Baseball | [87-pick-it.html](87-pick-it.html) | https://claude.ai/code/artifact/0317a65e-17dd-4381-b396-7004edc112e0 |
+| 88 | 股抜きドリブル (Nutmeg Run) | ⚽ Soccer | [88-nutmeg.html](88-nutmeg.html) | https://claude.ai/code/artifact/7dbccd03-2253-4e5f-bcda-e85826557825 |
 
 ---
 
@@ -178,6 +179,7 @@ Baseball ⚾
 - ~~豪速球チャレンジ（投球フォームを3拍のリズムで刻むピッチング：セット・踏込・リリースを合わせるほど球速＆制球アップ、ミトへズバッ、リズム乱れで暴投、制球ミス3回で降板）~~ (done #85)
 - ~~守護神1対1（GKの飛び出しタイミング：ドリブル突破に対しボールが足元から離れた瞬間に詰めて奪う、足元で出るとかわされ遅れると撃たれる、3失点で終了）~~ (done #86)
 - ~~ショートバウンド（一塁のスクープ：ワンバウンド送球を「ショートバウンド」か「大きな跳ね」の2つの好機で掬う、中途半端ではじく、速い走者は短い好機で刺せ、二段スイートスポット＋走者レースの新タイミング機構）~~ (done #87)
+- ~~股抜きドリブル（向かってくるDFの股を足が開いた瞬間に抜く連続タイミングゲー：早すぎ遅すぎ・フェイントの早い開きに釣られると奪われる、連続コンボ、3ロストで終了）~~ (done #88)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
