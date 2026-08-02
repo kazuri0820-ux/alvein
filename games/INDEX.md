@@ -89,6 +89,7 @@
 | 81 | ホットコーナー (Hot Corner) | ⚾ Baseball | [81-hot-corner.html](81-hot-corner.html) | https://claude.ai/code/artifact/e22c307c-0b4a-4397-9823-b1abe10e3a21 |
 | 82 | ゴール前の詰め (Poacher) | ⚽ Soccer | [82-poacher.html](82-poacher.html) | https://claude.ai/code/artifact/cba95b47-b309-4ec6-adb7-e0066cefd183 |
 | 83 | 内野ポップフライ (Camp Under It) | ⚾ Baseball | [83-pop-up.html](83-pop-up.html) | https://claude.ai/code/artifact/5be06a67-7605-48b4-916e-967358d8f255 |
+| 84 | キーパーの配球 (Launch the Counter) | ⚽ Soccer | [84-distribution.html](84-distribution.html) | https://claude.ai/code/artifact/25cabf72-63a8-4d5f-ade3-55566f7408f9 |
 
 ---
 
@@ -170,6 +171,7 @@ Baseball ⚾
 - ~~ホットコーナー（三塁の反射神経ゲー：襲い来る打球の方向を瞬時に読み←→↑↓の正しいグラブさばきを入力、ファウルは見送り、逆を突かれると失策、3エラーで終了）~~ (done #81)
 - ~~ゴール前の詰め（ポーチャー：こぼれ球に詰めて一発で押し込む。合わせる左右でシュート方向が変わり、GKの逆を突く。空振り・クリアで3チャンス失うと終了）~~ (done #82)
 - ~~内野ポップフライ（落下点に入れ：高く上がった打球を風の流れと太陽の眩しさに逆らって影に入り自動キャッチ、2Dで野手を動かす守備位置取りゲー、3落球で終了）~~ (done #83)
+- ~~キーパーの配球（セーブ後の配球でカウンター始動：空いたパスコースの味方を見極め、寄せ切られる前にタップでパス、遠い味方ほど高得点、カット・被寄せ3回で終了の判断ゲー）~~ (done #84)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
