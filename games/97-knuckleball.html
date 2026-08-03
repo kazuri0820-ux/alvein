@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ナックルボール — Knuckleball Catcher</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{width:100%;height:100%;background:#0a1018;overflow:hidden;
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    touch-action:none;user-select:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;aspect-ratio:900/600;max-width:100%;max-height:100%;
+    width:auto;height:auto;box-shadow:0 0 60px rgba(0,0,0,.6);}
+  canvas{display:block;width:100%;height:100%;border-radius:6px;cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="c" width="900" height="600"></canvas></div></div>
+<script>
+(function(){
+"use strict";
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const W=900,H=600;
+let dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+function fit(){ dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1)); cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); }
+fit(); window.addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){AC=null;} } return AC; }
+function tone(f,d,type,g,f2){ const a=ac(); if(!a)return; const o=a.createOscillator(),gg=a.createGain();
+  o.type=type||'sine'; o.frequency.setValueAtTime(f,a.currentTime); if(f2)o.frequency.exponentialRampToValueAtTime(Math.max(30,f2),a.currentTime+d);
+  gg.gain.setValueAtTime(0.0001,a.currentTime); gg.gain.exponentialRampToValueAtTime(g||0.2,a.currentTime+0.01);
+  gg.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d); o.connect(gg); gg.connect(a.destination); o.start(); o.stop(a.currentTime+d+0.02); }
+function noise(d,g,cut){ const a=ac(); if(!a)return; const n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n); const src=a.createBufferSource(); src.buffer=buf;
+  const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=cut||1200; const gg=a.createGain(); gg.gain.value=g||0.2;
+  src.connect(f); f.connect(gg); gg.connect(a.destination); src.start(); }
+const S={
+  pitch(){ noise(0.14,0.1,700); },
+  catchClean(){ noise(0.05,0.42,1900); tone(420,0.08,'square',0.12,620); setTimeout(()=>tone(760,0.08,'sine',0.08),40); },
+  catch(){ noise(0.06,0.36,1500); tone(320,0.07,'square',0.1,420); },
+  passed(){ noise(0.26,0.32,600); tone(160,0.28,'sawtooth',0.14,70); },
+  over(){ noise(0.3,0.3,600); tone(150,0.4,'sawtooth',0.16,60); },
+  cheer(){ const a=ac(); if(!a)return; noise(0.7,0.2,1900); for(let i=0;i<5;i++)setTimeout(()=>tone(500+Math.random()*320,0.3,'sine',0.05),i*46); }
+};
+
+// ---------- geometry ----------
+const RELY=150, CATCHY=452, GY=468, PLATEX=450;
+const GXMIN=170, GXMAX=730;
+const CLEANR=18, CATCHR=42;
+
+// ---------- state ----------
+let state='title';
+let catches=0, passed=0, score=0, combo=0, bestCombo=0;
+let best=+(localStorage.getItem('kb_best')||0);
+let pit=null, nextTimer=0, res=null;
+let glove={x:450, tx:450};
+let parts=[], floats=[], shake=0, flashG=0, flashR=0, gloveFx=0;
+let last=performance.now();
+const MAXPASS=3;
+
+function reset(){ catches=0; passed=0; score=0; combo=0; bestCombo=0; pit=null; res=null; nextTimer=500; parts=[]; floats=[]; glove.x=glove.tx=450; }
+function level(){ return Math.floor(catches/5); }
+function rr(a,b){ return a+Math.random()*(b-a); }
+
+function spawn(){
+  const lv=level();
+  const type = Math.random()<0.72?'knuckle':(Math.random()<0.5?'fast':'spike');
+  const D = Math.max(760, 1400-lv*70);
+  const amp = 80 + lv*16;
+  pit={ type, D, el:0, t:0, fx:0, fvx:0, x:PLATEX, y:RELY, amp, trail:[], resolved:false,
+        spikeDir:(Math.random()<0.5?-1:1), spikeAmt:rr(90,150)+lv*8, startX:PLATEX+rr(-60,60) };
+  S.pitch();
+}
+
+function ballX(){
+  const t=Math.min(1,pit.t);
+  if(pit.type==='fast'){ return pit.startX + (PLATEX-pit.startX)*t; }
+  if(pit.type==='spike'){ // straight then a late single break
+    const b = t<0.7?0 : ((t-0.7)/0.3)*pit.spikeDir*pit.spikeAmt;
+    return pit.startX + (PLATEX-pit.startX)*t + b;
+  }
+  // knuckle: smooth erratic wobble that grows late
+  return PLATEX + pit.fx*(0.35+0.65*t);
+}
+
+function update(dt){
+  if(shake>0)shake=Math.max(0,shake-dt/24);
+  if(flashG>0)flashG=Math.max(0,flashG-dt/280);
+  if(flashR>0)flashR=Math.max(0,flashR-dt/360);
+  if(gloveFx>0)gloveFx=Math.max(0,gloveFx-dt/220);
+  for(const p of parts){ p.x+=p.vx; p.y+=p.vy; p.vy+=p.g; p.life-=dt/900; } parts=parts.filter(p=>p.life>0);
+  for(const f of floats){ f.y-=dt*0.02; f.life-=dt/1000; } floats=floats.filter(f=>f.life>0);
+  // glove ease (limited speed)
+  const gd=glove.tx-glove.x; glove.x+=Math.max(-0.7*dt,Math.min(0.7*dt,gd)); glove.x=Math.max(GXMIN,Math.min(GXMAX,glove.x));
+  if(state!=='play') return;
+  if(!pit){ nextTimer-=dt; if(nextTimer<=0) spawn(); return; }
+  if(pit.resolved) return;
+  pit.el+=dt; pit.t=pit.el/pit.D;
+  if(pit.type==='knuckle'){ pit.fvx += rr(-0.010,0.010)*dt*(0.6+pit.t); pit.fvx*=Math.pow(0.93,dt/16); pit.fx+=pit.fvx*dt; if(Math.abs(pit.fx)>pit.amp){ pit.fx=Math.sign(pit.fx)*pit.amp; pit.fvx*=-0.5; } }
+  pit.x=ballX(); pit.y=RELY+(CATCHY-RELY)*Math.min(1,pit.t);
+  pit.trail.push({x:pit.x,y:pit.y}); if(pit.trail.length>10)pit.trail.shift();
+  if(pit.t>=1){ resolve(); }
+}
+function resolve(){
+  pit.resolved=true; const d=Math.abs(glove.x-pit.x);
+  if(d<CLEANR){ good('clean'); }
+  else if(d<CATCHR){ good('catch'); }
+  else{
+    passed++; combo=0; flashR=0.6; shake=9; S.passed(); res={kind:'passed'};
+    floatText(pit.x,CATCHY-30,'パスボール…','#ff6b6b');
+    for(let k=0;k<12;k++){ const a=Math.random()*Math.PI*2,s=rr(1,4); parts.push({x:pit.x,y:CATCHY,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,col:'#ff6b6b',g:0.15,sz:rr(2,4)}); }
+    nextTimer=760; if(passed>=MAXPASS) setTimeout(gameOver,780);
+    setTimeout(()=>{ if(passed<MAXPASS){ pit=null; res=null; } }, 560);
+  }
+}
+function good(kind){
+  catches++; combo++; if(combo>bestCombo)bestCombo=combo;
+  const pts=(kind==='clean'?60:30)+combo*10; score+=pts;
+  gloveFx=1; flashG=0.35;
+  if(kind==='clean'){ S.catchClean(); floatText(pit.x,CATCHY-30,'ナイスキャッチ！ +'+pts,'#ffd23e'); }
+  else { S.catch(); floatText(pit.x,CATCHY-30,'キャッチ +'+pts,'#8effa8'); }
+  for(let k=0;k<(kind==='clean'?14:8);k++){ const a=Math.random()*Math.PI*2,s=rr(1,4); parts.push({x:pit.x,y:CATCHY,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,col:kind==='clean'?'#ffd23e':'#8effa8',g:0.13,sz:rr(2,4)}); }
+  if(combo>0&&combo%8===0) setTimeout(()=>S.cheer(),120);
+  res={kind}; nextTimer=560; setTimeout(()=>{ pit=null; res=null; }, 420);
+}
+function gameOver(){ state='over'; if(score>best){ best=score; try{localStorage.setItem('kb_best',best);}catch(e){} } S.over(); }
+function floatText(x,y,t,c){ floats.push({x,y,t,c:c||'#fff',life:1}); }
+
+// ---------- input ----------
+function evX(e){ const r=cv.getBoundingClientRect(); return (e.clientX-r.left)/r.width*W; }
+let ptdown=false;
+function press(){ ac(); if(state==='title'){ reset(); state='play'; return; } if(state==='over'){ state='title'; return; } }
+cv.addEventListener('pointerdown',e=>{ e.preventDefault(); ac(); if(state!=='play'){ press(); return; } ptdown=true; glove.tx=Math.max(GXMIN,Math.min(GXMAX,evX(e))); });
+cv.addEventListener('pointermove',e=>{ if(state!=='play')return; if(ptdown||e.pointerType==='mouse'){ glove.tx=Math.max(GXMIN,Math.min(GXMAX,evX(e))); } });
+cv.addEventListener('pointerup',()=>{ ptdown=false; });
+window.addEventListener('keydown',e=>{
+  if(state!=='play'){ if(e.code==='Space'||e.code==='Enter'){ e.preventDefault(); press(); } return; }
+  if(e.code==='ArrowLeft'||e.code==='KeyA'){ glove.tx=Math.max(GXMIN,glove.tx-36); }
+  else if(e.code==='ArrowRight'||e.code==='KeyD'){ glove.tx=Math.min(GXMAX,glove.tx+36); }
+});
+
+// ---------- render ----------
+function scene(){
+  let g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#12233a'); g.addColorStop(0.5,'#1a3a2a'); g.addColorStop(1,'#0e2418');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#14304a'; ctx.fillRect(0,70,W,54);
+  // dirt around plate
+  ctx.fillStyle='#7a5433'; ctx.beginPath(); ctx.ellipse(PLATEX,CATCHY+70,240,90,0,0,Math.PI*2); ctx.fill();
+  // catcher's box
+  ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=2; ctx.strokeRect(PLATEX-120,CATCHY-30,240,120);
+  // home plate
+  ctx.fillStyle='#eee'; ctx.beginPath(); ctx.moveTo(PLATEX-18,CATCHY+80); ctx.lineTo(PLATEX+18,CATCHY+80); ctx.lineTo(PLATEX+18,CATCHY+92); ctx.lineTo(PLATEX,CATCHY+104); ctx.lineTo(PLATEX-18,CATCHY+92); ctx.closePath(); ctx.fill();
+  // pitcher
+  ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(PLATEX,RELY+18,18,6,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#dfe6f0'; ctx.beginPath(); ctx.ellipse(PLATEX,RELY-4,12,16,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#e8c9a0'; ctx.beginPath(); ctx.arc(PLATEX,RELY-24,8,0,Math.PI*2); ctx.fill();
+}
+function ballDraw(){
+  if(!pit||pit.resolved) return;
+  ctx.save();
+  for(let i=0;i<pit.trail.length;i++){ const t=pit.trail[i]; ctx.globalAlpha=i/pit.trail.length*0.4; ctx.fillStyle=pit.type==='knuckle'?'#b48bff':(pit.type==='spike'?'#5ad1ff':'#ff6b6b'); ctx.beginPath(); ctx.arc(t.x,t.y,5,0,Math.PI*2); ctx.fill(); }
+  ctx.globalAlpha=1;
+  const r=6+8*Math.min(1,pit.t);
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(pit.x,pit.y,r,0,Math.PI*2); ctx.fill();
+  // knuckleball has (almost) no spin marks
+  if(pit.type!=='knuckle'){ ctx.strokeStyle='#c33'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(pit.x-r*0.4,pit.y,r*0.9,-0.8,0.8); ctx.stroke(); }
+  else { ctx.fillStyle='#e33'; ctx.beginPath(); ctx.arc(pit.x,pit.y,2,0,Math.PI*2); ctx.fill(); }
+  ctx.restore();
+}
+function glovedraw(){
+  const gp=1+gloveFx*0.4;
+  // catcher body
+  ctx.fillStyle='#25324a'; ctx.beginPath(); ctx.ellipse(glove.x,GY+34,26,16,0,Math.PI,0,true); ctx.fill();
+  ctx.fillStyle='#2f3f5c'; ctx.beginPath(); ctx.arc(glove.x,GY+16,18,0,Math.PI*2); ctx.fill();
+  // catch radius hint
+  ctx.strokeStyle='rgba(255,255,255,0.14)'; ctx.setLineDash([4,6]); ctx.lineWidth=2; ctx.beginPath(); ctx.arc(glove.x,CATCHY,CATCHR,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+  // glove (mitt)
+  ctx.save(); ctx.translate(glove.x,CATCHY); ctx.scale(gp,gp);
+  ctx.fillStyle='#6b4423'; ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#8a5a2e'; ctx.beginPath(); ctx.arc(0,0,9,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function hud(){
+  ctx.save(); ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(6,12,18,0.45)'; ctx.fillRect(0,0,W,42);
+  for(let i=0;i<MAXPASS;i++){ ctx.fillStyle=i<(MAXPASS-passed)?'#8effa8':'#334'; ctx.beginPath(); ctx.arc(24+i*24,15,8,0,Math.PI*2); ctx.fill(); }
+  ctx.fillStyle='#9fdcb0'; ctx.font='bold 12px sans-serif'; ctx.textAlign='left'; ctx.fillText('捕り逃しまで',24+MAXPASS*24-4,15);
+  ctx.textAlign='center'; ctx.fillStyle='#fff'; ctx.font='bold 24px sans-serif'; ctx.fillText('SCORE '+score,W/2,17);
+  ctx.fillStyle='#cfe0ee'; ctx.font='bold 12px sans-serif'; ctx.fillText('捕球 '+catches+'　BEST '+best,W/2,35);
+  if(combo>=2){ ctx.textAlign='right'; ctx.fillStyle='#ffd23e'; ctx.font='bold 19px sans-serif'; ctx.fillText('連続 ×'+combo,W-18,18); }
+  ctx.restore();
+  if(pit&&!pit.resolved&&pit.t<0.2){ ctx.textAlign='center'; ctx.fillStyle=pit.type==='knuckle'?'#b48bff':(pit.type==='spike'?'#5ad1ff':'#ff6b6b'); ctx.font='bold 16px sans-serif'; ctx.fillText(pit.type==='knuckle'?'ナックル！ 揺れる球を追え':(pit.type==='spike'?'スパイクカーブ late break':'ストレート'),W/2,H-22); }
+}
+function drawTitle(){
+  ctx.save(); ctx.fillStyle='rgba(4,10,16,0.62)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#fff'; ctx.font='bold 56px sans-serif'; ctx.fillText('ナックルボール',W/2,120);
+  ctx.fillStyle='#b48bff'; ctx.font='bold 21px sans-serif'; ctx.fillText('Knuckleball Catcher — 揺れる魔球を掴め',W/2,164);
+  ctx.fillStyle='#dfe6f0'; ctx.font='16px sans-serif';
+  const lines=['予測不能に揺れるナックルを捕手として捕れ！','ドラッグ / マウス / ←→ でミットを左右に動かし球を追う。','プレートに届く瞬間にミットが球に重なっていれば捕球。','ど真ん中で掴めばナイスキャッチで高得点。','外すとパスボール。3回逃すとゲームオーバー。'];
+  for(let i=0;i<lines.length;i++) ctx.fillText(lines[i],W/2,222+i*29);
+  ctx.fillStyle='#8effa8'; ctx.font='bold 22px sans-serif'; ctx.fillText('タップでプレイボール',W/2,H-70);
+  if(best>0){ ctx.fillStyle='#9fb0c8'; ctx.font='15px sans-serif'; ctx.fillText('ベストスコア '+best,W/2,H-42); }
+  ctx.restore();
+}
+function drawOver(){
+  ctx.save(); ctx.fillStyle='rgba(4,10,16,0.78)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#fff'; ctx.font='bold 46px sans-serif'; ctx.fillText('3パスボール',W/2,132);
+  ctx.fillStyle='#ffd23e'; ctx.font='bold 64px sans-serif'; ctx.fillText(score+' pts',W/2,206);
+  const stats=[['捕球数',catches+' 個'],['最高連続',bestCombo+' 連続'],['パスボール',passed]];
+  ctx.font='19px sans-serif';
+  for(let i=0;i<stats.length;i++){ const yy=272+i*36; ctx.textAlign='right'; ctx.fillStyle='#9fb0c8'; ctx.fillText(stats[i][0],W/2-14,yy); ctx.textAlign='left'; ctx.fillStyle='#fff'; ctx.fillText(''+stats[i][1],W/2+14,yy); }
+  if(score>=best&&score>0){ ctx.textAlign='center'; ctx.fillStyle='#8effa8'; ctx.font='bold 20px sans-serif'; ctx.fillText('★ ベスト更新！ ★',W/2,272+stats.length*36+6); }
+  ctx.textAlign='center'; ctx.fillStyle='#8effa8'; ctx.font='bold 20px sans-serif'; ctx.fillText('タップでもう一度',W/2,H-54);
+  ctx.restore();
+}
+function render(){
+  ctx.save(); if(shake>0) ctx.translate(rr(-shake,shake),rr(-shake,shake));
+  scene();
+  if(state==='play'){ ballDraw(); glovedraw(); }
+  for(const p of parts){ ctx.globalAlpha=Math.max(0,p.life); ctx.fillStyle=p.col; ctx.fillRect(p.x,p.y,p.sz,p.sz); }
+  ctx.globalAlpha=1;
+  for(const f of floats){ ctx.globalAlpha=Math.max(0,f.life); ctx.fillStyle=f.c; ctx.font='bold 22px sans-serif'; ctx.textAlign='center'; ctx.fillText(f.t,f.x,f.y); }
+  ctx.globalAlpha=1;
+  if(state==='play') hud();
+  ctx.restore();
+  if(flashG>0){ ctx.fillStyle='rgba(140,255,168,'+(flashG*0.18)+')'; ctx.fillRect(0,0,W,H); }
+  if(flashR>0){ ctx.fillStyle='rgba(255,60,60,'+(flashR*0.3)+')'; ctx.fillRect(0,0,W,H); }
+  if(state==='title') drawTitle();
+  if(state==='over') drawOver();
+}
+function frame(now){ let dt=now-last; last=now; if(dt>60)dt=60; update(dt); render(); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__kb={
+  get state(){return state;},
+  get catches(){return catches;}, get passed(){return passed;}, get score(){return score;}, get combo(){return combo;},
+  get ball(){ return (pit&&!pit.resolved)?{x:pit.x,y:pit.y,t:pit.t,type:pit.type}:null; },
+  get glove(){ return {x:glove.x}; }, get catchR(){ return CATCHR; },
+  setX(x){ glove.tx=Math.max(GXMIN,Math.min(GXMAX,x)); }, tap(){ press(); }, start(){ if(state!=='play')press(); }
+};
+})();
+</script>
+</body>
+</html>

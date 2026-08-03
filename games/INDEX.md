@@ -102,6 +102,7 @@
 | 94 | クロスに合わせろ (Attack the Cross) | ⚽ Soccer | [94-attack-the-cross.html](94-attack-the-cross.html) | https://claude.ai/code/artifact/7b8131ae-7b13-4362-a409-0f0ec73f5cba |
 | 95 | フィールダースチョイス (Where's the Play) | ⚾ Baseball | [95-wheres-the-play.html](95-wheres-the-play.html) | https://claude.ai/code/artifact/b821f3d1-effb-44be-8832-9df49bb55755 |
 | 96 | フリースタイル (Keepie-Uppie) | ⚽ Soccer | [96-freestyle.html](96-freestyle.html) | https://claude.ai/code/artifact/23858fe7-82a9-44b3-8ce9-7c6b96aef2da |
+| 97 | ナックルボール (Knuckleball Catcher) | ⚾ Baseball | [97-knuckleball.html](97-knuckleball.html) | https://claude.ai/code/artifact/5a193077-b339-403c-a868-f70d5b7a9337 |
 
 ---
 
@@ -196,6 +197,7 @@ Baseball ⚾
 - ~~クロスに合わせろ（クロスにヘディング：落下点へ入りDFより先に頭で合わせる、合わせる左右でコースが変わりGKの逆へ流し込む、届かず・被クリア・被セーブ・タイミングミスで失敗、3回で終了）~~ (done #94)
 - ~~フィールダースチョイス（守備判断：ゴロを捕り走者のカウントダウンを読んで投げる塁を選ぶ、本塁で刺せば失点阻止＆高得点、無駄投げや本塁を刺せず失点で3失点終了の新機構）~~ (done #95)
 - ~~フリースタイル（リフティング：落ちてくる部位=足腿胸頭に合わせて対応ボタンをタイミングよくタッチ、部位ちがい・早遅で落球、連続で倍率、金玉はスペシャル、3落球で終了）~~ (done #96)
+- ~~ナックルボール（追尾：予測不能に揺れる魔球を捕手のミットで追い続け、プレート到達時に重ねて捕球、ど真ん中でナイスキャッチ、外すとパスボール、3逃しで終了の追跡新機構）~~ (done #97)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
