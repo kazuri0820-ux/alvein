@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>セービング (Shot-Stopper)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:#0a1016;overflow:hidden;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif}
+  #wrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  #stage{position:relative;width:min(100vw,calc(100vh*1.5));aspect-ratio:900/600;max-width:900px;
+    box-shadow:0 10px 60px rgba(0,0,0,.6);border-radius:10px;overflow:hidden;touch-action:none}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #hint{position:absolute;left:0;bottom:6px;width:100%;text-align:center;color:#cfe;
+    font-size:12px;opacity:.55;pointer-events:none;text-shadow:0 1px 3px #000}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="hint">飛んでくるシュートのコースへダイブ！ Q/E=上・左右, A/D=下・左右, S=正面 ・ ゴール内をタップでも ・ 強シュートは早めに</div>
+</div></div>
+<script>
+(()=>{
+const cv=document.getElementById('cv'), g=cv.getContext('2d');
+const W=900,H=600;
+let DPR=1;
+function fit(){ DPR=Math.min(2,window.devicePixelRatio||1); cv.width=W*DPR; cv.height=H*DPR; g.setTransform(DPR,0,0,DPR,0,0); }
+fit(); addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
+function tone(f,d,t,v,sweep){ const a=ac(); if(!a)return; const o=a.createOscillator(),gg=a.createGain();
+  o.type=t||'sine'; o.frequency.value=f; if(sweep) o.frequency.exponentialRampToValueAtTime(Math.max(20,sweep),a.currentTime+d);
+  gg.gain.setValueAtTime(0.0001,a.currentTime); gg.gain.exponentialRampToValueAtTime(v||0.2,a.currentTime+0.012);
+  gg.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d); o.connect(gg).connect(a.destination);
+  o.start(); o.stop(a.currentTime+d+0.02); }
+function noise(d,v,hp){ const a=ac(); if(!a)return; const n=a.createBuffer(1,a.sampleRate*d,a.sampleRate); const ch=n.getChannelData(0);
+  for(let i=0;i<ch.length;i++) ch[i]=(Math.random()*2-1)*(1-i/ch.length);
+  const s=a.createBufferSource(); s.buffer=n; const f=a.createBiquadFilter(); f.type='highpass'; f.frequency.value=hp||600;
+  const gg=a.createGain(); gg.gain.value=v||0.15; s.connect(f).connect(gg).connect(a.destination); s.start(); }
+const S={
+  shoot(){ noise(0.05,0.16,900); tone(240,0.08,'square',0.1,140); },
+  dive(){ tone(360,0.12,'sawtooth',0.08,200); },
+  save(){ noise(0.1,0.16,700); tone(520,0.12,'square',0.14,820); setTimeout(()=>tone(780,0.14,'square',0.12,1100),70); },
+  bigsave(){ S.save(); setTimeout(()=>tone(1180,0.2,'triangle',0.12,1700),200); },
+  goal(){ noise(0.24,0.2,240); tone(170,0.3,'sawtooth',0.16,60); },
+  over(){ tone(300,0.5,'sawtooth',0.16,90); setTimeout(()=>tone(200,0.6,'sawtooth',0.14,60),160); },
+  tick(){ tone(880,0.03,'square',0.04); },
+};
+
+// ---------- state ----------
+let state='title';
+let parts=[], pops=[];
+let score, saves, conceded, combo, best, lvl, cleanStreak;
+let sh=null;
+let flash=0, shakeT=0;
+try{ best=+localStorage.getItem('ss_best')||0; }catch(e){ best=0; }
+
+const GOAL={x:450, y:70, w:380, h:150};   // goal box (posts)
+const KEEP0={x:450, y:250};                // keeper rest pos
+const SHOOTER={x:450, y:500};
+// 5 target zones (ball destination points inside goal)
+const ZONES={
+  TL:{x:GOAL.x-140, y:GOAL.y+40, key:'TL', label:'左上'},
+  TR:{x:GOAL.x+140, y:GOAL.y+40, key:'TR', label:'右上'},
+  BL:{x:GOAL.x-140, y:GOAL.y+120, key:'BL', label:'左下'},
+  BR:{x:GOAL.x+140, y:GOAL.y+120, key:'BR', label:'右下'},
+  C:{x:GOAL.x, y:GOAL.y+90, key:'C', label:'正面'},
+};
+const ZKEYS=['TL','TR','BL','BR','C'];
+
+function reset(){ parts=[]; pops=[]; score=0; saves=0; conceded=0; combo=0; lvl=0; cleanStreak=0; sh=null; flash=0; shakeT=0; nextShot(); }
+
+function nextShot(){
+  lvl=Math.floor(saves/5);
+  const zone=ZKEYS[Math.floor(Math.random()*5)];
+  const power = Math.random()<Math.min(0.5,0.2+lvl*0.06);
+  const dur = (power?520:760) - Math.min(power?200:360, lvl*40);
+  sh={ phase:'wind', t:0, windDur:420-Math.min(220,lvl*30), dur, zone, power,
+       flightT:0, dived:null, divedAt:0, keeperZone:null, res:null, resT:0,
+       ticked:-1, rebound:false, clutch: lvl>=2 && Math.random()<0.18 };
+}
+
+// keeper current drawn position (eases toward dive target)
+let keeper={x:KEEP0.x, y:KEEP0.y};
+
+function inReactWindow(){ return sh.phase==='flight' && sh.flightT < sh.dur*0.9; }
+
+function dive(zone){
+  if(!sh) return;
+  if(sh.phase==='wind'){ // committed before the shot -> guessing; lock it (risky)
+    sh.dived=zone; sh.keeperZone=zone; S.dive(); return;
+  }
+  if(sh.phase==='flight' && !sh.dived){
+    sh.dived=zone; sh.keeperZone=zone; sh.divedAt=sh.flightT; S.dive();
+  }
+}
+function resolveShot(){
+  sh.phase='resolve'; sh.resT=0;
+  const matched = sh.dived && sh.keeperZone===sh.zone;
+  const inTime = sh.divedAt < sh.dur*0.90;   // divedAt=0 when committed in wind -> in time
+  if(matched && inTime){ sh.res = (sh.divedAt>=sh.dur*0.60)?'bigsave':'save'; }
+  else sh.res='goal';   // wrong zone, no dive, or dived too late
+}
+function applyResult(){
+  if(sh.res==='save'||sh.res==='bigsave'){
+    saves++; combo++; cleanStreak++;
+    let gained=Math.round(((sh.res==='bigsave'?90:60)+combo*10+(sh.power?40:0))*(sh.clutch?2:1));
+    score+=gained;
+    pops.push({txt:(sh.res==='bigsave'?'ビッグセーブ！ +':'ナイスセーブ！ +')+gained, big:true, y:290, life:1.05, c:'#ffe15a'});
+    flash=Math.max(flash,sh.res==='bigsave'?0.5:0.35); (sh.res==='bigsave'?S.bigsave():S.save());
+    burst(ZONES[sh.zone].x,ZONES[sh.zone].y,'#8fffb0',sh.res==='bigsave'?26:16);
+  } else {
+    conceded++; combo=0; cleanStreak=0; shakeT=0.4; flash=Math.max(flash,0.45); S.goal();
+    pops.push({txt:'ゴールを許した…', big:true, y:290, life:1.05, c:'#ff6a6a', bad:true});
+    burst(ZONES[sh.zone].x,ZONES[sh.zone].y,'#ff6a6a',22);
+  }
+  if(conceded>=3) gameOver();
+}
+function gameOver(){ state='over'; S.over(); if(score>best){ best=score; try{localStorage.setItem('ss_best',best);}catch(e){} } }
+function burst(x,y,c,n){ for(let i=0;i<n;i++) parts.push({x,y,vx:(Math.random()-0.5)*7,vy:(Math.random()-0.5)*7-1,life:1,c}); }
+
+// ---------- input ----------
+function start(){ ac(); reset(); state='play'; }
+function press(zone){ if(state==='title'||state==='over'){ start(); return; } if(state!=='play') return; dive(zone); }
+addEventListener('keydown',e=>{ if(e.repeat) return; const k=e.key.toLowerCase();
+  const map={q:'TL',e:'TR',a:'BL',d:'BR',s:'C',' ':'C',w:'TL',arrowleft:'BL',arrowright:'BR',arrowup:'TL',arrowdown:'C'};
+  if(map[k]!==undefined){ press(map[k]); e.preventDefault(); } });
+cv.addEventListener('pointerdown',e=>{ ac(); if(state!=='play'){ start(); return; }
+  const r=cv.getBoundingClientRect(); const x=(e.clientX-r.left)/r.width*W, y=(e.clientY-r.top)/r.height*H;
+  // nearest zone
+  let best2=null,bd=1e9; for(const k of ZKEYS){ const z=ZONES[k]; const d=(z.x-x)**2+(z.y-y)**2; if(d<bd){bd=d;best2=k;} }
+  press(best2); e.preventDefault(); });
+
+// ---------- update ----------
+function update(dt){
+  if(flash>0) flash=Math.max(0,flash-dt*0.003);
+  if(shakeT>0) shakeT-=dt*0.001;
+  parts.forEach(q=>{q.x+=q.vx;q.y+=q.vy;q.vy+=0.12;q.life-=dt*0.0022;});
+  parts=parts.filter(q=>q.life>0);
+  pops.forEach(q=>{q.y-=dt*0.03;q.life-=dt*0.0016;});
+  pops=pops.filter(q=>q.life>0);
+  // keeper ease toward target
+  const tgt = sh&&sh.keeperZone? ZONES[sh.keeperZone] : KEEP0;
+  keeper.x += (tgt.x-keeper.x)*Math.min(1,dt*0.014);
+  keeper.y += (tgt.y-keeper.y)*Math.min(1,dt*0.014);
+  if(state!=='play'||!sh) return;
+
+  if(sh.phase==='wind'){
+    sh.t+=dt;
+    if(sh.t>=sh.windDur){ sh.phase='flight'; sh.flightT=0; S.shoot(); }
+  } else if(sh.phase==='flight'){
+    sh.flightT+=dt;
+    const tk=Math.floor(sh.flightT/70);
+    if(tk!==sh.ticked){ sh.ticked=tk; S.tick(); }
+    if(sh.flightT>=sh.dur){ resolveShot(); }
+  } else if(sh.phase==='resolve'){
+    sh.resT+=dt;
+    if(sh.resT>=520 && !sh.applied){ sh.applied=true; applyResult(); }
+    if(sh.resT>=1150){ if(state==='play'){ keeper.x=KEEP0.x; keeper.y=KEEP0.y; nextShot(); } }
+  }
+}
+
+// ---------- render ----------
+function roundRect(x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+
+function drawField(){
+  const sky=g.createLinearGradient(0,0,0,GOAL.y+40); sky.addColorStop(0,'#0e2033'); sky.addColorStop(1,'#12324a'); g.fillStyle=sky; g.fillRect(0,0,W,GOAL.y+30);
+  const gr=g.createLinearGradient(0,GOAL.y,0,H); gr.addColorStop(0,'#1c6b39'); gr.addColorStop(1,'#2c9350'); g.fillStyle=gr; g.fillRect(0,GOAL.y+30,W,H);
+  // goal
+  g.fillStyle='rgba(0,0,0,0.18)'; g.fillRect(GOAL.x-GOAL.w/2, GOAL.y, GOAL.w, GOAL.h);
+  g.strokeStyle='rgba(255,255,255,0.92)'; g.lineWidth=7; g.strokeRect(GOAL.x-GOAL.w/2, GOAL.y, GOAL.w, GOAL.h);
+  g.strokeStyle='rgba(255,255,255,0.16)'; g.lineWidth=1;
+  for(let x=GOAL.x-GOAL.w/2;x<=GOAL.x+GOAL.w/2;x+=22){ g.beginPath(); g.moveTo(x,GOAL.y); g.lineTo(x,GOAL.y+GOAL.h); g.stroke(); }
+  for(let y=GOAL.y;y<=GOAL.y+GOAL.h;y+=20){ g.beginPath(); g.moveTo(GOAL.x-GOAL.w/2,y); g.lineTo(GOAL.x+GOAL.w/2,y); g.stroke(); }
+  // penalty arc
+  g.strokeStyle='rgba(255,255,255,0.14)'; g.lineWidth=3; g.beginPath(); g.arc(GOAL.x,GOAL.y+GOAL.h+20,150,0.12*Math.PI,0.88*Math.PI); g.stroke();
+}
+function drawKeeper(){
+  const diving = sh && sh.keeperZone && (Math.abs(keeper.x-KEEP0.x)>8||Math.abs(keeper.y-KEEP0.y)>8);
+  g.save(); g.translate(keeper.x,keeper.y);
+  const ang = diving? Math.atan2(keeper.x-KEEP0.x, 40)*0.7 : 0;
+  g.rotate(ang);
+  g.fillStyle='rgba(0,0,0,0.22)'; g.beginPath(); g.ellipse(0,20,20,6,0,0,6.28); g.fill();
+  g.fillStyle='#ffd54a'; roundRect(-13,-30,26,44,8); g.fill();
+  // arms reaching up/out
+  g.strokeStyle='#ffd54a'; g.lineWidth=10; g.lineCap='round';
+  g.beginPath(); g.moveTo(-10,-24); g.lineTo(-28,-42); g.moveTo(10,-24); g.lineTo(28,-42); g.stroke();
+  // gloves
+  g.fillStyle='#eaffff'; g.beginPath(); g.arc(-30,-44,7,0,6.28); g.arc(30,-44,7,0,6.28); g.fill();
+  g.strokeStyle='#20303a'; g.lineWidth=7; g.beginPath(); g.moveTo(-6,12); g.lineTo(-12,34); g.moveTo(6,12); g.lineTo(12,34); g.stroke();
+  g.fillStyle='#f2c9a0'; g.beginPath(); g.arc(0,-40,10,0,6.28); g.fill();
+  g.restore();
+}
+function drawShooter(){
+  const kick = sh && sh.phase==='flight' && sh.flightT<160;
+  g.save(); g.translate(SHOOTER.x + (sh&&sh.zone&&sh.zone.indexOf('R')>=0?-8:8), SHOOTER.y);
+  g.fillStyle='rgba(0,0,0,0.22)'; g.beginPath(); g.ellipse(0,20,18,6,0,0,6.28); g.fill();
+  g.fillStyle='#2b6cff'; roundRect(-12,-34,24,40,7); g.fill();
+  g.strokeStyle='#2b6cff'; g.lineWidth=8; g.lineCap='round';
+  if(kick){ g.beginPath(); g.moveTo(-4,6); g.lineTo(-24,-10); g.stroke(); }
+  else { g.beginPath(); g.moveTo(-4,4); g.lineTo(-8,26); g.stroke(); }
+  g.beginPath(); g.moveTo(6,4); g.lineTo(12,26); g.stroke();
+  g.fillStyle='#f2c9a0'; g.beginPath(); g.arc(0,-46,10,0,6.28); g.fill();
+  g.restore();
+}
+function drawBall(){
+  if(!sh) return;
+  if(sh.phase==='wind'){ g.fillStyle='#fff'; g.beginPath(); g.arc(SHOOTER.x-10,SHOOTER.y+4,9,0,6.28); g.fill(); g.strokeStyle='#333'; g.lineWidth=1.4; g.stroke(); return; }
+  if(sh.phase==='flight'||sh.phase==='resolve'){
+    const z=ZONES[sh.zone]; const prog = sh.phase==='flight'? Math.min(1,sh.flightT/sh.dur) : 1;
+    const bx=lerp(SHOOTER.x-10, z.x, prog), by=lerp(SHOOTER.y+4, z.y, prog);
+    const r=10-4*prog;
+    // motion trail
+    for(let i=1;i<=3;i++){ const p2=Math.max(0,prog-i*0.06); const tx=lerp(SHOOTER.x-10,z.x,p2),ty=lerp(SHOOTER.y+4,z.y,p2);
+      g.globalAlpha=0.12*(3-i); g.fillStyle=sh.power?'#ff9a5c':'#bfe9ff'; g.beginPath(); g.arc(tx,ty,r,0,6.28); g.fill(); }
+    g.globalAlpha=1;
+    g.fillStyle='#fff'; g.beginPath(); g.arc(bx,by,Math.max(4,r),0,6.28); g.fill();
+    g.strokeStyle=sh.power?'#e05a2c':'#333'; g.lineWidth=1.6; g.beginPath(); g.arc(bx,by,Math.max(4,r),0,6.28); g.stroke();
+  }
+}
+
+function render(){
+  g.clearRect(0,0,W,H);
+  g.save(); if(shakeT>0){ const s=shakeT*13; g.translate((Math.random()-0.5)*s,(Math.random()-0.5)*s); }
+  drawField();
+  if(state!=='title'){ drawKeeper(); drawBall(); drawShooter(); }
+  for(const q of parts){ g.globalAlpha=Math.max(0,q.life); g.fillStyle=q.c; g.fillRect(q.x-2,q.y-2,4,4); }
+  g.globalAlpha=1;
+  g.restore();
+
+  if(state==='play'){ drawCue(); drawHUD(); }
+  for(const q of pops){ g.globalAlpha=Math.max(0,q.life); g.textAlign='center';
+    if(q.big){ g.font='bold 38px sans-serif'; g.fillStyle=q.c; g.strokeStyle='#000'; g.lineWidth=5; g.strokeText(q.txt,W/2,q.y); g.fillText(q.txt,W/2,q.y); }
+    else { g.font='bold 22px sans-serif'; g.fillStyle=q.c; g.strokeStyle='#000'; g.lineWidth=4; g.strokeText(q.txt,W/2,q.y); g.fillText(q.txt,W/2,q.y); } }
+  g.globalAlpha=1;
+  if(flash>0){ g.fillStyle='rgba(255,255,255,'+(flash*0.5)+')'; g.fillRect(0,0,W,H); }
+  if(state==='title') drawTitle();
+  if(state==='over') drawOver();
+}
+function drawCue(){
+  if(!sh) return; g.textAlign='center';
+  if(sh.phase==='wind'){ g.fillStyle='#cfe'; g.font='bold 20px sans-serif'; g.fillText(sh.power?'強シュートが来る…！ 早めに読め':'シュートに備えろ…',W/2,300);
+    if(sh.clutch){ g.fillStyle='#ffe15a'; g.font='bold 18px sans-serif'; g.fillText('★ チャンス！ 2倍 ★',W/2,326); } }
+  else if(sh.phase==='flight' && !sh.dived){ g.fillStyle=sh.power?'#ff9a5c':'#8fffb0'; g.font='bold 24px sans-serif'; g.fillText('コースを読め！ ダイブ！',W/2,300); }
+}
+function drawHUD(){
+  g.textAlign='left'; g.font='bold 26px sans-serif'; g.fillStyle='#fff'; g.strokeStyle='rgba(0,0,0,0.5)'; g.lineWidth=4;
+  g.strokeText('SCORE '+score,20,36); g.fillText('SCORE '+score,20,36);
+  g.font='bold 16px sans-serif'; g.strokeText('セーブ '+saves+(cleanStreak>1?' ・ 連続無失点 '+cleanStreak:''),22,60); g.fillText('セーブ '+saves+(cleanStreak>1?' ・ 連続無失点 '+cleanStreak:''),22,60);
+  if(combo>1){ g.textAlign='center'; g.font='bold 20px sans-serif'; g.fillStyle='#ffe15a'; g.strokeText(combo+' 連続セーブ',W/2,40); g.fillText(combo+' 連続セーブ',W/2,40); }
+  g.textAlign='right'; g.font='22px sans-serif'; g.fillStyle='#fff'; g.strokeText('失点',W-118,34); g.fillText('失点',W-118,34);
+  for(let i=0;i<3;i++){ g.fillStyle=i<conceded?'#ff5a5a':'rgba(255,255,255,0.28)'; g.beginPath(); g.arc(W-78+i*26,27,9,0,6.28); g.fill(); }
+}
+function drawTitle(){
+  g.fillStyle='rgba(4,10,16,0.72)'; g.fillRect(0,0,W,H); g.textAlign='center';
+  g.fillStyle='#8fffb0'; g.font='bold 62px sans-serif'; g.fillText('セービング',W/2,H/2-100);
+  g.fillStyle='#cfe'; g.font='20px sans-serif'; g.fillText('Shot-Stopper — 飛んでくるシュートを止めろ',W/2,H/2-62);
+  g.font='17px sans-serif'; g.fillStyle='#bcd';
+  g.fillText('シュートの飛ぶコースを瞬時に読み、その隅へダイブ！',W/2,H/2-24);
+  g.fillText('Q/E＝上の左右、A/D＝下の左右、S＝正面（タップでも）。',W/2,H/2+0);
+  g.fillText('強シュートは速いので早めの判断を。ギリギリはビッグセーブ。',W/2,H/2+24);
+  g.fillText('コースを外すと失点。3失点で終了。',W/2,H/2+48);
+  g.fillStyle='#ffe15a'; g.font='bold 24px sans-serif'; g.fillText('クリック / タップ / キー で スタート',W/2,H/2+100);
+  if(best>0){ g.fillStyle='#9fd'; g.font='16px sans-serif'; g.fillText('BEST '+best,W/2,H/2+130); }
+}
+function drawOver(){
+  g.fillStyle='rgba(4,10,16,0.8)'; g.fillRect(0,0,W,H); g.textAlign='center';
+  g.fillStyle='#ff6a6a'; g.font='bold 56px sans-serif'; g.fillText('3失点',W/2,H/2-60);
+  g.fillStyle='#fff'; g.font='bold 34px sans-serif'; g.fillText('SCORE '+score,W/2,H/2);
+  g.font='20px sans-serif'; g.fillStyle='#cfe'; g.fillText('セーブ '+saves+' 本',W/2,H/2+34);
+  const nb=score>0&&score>=best; g.fillStyle=nb?'#ffe15a':'#9fd'; g.font='18px sans-serif';
+  g.fillText(nb?'🎉 ベスト更新！ BEST '+best:'BEST '+best,W/2,H/2+64);
+  g.fillStyle='#8fffb0'; g.font='bold 22px sans-serif'; g.fillText('クリック / タップ で もう一度',W/2,H/2+110);
+}
+
+let last=0;
+function frame(t){ let dt=t-last; last=t; if(dt>60)dt=60; if(dt<0)dt=0; update(dt); render(); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__ss={
+  start, dive,
+  get state(){return state;}, get score(){return score;}, get saves(){return saves;}, get conceded(){return conceded;},
+  get info(){ if(!sh) return null; return {
+    phase:sh.phase, zone:sh.zone, power:!!sh.power, flightFrac: sh.phase==='flight'?+(sh.flightT/sh.dur).toFixed(3):(sh.phase==='wind'?0:1),
+    dived:sh.dived, res:sh.res, clutch:!!sh.clutch }; }
+};
+})();
+</script>
+</body>
+</html>
