@@ -105,6 +105,7 @@
 | 97 | ナックルボール (Knuckleball Catcher) | ⚾ Baseball | [97-knuckleball.html](97-knuckleball.html) | https://claude.ai/code/artifact/5a193077-b339-403c-a868-f70d5b7a9337 |
 | 98 | PKシュートアウト対決 (Shootout Duel) | ⚽ Soccer | [98-shootout-duel.html](98-shootout-duel.html) | https://claude.ai/code/artifact/958edf84-7091-4d4c-b1ed-71c8235c22e8 |
 | 99 | ブロック＆スロー (Block and Gun) | ⚾ Baseball | [99-block-and-gun.html](99-block-and-gun.html) | https://claude.ai/code/artifact/0ea87264-f675-48ee-a48c-6813c7763b3f |
+| 100 | カウンター・スプリント (Counter Sprint) | ⚽ Soccer | [100-counter-sprint.html](100-counter-sprint.html) | https://claude.ai/code/artifact/9bfc920d-2b86-4c46-a273-af1062600200 |
 
 ---
 
@@ -202,6 +203,7 @@ Baseball ⚾
 - ~~ナックルボール（追尾：予測不能に揺れる魔球を捕手のミットで追い続け、プレート到達時に重ねて捕球、ど真ん中でナイスキャッチ、外すとパスボール、3逃しで終了の追跡新機構）~~ (done #97)
 - ~~PKシュートアウト対決（キック＆セーブ交互の読み合い：キックはGKの寄った逆を突き、セーブはキッカーの体の向きを読んで同枠へ飛ぶ、ブラフあり、3失敗で終了の二役デュエル）~~ (done #98)
 - ~~ブロック＆スロー（捕手の二段プレー：ワンバウンドを左/正面/右でブロック→送球メーターを緑で決めて盗塁刺、普通球は余裕・ワンバウンドは完璧送球要、後逸悪送球で3セーフ終了）~~ (done #99)
+- ~~カウンター・スプリント（3レーンの独走ランナー：迫るDFの空いたレーンへ←→で回避、2枚壁のナイス回避でコンボ、ダッシュ/⚡ブーストで加速、一定距離ごとにGOAL、被カット3回で終了。連続移動系の新機軸）~~ (done #100)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード

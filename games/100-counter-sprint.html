@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>カウンター・スプリント (Counter Sprint)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:#0a0f13;overflow:hidden;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif}
+  #wrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  #stage{position:relative;width:min(100vw,calc(100vh*1.5));aspect-ratio:900/600;max-width:900px;
+    box-shadow:0 10px 60px rgba(0,0,0,.6);border-radius:10px;overflow:hidden;touch-action:none}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #hint{position:absolute;left:0;bottom:6px;width:100%;text-align:center;color:#cfe;
+    font-size:12px;opacity:.55;pointer-events:none;text-shadow:0 1px 3px #000}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="hint">← → / A D / 画面タップで レーン移動 ・ SPACE / 上タップで ダッシュ</div>
+</div></div>
+<script>
+(()=>{
+const cv=document.getElementById('cv'), g=cv.getContext('2d');
+const W=900,H=600;
+let DPR=1;
+function fit(){
+  DPR=Math.min(2,window.devicePixelRatio||1);
+  cv.width=W*DPR; cv.height=H*DPR;
+  g.setTransform(DPR,0,0,DPR,0,0);
+}
+fit(); addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
+function tone(f,d,t,v,sweep){ const a=ac(); if(!a)return; const o=a.createOscillator(),gg=a.createGain();
+  o.type=t||'sine'; o.frequency.value=f; if(sweep) o.frequency.exponentialRampToValueAtTime(Math.max(20,sweep),a.currentTime+d);
+  gg.gain.setValueAtTime(0.0001,a.currentTime); gg.gain.exponentialRampToValueAtTime(v||0.2,a.currentTime+0.012);
+  gg.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d); o.connect(gg).connect(a.destination);
+  o.start(); o.stop(a.currentTime+d+0.02); }
+function noise(d,v,hp){ const a=ac(); if(!a)return; const n=a.createBuffer(1,a.sampleRate*d,a.sampleRate); const ch=n.getChannelData(0);
+  for(let i=0;i<ch.length;i++) ch[i]=(Math.random()*2-1)*(1-i/ch.length);
+  const s=a.createBufferSource(); s.buffer=n; const f=a.createBiquadFilter(); f.type='highpass'; f.frequency.value=hp||600;
+  const gg=a.createGain(); gg.gain.value=v||0.15; s.connect(f).connect(gg).connect(a.destination); s.start(); }
+const S={
+  dodge(){ noise(0.14,0.10,900); tone(320,0.10,'sine',0.05,520); },
+  near(){ tone(760,0.10,'triangle',0.12,1180); },
+  dash(){ tone(180,0.22,'sawtooth',0.14,420); noise(0.2,0.08,300); },
+  goal(){ tone(660,0.12,'square',0.16,880); setTimeout(()=>tone(880,0.16,'square',0.16,1240),90); setTimeout(()=>tone(1170,0.22,'square',0.14,1600),200); },
+  hit(){ noise(0.3,0.22,180); tone(150,0.3,'sawtooth',0.18,60); },
+  over(){ tone(300,0.5,'sawtooth',0.16,90); setTimeout(()=>tone(200,0.6,'sawtooth',0.14,60),160); },
+  orb(){ tone(1000,0.09,'sine',0.12,1500); tone(1500,0.12,'sine',0.08,2200); },
+};
+
+// ---------- geometry (fake perspective, 3 lanes) ----------
+const LANES=3;
+const VP={x:W/2, y:-40};              // vanishing point above screen
+const laneX=[W/2-250, W/2, W/2+250];  // near-plane lane centers
+const NEAR_Y=H-120, FAR_Y=90;         // player plane / far plane
+// z: 1 = far (spawn), 0 = at player
+function screenY(z){ return NEAR_Y - (NEAR_Y-FAR_Y)*z; }
+function persp(z){ return Math.max(0.05, 1 - 0.72*z); } // scale factor by depth (clamped)
+function screenX(lane, z){ const nx=laneX[lane]; return VP.x + (nx-VP.x)*persp(z); }
+
+// ---------- state ----------
+let state='title';
+let obs=[], orbs=[], parts=[], pops=[];
+let player={lane:1, x:laneX[1], target:laneX[1]};
+let speed, dist, score, goals, lost, combo, best;
+let nextObZ, nextGoalDist, checkpoint, dashT, shakeT, flash, spawnGap;
+let boostT;
+try{ best=+localStorage.getItem('cs_best')||0; }catch(e){ best=0; }
+
+function reset(){
+  obs=[]; orbs=[]; parts=[]; pops=[];
+  player={lane:1,x:laneX[1],target:laneX[1]};
+  speed=0.34; dist=0; score=0; goals=0; lost=0; combo=0;
+  nextObZ=0; nextGoalDist=520; checkpoint=0; dashT=0; shakeT=0; flash=0; boostT=0;
+  spawnGap=1.55;
+  // prime a few obstacles ahead
+  let z=1.0;
+  for(let i=0;i<4;i++){ z+=spawnGap*0.55; spawnOb(z); }
+}
+
+// obstacle: {z, lanes:[bool x3], passed, near, kind}
+function spawnOb(z){
+  // Most obstacles are 2-lane "walls" leaving a single free lane (forces movement);
+  // occasional 1-lane blocks act as breathers. Always >=1 free lane.
+  let block=[false,false,false];
+  const two = Math.random()<0.66;
+  const free = Math.floor(Math.random()*LANES);
+  for(let i=0;i<LANES;i++) block[i]=(i!==free);   // free lane open, other two blocked
+  if(!two){ // downgrade to a single blocked lane
+    const blk=[0,1,2].filter(i=>block[i]);
+    const keep=blk[Math.floor(Math.random()*blk.length)];
+    block=[false,false,false]; block[keep]=true;
+  }
+  obs.push({z, lanes:block, passed:false, near:false, kind: two?'wall':'df', wob:Math.random()*6.28});
+}
+function spawnOrb(z){
+  const lane=Math.floor(Math.random()*LANES);
+  orbs.push({z,lane,got:false});
+}
+
+// ---------- input ----------
+function move(dir){
+  if(state==='title'){ start(); return; }
+  if(state==='over'){ start(); return; }
+  if(state!=='play') return;
+  const nl=Math.max(0,Math.min(LANES-1,player.lane+dir));
+  if(nl!==player.lane){ player.lane=nl; player.target=laneX[nl]; S.dodge();
+    for(let i=0;i<6;i++) parts.push({x:player.x,y:NEAR_Y,vx:(Math.random()-0.5)*3,vy:(Math.random()-0.5)*3-1,life:1,c:'#bff'}); }
+}
+function dash(){
+  if(state==='title'||state==='over'){ start(); return; }
+  if(state!=='play') return;
+  if(dashT<=0){ dashT=0.55; S.dash(); flash=Math.max(flash,0.25);
+    for(let i=0;i<14;i++) parts.push({x:player.x,y:NEAR_Y,vx:(Math.random()-0.5)*4,vy:Math.random()*3+1,life:1,c:'#ffd76a'}); }
+}
+addEventListener('keydown',e=>{
+  if(e.repeat) return;
+  const k=e.key.toLowerCase();
+  if(k==='arrowleft'||k==='a'){ move(-1); e.preventDefault(); }
+  else if(k==='arrowright'||k==='d'){ move(1); e.preventDefault(); }
+  else if(k===' '||k==='arrowup'||k==='w'){ dash(); e.preventDefault(); }
+});
+function pointer(px,py){
+  const r=cv.getBoundingClientRect();
+  const x=(px-r.left)/r.width*W, y=(py-r.top)/r.height*H;
+  if(state!=='play'){ start(); return; }
+  if(y<H*0.32){ dash(); return; }
+  if(x<W/2) move(-1); else move(1);
+}
+cv.addEventListener('pointerdown',e=>{ ac(); pointer(e.clientX,e.clientY); e.preventDefault(); });
+
+// ---------- flow ----------
+function start(){ ac(); reset(); state='play'; }
+function goalScored(){
+  goals++; const gained=Math.round((100+combo*12)*(boostT>0?1.5:1));
+  score+=gained; combo++;
+  pops.push({txt:'GOAL! +'+gained, y:200, life:1, big:true});
+  flash=Math.max(flash,0.55); S.goal();
+  for(let i=0;i<40;i++) parts.push({x:W/2+(Math.random()-0.5)*300,y:120+Math.random()*80,vx:(Math.random()-0.5)*6,vy:Math.random()*-4-1,life:1,c:['#ffd76a','#7dff9b','#7fd8ff'][i%3]});
+}
+function collide(){
+  lost++; combo=0; speed=Math.max(0.3,speed*0.6); shakeT=0.4; flash=Math.max(flash,0.6);
+  boostT=0; S.hit();
+  pops.push({txt:'奪われた！', y:250, life:1, big:true, bad:true});
+  for(let i=0;i<26;i++) parts.push({x:player.x,y:NEAR_Y-20,vx:(Math.random()-0.5)*7,vy:(Math.random()-0.5)*7,life:1,c:'#ff6a6a'});
+  if(lost>=3) gameOver();
+}
+function gameOver(){
+  state='over'; S.over();
+  if(score>best){ best=score; try{localStorage.setItem('cs_best',best);}catch(e){} }
+}
+
+// ---------- update ----------
+function update(dt){
+  // ease player x
+  player.x += (player.target-player.x)*Math.min(1,dt*0.02);
+  if(state!=='play'){ // idle particles decay
+    parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life-=dt*0.004;}); parts=parts.filter(p=>p.life>0);
+    return;
+  }
+  if(dashT>0) dashT-=dt*0.001;
+  if(boostT>0) boostT-=dt*0.001;
+  if(shakeT>0) shakeT-=dt*0.001;
+  if(flash>0) flash=Math.max(0,flash-dt*0.003);
+
+  // speed ramp + dash/boost
+  let sp=speed*(dashT>0?1.85:1)*(boostT>0?1.35:1);
+  speed=Math.min(0.95, speed+dt*0.0000085); // gradual difficulty
+  const move= sp*dt*0.0016;
+  dist += move*640;
+
+  // advance obstacles toward player
+  for(const o of obs){
+    o.z-=move;
+    // near-miss cue
+    if(!o.near && o.z<0.14 && o.z>0.02){ if(!o.lanes[player.lane]){ o.near=true; combo+=0; } }
+    if(!o.passed && o.z<=0.0){
+      o.passed=true;
+      if(o.lanes[player.lane]){ collide(); }
+      else { // clean dodge
+        const wall=o.lanes.filter(Boolean).length>=2;
+        const gained=(wall?12:6)+combo*2;
+        score+=gained; combo++;
+        S.near();
+        if(wall){ pops.push({txt:'ナイス回避! +'+gained, x:player.x, y:NEAR_Y-46, life:0.9, small:true});
+          for(let i=0;i<10;i++) parts.push({x:player.x+(Math.random()-0.5)*40,y:NEAR_Y-10,vx:(Math.random()-0.5)*4,vy:-Math.random()*3-1,life:1,c:'#8fffb0'}); }
+        else pops.push({txt:'+'+gained, x:player.x, y:NEAR_Y-40, life:0.8, small:true});
+      }
+    }
+  }
+  obs=obs.filter(o=>o.z>-0.2);
+
+  // advance orbs
+  for(const o of orbs){
+    o.z-=move;
+    if(!o.got && o.z<=0.05 && o.z>-0.1 && o.lane===player.lane){
+      o.got=true; boostT=2.4; score+=25; S.orb();
+      pops.push({txt:'ブースト!', x:player.x, y:NEAR_Y-60, life:1, small:true});
+      for(let i=0;i<16;i++) parts.push({x:player.x,y:NEAR_Y-20,vx:(Math.random()-0.5)*5,vy:-Math.random()*4,life:1,c:'#7fd8ff'});
+    }
+  }
+  orbs=orbs.filter(o=>o.z>-0.15);
+
+  // spawn new obstacles based on furthest z
+  let far=0; for(const o of obs) if(o.z>far) far=o.z;
+  const gap=Math.max(0.72, spawnGap-dist*0.00004); // tighten with distance
+  while(far<1.35){ far+=gap; spawnOb(far); if(Math.random()<0.22) spawnOrb(far-gap*0.5); }
+
+  // checkpoint / goal
+  if(dist>=nextGoalDist){ goalScored(); nextGoalDist+=560+goals*40; }
+
+  // particles / pops
+  parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.12;p.life-=dt*0.0022;});
+  parts=parts.filter(p=>p.life>0);
+  pops.forEach(p=>{p.y-=dt*0.03;p.life-=dt*0.0016;});
+  pops=pops.filter(p=>p.life>0);
+}
+
+// ---------- render ----------
+function roundRect(x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+
+function drawPitch(){
+  // sky/stadium
+  const sky=g.createLinearGradient(0,0,0,FAR_Y+60);
+  sky.addColorStop(0,'#0b1622'); sky.addColorStop(1,'#12324a');
+  g.fillStyle=sky; g.fillRect(0,0,W,FAR_Y+60);
+  // crowd specks
+  g.save(); g.globalAlpha=.5;
+  for(let i=0;i<80;i++){ const x=(i*127%W); const y=20+(i*53%(FAR_Y+30)); g.fillStyle=['#3a5','#58a','#a55','#aa5'][i%4]; g.fillRect(x,y,3,3); }
+  g.restore();
+
+  // grass field trapezoid
+  const gr=g.createLinearGradient(0,FAR_Y,0,H);
+  gr.addColorStop(0,'#1f6d38'); gr.addColorStop(1,'#2f9c50');
+  g.fillStyle=gr;
+  g.beginPath();
+  g.moveTo(screenX(0,1)-40, screenY(1)); g.lineTo(screenX(2,1)+40, screenY(1));
+  g.lineTo(laneX[2]+120, H); g.lineTo(laneX[0]-120, H); g.closePath(); g.fill();
+
+  // mow stripes (horizontal bands by depth)
+  for(let i=0;i<10;i++){
+    const z0=i/10, z1=(i+1)/10;
+    if(i%2===0){ g.fillStyle='rgba(255,255,255,0.04)';
+      g.beginPath();
+      g.moveTo(lerpX(0,z0,-40), screenY(z0)); g.lineTo(lerpX(2,z0,40), screenY(z0));
+      g.lineTo(lerpX(2,z1,40), screenY(z1)); g.lineTo(lerpX(0,z1,-40), screenY(z1)); g.closePath(); g.fill();
+    }
+  }
+  // lane guide lines
+  g.strokeStyle='rgba(255,255,255,0.10)'; g.lineWidth=2;
+  for(let l=0;l<=LANES;l++){
+    const a = l===0?screenX(0,1)-125 : l===LANES?screenX(2,1)+125 : (screenX(l-1,1)+screenX(l,1))/2;
+    const b = l===0?laneX[0]-125 : l===LANES?laneX[2]+125 : (laneX[l-1]+laneX[l])/2;
+    g.beginPath(); g.moveTo(a,screenY(1)); g.lineTo(b,H); g.stroke();
+  }
+  // far goal
+  const gy=screenY(1)-4, gw=150*persp(1), gx=VP.x;
+  g.strokeStyle='rgba(255,255,255,0.85)'; g.lineWidth=3;
+  g.strokeRect(gx-gw/2, gy-42, gw, 42);
+}
+function lerpX(lane,z,edge){ // lane center at depth z, optionally pushed to field edge
+  const nx=laneX[lane]+ (lane===0?-0:lane===2?0:0);
+  return VP.x + (nx+edge*(lane===0?1:lane===2?1:0)-VP.x)*persp(z);
+}
+
+function drawDefender(x,y,sc,kind,wob){
+  g.save(); g.translate(x,y); g.scale(sc,sc);
+  const sw=6*Math.sin(wob);
+  // shadow
+  g.fillStyle='rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(0,6,26,8,0,0,6.28); g.fill();
+  const col= kind==='wall'? '#e34b4b':'#e8663a';
+  // legs
+  g.strokeStyle='#22303a'; g.lineWidth=7; g.lineCap='round';
+  g.beginPath(); g.moveTo(-7,-2); g.lineTo(-10+sw,26); g.moveTo(7,-2); g.lineTo(10-sw,26); g.stroke();
+  // body
+  g.fillStyle=col; roundRect(-15,-40,30,44,10); g.fill();
+  // arms out (blocking)
+  g.strokeStyle=col; g.lineWidth=9;
+  g.beginPath(); g.moveTo(-12,-30); g.lineTo(-30,-16); g.moveTo(12,-30); g.lineTo(30,-16); g.stroke();
+  // head
+  g.fillStyle='#f2c9a0'; g.beginPath(); g.arc(0,-52,12,0,6.28); g.fill();
+  g.restore();
+}
+function drawPlayer(){
+  const x=player.x, y=NEAR_Y, sc=1.05;
+  const boost=boostT>0, dashing=dashT>0;
+  g.save(); g.translate(x,y); g.scale(sc,sc);
+  // motion trail
+  if(dashing||boost){ g.globalAlpha=.35; g.fillStyle=boost?'#7fd8ff':'#ffd76a';
+    for(let i=1;i<=3;i++){ roundRect(-13,-38+i*3,26,40,9); g.fill(); } g.globalAlpha=1; }
+  // shadow
+  g.fillStyle='rgba(0,0,0,0.30)'; g.beginPath(); g.ellipse(0,8,24,8,0,0,6.28); g.fill();
+  // legs (running)
+  const t=performance?0:0; const ph=(dist*0.4)%6.28;
+  g.strokeStyle='#f2f2f2'; g.lineWidth=7; g.lineCap='round';
+  g.beginPath(); g.moveTo(-6,0); g.lineTo(-8+Math.sin(ph)*10,28); g.moveTo(6,0); g.lineTo(8-Math.sin(ph)*10,28); g.stroke();
+  // body (blue kit)
+  g.fillStyle='#2b6cff'; roundRect(-14,-40,28,44,10); g.fill();
+  // number
+  g.fillStyle='#dfe9ff'; g.font='bold 16px sans-serif'; g.textAlign='center'; g.fillText('10',0,-14);
+  // arms pumping
+  g.strokeStyle='#2b6cff'; g.lineWidth=8;
+  g.beginPath(); g.moveTo(-11,-28); g.lineTo(-20,-12+Math.sin(ph)*6); g.moveTo(11,-28); g.lineTo(20,-12-Math.sin(ph)*6); g.stroke();
+  // head
+  g.fillStyle='#f2c9a0'; g.beginPath(); g.arc(0,-52,12,0,6.28); g.fill();
+  g.restore();
+  // ball dribbled ahead
+  g.save();
+  const by=y+14-Math.abs(Math.sin(dist*0.4))*6;
+  g.fillStyle='#fff'; g.beginPath(); g.arc(x,by,8,0,6.28); g.fill();
+  g.strokeStyle='#333'; g.lineWidth=1.4; g.beginPath(); g.arc(x,by,8,0,6.28); g.stroke();
+  g.beginPath(); g.moveTo(x-4,by-3); g.lineTo(x+3,by-5); g.lineTo(x+5,by+2); g.stroke();
+  g.restore();
+}
+
+function render(){
+  g.clearRect(0,0,W,H);
+  g.save();
+  if(shakeT>0){ const s=shakeT*14; g.translate((Math.random()-0.5)*s,(Math.random()-0.5)*s); }
+
+  drawPitch();
+
+  // speed lines
+  if(state==='play'){ const sp=speed*(dashT>0?1.85:1)*(boostT>0?1.35:1);
+    g.strokeStyle='rgba(255,255,255,'+(0.05+sp*0.12)+')'; g.lineWidth=2;
+    for(let i=0;i<10;i++){ const lx=laneX[i%3]+(Math.random()-0.5)*180; const y0=FAR_Y+Math.random()*(H-FAR_Y);
+      g.beginPath(); g.moveTo(lx,y0); g.lineTo(lx,y0+30*sp+18); g.stroke(); }
+  }
+
+  // draw orbs & obstacles sorted far->near
+  const drawList=[];
+  for(const o of orbs) drawList.push({z:o.z,type:'orb',o});
+  for(const o of obs) drawList.push({z:o.z,type:'ob',o});
+  drawList.sort((a,b)=>b.z-a.z);
+  for(const d of drawList){
+    const o=d.o;
+    if(d.z>1.15) continue; // beyond far plane, don't draw
+    if(d.type==='orb'){
+      if(o.got) continue;
+      const z=Math.max(0,o.z), x=screenX(o.lane,z), y=screenY(z), sc=persp(z);
+      g.save(); g.globalAlpha=Math.min(1,0.4+z);
+      g.fillStyle='#7fd8ff'; g.shadowColor='#7fd8ff'; g.shadowBlur=16*sc;
+      g.beginPath(); g.arc(x,y-30*sc,Math.max(1,12*sc),0,6.28); g.fill();
+      g.shadowBlur=0; g.fillStyle='#eaffff'; g.font='bold '+(14*sc)+'px sans-serif'; g.textAlign='center';
+      g.fillText('⚡',x,y-25*sc); g.restore();
+    } else {
+      const z=Math.max(0,o.z);
+      for(let l=0;l<LANES;l++) if(o.lanes[l]){
+        const x=screenX(l,z), y=screenY(z), sc=persp(z);
+        drawDefender(x,y,sc,o.kind,o.wob+dist*0.05);
+      }
+      // danger highlight on blocked lane near player
+      if(o.z<0.28 && o.z>0){ for(let l=0;l<LANES;l++) if(o.lanes[l]){
+        g.save(); g.globalAlpha=0.18*(1-o.z/0.28); g.fillStyle='#ff4040';
+        const x=screenX(l,o.z); g.beginPath(); g.moveTo(x-70*persp(o.z),screenY(o.z)); g.lineTo(x+70*persp(o.z),screenY(o.z));
+        g.lineTo(screenX(l,0)+90,NEAR_Y); g.lineTo(screenX(l,0)-90,NEAR_Y); g.closePath(); g.fill(); g.restore();
+      } }
+    }
+  }
+
+  if(state!=='title') drawPlayer();
+
+  // particles
+  for(const p of parts){ g.globalAlpha=Math.max(0,p.life); g.fillStyle=p.c; g.fillRect(p.x-2,p.y-2,4,4); }
+  g.globalAlpha=1;
+
+  // pops
+  for(const p of pops){ g.globalAlpha=Math.max(0,p.life); g.textAlign='center';
+    if(p.big){ g.font='bold 44px sans-serif'; g.fillStyle=p.bad?'#ff6a6a':'#ffe15a';
+      g.strokeStyle='#000'; g.lineWidth=5; g.strokeText(p.txt,W/2,p.y); g.fillText(p.txt,W/2,p.y);
+    } else { g.font='bold 22px sans-serif'; g.fillStyle='#eaffea'; g.strokeStyle='#000'; g.lineWidth=4;
+      g.strokeText(p.txt,p.x||W/2,p.y); g.fillText(p.txt,p.x||W/2,p.y); }
+  }
+  g.globalAlpha=1;
+
+  g.restore();
+
+  // flash
+  if(flash>0){ g.fillStyle='rgba(255,255,255,'+(flash*0.5)+')'; g.fillRect(0,0,W,H); }
+
+  if(state!=='title') drawHUD();
+  if(state==='title') drawTitle();
+  if(state==='over') drawOver();
+}
+
+function drawHUD(){
+  g.textAlign='left'; g.font='bold 26px sans-serif';
+  g.fillStyle='#fff'; g.strokeStyle='rgba(0,0,0,0.5)'; g.lineWidth=4;
+  g.strokeText('SCORE '+score,20,38); g.fillText('SCORE '+score,20,38);
+  g.font='bold 16px sans-serif';
+  g.strokeText('距離 '+Math.floor(dist)+'m',22,62); g.fillText('距離 '+Math.floor(dist)+'m',22,62);
+  g.strokeText('ゴール '+goals,150,62); g.fillText('ゴール '+goals,150,62);
+  if(combo>1){ g.textAlign='center'; g.font='bold 22px sans-serif'; g.fillStyle='#ffe15a';
+    g.strokeText(combo+' COMBO',W/2,44); g.fillText(combo+' COMBO',W/2,44); }
+  // lives (possession)
+  g.textAlign='right'; g.font='24px sans-serif';
+  for(let i=0;i<3;i++){ g.globalAlpha=i<3-lost?1:0.22; g.fillText('⚽',W-20-i*30,36); }
+  g.globalAlpha=1;
+  // dash cooldown bar
+  g.textAlign='right'; g.font='bold 13px sans-serif'; g.fillStyle=dashT>0?'#ffd76a':'#8fb';
+  g.fillText(dashT>0?'DASH!':'ダッシュ可',W-20,60);
+  if(boostT>0){ g.fillStyle='#7fd8ff'; g.fillText('⚡ブースト '+boostT.toFixed(1),W-20,80); }
+}
+
+function drawTitle(){
+  g.fillStyle='rgba(4,10,16,0.72)'; g.fillRect(0,0,W,H);
+  g.textAlign='center';
+  g.fillStyle='#7fd8ff'; g.font='bold 60px sans-serif';
+  g.fillText('カウンター・スプリント',W/2,H/2-70);
+  g.fillStyle='#cfe'; g.font='20px sans-serif';
+  g.fillText('Counter Sprint — 独走ドリブルでDFを抜き去れ',W/2,H/2-32);
+  g.font='17px sans-serif'; g.fillStyle='#bcd';
+  g.fillText('迫るディフェンダーの空いたレーンへ ← → で回避',W/2,H/2+6);
+  g.fillText('SPACE / 上タップの ダッシュ で危険を突破 ・ ⚡でブースト',W/2,H/2+32);
+  g.fillText('クリーン回避でコンボ、一定距離ごとに GOAL！',W/2,H/2+58);
+  g.fillStyle='#ffe15a'; g.font='bold 24px sans-serif';
+  g.fillText('クリック / タップ / キーで スタート',W/2,H/2+104);
+  if(best>0){ g.fillStyle='#9fd'; g.font='16px sans-serif'; g.fillText('BEST '+best,W/2,H/2+134); }
+}
+function drawOver(){
+  g.fillStyle='rgba(4,10,16,0.78)'; g.fillRect(0,0,W,H);
+  g.textAlign='center';
+  g.fillStyle='#ff6a6a'; g.font='bold 56px sans-serif'; g.fillText('カット されました',W/2,H/2-60);
+  g.fillStyle='#fff'; g.font='bold 34px sans-serif'; g.fillText('SCORE '+score,W/2,H/2);
+  g.font='20px sans-serif'; g.fillStyle='#cfe';
+  g.fillText('距離 '+Math.floor(dist)+'m ・ ゴール '+goals+' ・ 最高コンボは称号もの',W/2,H/2+36);
+  g.fillStyle=score>=best?'#ffe15a':'#9fd'; g.font='18px sans-serif';
+  g.fillText(score>=best?'🎉 ベスト更新！ BEST '+best:'BEST '+best,W/2,H/2+66);
+  g.fillStyle='#ffe15a'; g.font='bold 22px sans-serif';
+  g.fillText('クリック / タップ で もう一度',W/2,H/2+112);
+}
+
+// ---------- loop ----------
+let last=0;
+function frame(t){
+  let dt=t-last; last=t; if(dt>60)dt=60; if(dt<0)dt=0;
+  update(dt); render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__cs={
+  start, move, dash,
+  get state(){return state;},
+  get score(){return score;},
+  get goals(){return goals;},
+  get lost(){return lost;},
+  get dist(){return dist;},
+  get info(){
+    // nearest not-yet-passed obstacle
+    let near=null, best=99;
+    for(const o of obs){ if(!o.passed && o.z>=-0.02 && o.z<best){ best=o.z; near=o; } }
+    return {
+      lane:player.lane,
+      combo, dashReady:dashT<=0,
+      near: near? {z:+near.z.toFixed(3), blocked:near.lanes.slice(), free:[0,1,2].filter(i=>!near.lanes[i]) } : null
+    };
+  }
+};
+})();
+</script>
+</body>
+</html>
