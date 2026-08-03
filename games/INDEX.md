@@ -109,6 +109,7 @@
 | 101 | ベースコーチ (Send the Runner) | ⚾ Baseball | [101-send-the-runner.html](101-send-the-runner.html) | https://claude.ai/code/artifact/2ab04670-5b4d-44ac-85c6-48f36e856e92 |
 | 102 | トラップ&ターン (Turn and Face) | ⚽ Soccer | [102-turn-and-face.html](102-turn-and-face.html) | https://claude.ai/code/artifact/5ed0a5f4-cb49-4eb0-953c-bd9f4af4d0fa |
 | 103 | ゴロ・ゴー (Break on Contact) | ⚾ Baseball | [103-break-on-contact.html](103-break-on-contact.html) | https://claude.ai/code/artifact/e48ebc7b-293b-42cc-a77d-53738792cd0a |
+| 104 | ゴラッソ (Screamer) | ⚽ Soccer | [104-screamer.html](104-screamer.html) | https://claude.ai/code/artifact/a3c640fe-ce8f-46da-bd2a-be1d97939308 |
 
 ---
 
@@ -210,6 +211,7 @@ Baseball ⚾
 - ~~ベースコーチ（三塁コーチの走塁判断：外野の深さ・返球の肩・走者の脚を読みGO=本塁突入/STOP=自重を制限時間内に決断、生還なら得点、刺されると＆判断遅れの挟殺でアウト、チャンス球は2倍、3アウトで終了。読み＋決断の新機軸）~~ (done #101)
 - ~~トラップ&ターン（背負って受けるMFの反転：背後マーカーと逆＝空いてる方へ、ボールが足に収まる瞬間に合わせてターン、土壇場の肩の入れ替え（フェイント）を見極める。逆を突く/遅れると奪われロスト、ジャストでオーレ、たまにゴール、3ロストで終了。方向読み＋到達タイミングの新機軸）~~ (done #102)
 - ~~ゴロ・ゴー（三塁走者の打球判断：打った瞬間にゴロ/ライナー・フライ/空振りを見極め、ゴロは即GOで生還（速い判断ほどセーフ・遅れると本塁憤死）、上がった打球は戻って飛び出し併殺回避、打つ前の飛び出し＆空振りへの突入もアウト、無反応は挟殺、3アウトで交代。打球タイプ読み＋反応速度の新機軸）~~ (done #103)
+- ~~ゴラッソ（飛行中カーブの誘導アクション：自動で飛ぶミドルシュートを押しっぱなしで曲げ、GKの重心を追ってlockした逆サイドの隅へカーブ。早曲げはGKに追われ、曲げすぎは枠外、カーブ残量あり。隅でゴラッソ、3ミスで終了。打った後に軌道を操る新機軸）~~ (done #104)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
