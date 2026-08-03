@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ジャグリング (Juggler)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:#0a1410;overflow:hidden;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif}
+  #wrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  #stage{position:relative;width:min(100vw,calc(100vh*1.5));aspect-ratio:900/600;max-width:900px;
+    box-shadow:0 10px 60px rgba(0,0,0,.6);border-radius:10px;overflow:hidden;touch-action:none}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #hint{position:absolute;left:0;bottom:6px;width:100%;text-align:center;color:#cfe;
+    font-size:12px;opacity:.55;pointer-events:none;text-shadow:0 1px 3px #000}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="hint">落ちる前にボールをタップ/クリックで蹴り上げろ！ ・ SPACE=一番下のボール ・ ボールは増えていく、3落球で終了</div>
+</div></div>
+<script>
+(()=>{
+const cv=document.getElementById('cv'), g=cv.getContext('2d');
+const W=900,H=600;
+let DPR=1;
+function fit(){ DPR=Math.min(2,window.devicePixelRatio||1); cv.width=W*DPR; cv.height=H*DPR; g.setTransform(DPR,0,0,DPR,0,0); }
+fit(); addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
+function tone(f,d,t,v,sweep){ const a=ac(); if(!a)return; const o=a.createOscillator(),gg=a.createGain();
+  o.type=t||'sine'; o.frequency.value=f; if(sweep) o.frequency.exponentialRampToValueAtTime(Math.max(20,sweep),a.currentTime+d);
+  gg.gain.setValueAtTime(0.0001,a.currentTime); gg.gain.exponentialRampToValueAtTime(v||0.2,a.currentTime+0.012);
+  gg.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d); o.connect(gg).connect(a.destination);
+  o.start(); o.stop(a.currentTime+d+0.02); }
+function noise(d,v,hp){ const a=ac(); if(!a)return; const n=a.createBuffer(1,a.sampleRate*d,a.sampleRate); const ch=n.getChannelData(0);
+  for(let i=0;i<ch.length;i++) ch[i]=(Math.random()*2-1)*(1-i/ch.length);
+  const s=a.createBufferSource(); s.buffer=n; const f=a.createBiquadFilter(); f.type='highpass'; f.frequency.value=hp||600;
+  const gg=a.createGain(); gg.gain.value=v||0.15; s.connect(f).connect(gg).connect(a.destination); s.start(); }
+const S={
+  kick(){ tone(520,0.06,'sine',0.08,860); },
+  nice(){ tone(760,0.07,'triangle',0.09,1150); },
+  add(){ tone(400,0.1,'square',0.1,900); setTimeout(()=>tone(800,0.12,'square',0.08,1300),70); },
+  drop(){ noise(0.2,0.2,240); tone(180,0.28,'sawtooth',0.14,60); },
+  over(){ tone(300,0.5,'sawtooth',0.16,90); setTimeout(()=>tone(200,0.6,'sawtooth',0.14,60),160); },
+  warn(){ tone(300,0.04,'square',0.05); },
+};
+
+// ---------- state ----------
+let score, keepups, drops, combo, best, balls, nextId, addAt, grav, flash, shakeT;
+let state='title';
+let parts=[], pops=[];
+try{ best=+localStorage.getItem('jg_best')||0; }catch(e){ best=0; }
+
+const TOP=70, GROUND=524, DANGER=470;
+
+function reset(){ parts=[]; pops=[]; score=0; keepups=0; drops=0; combo=0; balls=[]; nextId=0; addAt=12; grav=0.00105; flash=0; shakeT=0;
+  spawnBall(); spawnBall(); }
+function spawnBall(){ balls.push({id:nextId++, x:200+Math.random()*500, y:TOP+40+Math.random()*80, vx:(Math.random()-0.5)*0.10, vy:0.1, r:16, spin:0, flash:0}); }
+
+function kickBall(bl){
+  if(!bl) return;
+  bl.vy = -0.60 - Math.random()*0.05;
+  // gentle horizontal recentering + variety
+  bl.vx = (450-bl.x)*0.00035 + (Math.random()-0.5)*0.16;
+  bl.flash=1; bl.spin += (Math.random()<0.5?-1:1)*0.4;
+  keepups++; combo++;
+  const low = bl._wasLow;
+  const gained = (low?8:4)+Math.floor(combo/5);
+  score+=gained;
+  if(low){ S.nice(); pops.push({txt:'ナイス +'+gained, x:bl.x, y:bl.y-24, life:0.6, small:true}); }
+  else S.kick();
+  for(let i=0;i<5;i++) parts.push({x:bl.x,y:bl.y+bl.r,vx:(Math.random()-0.5)*2,vy:Math.random()*1.5,life:0.5,c:'#dfffe6'});
+  // add a ball as you progress
+  if(keepups>=addAt && balls.length<6){ spawnBall(); addAt+=Math.max(8,14-balls.length); grav=Math.min(0.0018,grav+0.00006); S.add();
+    pops.push({txt:'ボール追加！ '+ (balls.length)+'個',y:150,life:1,c:'#ffe15a'}); flash=Math.max(flash,0.3); }
+}
+function dropBall(bl){
+  drops++; combo=0; shakeT=0.35; flash=Math.max(flash,0.45); S.drop();
+  pops.push({txt:'落球！', x:bl.x, y:DANGER, life:0.9, c:'#ff6a6a'});
+  for(let i=0;i<16;i++) parts.push({x:bl.x,y:GROUND,vx:(Math.random()-0.5)*6,vy:-Math.random()*4,life:0.9,c:'#ff6a6a'});
+  // reset this ball back into play (unless game over)
+  bl.y=TOP+30; bl.x=200+Math.random()*500; bl.vy=0.1; bl.vx=(Math.random()-0.5)*0.1;
+  if(drops>=3) gameOver();
+}
+function gameOver(){ state='over'; S.over(); if(score>best){ best=score; try{localStorage.setItem('jg_best',best);}catch(e){} } }
+
+// ---------- input ----------
+function start(){ ac(); reset(); state='play'; }
+function kickAt(x,y){
+  if(state!=='play') return;
+  // nearest ball within radius
+  let best2=null,bd=1e9; for(const bl of balls){ const d=(bl.x-x)**2+(bl.y-y)**2; if(d<bd){bd=d;best2=bl;} }
+  if(best2 && bd < 90*90) kickBall(best2);
+}
+function kickLowest(){ if(state!=='play'||!balls.length) return; let lo=balls[0]; for(const bl of balls) if(bl.y>lo.y) lo=bl; kickBall(lo); }
+addEventListener('keydown',e=>{ const k=e.key.toLowerCase();
+  if(state!=='play'){ if((k===' '||k==='enter')&&!e.repeat) start(); return; }
+  if((k===' '||k==='arrowup'||k==='w')&&!e.repeat){ kickLowest(); e.preventDefault(); } });
+cv.addEventListener('pointerdown',e=>{ ac(); if(state!=='play'){ start(); return; }
+  const r=cv.getBoundingClientRect(); kickAt((e.clientX-r.left)/r.width*W,(e.clientY-r.top)/r.height*H); e.preventDefault(); });
+
+// ---------- update ----------
+function update(dt){
+  if(flash>0) flash=Math.max(0,flash-dt*0.003);
+  if(shakeT>0) shakeT-=dt*0.001;
+  parts.forEach(q=>{q.x+=q.vx;q.y+=q.vy;q.vy+=0.14;q.life-=dt*0.0025;});
+  parts=parts.filter(q=>q.life>0);
+  pops.forEach(q=>{q.y-=dt*0.03;q.life-=dt*0.0018;});
+  pops=pops.filter(q=>q.life>0);
+  if(state!=='play') return;
+
+  for(const bl of balls){
+    bl.vy += grav*dt; bl.x += bl.vx*dt; bl.y += bl.vy*dt; bl.spin += bl.vx*dt*0.03 + 0.01;
+    if(bl.flash>0) bl.flash-=dt*0.004;
+    if(bl.x<bl.r+8){ bl.x=bl.r+8; bl.vx=Math.abs(bl.vx); }
+    if(bl.x>W-bl.r-8){ bl.x=W-bl.r-8; bl.vx=-Math.abs(bl.vx); }
+    if(bl.y<TOP+bl.r){ bl.y=TOP+bl.r; if(bl.vy<0) bl.vy*=-0.3; }
+    bl._wasLow = bl.y>DANGER-40;
+    if(bl.y>=GROUND-bl.r){ dropBall(bl); }
+    if(bl.y>DANGER && Math.floor(bl.y/12)!==Math.floor((bl.y-bl.vy*dt)/12)) S.warn();
+  }
+}
+
+// ---------- render ----------
+function roundRect(x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+
+function drawBg(){
+  const sky=g.createLinearGradient(0,0,0,H); sky.addColorStop(0,'#132a1c'); sky.addColorStop(0.55,'#1c6b39'); sky.addColorStop(1,'#2c9350'); g.fillStyle=sky; g.fillRect(0,0,W,H);
+  for(let i=0;i<9;i++){ if(i%2===0){ g.fillStyle='rgba(255,255,255,0.03)'; g.fillRect(i*W/9,0,W/9,H); } }
+  // danger line
+  g.strokeStyle='rgba(255,120,90,0.35)'; g.lineWidth=2; g.setLineDash([10,8]); g.beginPath(); g.moveTo(0,DANGER); g.lineTo(W,DANGER); g.stroke(); g.setLineDash([]);
+  g.fillStyle='rgba(255,120,90,0.5)'; g.font='bold 12px sans-serif'; g.textAlign='left'; g.fillText('この線より下は危険', 14, DANGER-6);
+  // turf
+  g.fillStyle='#1a5f34'; g.fillRect(0,GROUND,W,H-GROUND);
+  g.strokeStyle='rgba(255,255,255,0.25)'; g.lineWidth=3; g.beginPath(); g.moveTo(0,GROUND); g.lineTo(W,GROUND); g.stroke();
+  // juggler figure (cosmetic)
+  g.save(); g.translate(W/2, GROUND);
+  g.fillStyle='rgba(0,0,0,0.2)'; g.beginPath(); g.ellipse(0,4,26,7,0,0,6.28); g.fill();
+  g.strokeStyle='#20303a'; g.lineWidth=7; g.lineCap='round'; g.beginPath(); g.moveTo(-6,-24); g.lineTo(-14,0); g.moveTo(6,-24); g.lineTo(14,0); g.stroke();
+  g.fillStyle='#1746c8'; roundRect(-13,-60,26,40,8); g.fill();
+  g.fillStyle='#f2c9a0'; g.beginPath(); g.arc(0,-72,11,0,6.28); g.fill();
+  g.restore();
+}
+function drawBall(bl){
+  g.save(); g.translate(bl.x,bl.y); g.rotate(bl.spin);
+  if(bl.flash>0){ g.globalAlpha=bl.flash*0.5; g.fillStyle='#8fffb0'; g.beginPath(); g.arc(0,0,bl.r+8,0,6.28); g.fill(); g.globalAlpha=1; }
+  const danger = bl.y>DANGER;
+  g.fillStyle='#fff'; g.beginPath(); g.arc(0,0,bl.r,0,6.28); g.fill();
+  g.strokeStyle=danger?'#ff5a3c':'#333'; g.lineWidth=danger?3:1.6; g.beginPath(); g.arc(0,0,bl.r,0,6.28); g.stroke();
+  g.fillStyle='#333'; g.beginPath(); g.moveTo(0,-6); g.lineTo(6,-2); g.lineTo(4,5); g.lineTo(-4,5); g.lineTo(-6,-2); g.closePath(); g.fill();
+  g.restore();
+  // shadow on turf
+  g.globalAlpha=0.16; g.fillStyle='#000'; g.beginPath(); g.ellipse(bl.x,GROUND+2,bl.r*0.9,4,0,0,6.28); g.fill(); g.globalAlpha=1;
+}
+
+function render(){
+  g.clearRect(0,0,W,H);
+  g.save(); if(shakeT>0){ const s=shakeT*12; g.translate((Math.random()-0.5)*s,(Math.random()-0.5)*s); }
+  drawBg();
+  if(state!=='title'){ for(const bl of balls) drawBall(bl); }
+  for(const q of parts){ g.globalAlpha=Math.max(0,q.life); g.fillStyle=q.c; g.fillRect(q.x-2,q.y-2,4,4); }
+  g.globalAlpha=1;
+  g.restore();
+
+  if(state==='play') drawHUD();
+  for(const q of pops){ g.globalAlpha=Math.max(0,q.life); g.textAlign='center';
+    if(q.small){ g.font='bold 16px sans-serif'; g.fillStyle=q.c; g.strokeStyle='#000'; g.lineWidth=3; g.strokeText(q.txt,q.x||W/2,q.y); g.fillText(q.txt,q.x||W/2,q.y); }
+    else { g.font='bold 30px sans-serif'; g.fillStyle=q.c; g.strokeStyle='#000'; g.lineWidth=5; g.strokeText(q.txt,q.x||W/2,q.y); g.fillText(q.txt,q.x||W/2,q.y); } }
+  g.globalAlpha=1;
+  if(flash>0){ g.fillStyle='rgba(255,255,255,'+(flash*0.4)+')'; g.fillRect(0,0,W,H); }
+  if(state==='title') drawTitle();
+  if(state==='over') drawOver();
+}
+function drawHUD(){
+  g.textAlign='left'; g.font='bold 26px sans-serif'; g.fillStyle='#fff'; g.strokeStyle='rgba(0,0,0,0.5)'; g.lineWidth=4;
+  g.strokeText('SCORE '+score,20,36); g.fillText('SCORE '+score,20,36);
+  g.font='bold 16px sans-serif'; g.strokeText('キープ '+keepups+' ・ '+balls.length+'球',22,60); g.fillText('キープ '+keepups+' ・ '+balls.length+'球',22,60);
+  if(combo>4){ g.textAlign='center'; g.font='bold 20px sans-serif'; g.fillStyle='#ffe15a'; g.strokeText(combo+' 連続キープ',W/2,40); g.fillText(combo+' 連続キープ',W/2,40); }
+  g.textAlign='right'; g.font='24px sans-serif';
+  for(let i=0;i<3;i++){ g.globalAlpha=i<3-drops?1:0.25; g.fillText('⚽',W-24-i*30,36); } g.globalAlpha=1;
+}
+function drawTitle(){
+  g.fillStyle='rgba(4,12,8,0.72)'; g.fillRect(0,0,W,H); g.textAlign='center';
+  g.fillStyle='#8fffb0'; g.font='bold 64px sans-serif'; g.fillText('ジャグリング',W/2,H/2-100);
+  g.fillStyle='#cfe'; g.font='20px sans-serif'; g.fillText('Juggler — 複数のボールを落とすな',W/2,H/2-62);
+  g.font='17px sans-serif'; g.fillStyle='#bcd';
+  g.fillText('落ちてくるボールをタップ/クリックで蹴り上げてキープ。',W/2,H/2-24);
+  g.fillText('危険ライン付近で蹴るとナイス（高得点）。',W/2,H/2+0);
+  g.fillText('キープを重ねるとボールが増え、注意力が試される。',W/2,H/2+24);
+  g.fillText('SPACEで一番下のボールを蹴る。3落球で終了。',W/2,H/2+48);
+  g.fillStyle='#ffe15a'; g.font='bold 24px sans-serif'; g.fillText('クリック / タップ / SPACE で スタート',W/2,H/2+100);
+  if(best>0){ g.fillStyle='#9fd'; g.font='16px sans-serif'; g.fillText('BEST '+best,W/2,H/2+130); }
+}
+function drawOver(){
+  g.fillStyle='rgba(4,12,8,0.8)'; g.fillRect(0,0,W,H); g.textAlign='center';
+  g.fillStyle='#ff6a6a'; g.font='bold 56px sans-serif'; g.fillText('3落球',W/2,H/2-60);
+  g.fillStyle='#fff'; g.font='bold 34px sans-serif'; g.fillText('SCORE '+score,W/2,H/2);
+  g.font='20px sans-serif'; g.fillStyle='#cfe'; g.fillText('キープ '+keepups+' 回',W/2,H/2+34);
+  const nb=score>0&&score>=best; g.fillStyle=nb?'#ffe15a':'#9fd'; g.font='18px sans-serif';
+  g.fillText(nb?'🎉 ベスト更新！ BEST '+best:'BEST '+best,W/2,H/2+64);
+  g.fillStyle='#8fffb0'; g.font='bold 22px sans-serif'; g.fillText('クリック / タップ で もう一度',W/2,H/2+110);
+}
+
+let last=0;
+function frame(t){ let dt=t-last; last=t; if(dt>60)dt=60; if(dt<0)dt=0; update(dt); render(); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__jg={
+  start, kickLowest, kickAt,
+  get state(){return state;}, get score(){return score;}, get keepups(){return keepups;}, get drops(){return drops;},
+  get balls(){ return balls.map(b=>({id:b.id,x:Math.round(b.x),y:Math.round(b.y),vy:+b.vy.toFixed(3)})); },
+  get info(){ return { count:balls.length, ground:GROUND, danger:DANGER }; }
+};
+})();
+</script>
+</body>
+</html>
