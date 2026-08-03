@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ピクルス・エスケープ (Escape the Rundown)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:#0a1410;overflow:hidden;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif}
+  #wrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  #stage{position:relative;width:min(100vw,calc(100vh*1.5));aspect-ratio:900/600;max-width:900px;
+    box-shadow:0 10px 60px rgba(0,0,0,.6);border-radius:10px;overflow:hidden;touch-action:none}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #hint{position:absolute;left:0;bottom:6px;width:100%;text-align:center;color:#cfe;
+    font-size:12px;opacity:.55;pointer-events:none;text-shadow:0 1px 3px #000}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="hint">送球の“離れる瞬間”にダッシュ！ SPACE / ↑ / 画面タップ ・ 早すぎ＝タッチ、遅れ＝挟殺 ・ 抜け続けて生還</div>
+</div></div>
+<script>
+(()=>{
+const cv=document.getElementById('cv'), g=cv.getContext('2d');
+const W=900,H=600;
+let DPR=1;
+function fit(){ DPR=Math.min(2,window.devicePixelRatio||1); cv.width=W*DPR; cv.height=H*DPR; g.setTransform(DPR,0,0,DPR,0,0); }
+fit(); addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
+function tone(f,d,t,v,sweep){ const a=ac(); if(!a)return; const o=a.createOscillator(),gg=a.createGain();
+  o.type=t||'sine'; o.frequency.value=f; if(sweep) o.frequency.exponentialRampToValueAtTime(Math.max(20,sweep),a.currentTime+d);
+  gg.gain.setValueAtTime(0.0001,a.currentTime); gg.gain.exponentialRampToValueAtTime(v||0.2,a.currentTime+0.012);
+  gg.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d); o.connect(gg).connect(a.destination);
+  o.start(); o.stop(a.currentTime+d+0.02); }
+function noise(d,v,hp){ const a=ac(); if(!a)return; const n=a.createBuffer(1,a.sampleRate*d,a.sampleRate); const ch=n.getChannelData(0);
+  for(let i=0;i<ch.length;i++) ch[i]=(Math.random()*2-1)*(1-i/ch.length);
+  const s=a.createBufferSource(); s.buffer=n; const f=a.createBiquadFilter(); f.type='highpass'; f.frequency.value=hp||600;
+  const gg=a.createGain(); gg.gain.value=v||0.15; s.connect(f).connect(gg).connect(a.destination); s.start(); }
+const S={
+  throw(){ tone(520,0.09,'triangle',0.10,760); },
+  slip(){ noise(0.1,0.10,700); tone(480,0.1,'sawtooth',0.10,720); },
+  nice(){ tone(720,0.1,'square',0.14,1050); },
+  escape(){ tone(660,0.12,'square',0.16,900); setTimeout(()=>tone(990,0.14,'square',0.15,1320),90); setTimeout(()=>tone(1320,0.2,'square',0.13,1760),190); },
+  out(){ noise(0.24,0.2,240); tone(170,0.32,'sawtooth',0.16,60); },
+  wild(){ tone(400,0.1,'sine',0.1,900); setTimeout(()=>tone(900,0.16,'sine',0.12,1400),80); },
+  over(){ tone(300,0.5,'sawtooth',0.16,90); setTimeout(()=>tone(200,0.6,'sawtooth',0.14,60),160); },
+  charge(){ tone(150,0.05,'sawtooth',0.04,120); },
+};
+
+// ---------- state ----------
+let state='title';
+let parts=[], pops=[];
+let score, outs, escapes, exchanges, combo, best, lvl, target;
+let ex=null;                       // current exchange
+let runnerX, activeSide;           // runner baseline pos (0..1), side of active fielder
+let flash=0, shakeT=0;
+try{ best=+localStorage.getItem('rd_best')||0; }catch(e){ best=0; }
+
+const BY=390;                      // baseline y
+const LX=170, RX=730;             // third (left), home (right)
+function baseX(t){ return LX+(RX-LX)*t; }
+
+function reset(){ parts=[]; pops=[]; score=0; outs=0; escapes=0; exchanges=0; combo=0; lvl=0; target=4;
+  runnerX=0.5; activeSide=Math.random()<0.5?'L':'R'; flash=0; shakeT=0; ex=null; escaped=false; newExchange(true); }
+
+function newExchange(reset){
+  lvl=Math.floor(escapes);
+  const within = reset? 0 : (ex? (ex._n||0)+1 : 0);
+  const chargeDur = Math.max(560, 1150 - lvl*90 - within*45);
+  const winW = Math.max(150, 300 - lvl*22 - within*10);
+  const releaseAt = chargeDur*(0.55+Math.random()*0.26);
+  const wild = (exchanges>0) && Math.random()<0.09;
+  ex={ phase:'charge', t:0, chargeDur, releaseAt, winW, wild,
+       fielderP:0, ballFly:0, decided:false, res:null, resT:0, _n:within,
+       side:activeSide, clutch: lvl>=2 && Math.random()<0.18 };
+}
+
+// ---------- action ----------
+function dash(){
+  if(!ex||ex.phase!=='charge'||ex.decided) return;
+  ex.decided=true;
+  const since=ex.t;
+  if(ex.wild){ ex.res='wild'; }
+  else if(since>=ex.releaseAt && since<=ex.releaseAt+ex.winW){ ex.res = (since<=ex.releaseAt+ex.winW*0.5)?'nice':'slip'; }
+  else if(since<ex.releaseAt){ ex.res='early'; }
+  else { ex.res='late'; }
+  ex.phase='resolve'; ex.resT=0;
+  if(ex.res==='early'||ex.res==='late'){ S.out(); } else if(ex.res==='wild'){ S.wild(); } else { S.slip(); if(ex.res==='nice') setTimeout(()=>S.nice(),50); }
+}
+function applyResult(){
+  const r=ex.res;
+  if(r==='slip'||r==='nice'||r==='wild'){
+    exchanges++; combo++;
+    let gained=(r==='nice'?60:r==='wild'?80:40)+combo*6; if(ex.clutch) gained*=2;
+    score+=gained;
+    // runner advances toward the base the active fielder vacated
+    const dir = ex.side==='L'? -0.14 : 0.14; runnerX=Math.max(0.08,Math.min(0.92,runnerX+dir));
+    pops.push({txt:(r==='wild'?'暴投！ +':r==='nice'?'ナイス! +':'抜けた! +')+gained, y:150, life:0.9, c:r==='nice'?'#ffe15a':(r==='wild'?'#7fd8ff':'#8fffb0'), small:true});
+    if(r==='nice'||r==='wild'){ flash=Math.max(flash,0.3); }
+    burst(baseX(runnerX),BY,'#8fffb0',r==='nice'?18:12);
+    if(ex._n+1>=target || r==='wild'){ // escaped the pickle
+      escapes++; const bonus=200+escapes*40; score+=bonus;
+      pops.push({txt:'生還！セーフ！ +'+bonus, big:true, y:200, life:1.15, c:'#ffe15a'}); flash=Math.max(flash,0.55); S.escape();
+      burst(baseX(runnerX),BY,'#ffe15a',40);
+      ex.escaped=true;
+    }
+  } else if(r==='early'){ outs++; combo=0; shakeT=0.4; flash=Math.max(flash,0.5);
+    pops.push({txt:'早すぎ！タッチアウト！', big:true, y:190, life:1.1, c:'#ff6a6a', bad:true}); burst(baseX(runnerX),BY,'#ff6a6a',24);
+  } else if(r==='late'){ outs++; combo=0; shakeT=0.4; flash=Math.max(flash,0.5);
+    pops.push({txt:'遅い！挟殺アウト！', big:true, y:190, life:1.1, c:'#ff6a6a', bad:true}); burst(baseX(runnerX),BY,'#ff6a6a',24);
+  } else if(r==='caught'){ outs++; combo=0; shakeT=0.4; flash=Math.max(flash,0.5);
+    pops.push({txt:'詰められてタッチ！', big:true, y:190, life:1.1, c:'#ff6a6a', bad:true}); burst(baseX(runnerX),BY,'#ff6a6a',24);
+  }
+  if(outs>=3) gameOver();
+}
+let escaped=false;
+function gameOver(){ state='over'; S.over(); if(score>best){ best=score; try{localStorage.setItem('rd_best',best);}catch(e){} } }
+function burst(x,y,c,n){ for(let i=0;i<n;i++) parts.push({x,y,vx:(Math.random()-0.5)*7,vy:(Math.random()-0.5)*7-1,life:1,c}); }
+
+// ---------- input ----------
+function start(){ ac(); reset(); state='play'; }
+function press(){ if(state==='title'||state==='over'){ start(); return; } if(state!=='play') return; dash(); }
+addEventListener('keydown',e=>{ if(e.repeat) return; const k=e.key.toLowerCase();
+  if(k===' '||k==='arrowup'||k==='w'||k==='arrowleft'||k==='arrowright'||k==='a'||k==='d'){ press(); e.preventDefault(); } });
+cv.addEventListener('pointerdown',e=>{ ac(); press(); e.preventDefault(); });
+
+// ---------- update ----------
+function update(dt){
+  if(flash>0) flash=Math.max(0,flash-dt*0.003);
+  if(shakeT>0) shakeT-=dt*0.001;
+  parts.forEach(q=>{q.x+=q.vx;q.y+=q.vy;q.vy+=0.12;q.life-=dt*0.0022;});
+  parts=parts.filter(q=>q.life>0);
+  pops.forEach(q=>{q.y-=dt*0.03;q.life-=dt*0.0016;});
+  pops=pops.filter(q=>q.life>0);
+  if(state!=='play'||!ex) return;
+
+  if(ex.phase==='charge'){
+    ex.t+=dt;
+    ex.fielderP=Math.min(1,ex.t/ex.chargeDur);
+    if(Math.floor(ex.t/90)!==Math.floor((ex.t-dt)/90)) S.charge();
+    // charge past end with no dash -> tagged (caught)
+    if(ex.t>=ex.chargeDur+ex.winW){ ex.phase='resolve'; ex.resT=0; ex.decided=true; ex.res='caught'; S.out(); }
+  } else if(ex.phase==='resolve'){
+    ex.resT+=dt;
+    if(ex.res==='slip'||ex.res==='nice'||ex.res==='wild'){ ex.ballFly=Math.min(1,ex.resT/360); }
+    if(ex.resT>=520 && !ex.applied){ ex.applied=true; applyResult(); }
+    if(ex.resT>=980 && state==='play'){
+      if(ex.escaped){ runnerX=0.5; activeSide=Math.random()<0.5?'L':'R'; newExchange(true); }
+      else if(ex.res==='slip'||ex.res==='nice'){ activeSide=ex.side==='L'?'R':'L'; newExchange(false); }
+      else { runnerX=0.5; activeSide=Math.random()<0.5?'L':'R'; newExchange(true); } // after an out
+    }
+  }
+}
+
+// ---------- render ----------
+function roundRect(x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+
+function drawField(){
+  const gr=g.createLinearGradient(0,0,0,H); gr.addColorStop(0,'#1c6b39'); gr.addColorStop(1,'#2c9350'); g.fillStyle=gr; g.fillRect(0,0,W,H);
+  for(let i=0;i<8;i++){ if(i%2===0){ g.fillStyle='rgba(255,255,255,0.03)'; g.fillRect(0,i*H/8,W,H/8); } }
+  // basepath dirt band
+  g.fillStyle='#b6793f'; g.save(); g.translate(0,BY); g.fillRect(LX-30,-26,RX-LX+60,52); g.restore();
+  g.strokeStyle='rgba(255,255,255,0.8)'; g.lineWidth=4; g.beginPath(); g.moveTo(LX,BY); g.lineTo(RX,BY); g.stroke();
+  // bases
+  const base=(x,label)=>{ g.save(); g.translate(x,BY); g.rotate(Math.PI/4); g.fillStyle='#fff'; g.fillRect(-13,-13,26,26); g.restore();
+    g.fillStyle='rgba(255,255,255,0.7)'; g.font='bold 14px sans-serif'; g.textAlign='center'; g.fillText(label,x,BY+40); };
+  base(LX,'3B');
+  // home plate
+  g.save(); g.translate(RX,BY); g.fillStyle='#fff'; g.beginPath(); g.moveTo(-13,-7); g.lineTo(13,-7); g.lineTo(13,3); g.lineTo(0,13); g.lineTo(-13,3); g.closePath(); g.fill(); g.restore();
+  g.fillStyle='rgba(255,255,255,0.7)'; g.font='bold 14px sans-serif'; g.textAlign='center'; g.fillText('HOME',RX,BY+40);
+}
+function drawFielder(x,y,windup,throwing,sc){
+  sc=sc||1; g.save(); g.translate(x,y); g.scale(sc,sc);
+  g.fillStyle='rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(0,6,15,5,0,0,6.28); g.fill();
+  g.strokeStyle='#20303a'; g.lineWidth=6; g.lineCap='round'; g.beginPath(); g.moveTo(-4,-2); g.lineTo(-8,18); g.moveTo(4,-2); g.lineTo(8,18); g.stroke();
+  g.fillStyle='#3a6ee8'; roundRect(-11,-30,22,30,6); g.fill();
+  // throwing arm
+  g.strokeStyle='#3a6ee8'; g.lineWidth=7;
+  if(windup){ g.beginPath(); g.moveTo(6,-24); g.lineTo(20,-34); g.stroke(); }
+  else { g.beginPath(); g.moveTo(6,-24); g.lineTo(18,-14); g.stroke(); }
+  g.beginPath(); g.moveTo(-6,-24); g.lineTo(-16,-14); g.stroke();
+  g.fillStyle='#f2c9a0'; g.beginPath(); g.arc(0,-40,9,0,6.28); g.fill();
+  g.restore();
+}
+function drawRunner(x,y,juke){
+  g.save(); g.translate(x,y); g.scale(1.12,1.12);
+  g.fillStyle='rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(0,6,16,5,0,0,6.28); g.fill();
+  g.strokeStyle='#20303a'; g.lineWidth=6; g.lineCap='round'; const ph=juke||0;
+  g.beginPath(); g.moveTo(-4,-2); g.lineTo(-8+Math.sin(ph)*8,18); g.moveTo(4,-2); g.lineTo(8-Math.sin(ph)*8,18); g.stroke();
+  g.fillStyle='#e8433a'; roundRect(-11,-30,22,30,6); g.fill();
+  g.fillStyle='#ffd9d0'; g.font='bold 13px sans-serif'; g.textAlign='center'; g.fillText('R',0,-10);
+  g.strokeStyle='#e8433a'; g.lineWidth=7; g.beginPath(); g.moveTo(-7,-22); g.lineTo(-17,-12+Math.sin(ph)*5); g.moveTo(7,-22); g.lineTo(17,-12-Math.sin(ph)*5); g.stroke();
+  g.fillStyle='#f2c9a0'; g.beginPath(); g.arc(0,-40,9,0,6.28); g.fill();
+  g.restore();
+}
+function drawBall(x,y){ g.fillStyle='#fff'; g.beginPath(); g.arc(x,y,7,0,6.28); g.fill(); g.strokeStyle='#333'; g.lineWidth=1.2; g.beginPath(); g.arc(x,y,7,0,6.28); g.stroke(); }
+
+function drawScene(){
+  if(!ex && state==='play'){ return; }
+  if(!ex) return;
+  const activeBaseX = ex.side==='L'?LX:RX;
+  const otherBaseX = ex.side==='L'?RX:LX;
+  const rx=baseX(runnerX), ry=BY;
+  // active fielder charges from his base toward runner
+  let afx;
+  const inWin = ex.phase==='charge' && ex.t>=ex.releaseAt && ex.t<=ex.releaseAt+ex.winW && !ex.wild;
+  const windup = ex.phase==='charge' && ex.t>=ex.releaseAt-140 && ex.t<ex.releaseAt;
+  if(ex.phase==='charge'){ afx=activeBaseX + (rx-activeBaseX)*(0.15+0.6*ex.fielderP); }
+  else { afx=activeBaseX + (rx-activeBaseX)*0.72; }
+  // other fielder waits at other base
+  drawFielder(otherBaseX, ry, false, false, 1.0);
+  // runner
+  let juke = ex.phase==='resolve'&&(ex.res==='slip'||ex.res==='nice')? (ex.resT*0.05):0;
+  drawRunner(rx,ry,juke);
+  // active fielder
+  drawFielder(afx, ry-2, windup||inWin, ex.phase==='resolve', 1.05);
+  // ball
+  if(ex.phase==='charge'){ drawBall(afx+ (ex.side==='L'?14:-14), ry-30); }
+  else if((ex.res==='slip'||ex.res==='nice'||ex.res==='wild')){ // ball flies to other base
+    const bx=afx+ (otherBaseX-afx)*ex.ballFly, by=ry-30-Math.sin(ex.ballFly*Math.PI)*50; drawBall(bx,by);
+  }
+  // window cue
+  if(ex.phase==='charge'){
+    g.textAlign='center';
+    if(ex.wild){ g.fillStyle='#7fd8ff'; g.font='bold 26px sans-serif'; g.fillText('暴投のスキ！ 走れ！',W/2,120); }
+    else if(inWin){ g.fillStyle='#8fffb0'; g.font='bold 34px sans-serif'; g.strokeStyle='#000'; g.lineWidth=5;
+      g.strokeText('今だ！ ダッシュ！',W/2,120); g.fillText('今だ！ ダッシュ！',W/2,120); }
+    else if(windup){ g.fillStyle='#ffd76a'; g.font='bold 24px sans-serif'; g.fillText('投げる…！',W/2,120); }
+    else { g.fillStyle='#cfe'; g.font='bold 20px sans-serif'; g.fillText('引きつけろ…（早出し厳禁）',W/2,120); }
+    if(ex.clutch){ g.fillStyle='#ffe15a'; g.font='bold 18px sans-serif'; g.fillText('★ チャンス！ 2倍 ★',W/2,148); }
+  }
+}
+
+function render(){
+  g.clearRect(0,0,W,H);
+  g.save(); if(shakeT>0){ const s=shakeT*13; g.translate((Math.random()-0.5)*s,(Math.random()-0.5)*s); }
+  drawField();
+  if(state!=='title') drawScene();
+  for(const q of parts){ g.globalAlpha=Math.max(0,q.life); g.fillStyle=q.c; g.fillRect(q.x-2,q.y-2,4,4); }
+  g.globalAlpha=1;
+  g.restore();
+
+  if(state==='play') drawHUD();
+  for(const q of pops){ g.globalAlpha=Math.max(0,q.life); g.textAlign='center';
+    if(q.big){ g.font='bold 40px sans-serif'; g.fillStyle=q.c; g.strokeStyle='#000'; g.lineWidth=5; g.strokeText(q.txt,W/2,q.y); g.fillText(q.txt,W/2,q.y); }
+    else { g.font='bold 23px sans-serif'; g.fillStyle=q.c; g.strokeStyle='#000'; g.lineWidth=4; g.strokeText(q.txt,W/2,q.y); g.fillText(q.txt,W/2,q.y); } }
+  g.globalAlpha=1;
+  if(flash>0){ g.fillStyle='rgba(255,255,255,'+(flash*0.5)+')'; g.fillRect(0,0,W,H); }
+  if(state==='title') drawTitle();
+  if(state==='over') drawOver();
+}
+function drawHUD(){
+  g.textAlign='left'; g.font='bold 26px sans-serif'; g.fillStyle='#fff'; g.strokeStyle='rgba(0,0,0,0.5)'; g.lineWidth=4;
+  g.strokeText('SCORE '+score,20,36); g.fillText('SCORE '+score,20,36);
+  g.font='bold 16px sans-serif'; g.strokeText('生還 '+escapes+' ・ 突破 '+exchanges,22,60); g.fillText('生還 '+escapes+' ・ 突破 '+exchanges,22,60);
+  if(combo>1){ g.textAlign='center'; g.font='bold 20px sans-serif'; g.fillStyle='#ffe15a'; g.strokeText(combo+' 連続突破',W/2,44); g.fillText(combo+' 連続突破',W/2,44); }
+  // progress toward escape
+  if(ex){ const prog=(ex._n)/target; g.textAlign='right'; g.font='bold 13px sans-serif'; g.fillStyle='#cfe';
+    g.fillText('生還まで '+ex._n+'/'+target, W-20, 74);
+    g.fillStyle='rgba(0,0,0,0.4)'; roundRect(W-150,80,130,10,5); g.fill();
+    g.fillStyle='#8fffb0'; roundRect(W-148,82,126*prog,6,3); g.fill(); }
+  g.textAlign='right'; g.font='22px sans-serif'; g.fillStyle='#fff'; g.strokeText('OUT',W-118,34); g.fillText('OUT',W-118,34);
+  for(let i=0;i<3;i++){ g.fillStyle=i<outs?'#ff5a5a':'rgba(255,255,255,0.28)'; g.beginPath(); g.arc(W-78+i*26,27,9,0,6.28); g.fill(); }
+}
+function drawTitle(){
+  g.fillStyle='rgba(4,12,8,0.72)'; g.fillRect(0,0,W,H); g.textAlign='center';
+  g.fillStyle='#8fffb0'; g.font='bold 52px sans-serif'; g.fillText('ピクルス・エスケープ',W/2,H/2-100);
+  g.fillStyle='#cfe'; g.font='20px sans-serif'; g.fillText('Escape the Rundown — 挟殺を抜け出せ（走者視点）',W/2,H/2-62);
+  g.font='17px sans-serif'; g.fillStyle='#bcd';
+  g.fillText('挟まれた走者を操作。追う野手が“送球”する瞬間を狙え。',W/2,H/2-26);
+  g.fillText('ボールが手を離れるスキにダッシュで抜ける！',W/2,H/2-2);
+  g.fillText('早すぎればタッチ、遅れれば挟殺。投げる腕を見極めろ。',W/2,H/2+22);
+  g.fillText('連続で抜けて生還すればボーナス。3アウトで終了。',W/2,H/2+46);
+  g.fillStyle='#ffe15a'; g.font='bold 24px sans-serif'; g.fillText('クリック / タップ / キー で スタート',W/2,H/2+98);
+  if(best>0){ g.fillStyle='#9fd'; g.font='16px sans-serif'; g.fillText('BEST '+best,W/2,H/2+128); }
+}
+function drawOver(){
+  g.fillStyle='rgba(4,12,8,0.8)'; g.fillRect(0,0,W,H); g.textAlign='center';
+  g.fillStyle='#ff6a6a'; g.font='bold 56px sans-serif'; g.fillText('タッチアウト',W/2,H/2-60);
+  g.fillStyle='#fff'; g.font='bold 34px sans-serif'; g.fillText('SCORE '+score,W/2,H/2);
+  g.font='20px sans-serif'; g.fillStyle='#cfe'; g.fillText('生還 '+escapes+' ・ 突破 '+exchanges,W/2,H/2+34);
+  const nb=score>0&&score>=best; g.fillStyle=nb?'#ffe15a':'#9fd'; g.font='18px sans-serif';
+  g.fillText(nb?'🎉 ベスト更新！ BEST '+best:'BEST '+best,W/2,H/2+64);
+  g.fillStyle='#8fffb0'; g.font='bold 22px sans-serif'; g.fillText('クリック / タップ で もう一度',W/2,H/2+110);
+}
+
+let last=0;
+function frame(t){ let dt=t-last; last=t; if(dt>60)dt=60; if(dt<0)dt=0; update(dt); render(); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__rd={
+  start, dash,
+  get state(){return state;}, get score(){return score;}, get outs(){return outs;}, get escapes(){return escapes;}, get exchanges(){return exchanges;},
+  get info(){ if(!ex) return null; const inWin = ex.phase==='charge' && (ex.wild || (ex.t>=ex.releaseAt && ex.t<=ex.releaseAt+ex.winW));
+    return { phase:ex.phase, inWindow:inWin, wild:!!ex.wild, sinceStart:Math.round(ex.t), releaseAt:Math.round(ex.releaseAt),
+      winW:Math.round(ex.winW), n:ex._n, res:ex.res, clutch:!!ex.clutch }; }
+};
+})();
+</script>
+</body>
+</html>

@@ -110,6 +110,7 @@
 | 102 | トラップ&ターン (Turn and Face) | ⚽ Soccer | [102-turn-and-face.html](102-turn-and-face.html) | https://claude.ai/code/artifact/5ed0a5f4-cb49-4eb0-953c-bd9f4af4d0fa |
 | 103 | ゴロ・ゴー (Break on Contact) | ⚾ Baseball | [103-break-on-contact.html](103-break-on-contact.html) | https://claude.ai/code/artifact/e48ebc7b-293b-42cc-a77d-53738792cd0a |
 | 104 | ゴラッソ (Screamer) | ⚽ Soccer | [104-screamer.html](104-screamer.html) | https://claude.ai/code/artifact/a3c640fe-ce8f-46da-bd2a-be1d97939308 |
+| 105 | ピクルス・エスケープ (Escape the Rundown) | ⚾ Baseball | [105-escape-the-rundown.html](105-escape-the-rundown.html) | https://claude.ai/code/artifact/cf8cc25b-f69b-4fb6-95f0-c343fce1f417 |
 
 ---
 
@@ -212,6 +213,7 @@ Baseball ⚾
 - ~~トラップ&ターン（背負って受けるMFの反転：背後マーカーと逆＝空いてる方へ、ボールが足に収まる瞬間に合わせてターン、土壇場の肩の入れ替え（フェイント）を見極める。逆を突く/遅れると奪われロスト、ジャストでオーレ、たまにゴール、3ロストで終了。方向読み＋到達タイミングの新機軸）~~ (done #102)
 - ~~ゴロ・ゴー（三塁走者の打球判断：打った瞬間にゴロ/ライナー・フライ/空振りを見極め、ゴロは即GOで生還（速い判断ほどセーフ・遅れると本塁憤死）、上がった打球は戻って飛び出し併殺回避、打つ前の飛び出し＆空振りへの突入もアウト、無反応は挟殺、3アウトで交代。打球タイプ読み＋反応速度の新機軸）~~ (done #103)
 - ~~ゴラッソ（飛行中カーブの誘導アクション：自動で飛ぶミドルシュートを押しっぱなしで曲げ、GKの重心を追ってlockした逆サイドの隅へカーブ。早曲げはGKに追われ、曲げすぎは枠外、カーブ残量あり。隅でゴラッソ、3ミスで終了。打った後に軌道を操る新機軸）~~ (done #104)
+- ~~ピクルス・エスケープ（挟殺を走者視点で抜ける反応アクション：追う野手のワインドアップを見て“送球で腕が離れる瞬間”にダッシュで背後を抜ける、早すぎ＝タッチ・遅れ＝挟殺、暴投のスキは即好機、連続突破でセーフ生還ボーナス、3アウトで終了。ランダウンの攻撃側という新POV）~~ (done #105)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
