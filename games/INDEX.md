@@ -104,6 +104,7 @@
 | 96 | フリースタイル (Keepie-Uppie) | ⚽ Soccer | [96-freestyle.html](96-freestyle.html) | https://claude.ai/code/artifact/23858fe7-82a9-44b3-8ce9-7c6b96aef2da |
 | 97 | ナックルボール (Knuckleball Catcher) | ⚾ Baseball | [97-knuckleball.html](97-knuckleball.html) | https://claude.ai/code/artifact/5a193077-b339-403c-a868-f70d5b7a9337 |
 | 98 | PKシュートアウト対決 (Shootout Duel) | ⚽ Soccer | [98-shootout-duel.html](98-shootout-duel.html) | https://claude.ai/code/artifact/958edf84-7091-4d4c-b1ed-71c8235c22e8 |
+| 99 | ブロック＆スロー (Block and Gun) | ⚾ Baseball | [99-block-and-gun.html](99-block-and-gun.html) | https://claude.ai/code/artifact/0ea87264-f675-48ee-a48c-6813c7763b3f |
 
 ---
 
@@ -200,6 +201,7 @@ Baseball ⚾
 - ~~フリースタイル（リフティング：落ちてくる部位=足腿胸頭に合わせて対応ボタンをタイミングよくタッチ、部位ちがい・早遅で落球、連続で倍率、金玉はスペシャル、3落球で終了）~~ (done #96)
 - ~~ナックルボール（追尾：予測不能に揺れる魔球を捕手のミットで追い続け、プレート到達時に重ねて捕球、ど真ん中でナイスキャッチ、外すとパスボール、3逃しで終了の追跡新機構）~~ (done #97)
 - ~~PKシュートアウト対決（キック＆セーブ交互の読み合い：キックはGKの寄った逆を突き、セーブはキッカーの体の向きを読んで同枠へ飛ぶ、ブラフあり、3失敗で終了の二役デュエル）~~ (done #98)
+- ~~ブロック＆スロー（捕手の二段プレー：ワンバウンドを左/正面/右でブロック→送球メーターを緑で決めて盗塁刺、普通球は余裕・ワンバウンドは完璧送球要、後逸悪送球で3セーフ終了）~~ (done #99)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
