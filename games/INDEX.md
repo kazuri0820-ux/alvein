@@ -107,6 +107,7 @@
 | 99 | ブロック＆スロー (Block and Gun) | ⚾ Baseball | [99-block-and-gun.html](99-block-and-gun.html) | https://claude.ai/code/artifact/0ea87264-f675-48ee-a48c-6813c7763b3f |
 | 100 | カウンター・スプリント (Counter Sprint) | ⚽ Soccer | [100-counter-sprint.html](100-counter-sprint.html) | https://claude.ai/code/artifact/9bfc920d-2b86-4c46-a273-af1062600200 |
 | 101 | ベースコーチ (Send the Runner) | ⚾ Baseball | [101-send-the-runner.html](101-send-the-runner.html) | https://claude.ai/code/artifact/2ab04670-5b4d-44ac-85c6-48f36e856e92 |
+| 102 | トラップ&ターン (Turn and Face) | ⚽ Soccer | [102-turn-and-face.html](102-turn-and-face.html) | https://claude.ai/code/artifact/5ed0a5f4-cb49-4eb0-953c-bd9f4af4d0fa |
 
 ---
 
@@ -206,6 +207,7 @@ Baseball ⚾
 - ~~ブロック＆スロー（捕手の二段プレー：ワンバウンドを左/正面/右でブロック→送球メーターを緑で決めて盗塁刺、普通球は余裕・ワンバウンドは完璧送球要、後逸悪送球で3セーフ終了）~~ (done #99)
 - ~~カウンター・スプリント（3レーンの独走ランナー：迫るDFの空いたレーンへ←→で回避、2枚壁のナイス回避でコンボ、ダッシュ/⚡ブーストで加速、一定距離ごとにGOAL、被カット3回で終了。連続移動系の新機軸）~~ (done #100)
 - ~~ベースコーチ（三塁コーチの走塁判断：外野の深さ・返球の肩・走者の脚を読みGO=本塁突入/STOP=自重を制限時間内に決断、生還なら得点、刺されると＆判断遅れの挟殺でアウト、チャンス球は2倍、3アウトで終了。読み＋決断の新機軸）~~ (done #101)
+- ~~トラップ&ターン（背負って受けるMFの反転：背後マーカーと逆＝空いてる方へ、ボールが足に収まる瞬間に合わせてターン、土壇場の肩の入れ替え（フェイント）を見極める。逆を突く/遅れると奪われロスト、ジャストでオーレ、たまにゴール、3ロストで終了。方向読み＋到達タイミングの新機軸）~~ (done #102)
 - 2人対戦（PK対戦・打撃vs投球の読み合い）
 - ~~トーナメント制（PK戦カップ戦・蹴る/守る交互）~~ (done #20)
 - 選手育成・シーズンモード
