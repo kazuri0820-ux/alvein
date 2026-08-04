@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ハーフスイング (Check Swing)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:#0a0f14;overflow:hidden;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif}
+  #wrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  #stage{position:relative;width:min(100vw,calc(100vh*1.5));aspect-ratio:900/600;max-width:900px;
+    box-shadow:0 10px 60px rgba(0,0,0,.6);border-radius:10px;overflow:hidden;touch-action:none}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #hint{position:absolute;left:0;bottom:6px;width:100%;text-align:center;color:#cfe;
+    font-size:12px;opacity:.55;pointer-events:none;text-shadow:0 1px 3px #000}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="hint">押し込んで始動→ボール球なら“止める”（早離し）／ストライクは離してミート（キー: SPACE 長押し→離す）</div>
+</div></div>
+<script>
+(()=>{
+const cv=document.getElementById('cv'), g=cv.getContext('2d');
+const W=900,H=600;
+let DPR=1;
+function fit(){ DPR=Math.min(2,window.devicePixelRatio||1); cv.width=W*DPR; cv.height=H*DPR; g.setTransform(DPR,0,0,DPR,0,0); }
+fit(); addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
+function tone(f,d,t,v,sweep){ const a=ac(); if(!a)return; const o=a.createOscillator(),gg=a.createGain();
+  o.type=t||'sine'; o.frequency.value=f; if(sweep) o.frequency.exponentialRampToValueAtTime(Math.max(20,sweep),a.currentTime+d);
+  gg.gain.setValueAtTime(0.0001,a.currentTime); gg.gain.exponentialRampToValueAtTime(v||0.2,a.currentTime+0.012);
+  gg.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d); o.connect(gg).connect(a.destination);
+  o.start(); o.stop(a.currentTime+d+0.02); }
+function noise(d,v,hp){ const a=ac(); if(!a)return; const n=a.createBuffer(1,a.sampleRate*d,a.sampleRate); const ch=n.getChannelData(0);
+  for(let i=0;i<ch.length;i++) ch[i]=(Math.random()*2-1)*(1-i/ch.length);
+  const s=a.createBufferSource(); s.buffer=n; const f=a.createBiquadFilter(); f.type='highpass'; f.frequency.value=hp||600;
+  const gg=a.createGain(); gg.gain.value=v||0.15; s.connect(f).connect(gg).connect(a.destination); s.start(); }
+const S={
+  load(){ tone(180,0.06,'sine',0.05,240); },
+  crack(){ noise(0.05,0.22,900); tone(300,0.08,'square',0.14,140); },
+  homer(){ noise(0.06,0.24,900); tone(330,0.09,'square',0.16,180); setTimeout(()=>tone(520,0.12,'triangle',0.14,780),80); setTimeout(()=>tone(780,0.16,'triangle',0.12,1040),180); },
+  check(){ tone(520,0.08,'sine',0.09,760); noise(0.03,0.06,1200); },
+  walk(){ tone(440,0.1,'triangle',0.12,620); setTimeout(()=>tone(620,0.12,'triangle',0.1,820),90); },
+  ball(){ tone(360,0.09,'sine',0.08,300); },
+  cstrike(){ tone(240,0.12,'sawtooth',0.12,120); },
+  whiff(){ noise(0.09,0.18,500); tone(200,0.14,'sawtooth',0.12,90); },
+  foul(){ noise(0.04,0.14,1100); tone(360,0.06,'square',0.09,220); },
+  k(){ tone(220,0.16,'sawtooth',0.14,90); setTimeout(()=>tone(160,0.2,'sawtooth',0.12,70),120); },
+  over(){ tone(300,0.5,'sawtooth',0.16,90); setTimeout(()=>tone(200,0.6,'sawtooth',0.14,60),160); },
+};
+
+// ---------- geometry ----------
+const MX=450, MY=94;                       // mound (release point)
+const PY=470;                              // plate crossing depth (visual)
+const ZW=140, ZH=132, ZCX=450, ZCY=356;    // strike zone box
+const ZL=ZCX-ZW/2, ZR=ZCX+ZW/2, ZT=ZCY-ZH/2, ZB=ZCY+ZH/2;
+const RING={x:450,y:512,r:40};             // swing/commit ring near batter
+
+// timing (ms)
+const COMMIT_MS=175;     // held >= this => committed full swing; below => check
+const LOAD_FULL=400;     // visual meter full
+const BARREL=44, SOLID=98, FOULW=158, LATE=150;
+
+// ---------- state ----------
+let state='title';
+let parts=[], pops=[];
+let score, combo, best, lvl, atbats, hits;
+let balls, strikes, outs;
+let phase='pitch', pitch=null, pitchT=0, flightMs=900;
+let loading=false, loadStart=0, resolved=true, resT=0, lastRes=null;
+let flash=0, shakeT=0, batFx=0, checkFx=0;
+let meter=0, committed=false;
+try{ best=+localStorage.getItem('cs_best')||0; }catch(e){ best=0; }
+
+const crowd=[]; { const cc=['#e6b48f','#9bd0e6','#e6dc8f','#c9a0d8','#8fd8bd','#f0f0f0']; for(let i=0;i<260;i++) crowd.push({x:(i*29.1)%W, y:2+((i*61)%58), c:cc[i%cc.length]}); }
+
+function clamp(v,a,b){ return v<a?a:v>b?b:v; }
+function rnd(a,b){ return a+Math.random()*(b-a); }
+
+function reset(){ parts=[]; pops=[]; score=0; combo=0; lvl=0; atbats=0; hits=0; balls=0; strikes=0; outs=0; flash=0; shakeT=0; newBatter(); }
+function newBatter(){ balls=0; strikes=0; newPitch(); }
+
+const TYPES=['heat','wide','slider','hanger','backdoor','highlow'];
+function pickType(){
+  // weights ramp with level: more sliders/hangers (break decisions) later
+  const w = lvl<=0 ? {heat:36,wide:26,slider:12,hanger:10,backdoor:4,highlow:8}
+          : lvl<=2 ? {heat:26,wide:20,slider:22,hanger:14,backdoor:6,highlow:8}
+          :          {heat:20,wide:16,slider:28,hanger:18,backdoor:10,highlow:8};
+  let tot=0; for(const k in w) tot+=w[k]; let r=Math.random()*tot;
+  for(const k in w){ r-=w[k]; if(r<0) return k; } return 'heat';
+}
+function newPitch(){
+  const type=pickType();
+  let aimX, fx, fy, isStrike;
+  const inZx=()=>rnd(ZL+18,ZR-18), inZy=()=>rnd(ZT+20,ZB-20);
+  if(type==='heat'){ fx=inZx(); fy=inZy(); aimX=fx; isStrike=true; }
+  else if(type==='hanger'){ // looks like it'll break out, stays in -> swing
+    fy=inZy(); const s=Math.random()<0.5?-1:1; aimX=ZCX+s*(ZW*0.62); fx=inZx(); isStrike=true; }
+  else if(type==='slider'){ // aims at zone, breaks OUT late -> check
+    fy=inZy(); const s=Math.random()<0.5?-1:1; aimX=ZCX+s*(ZW*0.18); fx=ZCX+s*(ZW*0.62+rnd(6,26)); isStrike=false; }
+  else if(type==='backdoor'){ // starts outside, breaks IN -> swing (late read)
+    fy=inZy(); const s=Math.random()<0.5?-1:1; aimX=ZCX+s*(ZW*0.66); fx=ZCX-s*rnd(6,ZW*0.28); isStrike=true; }
+  else if(type==='wide'){ // obvious ball, straight -> take
+    const s=Math.random()<0.5?-1:1; fx=ZCX+s*(ZW*0.66+rnd(6,30)); aimX=fx; fy=inZy(); isStrike=false; }
+  else { // highlow: clearly high or low ball
+    fx=inZx(); aimX=fx; const s=Math.random()<0.5?-1:1; fy=ZCY+s*(ZH*0.62+rnd(6,26)); isStrike=false; }
+  const faster = type==='heat'||type==='wide';
+  flightMs = clamp((faster?840:930) - lvl*38 + rnd(-30,30), 560, 980);
+  pitch={ type, aimX, fx, fy, isStrike, x:MX, y:MY, r:5, trail:[] };
+  pitchT=0; loading=false; loadStart=0; meter=0; committed=false; resolved=false; resT=0;
+  phase='pitch';
+}
+
+function ballPos(t){ // t 0..1 along flight
+  const late=Math.pow(clamp((t-0.5)/0.5,0,1),1.7);
+  const baseX=MX+(pitch.aimX-MX)*t;
+  const x=baseX+(pitch.fx-pitch.aimX)*late;
+  const y=MY+(pitch.fy-MY)*t*  (0.62+0.38*t);   // slight ease so it drifts down naturally
+  const r=5+12*t;
+  return {x,y,r};
+}
+
+function resolvePitch(kind, dt){
+  // kind: 'take' | 'check' | 'swing'
+  resolved=true; resT=0; phase='resolve';
+  if(kind==='swing') batFx=1; else if(kind==='check') checkFx=1;
+  const st=pitch.isStrike;
+  let res;
+  if(kind==='take'){ res = st?'cstrike':'ball'; }
+  else if(kind==='check'){ res = st?'cstrike':'ball'; if(res==='ball') res='checkball'; else res='checkstr'; }
+  else { // swing
+    if(!st){ res='whiff'; }
+    else { const a=Math.abs(dt);
+      if(dt>LATE) res='whiff';
+      else if(a<=BARREL) res='barrel';
+      else if(a<=SOLID) res='hit';
+      else if(a<=FOULW) res='foul';
+      else res='whiff'; }
+  }
+  applyRes(res);
+}
+function applyRes(res){
+  lastRes=res; armed=false;
+  if(res==='barrel'||res==='hit'){
+    const hr=res==='barrel';
+    hits++; combo++; atbats++;
+    const gained=(hr?250:110)+combo*12; score+=gained;
+    S[hr?'homer':'crack']();
+    pops.push({txt:(hr?'ホームラン！ +':'ヒット！ +')+gained, x:W/2, y:150, big:true, life:1.15, c:hr?'#ffd84a':'#8fffb0'});
+    flash=Math.max(flash,hr?0.5:0.3);
+    for(let i=0;i<(hr?30:16);i++) parts.push({x:ZCX,y:ZCY,vx:rnd(-7,7),vy:rnd(-9,-1),life:1.1,c:hr?'#ffd84a':'#bfffcf'});
+    endAtBat(true);
+  } else if(res==='foul'){
+    S.foul(); if(strikes<2) strikes++;
+    pops.push({txt:'ファウル',x:W/2,y:180,big:false,life:0.9,c:'#dfe'});
+    for(let i=0;i<6;i++) parts.push({x:ZCX,y:ZCY,vx:rnd(-4,4),vy:rnd(-6,-1),life:0.8,c:'#dfe'});
+  } else if(res==='ball'||res==='checkball'){
+    balls++; if(res==='checkball'){ combo=combo; S.check(); pops.push({txt:'よく止めた！',x:W/2,y:180,big:false,life:0.9,c:'#7fd8ff'}); }
+    else { S.ball(); pops.push({txt:'ボール',x:W/2,y:180,big:false,life:0.8,c:'#cfe'}); }
+    if(balls>=4){ // walk
+      combo++; atbats++; const gained=60+combo*8; score+=gained;
+      S.walk(); pops.push({txt:'フォアボール！ +'+gained,x:W/2,y:150,big:true,life:1.05,c:'#7fd8ff'});
+      endAtBat(true);
+    }
+  } else { // cstrike, checkstr, whiff
+    if(res==='whiff'){ S.whiff(); shakeT=0.22; pops.push({txt:'空振り',x:W/2,y:180,big:false,life:0.9,c:'#ff7a7a'}); }
+    else if(res==='checkstr'){ S.cstrike(); pops.push({txt:'見逃し（ゾーン内）',x:W/2,y:180,big:false,life:0.9,c:'#ffb36a'}); }
+    else { S.cstrike(); pops.push({txt:'見逃しストライク',x:W/2,y:180,big:false,life:0.9,c:'#ffb36a'}); }
+    strikes++;
+    if(strikes>=3){ // strikeout
+      S.k(); combo=0; outs++; atbats++;
+      pops.push({txt:'三振…',x:W/2,y:150,big:true,life:1.05,c:'#ff6a6a'});
+      flash=Math.max(flash,0.34); shakeT=0.3;
+      endAtBat(false);
+    }
+  }
+  if(!armed) armPitch();
+}
+let pendingNew=false, pendingDelay=0, pendingKind='pitch', armed=false;
+function endAtBat(ok){ pendingNew=true; pendingDelay=ok?820:1050; pendingKind='batter'; armed=true; }
+function armPitch(){ pendingNew=true; pendingDelay=520; pendingKind='pitch'; armed=true; }
+function gameOver(){ state='over'; S.over(); if(score>best){ best=score; try{localStorage.setItem('cs_best',best);}catch(e){} } }
+
+// ---------- input ----------
+function start(){ ac(); reset(); state='play'; }
+function press(){ if(state!=='play'){ start(); return; } if(phase!=='pitch'||resolved||loading) return; loading=true; loadStart=pitchT; S.load(); }
+function release(){ if(state!=='play'||phase!=='pitch'||resolved||!loading) return;
+  loading=false; const held=pitchT-loadStart;
+  if(held>=COMMIT_MS){ const dt=pitchT-flightMs; resolvePitch('swing',dt); }
+  else { resolvePitch('check',0); } }
+
+cv.addEventListener('pointerdown',e=>{ ac(); press(); e.preventDefault(); });
+cv.addEventListener('pointerup',e=>{ release(); e.preventDefault(); });
+cv.addEventListener('pointercancel',()=>{ if(loading) release(); });
+addEventListener('keydown',e=>{ const k=e.key.toLowerCase(); if(k===' '||k==='enter'){ if(!e.repeat) press(); e.preventDefault(); } });
+addEventListener('keyup',e=>{ const k=e.key.toLowerCase(); if(k===' '||k==='enter'){ release(); e.preventDefault(); } });
+
+// ---------- update ----------
+function update(dt){
+  if(flash>0) flash=Math.max(0,flash-dt*0.003);
+  if(shakeT>0) shakeT-=dt*0.001;
+  if(batFx>0) batFx=Math.max(0,batFx-dt*0.004);
+  if(checkFx>0) checkFx=Math.max(0,checkFx-dt*0.005);
+  parts.forEach(q=>{q.x+=q.vx;q.y+=q.vy;q.vy+=0.32;q.life-=dt*0.0022;});
+  parts=parts.filter(q=>q.life>0);
+  pops.forEach(q=>{q.y-=dt*0.02;q.life-=dt*0.0014;});
+  pops=pops.filter(q=>q.life>0);
+  if(state!=='play') return;
+
+  if(phase==='pitch'){
+    pitchT+=dt;
+    if(loading){ meter=pitchT-loadStart; committed=meter>=COMMIT_MS; }
+    const t=clamp(pitchT/flightMs,0,1); const p=ballPos(t); pitch.x=p.x; pitch.y=p.y; pitch.r=p.r;
+    pitch.trail.push({x:p.x,y:p.y,r:p.r}); if(pitch.trail.length>16) pitch.trail.shift();
+    // ball passed without an actionable release
+    if(pitchT>=flightMs+LATE && !resolved){
+      if(!loading && meter===0) resolvePitch('take',0);            // never pressed -> take
+      else if(loading && meter<COMMIT_MS){ loading=false; resolvePitch('take',0); } // loaded, never committed -> take/check
+      else { loading=false; resolvePitch('swing', pitchT-flightMs); } // committed, held too long -> late whiff
+    }
+  } else if(phase==='resolve'){
+    resT+=dt;
+    // let the ball finish its flight to the plate/catcher even after a check
+    if(pitch && pitchT<flightMs+40){ pitchT+=dt; const t=clamp(pitchT/flightMs,0,1); const p=ballPos(t); pitch.x=p.x; pitch.y=p.y; pitch.r=p.r;
+      pitch.trail.push({x:p.x,y:p.y,r:p.r}); if(pitch.trail.length>16) pitch.trail.shift(); }
+    if(resT>=pendingDelay && pendingNew){ pendingNew=false;
+      if(pendingKind==='batter'){ if(outs>=3) gameOver(); else newBatter(); }
+      else newPitch(); }
+  }
+  lvl=Math.min(6, Math.floor(hits/2 + Math.floor(score/500)));
+}
+
+// ---------- render ----------
+function roundRect(x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+function drawField(){
+  const gr=g.createLinearGradient(0,0,0,H); gr.addColorStop(0,'#123a24'); gr.addColorStop(0.5,'#1f6f3b'); gr.addColorStop(1,'#2c9350'); g.fillStyle=gr; g.fillRect(0,0,W,H);
+  g.fillStyle='#0e2233'; g.fillRect(0,0,W,66);
+  for(const c of crowd){ g.fillStyle=c.c; g.globalAlpha=0.6; g.fillRect(c.x,c.y,3,3); } g.globalAlpha=1;
+  // dirt / mound
+  g.fillStyle='#7a5233'; g.beginPath(); g.ellipse(MX,MY+8,52,20,0,0,6.28); g.fill();
+  // home plate + batter box
+  g.fillStyle='#e9e9e9'; g.beginPath(); g.moveTo(MX-22,PY+40); g.lineTo(MX+22,PY+40); g.lineTo(MX+22,PY+52); g.lineTo(MX,PY+64); g.lineTo(MX-22,PY+52); g.closePath(); g.fill();
+}
+function drawZone(){
+  g.save();
+  g.strokeStyle='rgba(255,255,255,0.55)'; g.lineWidth=2;
+  g.strokeRect(ZL,ZT,ZW,ZH);
+  g.strokeStyle='rgba(255,255,255,0.16)'; g.lineWidth=1;
+  g.beginPath(); g.moveTo(ZL+ZW/3,ZT); g.lineTo(ZL+ZW/3,ZB); g.moveTo(ZL+2*ZW/3,ZT); g.lineTo(ZL+2*ZW/3,ZB);
+  g.moveTo(ZL,ZT+ZH/3); g.lineTo(ZR,ZT+ZH/3); g.moveTo(ZL,ZT+2*ZH/3); g.lineTo(ZR,ZT+2*ZH/3); g.stroke();
+  g.restore();
+}
+function drawBall(){
+  if(!pitch) return;
+  for(let i=0;i<pitch.trail.length;i++){ const q=pitch.trail[i]; g.globalAlpha=i/pitch.trail.length*0.4; g.fillStyle='#fff'; g.beginPath(); g.arc(q.x,q.y,q.r*0.7,0,6.28); g.fill(); }
+  g.globalAlpha=1;
+  const b=pitch; g.fillStyle='#fff'; g.beginPath(); g.arc(b.x,b.y,b.r,0,6.28); g.fill();
+  g.strokeStyle='#d33'; g.lineWidth=1; g.beginPath(); g.arc(b.x-b.r*0.3,b.y,b.r*0.7,-0.7,0.7); g.stroke();
+  g.beginPath(); g.arc(b.x+b.r*0.3,b.y,b.r*0.7,Math.PI-0.7,Math.PI+0.7); g.stroke();
+}
+function drawRing(){
+  const R=RING;
+  // base ring
+  g.lineWidth=8; g.strokeStyle='rgba(255,255,255,0.18)'; g.beginPath(); g.arc(R.x,R.y,R.r,0,6.28); g.stroke();
+  // commit mark
+  const cf=COMMIT_MS/LOAD_FULL; const ca=-Math.PI/2+cf*6.283;
+  g.strokeStyle='#ffcf5a'; g.lineWidth=3; g.beginPath(); g.arc(R.x,R.y,R.r+7,ca-0.05,ca+0.05); g.stroke();
+  if(loading||committed){
+    const f=clamp(meter/LOAD_FULL,0,1);
+    g.lineWidth=8; g.strokeStyle=committed?'#ff6a6a':'#7fd8ff'; g.lineCap='round';
+    g.beginPath(); g.arc(R.x,R.y,R.r,-Math.PI/2,-Math.PI/2+f*6.283); g.stroke(); g.lineCap='butt';
+  }
+  g.fillStyle=committed?'#ff6a6a':(loading?'#7fd8ff':'rgba(255,255,255,0.5)'); g.font='bold 13px sans-serif'; g.textAlign='center';
+  g.fillText(committed?'始動！':(loading?'ため':'PUSH'),R.x,R.y+5);
+}
+function drawHUD(){
+  g.textAlign='left'; g.fillStyle='#fff'; g.font='bold 26px sans-serif'; g.fillText('SCORE '+score,20,36);
+  if(combo>1){ g.fillStyle='#ffd84a'; g.font='bold 18px sans-serif'; g.fillText(combo+' 連続出塁',20,60); }
+  // count B-S
+  g.textAlign='right'; g.font='bold 15px sans-serif';
+  g.fillStyle='#8fffb0'; g.fillText('B',W-140,32);
+  for(let i=0;i<4;i++){ g.fillStyle=i<balls?'#8fffb0':'rgba(255,255,255,0.22)'; g.beginPath(); g.arc(W-124+i*20,27,7,0,6.28); g.fill(); }
+  g.fillStyle='#ffd84a'; g.textAlign='right'; g.fillText('S',W-140,54);
+  for(let i=0;i<3;i++){ g.fillStyle=i<strikes?'#ffd84a':'rgba(255,255,255,0.22)'; g.beginPath(); g.arc(W-124+i*20,49,7,0,6.28); g.fill(); }
+  // outs
+  g.fillStyle='#ff6a6a'; g.textAlign='right'; g.fillText('OUT',W-70,H-22);
+  for(let i=0;i<3;i++){ g.fillStyle=i<outs?'#ff5a5a':'rgba(255,255,255,0.22)'; g.beginPath(); g.arc(W-52+i*20,H-27,7,0,6.28); g.fill(); }
+  g.textAlign='left'; g.fillStyle='rgba(255,255,255,0.7)'; g.font='14px sans-serif'; g.fillText('安打 '+hits+'  Lv.'+(lvl+1),20,H-22);
+}
+function drawTitle(){
+  g.fillStyle='rgba(0,0,0,0.5)'; g.fillRect(0,0,W,H);
+  g.textAlign='center'; g.fillStyle='#8fffb0'; g.font='bold 62px sans-serif'; g.fillText('ハーフスイング',W/2,190);
+  g.fillStyle='#fff'; g.font='bold 24px sans-serif'; g.fillText('Check Swing — 止めるか、振り切るか',W/2,232);
+  g.fillStyle='#cfe'; g.font='18px sans-serif';
+  g.fillText('押し込んで“始動”→ 黄ラインを越えると振り切り（止められない）。',W/2,286);
+  g.fillText('ボール球はラインの手前で離して“ハーフスイング”＝見送り。',W/2,314);
+  g.fillText('ストライクはミートの瞬間に離して弾き返す。スライダーの見極めが鍵。',W/2,342);
+  g.fillText('4ボールで出塁・ヒットで加点。3ストライクでアウト、3アウトで終了。',W/2,370);
+  g.fillStyle='#ffd84a'; g.font='bold 22px sans-serif'; g.fillText('クリック / タップ / SPACE でスタート',W/2,428);
+}
+function drawOver(){
+  g.fillStyle='rgba(0,0,0,0.62)'; g.fillRect(0,0,W,H);
+  g.textAlign='center'; g.fillStyle='#ff6a6a'; g.font='bold 54px sans-serif'; g.fillText('3アウト…チェンジ',W/2,H/2-56);
+  g.fillStyle='#fff'; g.font='bold 34px sans-serif'; g.fillText('SCORE '+score,W/2,H/2+2);
+  g.fillStyle='#cfe'; g.font='20px sans-serif'; g.fillText('安打 '+hits+'　BEST '+best,W/2,H/2+40);
+  g.fillStyle='#8fffb0'; g.font='bold 22px sans-serif'; g.fillText('クリック / タップ で もう一度',W/2,H/2+96);
+}
+function render(){
+  g.setTransform(DPR,0,0,DPR,0,0);
+  let sx=0,sy=0; if(shakeT>0){ sx=rnd(-6,6)*shakeT*3; sy=rnd(-6,6)*shakeT*3; g.translate(sx,sy); }
+  drawField();
+  drawZone();
+  if(state==='play'||state==='over'){ if(pitch&&(phase==='pitch'||phase==='resolve')) drawBall(); }
+  if(batFx>0){ // bat sweep arc through the zone
+    g.save(); g.globalAlpha=clamp(batFx,0,1); g.strokeStyle='#f5e7a0'; g.lineWidth=7; g.lineCap='round';
+    const a0=(1-batFx)*2.4-0.4; g.beginPath(); g.arc(ZCX,ZB+18,86,-a0-1.1,-a0+0.2); g.stroke();
+    g.globalAlpha=clamp(batFx,0,1)*0.5; g.lineWidth=2; g.strokeStyle='#fff'; g.stroke(); g.restore(); }
+  if(checkFx>0){ g.save(); g.globalAlpha=clamp(checkFx,0,1)*0.8; g.strokeStyle='#7fd8ff'; g.lineWidth=4;
+    g.beginPath(); g.arc(RING.x,RING.y,RING.r+10+(1-checkFx)*14,0,6.28); g.stroke(); g.restore(); }
+  if(state==='play') drawRing();
+  // particles
+  parts.forEach(q=>{ g.globalAlpha=clamp(q.life,0,1); g.fillStyle=q.c; g.beginPath(); g.arc(q.x,q.y,3,0,6.28); g.fill(); }); g.globalAlpha=1;
+  // pops
+  pops.forEach(q=>{ g.globalAlpha=clamp(q.life,0,1); g.textAlign='center'; g.fillStyle=q.c; g.font='bold '+(q.big?40:24)+'px sans-serif';
+    const px=(q.x==null)?W/2:q.x; g.fillText(q.txt,px,q.y); }); g.globalAlpha=1;
+  if(state==='play') drawHUD();
+  if(flash>0){ g.fillStyle='rgba(255,255,255,'+(flash*0.6)+')'; g.fillRect(0,0,W,H); }
+  if(state==='title') drawTitle();
+  if(state==='over') drawOver();
+  g.setTransform(DPR,0,0,DPR,0,0);
+}
+
+let last=0;
+function frame(t){ let dt=t-last; last=t; if(dt>60)dt=60; if(dt<0)dt=0; update(dt); render(); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__cs={
+  start, press, release,
+  get state(){return state;}, get score(){return score;}, get outs(){return outs;}, get hits(){return hits;},
+  get info(){ if(state!=='play') return {state,phase:'-'}; return {
+    state, phase, type:pitch&&pitch.type, isStrike:pitch&&pitch.isStrike, flightMs, pitchT,
+    elapsed:pitchT, meter, committed, loading, balls, strikes, outs, res:lastRes }; }
+};
+})();
+</script>
+</body>
+</html>
