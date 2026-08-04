@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>球際バトル (Ball Battle)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:#0a1410;overflow:hidden;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif}
+  #wrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  #stage{position:relative;width:min(100vw,calc(100vh*1.5));aspect-ratio:900/600;max-width:900px;
+    box-shadow:0 10px 60px rgba(0,0,0,.6);border-radius:10px;overflow:hidden;touch-action:none}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #hint{position:absolute;left:0;bottom:6px;width:100%;text-align:center;color:#cfe;
+    font-size:12px;opacity:.55;pointer-events:none;text-shadow:0 1px 3px #000}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="hint">パワーゲージが緑の瞬間にクリック/タップ/SPACEで強く押し込め！ 相手を押し切って球を奪え・踏ん張れの合図に注意</div>
+</div></div>
+<script>
+(()=>{
+const cv=document.getElementById('cv'), g=cv.getContext('2d');
+const W=900,H=600;
+let DPR=1;
+function fit(){ DPR=Math.min(2,window.devicePixelRatio||1); cv.width=W*DPR; cv.height=H*DPR; g.setTransform(DPR,0,0,DPR,0,0); }
+fit(); addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
+function tone(f,d,t,v,sweep){ const a=ac(); if(!a)return; const o=a.createOscillator(),gg=a.createGain();
+  o.type=t||'sine'; o.frequency.value=f; if(sweep) o.frequency.exponentialRampToValueAtTime(Math.max(20,sweep),a.currentTime+d);
+  gg.gain.setValueAtTime(0.0001,a.currentTime); gg.gain.exponentialRampToValueAtTime(v||0.2,a.currentTime+0.012);
+  gg.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d); o.connect(gg).connect(a.destination);
+  o.start(); o.stop(a.currentTime+d+0.02); }
+function noise(d,v,hp){ const a=ac(); if(!a)return; const n=a.createBuffer(1,a.sampleRate*d,a.sampleRate); const ch=n.getChannelData(0);
+  for(let i=0;i<ch.length;i++) ch[i]=(Math.random()*2-1)*(1-i/ch.length);
+  const s=a.createBufferSource(); s.buffer=n; const f=a.createBiquadFilter(); f.type='highpass'; f.frequency.value=hp||600;
+  const gg=a.createGain(); gg.gain.value=v||0.15; s.connect(f).connect(gg).connect(a.destination); s.start(); }
+const S={
+  push(){ noise(0.05,0.12,240); tone(200,0.05,'square',0.08,150); },
+  strong(){ noise(0.06,0.18,200); tone(160,0.08,'sawtooth',0.12,90); },
+  weak(){ tone(180,0.04,'sine',0.05,150); },
+  brace(){ tone(520,0.06,'square',0.1,760); },
+  win(){ tone(520,0.1,'triangle',0.14,780); setTimeout(()=>tone(780,0.13,'triangle',0.12,1040),85); },
+  lose(){ noise(0.16,0.2,300); tone(160,0.24,'sawtooth',0.12,60); },
+  over(){ tone(300,0.5,'sawtooth',0.16,90); setTimeout(()=>tone(200,0.6,'sawtooth',0.14,60),160); },
+};
+
+// ---------- state ----------
+let state='title';
+let parts=[], pops=[];
+let score, losses, duels, combo, best, lvl;
+let adv, pw, pwDir, lastPush, phase, resT;
+let oppTimer, braceOn, braceT, shovePend, clutch;
+let flash=0, shakeT=0;
+try{ best=+localStorage.getItem('bb_best')||0; }catch(e){ best=0; }
+
+const crowd=[]; { const cc=['#e6b48f','#9bd0e6','#e6dc8f','#c9a0d8','#8fd8bd','#f0f0f0']; for(let i=0;i<240;i++) crowd.push({x:(i*31.3)%W, y:3+((i*57)%40), c:cc[i%cc.length]}); }
+
+const GREEN=0.10, PMAX=16, OFFPEN=3, COOL=115;
+function clamp(v,a,b){ return v<a?a:v>b?b:v; }
+function reset(){ parts=[]; pops=[]; score=0; losses=0; duels=0; combo=0; lvl=0; flash=0; shakeT=0; newDuel(); }
+function newDuel(){
+  lvl=Math.min(7,Math.floor(duels/2));
+  adv=0; pw=0; pwDir=1; lastPush=-999; phase='duel'; resT=0;
+  oppTimer=0; braceOn=false; braceT=0; shovePend=0;
+  clutch = lvl>=1 && Math.random()<0.2;
+}
+function pwSpeed(){ return 0.0022+lvl*0.00016; }
+function oppInt(){ return 300-Math.min(130,lvl*18); }
+function oppPush(){ return 5+lvl*0.7; }
+
+// ---------- action ----------
+function push(){
+  if(state!=='play'||phase!=='duel') return;
+  const now=performance?performance.now():Date.now();
+  if(braceOn){ braceOn=false; adv+=5; S.brace(); pops.push({txt:'踏ん張った！',x:340,y:250,life:0.7,c:'#8fffb0'}); return; }
+  if(now-lastPush<COOL){ return; }
+  lastPush=now;
+  const strong=Math.abs(pw-0.5)<GREEN;
+  if(strong){ adv+=PMAX; S.strong(); pops.push({txt:'ナイス！',x:clusterX(),y:250,life:0.5,c:'#8fffb0'}); for(let i=0;i<6;i++) parts.push({x:clusterX(),y:340,vx:(Math.random()-0.5)*4-1,vy:-Math.random()*2,life:0.5,c:'#caa270'}); }
+  else { adv-=OFFPEN; S.weak(); }   // mistimed shove -> lose balance (spam backfires)
+  adv=clamp(adv,-100,100);
+  if(adv>=100) winDuel(); else if(adv<=-100) loseDuel();
+}
+function pushRaw(){ push(); }   // alias
+
+function winDuel(){ duels++; combo++; const gained=Math.round((90+combo*14)*(clutch?2:1)); score+=gained;
+  pops.push({txt:'マイボール！ +'+gained, big:true, x:W/2, y:180, life:1.2, c:'#ffe15a'}); flash=Math.max(flash,0.4); S.win();
+  for(let i=0;i<26;i++) parts.push({x:clusterX(),y:340,vx:(Math.random()-0.5)*8,vy:Math.random()*-6-1,life:1.2,c:['#ffe15a','#7dff9b','#7fd8ff'][i%3]});
+  if(duels%5===0){ pops.push({txt:duels+' 回競り勝ち！',big:false,x:W/2,y:230,life:1.1,c:'#8fffb0'}); score+=120; }
+  phase='result'; resT=0; result='win'; }
+function loseDuel(){ losses++; combo=0; shakeT=0.4; flash=Math.max(flash,0.36); S.lose();
+  pops.push({txt:'競り負けた…', big:true, x:W/2, y:200, life:1.1, c:'#ff6a6a'});
+  phase='result'; resT=0; result=(losses>=3)?'over':'lose'; }
+let result='';
+function gameOver(){ state='over'; S.over(); if(score>best){ best=score; try{localStorage.setItem('bb_best',best);}catch(e){} } }
+function clusterX(){ return 450 + adv*1.4; }
+
+// ---------- input ----------
+function start(){ ac(); reset(); state='play'; }
+addEventListener('keydown',e=>{ const k=e.key.toLowerCase();
+  if(state!=='play'){ if(!e.repeat) start(); return; }
+  if((k===' '||k==='enter'||k==='arrowright'||k==='arrowup')&&!e.repeat){ push(); e.preventDefault(); } });
+cv.addEventListener('pointerdown',e=>{ ac(); if(state!=='play'){ start(); return; } push(); e.preventDefault(); });
+
+// ---------- update ----------
+function update(dt){
+  if(flash>0) flash=Math.max(0,flash-dt*0.003);
+  if(shakeT>0) shakeT-=dt*0.001;
+  parts.forEach(q=>{q.x+=q.vx;q.y+=q.vy;q.vy+=0.12;q.life-=dt*0.0024;});
+  parts=parts.filter(q=>q.life>0);
+  pops.forEach(q=>{q.y-=dt*0.02;q.life-=dt*0.0016;});
+  pops=pops.filter(q=>q.life>0);
+  if(state!=='play') return;
+
+  if(phase==='duel'){
+    pw+=pwDir*pwSpeed()*dt; if(pw>=1){ pw=1; pwDir=-1; } if(pw<=0){ pw=0; pwDir=1; }
+    // opponent pushes
+    oppTimer+=dt;
+    if(oppTimer>=oppInt()){ oppTimer-=oppInt(); adv-=oppPush();
+      for(let i=0;i<4;i++) parts.push({x:clusterX(),y:340,vx:(Math.random()-0.5)*4+1,vy:-Math.random()*2,life:0.4,c:'#caa270'});
+      if(adv<=-100){ loseDuel(); return; } }
+    // slow drift toward opponent (can't stand still)
+    adv-=0.0035*dt;
+    // feint shove (higher levels): brace prompt
+    if(lvl>=2 && !braceOn){ shovePend+=dt; if(shovePend>=1400+Math.random()*1400){ shovePend=0; braceOn=true; braceT=360-lvl*20; } }
+    if(braceOn){ braceT-=dt; if(braceT<=0){ braceOn=false; adv-=16; flash=Math.max(flash,0.3); shakeT=0.25;
+      pops.push({txt:'吹き飛ばされた…',x:clusterX(),y:250,life:0.8,c:'#ff6a6a'}); if(adv<=-100){ loseDuel(); return; } } }
+    adv=clamp(adv,-100,100);
+    if(adv>=100) winDuel();
+  } else if(phase==='result'){
+    resT+=dt; if(resT>=1050){ if(result==='over') gameOver(); else newDuel(); }
+  }
+}
+
+// ---------- render ----------
+function roundRect(x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+function drawField(){
+  const gr=g.createLinearGradient(0,0,0,H); gr.addColorStop(0,'#1c6b39'); gr.addColorStop(1,'#2c9350'); g.fillStyle=gr; g.fillRect(0,0,W,H);
+  g.globalAlpha=0.05; for(let i=0;i<12;i++){ g.fillStyle=i%2?'#fff':'#000'; g.fillRect(0,i*50,W,50); } g.globalAlpha=1;
+  g.fillStyle='#14324a'; g.fillRect(0,0,W,44);
+  for(const c of crowd){ g.fillStyle=c.c; g.globalAlpha=0.6; g.fillRect(c.x,c.y,3,3); } g.globalAlpha=1;
+}
+function drawPlayer(x,y,col,face,lean){ g.save(); g.translate(x,y); g.rotate(lean*0.16*face);
+  g.fillStyle='rgba(0,0,0,0.22)'; g.beginPath(); g.ellipse(0,44,22,6,0,0,6.28); g.fill();
+  g.strokeStyle='#20303a'; g.lineWidth=7; g.lineCap='round';
+  g.beginPath(); g.moveTo(-6,20); g.lineTo(-10-face*6,46); g.moveTo(6,20); g.lineTo(10-face*6,46); g.stroke();
+  // pushing arm toward center
+  g.strokeStyle=col; g.lineWidth=8; g.beginPath(); g.moveTo(0,-6); g.lineTo(face*30,4); g.stroke();
+  g.fillStyle=col; roundRect(-15,-36,30,58,10); g.fill();
+  g.fillStyle='#f2c9a0'; g.beginPath(); g.arc(face*4,-50,13,0,6.28); g.fill(); g.restore(); }
+function drawScene(){
+  const cx=clusterX();
+  // shove ground line + tug bar
+  g.fillStyle='rgba(0,0,0,0.3)'; roundRect(W/2-200,70,400,20,10); g.fill();
+  const fillW=(adv/100)*200;
+  g.fillStyle=adv>=0?'#3a8ee8':'#d23a3a'; if(adv>=0) roundRect(W/2,72,fillW,16,6); else roundRect(W/2+fillW,72,-fillW,16,6); g.fill();
+  g.strokeStyle='#fff'; g.lineWidth=2; g.beginPath(); g.moveTo(W/2,66); g.lineTo(W/2,94); g.stroke();
+  g.textAlign='center'; g.fillStyle='#cfe'; g.font='bold 13px sans-serif'; g.fillText('あなた',W/2-160,64); g.fillText('相手',W/2+160,64);
+  // ball between
+  g.fillStyle='rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(cx,378,12,4,0,0,6.28); g.fill();
+  g.fillStyle='#fff'; g.beginPath(); g.arc(cx,366,11,0,6.28); g.fill(); g.strokeStyle='#123'; g.lineWidth=1.4; g.stroke();
+  g.fillStyle='#123'; g.beginPath(); g.arc(cx,366,4,0,6.28); g.fill();
+  // players lean into each other; winner pushes forward
+  const lean=clamp(adv/100,-1,1);
+  drawPlayer(cx-52,336,'#3a8ee8',1, lean);      // you (push right)
+  drawPlayer(cx+52,336,'#d23a3a',-1,-lean);     // opponent
+  // power gauge
+  if(phase==='duel'){
+    const bx=W/2-170,by=H-70,bw=340;
+    g.fillStyle='rgba(0,0,0,0.4)'; roundRect(bx,by,bw,18,9); g.fill();
+    g.fillStyle='rgba(120,230,140,0.6)'; roundRect(bx+bw*(0.5-GREEN),by,bw*GREEN*2,18,7); g.fill();
+    const inG=Math.abs(pw-0.5)<GREEN;
+    g.fillStyle=inG?'#8fffb0':'#fff'; g.fillRect(bx+bw*pw-2.5,by-4,5,26);
+    g.textAlign='center'; g.fillStyle=inG?'#8fffb0':'#cfe'; g.font='bold 20px sans-serif'; g.fillText(inG?'今だ！ 押し込め！':'タイミングを合わせろ',W/2,H-82);
+    if(braceOn){ g.fillStyle='#ffe15a'; g.font='bold 30px sans-serif'; g.fillText('踏ん張れ！ 連打！',W/2,150); }
+    if(clutch){ g.fillStyle='#ffe15a'; g.font='bold 15px sans-serif'; g.fillText('★ 競り勝てば 2倍 ★',W/2,116); }
+  }
+}
+function render(){
+  g.clearRect(0,0,W,H);
+  g.save(); if(shakeT>0){ const s=shakeT*13; g.translate((Math.random()-0.5)*s,(Math.random()-0.5)*s); }
+  drawField();
+  if(state==='play') drawScene();
+  for(const q of parts){ g.globalAlpha=Math.max(0,q.life); g.fillStyle=q.c; g.fillRect(q.x-2,q.y-2,4,4); }
+  g.globalAlpha=1;
+  g.restore();
+
+  if(state==='play') drawHUD();
+  for(const q of pops){ g.globalAlpha=Math.max(0,q.life); g.textAlign='center';
+    const fs=q.big?32:19; g.font='bold '+fs+'px sans-serif'; g.fillStyle=q.c; g.strokeStyle='#000'; g.lineWidth=4;
+    g.strokeText(q.txt,q.x,q.y); g.fillText(q.txt,q.x,q.y); }
+  g.globalAlpha=1;
+  if(flash>0){ g.fillStyle='rgba(255,255,255,'+(flash*0.5)+')'; g.fillRect(0,0,W,H); }
+  if(state==='title') drawTitle();
+  if(state==='over') drawOver();
+}
+function drawHUD(){
+  g.textAlign='left'; g.font='bold 26px sans-serif'; g.fillStyle='#fff'; g.strokeStyle='rgba(0,0,0,0.5)'; g.lineWidth=4;
+  g.strokeText('SCORE '+score,20,40); g.fillText('SCORE '+score,20,40);
+  g.font='bold 15px sans-serif'; g.fillStyle='#cfe'; g.fillText('競り勝ち '+duels,22,62);
+  if(combo>1){ g.textAlign='center'; g.font='bold 18px sans-serif'; g.fillStyle='#ffe15a'; g.fillText(combo+' 連続',W/2,40); }
+  g.textAlign='right'; g.font='bold 16px sans-serif'; g.fillStyle='#fff'; g.strokeText('敗北',W-104,40); g.fillText('敗北',W-104,40);
+  for(let i=0;i<3;i++){ g.fillStyle=i<losses?'#ff5a5a':'rgba(255,255,255,0.28)'; g.beginPath(); g.arc(W-78+i*24,34,8,0,6.28); g.fill(); }
+}
+function drawTitle(){
+  g.fillStyle='rgba(4,12,8,0.72)'; g.fillRect(0,0,W,H); g.textAlign='center';
+  g.fillStyle='#8fffb0'; g.font='bold 54px sans-serif'; g.fillText('球際バトル',W/2,H/2-104);
+  g.fillStyle='#cfe'; g.font='20px sans-serif'; g.fillText('Ball Battle — 相手を押し切ってルーズボールを奪え',W/2,H/2-66);
+  g.font='17px sans-serif'; g.fillStyle='#bcd';
+  g.fillText('パワーゲージが左右に往復。緑の瞬間に押すと強く押し込める。',W/2,H/2-28);
+  g.fillText('緑を外すとほとんど押せない。連打より“緑ジャスト”の連続が鍵。',W/2,H/2-4);
+  g.fillText('相手も押し返す。ゲージを相手側に振り切られると競り負け。',W/2,H/2+20);
+  g.fillText('上級は「踏ん張れ！」の合図で連打してこらえろ。3敗で終了。',W/2,H/2+44);
+  g.fillStyle='#ffe15a'; g.font='bold 24px sans-serif'; g.fillText('クリック / タップ / キー で スタート',W/2,H/2+96);
+  if(best>0){ g.fillStyle='#9fd'; g.font='16px sans-serif'; g.fillText('BEST '+best,W/2,H/2+126); }
+}
+function drawOver(){
+  g.fillStyle='rgba(4,12,8,0.8)'; g.fillRect(0,0,W,H); g.textAlign='center';
+  g.fillStyle='#ff6a6a'; g.font='bold 50px sans-serif'; g.fillText('3敗…試合終了',W/2,H/2-60);
+  g.fillStyle='#fff'; g.font='bold 34px sans-serif'; g.fillText('SCORE '+score,W/2,H/2);
+  g.fillStyle='#cfe'; g.font='18px sans-serif'; g.fillText('競り勝ち '+duels,W/2,H/2+32);
+  const nb=score>0&&score>=best; g.fillStyle=nb?'#ffe15a':'#9fd'; g.font='18px sans-serif';
+  g.fillText(nb?'🎉 ベスト更新！ BEST '+best:'BEST '+best,W/2,H/2+62);
+  g.fillStyle='#8fffb0'; g.font='bold 22px sans-serif'; g.fillText('クリック / タップ で もう一度',W/2,H/2+112);
+}
+
+let last=0;
+function frame(t){ let dt=t-last; last=t; if(dt>60)dt=60; if(dt<0)dt=0; update(dt); render(); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__bb={
+  start, push,
+  get state(){return state;}, get score(){return score;}, get losses(){return losses;}, get duels(){return duels;},
+  get info(){ if(state!=='play') return {state,phase:'-'}; return {
+    state, phase, pw, adv, green:GREEN, braceOn, cool:COOL }; }
+};
+})();
+</script>
+</body>
+</html>
