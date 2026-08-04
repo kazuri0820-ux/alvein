@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>カーブを操れ (Steer the Curl)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:#0a1410;overflow:hidden;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif}
+  #wrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  #stage{position:relative;width:min(100vw,calc(100vh*1.5));aspect-ratio:900/600;max-width:900px;
+    box-shadow:0 10px 60px rgba(0,0,0,.6);border-radius:10px;overflow:hidden;touch-action:none}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #hint{position:absolute;left:0;bottom:6px;width:100%;text-align:center;color:#cfe;
+    font-size:12px;opacity:.55;pointer-events:none;text-shadow:0 1px 3px #000}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="hint">飛んでいくボールを ← / → （マウス/指を左右）で曲げろ！ GKの逆を突いて空いた枠へ流し込め</div>
+</div></div>
+<script>
+(()=>{
+const cv=document.getElementById('cv'), g=cv.getContext('2d');
+const W=900,H=600;
+let DPR=1;
+function fit(){ DPR=Math.min(2,window.devicePixelRatio||1); cv.width=W*DPR; cv.height=H*DPR; g.setTransform(DPR,0,0,DPR,0,0); }
+fit(); addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
+function tone(f,d,t,v,sweep){ const a=ac(); if(!a)return; const o=a.createOscillator(),gg=a.createGain();
+  o.type=t||'sine'; o.frequency.value=f; if(sweep) o.frequency.exponentialRampToValueAtTime(Math.max(20,sweep),a.currentTime+d);
+  gg.gain.setValueAtTime(0.0001,a.currentTime); gg.gain.exponentialRampToValueAtTime(v||0.2,a.currentTime+0.012);
+  gg.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d); o.connect(gg).connect(a.destination);
+  o.start(); o.stop(a.currentTime+d+0.02); }
+function noise(d,v,hp){ const a=ac(); if(!a)return; const n=a.createBuffer(1,a.sampleRate*d,a.sampleRate); const ch=n.getChannelData(0);
+  for(let i=0;i<ch.length;i++) ch[i]=(Math.random()*2-1)*(1-i/ch.length);
+  const s=a.createBufferSource(); s.buffer=n; const f=a.createBiquadFilter(); f.type='highpass'; f.frequency.value=hp||600;
+  const gg=a.createGain(); gg.gain.value=v||0.15; s.connect(f).connect(gg).connect(a.destination); s.start(); }
+const S={
+  kick(){ noise(0.05,0.16,700); tone(240,0.07,'square',0.12,120); },
+  whoosh(){ tone(600,0.1,'sine',0.05,300); },
+  goal(){ tone(520,0.1,'triangle',0.14,780); setTimeout(()=>tone(780,0.14,'triangle',0.12,1040),90); noise(0.4,0.12,400); },
+  worldclass(){ tone(660,0.08,'square',0.12,980); setTimeout(()=>tone(990,0.08,'square',0.12,1400),70); setTimeout(()=>tone(1320,0.14,'triangle',0.1,1760),150); },
+  save(){ noise(0.12,0.2,500); tone(360,0.12,'sawtooth',0.12,150); },
+  wide(){ tone(300,0.28,'sawtooth',0.12,110); },
+  over(){ tone(300,0.5,'sawtooth',0.16,90); setTimeout(()=>tone(200,0.6,'sawtooth',0.14,60),160); },
+};
+
+// ---------- geometry ----------
+const GY=120;               // goal line y
+const GL=322, GR=578;       // goal mouth x-range
+const POSTW=6;
+const SPOT={x:450,y:512};
+const KW=54;                // keeper reach half-width
+const KSPEED=0.32;          // keeper slide speed — lags the (amplified) predicted landing, so it's still moving when it commits
+
+// ---------- state ----------
+let state='title';
+let parts=[], pops=[];
+let score, misses, goals, combo, best, lvl;
+let b=null;
+let steerInput=0, ptrActive=false, ptrSteer=0, testSteer=0, keyL=false, keyR=false;
+let flash=0, shakeT=0;
+let pendingNew=false;
+try{ best=+localStorage.getItem('cr_best')||0; }catch(e){ best=0; }
+
+const crowd=[]; { const cc=['#e6b48f','#9bd0e6','#e6dc8f','#c9a0d8','#8fd8bd','#f0f0f0']; for(let i=0;i<260;i++) crowd.push({x:(i*29.7)%W, y:2+((i*61)%64), c:cc[i%cc.length]}); }
+
+function reset(){ parts=[]; pops=[]; score=0; misses=0; goals=0; combo=0; lvl=0; b=null; flash=0; shakeT=0; pendingNew=false; steerInput=0; nextShot(); }
+function clamp(v,a,b){ return v<a?a:v>b?b:v; }
+function nextShot(){
+  lvl=Math.min(6,Math.floor(goals/3));
+  b={ phase:'set', t:0, setDur:520,
+      x:SPOT.x, y:SPOT.y, vx:(Math.random()-0.5)*0.12, vy:0.40+lvl*0.026,
+      trail:[], keeperX:450, keeperTarget:450, committed:false, commitAt:0.34+Math.random()*0.12, diveV:0,
+      dived:false, wind:(lvl>=2?(Math.random()-0.5)*0.10*lvl*0.4:0),
+      res:null, resT:0, applied:false,
+      clutch: lvl>=1 && Math.random()<0.18 };
+}
+const ACCEL=0.0018, VMAX=0.30;
+function progress(){ return clamp((SPOT.y-b.y)/(SPOT.y-GY),0,1); }
+
+// ---------- action ----------
+function setSteer(s){ testSteer=clamp(s,-1,1); }
+function resolve(res){ b.res=res; b.phase='resolve'; b.resT=0;
+  if(res==='goal') S.goal(); else if(res==='worldclass') S.worldclass(); else if(res==='save') S.save(); else S.wide(); }
+
+function applyResult(){
+  const r=b.res;
+  if(r==='goal'||r==='worldclass'){
+    goals++; combo++;
+    const base=r==='worldclass'?170:95;
+    const gained=Math.round((base+combo*13)*(b.clutch?2:1)); score+=gained;
+    pops.push({txt:(r==='worldclass'?'ワールドクラス！ +':'ゴーール！ +')+gained, big:true, y:180, life:1.1, c:r==='worldclass'?'#7fd8ff':'#8fffb0'});
+    if(r==='worldclass') pops.push({txt:'WORLD CLASS',big:false,y:220,life:1.0,c:'#7fd8ff'});
+    flash=Math.max(flash, r==='worldclass'?0.5:0.34);
+    burst(b.x,GY,r==='worldclass'?'#7fd8ff':'#8fffb0',r==='worldclass'?28:16);
+    if(goals%5===0){ pops.push({txt:goals+' ゴール！',big:false,y:250,life:1.1,c:'#ffe15a'}); score+=120; }
+    pendingNew=true;
+  } else {
+    misses++; combo=0; shakeT=0.32; flash=Math.max(flash,0.36);
+    pops.push({txt:r==='save'?'GKにセーブされた…':'枠を外した…', big:true, y:200, life:1.05, c:'#ff6a6a'});
+    burst(b.x,Math.min(b.y,GY+20),'#ff6a6a',14);
+    if(misses>=3){ gameOver(); return; }
+    pendingNew=true;
+  }
+}
+function gameOver(){ state='over'; S.over(); if(score>best){ best=score; try{localStorage.setItem('cr_best',best);}catch(e){} } }
+function burst(x,y,c,n){ for(let i=0;i<n;i++) parts.push({x,y,vx:(Math.random()-0.5)*7,vy:(Math.random()-0.5)*7-1,life:1,c}); }
+
+// ---------- input ----------
+function start(){ ac(); reset(); state='play'; }
+addEventListener('keydown',e=>{ const k=e.key.toLowerCase();
+  if(state!=='play'){ if(!e.repeat) start(); return; }
+  if(k==='arrowleft'||k==='a'){ keyL=true; e.preventDefault(); }
+  else if(k==='arrowright'||k==='d'){ keyR=true; e.preventDefault(); } });
+addEventListener('keyup',e=>{ const k=e.key.toLowerCase();
+  if(k==='arrowleft'||k==='a') keyL=false; if(k==='arrowright'||k==='d') keyR=false; });
+function ptx(e){ const r=cv.getBoundingClientRect(); return (e.clientX-r.left)/r.width*W; }
+cv.addEventListener('pointerdown',e=>{ ac(); if(state!=='play'){ start(); return; } ptrActive=true; steerFromPtr(ptx(e)); e.preventDefault(); });
+cv.addEventListener('pointermove',e=>{ if(ptrActive) steerFromPtr(ptx(e)); });
+cv.addEventListener('pointerup',()=>{ ptrActive=false; });
+cv.addEventListener('pointercancel',()=>{ ptrActive=false; });
+function steerFromPtr(px){ if(b) ptrSteer=clamp((px-b.x)/90,-1,1); }
+
+// ---------- update ----------
+function update(dt){
+  if(flash>0) flash=Math.max(0,flash-dt*0.003);
+  if(shakeT>0) shakeT-=dt*0.001;
+  parts.forEach(q=>{q.x+=q.vx;q.y+=q.vy;q.vy+=0.12;q.life-=dt*0.0022;});
+  parts=parts.filter(q=>q.life>0);
+  pops.forEach(q=>{q.y-=dt*0.02;q.life-=dt*0.0014;});
+  pops=pops.filter(q=>q.life>0);
+  if(state!=='play'||!b) return;
+
+  // input priority: touch/mouse drag > keyboard > programmatic (test) fallback
+  if(ptrActive) steerInput=ptrSteer;
+  else if(keyL||keyR) steerInput=(keyL?-1:0)+(keyR?1:0);
+  else steerInput=testSteer;
+
+  if(b.phase==='set'){
+    b.t+=dt; if(b.t>=b.setDur){ b.phase='flight'; S.kick(); }
+  } else if(b.phase==='flight'){
+    // lateral steering with inertia + wind
+    b.vx += (steerInput*ACCEL + b.wind*0.0006)*dt; b.vx=clamp(b.vx,-VMAX,VMAX);
+    b.x += b.vx*dt; b.y -= b.vy*dt;
+    b.trail.push({x:b.x,y:b.y}); if(b.trail.length>60) b.trail.shift();
+    // keeper chases the (flight-time-amplified) predicted landing, lagging behind; at commit it LOCKS its
+    // current momentum and keeps gliding that way — so a late cut-back the other way wrong-foots it.
+    const pr=progress();
+    const rem=(b.y-GY)/b.vy;
+    const pred=clamp(b.x+b.vx*rem, GL-30, GR+30);
+    if(!b.committed){
+      const step=clamp(pred-b.keeperX, -KSPEED*dt, KSPEED*dt);
+      b.lockV = step/Math.max(1,dt);
+      b.keeperX += step;
+      if(pr>=b.commitAt){ b.committed=true; b.dived=true; }
+    } else {
+      b.keeperX += b.lockV*dt; b.keeperX=clamp(b.keeperX,GL-10,GR+10);
+    }
+    // reached goal line?
+    if(b.y<=GY){ b.y=GY;
+      const x=b.x;
+      if(x<GL+POSTW || x>GR-POSTW) resolve('wide');
+      else if(Math.abs(x-b.keeperX)<KW) resolve('save');
+      else { const gap=Math.abs(x-b.keeperX); const corner=Math.min(x-GL, GR-x);
+        resolve((gap>150||corner<44)?'worldclass':'goal'); }   // hard wrong-foot or a corner = world class
+    }
+    if(b.x<-40||b.x>W+40){ resolve('wide'); }
+  } else if(b.phase==='resolve'){
+    b.resT+=dt;
+    if(b.resT>=520 && !b.applied){ b.applied=true; applyResult(); }
+    if(b.resT>=1150 && pendingNew){ pendingNew=false; if(state==='play') nextShot(); }
+  }
+}
+
+// ---------- render ----------
+function roundRect(x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+
+function drawField(){
+  const gr=g.createLinearGradient(0,0,0,H); gr.addColorStop(0,'#2c9350'); gr.addColorStop(1,'#1f6f3b'); g.fillStyle=gr; g.fillRect(0,0,W,H);
+  g.globalAlpha=0.05; for(let i=0;i<10;i++){ g.fillStyle=i%2?'#fff':'#000'; g.fillRect(0,GY+i*48,W,48); } g.globalAlpha=1;
+  // stands
+  g.fillStyle='#14324a'; g.fillRect(0,0,W,70);
+  for(const c of crowd){ g.fillStyle=c.c; g.globalAlpha=0.6; g.fillRect(c.x,c.y,3,3); } g.globalAlpha=1;
+  // goal net
+  g.save(); g.fillStyle='rgba(255,255,255,0.06)'; g.fillRect(GL,GY-52,GR-GL,52);
+  g.strokeStyle='rgba(255,255,255,0.28)'; g.lineWidth=1;
+  for(let x=GL;x<=GR;x+=16){ g.beginPath(); g.moveTo(x,GY-52); g.lineTo(x,GY); g.stroke(); }
+  for(let y=GY-52;y<=GY;y+=13){ g.beginPath(); g.moveTo(GL,y); g.lineTo(GR,y); g.stroke(); }
+  g.restore();
+  g.strokeStyle='#fff'; g.lineWidth=POSTW; g.lineCap='round';
+  g.beginPath(); g.moveTo(GL,GY); g.lineTo(GL,GY-54); g.lineTo(GR,GY-54); g.lineTo(GR,GY); g.stroke();
+  // penalty arc
+  g.strokeStyle='rgba(255,255,255,0.3)'; g.lineWidth=2; g.beginPath(); g.arc(450,GY+150,150,0.1*Math.PI,0.9*Math.PI); g.stroke();
+}
+function drawKeeper(x){ g.save(); g.translate(x,GY+6);
+  const dv=b&&b.committed?clamp((x-450)/120,-1,1):0;
+  g.fillStyle='rgba(0,0,0,0.2)'; g.beginPath(); g.ellipse(0,8,16,4,0,0,6.28); g.fill();
+  g.strokeStyle='#111'; g.lineWidth=5; g.lineCap='round';
+  g.beginPath(); g.moveTo(-3,0); g.lineTo(-7-Math.abs(dv)*8,15); g.moveTo(3,0); g.lineTo(7+Math.abs(dv)*8,15); g.stroke();
+  g.strokeStyle='#ffd23f'; g.lineWidth=6; g.beginPath(); g.moveTo(0,-12); g.lineTo(-16-dv*10,-8); g.moveTo(0,-12); g.lineTo(16-dv*10,-8); g.stroke();
+  g.fillStyle='#ffd23f'; roundRect(-11,-26,22,26,6); g.fill(); g.fillStyle='#f2c9a0'; g.beginPath(); g.arc(0,-34,8,0,6.28); g.fill(); g.restore(); }
+function drawScene(){
+  if(!b) return;
+  drawKeeper(b.keeperX);
+  // ball trail (the curl)
+  if(b.trail.length>1){ g.strokeStyle='rgba(255,255,255,0.5)'; g.lineWidth=3; g.beginPath(); g.moveTo(b.trail[0].x,b.trail[0].y);
+    for(const t of b.trail) g.lineTo(t.x,t.y); g.stroke(); }
+  // ball
+  const r=b.phase==='set'?9:8;
+  g.fillStyle='rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(b.x,b.y+7,r*0.9,r*0.35,0,0,6.28); g.fill();
+  g.fillStyle='#fff'; g.beginPath(); g.arc(b.x,b.y,r,0,6.28); g.fill(); g.strokeStyle='#123'; g.lineWidth=1.3; g.stroke();
+  g.fillStyle='#123'; g.beginPath(); g.arc(b.x,b.y,r*0.32,0,6.28); g.fill();
+  // steer indicator
+  if(b.phase==='flight'){ const si=steerInput;
+    g.strokeStyle='rgba(255,225,90,0.8)'; g.lineWidth=3; g.beginPath(); g.moveTo(b.x,b.y); g.lineTo(b.x+si*34,b.y); g.stroke();
+    if(Math.abs(si)>0.05){ g.fillStyle='#ffe15a'; g.beginPath(); g.arc(b.x+si*34,b.y,4,0,6.28); g.fill(); } }
+  // wind indicator
+  if(b.wind&&b.phase!=='resolve'){ g.textAlign='center'; g.fillStyle='rgba(200,230,255,0.8)'; g.font='bold 13px sans-serif';
+    g.fillText('風 '+(b.wind<0?'←':'→'), 450, 96); }
+  // cue
+  g.textAlign='center';
+  if(b.phase==='set'){ g.fillStyle='#cfe'; g.font='bold 22px sans-serif'; g.fillText('狙え… 直後にボールを曲げる',450,96);
+    if(b.clutch){ g.fillStyle='#ffe15a'; g.font='bold 15px sans-serif'; g.fillText('★ 決めれば 2倍 ★',450,116);} }
+}
+
+function render(){
+  g.clearRect(0,0,W,H);
+  g.save(); if(shakeT>0){ const s=shakeT*13; g.translate((Math.random()-0.5)*s,(Math.random()-0.5)*s); }
+  drawField();
+  if(state!=='title') drawScene();
+  for(const q of parts){ g.globalAlpha=Math.max(0,q.life); g.fillStyle=q.c; g.fillRect(q.x-2,q.y-2,4,4); }
+  g.globalAlpha=1;
+  g.restore();
+
+  if(state==='play') drawHUD();
+  for(const q of pops){ g.globalAlpha=Math.max(0,q.life); g.textAlign='center';
+    const fs=q.big?32:20; g.font='bold '+fs+'px sans-serif'; g.fillStyle=q.c; g.strokeStyle='#000'; g.lineWidth=4;
+    g.strokeText(q.txt,W/2,q.y); g.fillText(q.txt,W/2,q.y); }
+  g.globalAlpha=1;
+  if(flash>0){ g.fillStyle='rgba(255,255,255,'+(flash*0.5)+')'; g.fillRect(0,0,W,H); }
+  if(state==='title') drawTitle();
+  if(state==='over') drawOver();
+}
+function drawHUD(){
+  g.textAlign='left'; g.font='bold 26px sans-serif'; g.fillStyle='#fff'; g.strokeStyle='rgba(0,0,0,0.5)'; g.lineWidth=4;
+  g.strokeText('SCORE '+score,20,H-24); g.fillText('SCORE '+score,20,H-24);
+  if(combo>1){ g.font='bold 18px sans-serif'; g.fillStyle='#ffe15a'; g.fillText(combo+' 連続ゴール',22,H-48); }
+  g.textAlign='right'; g.font='bold 16px sans-serif'; g.fillStyle='#fff'; g.strokeText('ミス',W-118,H-26); g.fillText('ミス',W-118,H-26);
+  for(let i=0;i<3;i++){ g.fillStyle=i<misses?'#ff5a5a':'rgba(255,255,255,0.28)'; g.beginPath(); g.arc(W-84+i*24,H-32,8,0,6.28); g.fill(); }
+  g.fillStyle='#cfe'; g.font='bold 14px sans-serif'; g.textAlign='right'; g.fillText('ゴール '+goals,W-30,H-52);
+}
+function drawTitle(){
+  g.fillStyle='rgba(4,12,8,0.72)'; g.fillRect(0,0,W,H); g.textAlign='center';
+  g.fillStyle='#8fffb0'; g.font='bold 52px sans-serif'; g.fillText('カーブを操れ',W/2,H/2-104);
+  g.fillStyle='#cfe'; g.font='20px sans-serif'; g.fillText('Steer the Curl — 飛ぶボールを曲げてGKの逆を突け',W/2,H/2-66);
+  g.font='17px sans-serif'; g.fillStyle='#bcd';
+  g.fillText('シュートは自動で飛ぶ。飛行中に ← / → （マウス/指の左右）で軌道を曲げる。',W/2,H/2-28);
+  g.fillText('GKは軌道を読んで跳ぶ。ギリギリで逆を突いて空いた枠へ流し込め。',W/2,H/2-4);
+  g.fillText('隅ぎりぎりはワールドクラス。上級は横風にも注意。',W/2,H/2+20);
+  g.fillText('セーブ／枠外はミス。3ミスで終了。',W/2,H/2+44);
+  g.fillStyle='#ffe15a'; g.font='bold 24px sans-serif'; g.fillText('クリック / タップ / キー で スタート',W/2,H/2+96);
+  if(best>0){ g.fillStyle='#9fd'; g.font='16px sans-serif'; g.fillText('BEST '+best,W/2,H/2+126); }
+}
+function drawOver(){
+  g.fillStyle='rgba(4,12,8,0.8)'; g.fillRect(0,0,W,H); g.textAlign='center';
+  g.fillStyle='#ff6a6a'; g.font='bold 50px sans-serif'; g.fillText('3ミス…終了',W/2,H/2-60);
+  g.fillStyle='#fff'; g.font='bold 34px sans-serif'; g.fillText('SCORE '+score,W/2,H/2);
+  g.fillStyle='#cfe'; g.font='18px sans-serif'; g.fillText('ゴール '+goals,W/2,H/2+32);
+  const nb=score>0&&score>=best; g.fillStyle=nb?'#ffe15a':'#9fd'; g.font='18px sans-serif';
+  g.fillText(nb?'🎉 ベスト更新！ BEST '+best:'BEST '+best,W/2,H/2+62);
+  g.fillStyle='#8fffb0'; g.font='bold 22px sans-serif'; g.fillText('クリック / タップ で もう一度',W/2,H/2+112);
+}
+
+let last=0;
+function frame(t){ let dt=t-last; last=t; if(dt>60)dt=60; if(dt<0)dt=0; update(dt); render(); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__cr={
+  start, setSteer,
+  get state(){return state;}, get score(){return score;}, get misses(){return misses;}, get goals(){return goals;},
+  get info(){ if(!b) return null; return {
+    phase:b.phase, x:b.x, y:b.y, vx:b.vx, progress:progress(),
+    keeperX:b.keeperX, committed:b.committed, goalL:GL, goalR:GR, kw:KW, goalY:GY, wind:b.wind,
+    res:b.res, clutch:!!b.clutch }; }
+};
+})();
+</script>
+</body>
+</html>
