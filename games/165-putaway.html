@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>決め球 (Putaway Pitch)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:#0b0d10;overflow:hidden;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif}
+  #wrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  #stage{position:relative;width:min(100vw,calc(100vh*1.5));aspect-ratio:900/600;max-width:900px;
+    box-shadow:0 10px 60px rgba(0,0,0,.6);border-radius:10px;overflow:hidden;touch-action:none}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #hint{position:absolute;left:0;bottom:6px;width:100%;text-align:center;color:#fde;
+    font-size:12px;opacity:.55;pointer-events:none;text-shadow:0 1px 3px #000}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="hint">打者がスイングを仕掛けた“その瞬間”にフォークを落とせ（クリック/タップ/SPACE）＝空振り三振。早いと見切られボール、遅いと痛打</div>
+</div></div>
+<script>
+(()=>{
+const cv=document.getElementById('cv'), g=cv.getContext('2d');
+const W=900,H=600;
+let DPR=1;
+function fit(){ DPR=Math.min(2,window.devicePixelRatio||1); cv.width=W*DPR; cv.height=H*DPR; g.setTransform(DPR,0,0,DPR,0,0); }
+fit(); addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } return AC; }
+function tone(f,d,t,v,sweep){ const a=ac(); if(!a)return; const o=a.createOscillator(),gg=a.createGain();
+  o.type=t||'sine'; o.frequency.value=f; if(sweep) o.frequency.exponentialRampToValueAtTime(Math.max(20,sweep),a.currentTime+d);
+  gg.gain.setValueAtTime(0.0001,a.currentTime); gg.gain.exponentialRampToValueAtTime(v||0.2,a.currentTime+0.012);
+  gg.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d); o.connect(gg).connect(a.destination);
+  o.start(); o.stop(a.currentTime+d+0.02); }
+function noise(d,v,hp){ const a=ac(); if(!a)return; const n=a.createBuffer(1,a.sampleRate*d,a.sampleRate); const ch=n.getChannelData(0);
+  for(let i=0;i<ch.length;i++) ch[i]=(Math.random()*2-1)*(1-i/ch.length);
+  const s=a.createBufferSource(); s.buffer=n; const f=a.createBiquadFilter(); f.type='highpass'; f.frequency.value=hp||600;
+  const gg=a.createGain(); gg.gain.value=v||0.15; s.connect(f).connect(gg).connect(a.destination); s.start(); }
+const S={
+  whoosh(){ noise(0.08,0.14,400); },
+  drop(){ tone(360,0.06,'sine',0.08,180); },
+  k(){ tone(680,0.08,'triangle',0.13,1000); setTimeout(()=>tone(1020,0.1,'triangle',0.12,1360),80); setTimeout(()=>tone(1360,0.12,'triangle',0.1,1700),170); noise(0.14,0.06,700); },
+  hit(){ noise(0.07,0.28,240); tone(180,0.08,'square',0.14,80); },
+  ball(){ noise(0.1,0.12,500); tone(240,0.1,'sine',0.08,180); },
+  over(){ tone(300,0.5,'sawtooth',0.16,90); setTimeout(()=>tone(200,0.6,'sawtooth',0.14,60),160); },
+};
+
+// ---------- geometry ----------
+const REL={x:150,y:250}, PLATE={x:600,y:470}, CONTACT={x:588,y:412}, LOW={x:588,y:458};
+const ZX0=548,ZX1=628,ZY0=372,ZY1=452;
+
+// ---------- state ----------
+let state='title';
+let parts=[], pops=[];
+let score, combo, best, lvl, fails, ks;
+let play=null, t=0;
+let flash=0, shakeT=0;
+try{ best=+localStorage.getItem('pw_best')||0; }catch(e){ best=0; }
+
+const crowd=[]; { const cc=['#e6b48f','#9bd0e6','#e6dc8f','#c9a0d8','#8fd8bd','#f0f0f0']; for(let i=0;i<200;i++) crowd.push({x:(i*31.3)%W, y:2+((i*57)%44), c:cc[i%cc.length]}); }
+function clamp(v,a,b){ return v<a?a:v>b?b:v; }
+function rnd(a,b){ return a+Math.random()*(b-a); }
+function chance(p){ return Math.random()<p; }
+function lerp(a,b,u){ return {x:a.x+(b.x-a.x)*u, y:a.y+(b.y-a.y)*u}; }
+
+function reset(){ parts=[]; pops=[]; score=0; combo=0; lvl=0; fails=0; ks=0; newPlay(); }
+function newPlay(){
+  t=0;
+  const tCommit=clamp(1180 - lvl*72, 720, 1180);
+  const earlyMargin=clamp(165 - lvl*10, 95, 165);
+  const lateWindow=clamp(155 - lvl*12, 78, 155);
+  const loadStart=tCommit-460;
+  const feint = chance(clamp((lvl-2)*0.16,0,0.5));
+  const feintAt = tCommit - rnd(180,300);
+  play={ phase:'live', tCommit, earlyMargin, lateWindow, loadStart, feint, feintAt, deadline:tCommit+lateWindow+80,
+    dropped:false, tDrop:0, result:null, applied:false, ball:{...REL}, swing:0, resT:0, pend:null, pendDelay:0 };
+  S.whoosh();
+}
+function band(){ const p=play; const d=t-p.tCommit; if(d < -p.earlyMargin) return 'early'; if(d<=p.lateWindow) return 'sweet'; return 'late'; }
+
+function drop(){
+  if(state!=='play'||play.phase!=='live'||play.dropped) return;
+  const p=play; p.dropped=true; p.tDrop=t; S.drop();
+  const b=band();
+  p.result = b==='sweet' ? ((Math.abs(t-p.tCommit)<58)?'greatk':'k') : (b==='early'?'ball':'hit');
+  p.phase='exec'; p.t2=0;
+}
+function applyResult(){
+  const p=play; const R=p.result;
+  if(R==='k'||R==='greatk'){ ks++; combo++; const gr=(R==='greatk'); const gained=(gr?150:100)+combo*10; score+=gained;
+    if(gr){ S.k(); flash=Math.max(flash,0.4); pops.push({txt:'エグい落ち！ 空振り三振 +'+gained,x:W/2,y:150,big:true,life:1.15,c:'#8fffb0'});
+      pops.push({txt:'仕掛けにドンピシャで落とした！',x:W/2,y:192,big:false,life:1.0,c:'#7fd8ff'}); }
+    else { S.k(); flash=Math.max(flash,0.28); pops.push({txt:'空振り三振！ +'+gained,x:W/2,y:152,big:true,life:1.1,c:'#bfffd0'}); }
+    for(let i=0;i<14;i++) parts.push({x:PLATE.x,y:PLATE.y-40,vx:rnd(-6,6),vy:rnd(-6,2),life:1.0,c:'#cfe'});
+    lvl=Math.min(6, Math.floor(ks/3 + Math.floor(score/750)));
+    end(true);
+  } else { fails++; combo=0; shakeT=0.24; flash=Math.max(flash,0.26);
+    let msg;
+    if(R==='ball'){ S.ball(); msg='早い！ 見切られてボール'; }
+    else { S.hit(); msg='落ちきらず…痛打を浴びた'; }
+    pops.push({txt:msg,x:W/2,y:152,big:true,life:1.08,c:'#ff6a6a'}); end(false);
+  }
+}
+function end(ok){ play.phase='resolve'; play.pendDelay=ok?880:1000; play.pend = fails>=3 ? 'over':'next'; play.applied=true; }
+function gameOver(){ state='over'; S.over(); if(score>best){ best=score; try{localStorage.setItem('pw_best',best);}catch(e){} } }
+
+// ---------- input ----------
+function start(){ ac(); reset(); state='play'; }
+cv.addEventListener('pointerdown',e=>{ ac(); if(state!=='play'){ start(); return; } drop(); e.preventDefault(); });
+addEventListener('keydown',e=>{ const k=e.key.toLowerCase();
+  if(state!=='play'){ if(!e.repeat) start(); return; }
+  if(k===' '||k==='arrowdown'||e.code==='Space'){ if(!e.repeat) drop(); e.preventDefault(); } });
+
+// ---------- update ----------
+function update(dt){
+  if(flash>0) flash=Math.max(0,flash-dt*0.003);
+  if(shakeT>0) shakeT-=dt*0.001;
+  parts.forEach(q=>{q.x+=q.vx;q.y+=q.vy;q.vy+=0.28;q.life-=dt*0.0022;});
+  parts=parts.filter(q=>q.life>0);
+  pops.forEach(q=>{q.y-=dt*0.02;q.life-=dt*0.0014;});
+  pops=pops.filter(q=>q.life>0);
+  if(state!=='play') return;
+  const p=play;
+  if(p.phase==='live'){
+    t+=dt; const app=clamp(t/(p.tCommit+120),0,1);
+    // ball travels toward contact; if dropped, target dips low
+    const tgt = p.dropped ? LOW : CONTACT;
+    p.ball = lerp(REL, tgt, app*app*0.6 + app*0.4);
+    // batter swing angle: loads then swings through around tCommit (+ feint hitch)
+    if(p.feint && t>=p.feintAt && t<p.feintAt+90){ p.swing = 0.35*Math.sin((t-p.feintAt)/90*Math.PI); }
+    else if(t>=p.loadStart){ const s=clamp((t-p.loadStart)/(p.tCommit-p.loadStart+150),0,1); p.swing = s<0.86? -s*0.5 : (s-0.86)/0.14*1.9-0.43; }
+    if(t>=p.deadline && !p.dropped){ p.dropped=true; p.result='hit'; p.phase='exec'; p.t2=0; }
+  } else if(p.phase==='exec'){
+    p.t2+=dt; const app=clamp((t+p.t2)/(p.tCommit+180),0,1);
+    const tgt = (p.result==='k'||p.result==='greatk'||p.result==='ball') ? LOW : CONTACT;
+    p.ball = lerp(REL, tgt, clamp(app,0,1));
+    if(p.t2>=200 && !p.applied){ p.applied=true; applyResult(); }
+  } else if(p.phase==='resolve'){
+    if(!p.applied) applyResult();
+    p.resT+=dt; if(p.resT>=p.pendDelay && p.pend){ const pp=p.pend; p.pend=null; if(pp==='over') gameOver(); else newPlay(); }
+  }
+}
+
+// ---------- render ----------
+function drawField(){
+  g.fillStyle='#3a5f3a'; g.fillRect(0,0,W,H);
+  g.globalAlpha=0.05; for(let i=0;i<9;i++){ g.fillStyle=i%2?'#fff':'#000'; g.fillRect(0,i*66,W,66); } g.globalAlpha=1;
+  g.fillStyle='#20303f'; g.fillRect(0,0,W,52);
+  for(const c of crowd){ g.fillStyle=c.c; g.globalAlpha=0.5; g.fillRect(c.x,c.y,3,3); } g.globalAlpha=1;
+  // dirt around plate
+  g.fillStyle='#b6844e'; g.beginPath(); g.ellipse(PLATE.x,PLATE.y+6,150,84,0,0,6.28); g.fill();
+  // plate
+  g.fillStyle='#fff'; g.beginPath(); g.moveTo(PLATE.x-24,PLATE.y+6); g.lineTo(PLATE.x+24,PLATE.y+6); g.lineTo(PLATE.x+24,PLATE.y+16); g.lineTo(PLATE.x,PLATE.y+26); g.lineTo(PLATE.x-24,PLATE.y+16); g.closePath(); g.fill();
+  // strike zone
+  g.strokeStyle='rgba(255,255,255,0.6)'; g.lineWidth=2; g.strokeRect(ZX0,ZY0,ZX1-ZX0,ZY1-ZY0);
+}
+function drawScene(){
+  const p=play;
+  // batter
+  g.save(); g.translate(656,438);
+  g.fillStyle='#c94b4b'; g.fillRect(-9,-42,18,40); g.fillStyle='#e8b47a'; g.beginPath(); g.arc(0,-50,10,0,6.28); g.fill();
+  // bat (pivots at shoulder, swings through)
+  g.save(); g.translate(-4,-34); g.rotate(-2.1 + (p.swing||0)*1.9);
+  g.strokeStyle='#caa35a'; g.lineWidth=7; g.lineCap='round'; g.beginPath(); g.moveTo(0,0); g.lineTo(-60,0); g.stroke(); g.restore();
+  g.restore();
+  // catcher glove behind
+  g.fillStyle='#7a5a2a'; g.beginPath(); g.arc(560,PLATE.y-6,12,0,6.28); g.fill();
+  // ball with trail
+  g.fillStyle='#fff'; g.beginPath(); g.arc(p.ball.x,p.ball.y,8,0,6.28); g.fill();
+  g.strokeStyle='#c33'; g.lineWidth=1.2; g.beginPath(); g.arc(p.ball.x-2,p.ball.y-1,6,0.3,2.2); g.stroke();
+
+  // timing gauge (batter's swing load)
+  if(p.phase==='live'){
+    const mw=340,mx=W/2-mw/2,my=H-40,mh=16;
+    g.fillStyle='rgba(0,0,0,0.4)'; g.fillRect(mx,my,mw,mh);
+    const s0=(p.tCommit-p.earlyMargin)/p.deadline, s1=(p.tCommit+p.lateWindow)/p.deadline;
+    g.fillStyle='rgba(120,255,150,0.5)'; g.fillRect(mx+mw*s0,my,mw*(s1-s0),mh);
+    const pos=clamp(t/p.deadline,0,1); g.fillStyle='#fff'; g.fillRect(mx+mw*pos-2,my-3,4,mh+6);
+    g.textAlign='center'; g.fillStyle='rgba(255,255,255,0.8)'; g.font='11px sans-serif'; g.fillText('打者の仕掛け＝緑で落とせ',W/2,my-4);
+    const b=band();
+    if(lvl<3){ g.fillStyle=b==='sweet'?'#8fffb0':'rgba(255,255,255,0.7)'; g.font='bold 20px sans-serif';
+      g.fillText(b==='sweet'?'今だ！ 落とせ！':(b==='early'?'まだ…見せ球':'仕掛けを待て…'),W/2,86); }
+    else if(b!=='sweet'){ g.fillStyle='rgba(255,255,255,0.55)'; g.font='bold 18px sans-serif'; g.fillText('打者の仕掛けを読め…',W/2,86); }
+  }
+}
+function drawHUD(){
+  g.textAlign='left'; g.fillStyle='#fff'; g.font='bold 25px sans-serif'; g.fillText('SCORE '+score,20,40);
+  if(combo>1){ g.fillStyle='#ffd84a'; g.font='bold 16px sans-serif'; g.fillText(combo+' 連続K',20,62); }
+  g.textAlign='right'; g.fillStyle='rgba(255,255,255,0.85)'; g.font='14px sans-serif'; g.fillText('三振 '+ks+'  Lv.'+(lvl+1),W-20,38);
+  g.fillStyle='#ff6a6a'; g.font='bold 14px sans-serif'; g.fillText('失敗',W-92,62);
+  for(let i=0;i<3;i++){ g.fillStyle=i<fails?'#ff5a5a':'rgba(255,255,255,0.24)'; g.beginPath(); g.arc(W-70+i*22,57,8,0,6.28); g.fill(); }
+}
+function drawTitle(){
+  g.fillStyle='rgba(0,0,0,0.55)'; g.fillRect(0,0,W,H);
+  g.textAlign='center'; g.fillStyle='#8fffb0'; g.font='bold 56px sans-serif'; g.fillText('決め球',W/2,144);
+  g.fillStyle='#fff'; g.font='bold 22px sans-serif'; g.fillText('Putaway Pitch — フォークで空振りを奪え',W/2,186);
+  g.fillStyle='#fde'; g.font='18px sans-serif';
+  g.fillText('2ストライク。フォーク（落ちる球）で空振り三振を狙う。打者が',W/2,242);
+  g.fillText('スイングを“仕掛けた瞬間”（緑）にボールを落とせ（クリック/タップ/SPACE）。',W/2,270);
+  g.fillText('早いと見せ球と見切られてボール、遅いと落ちきらず痛打を浴びる。',W/2,298);
+  g.fillText('仕掛けにドンピシャは加点。上級は速く、仕掛けのフェイントも。3失敗で交代。',W/2,326);
+  g.fillStyle='#ffd84a'; g.font='bold 22px sans-serif'; g.fillText('クリック / タップ / キー でスタート',W/2,398);
+}
+function drawOver(){
+  g.fillStyle='rgba(0,0,0,0.64)'; g.fillRect(0,0,W,H);
+  g.textAlign='center'; g.fillStyle='#ff6a6a'; g.font='bold 52px sans-serif'; g.fillText('3失敗…交代',W/2,H/2-54);
+  g.fillStyle='#fff'; g.font='bold 34px sans-serif'; g.fillText('SCORE '+score,W/2,H/2+2);
+  g.fillStyle='#fde'; g.font='20px sans-serif'; g.fillText('三振 '+ks+'　BEST '+best,W/2,H/2+40);
+  g.fillStyle='#8fffb0'; g.font='bold 22px sans-serif'; g.fillText('クリック / タップ で もう一度',W/2,H/2+96);
+}
+function render(){
+  g.setTransform(DPR,0,0,DPR,0,0);
+  let sx=0,sy=0; if(shakeT>0){ sx=rnd(-6,6)*shakeT*3; sy=rnd(-6,6)*shakeT*3; g.translate(sx,sy); }
+  drawField();
+  if(state==='play') drawScene();
+  parts.forEach(q=>{ g.globalAlpha=clamp(q.life,0,1); g.fillStyle=q.c; g.beginPath(); g.arc(q.x,q.y,3,0,6.28); g.fill(); }); g.globalAlpha=1;
+  pops.forEach(q=>{ g.globalAlpha=clamp(q.life,0,1); g.textAlign='center'; g.fillStyle=q.c; g.font='bold '+(q.big?27:19)+'px sans-serif';
+    const px=(q.x==null)?W/2:q.x; g.fillText(q.txt,px,q.y); }); g.globalAlpha=1;
+  if(state==='play') drawHUD();
+  if(flash>0){ g.fillStyle='rgba(255,255,255,'+(flash*0.6)+')'; g.fillRect(0,0,W,H); }
+  if(state==='title') drawTitle();
+  if(state==='over') drawOver();
+  g.setTransform(DPR,0,0,DPR,0,0);
+}
+
+let last=0;
+function frameLoop(ts){ let dt=ts-last; last=ts; if(dt>60)dt=60; if(dt<0)dt=0; update(dt); render(); requestAnimationFrame(frameLoop); }
+requestAnimationFrame(frameLoop);
+
+// ---------- test hook ----------
+window.__pw={
+  start, drop,
+  get state(){return state;}, get score(){return score;}, get fails(){return fails;}, get ks(){return ks;},
+  get info(){ if(state!=='play') return {state,phase:'-'}; const p=play; return {
+    state, phase:p.phase, t, tCommit:p.tCommit, band:band(), sweet:(band()==='sweet'),
+    earlyMargin:p.earlyMargin, lateWindow:p.lateWindow, result:p.result, fails, ks, lvl }; }
+};
+})();
+</script>
+</body>
+</html>
