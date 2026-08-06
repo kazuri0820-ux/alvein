@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ファウルフライ (Chase the Pop)</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a1018;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  pop:()=>{tone(300,0.1,'sine',0.12,220);noise(0.03,0.06,900);},
+  catch:()=>{noise(0.07,0.24,500);tone(360,0.1,'square',0.14);},
+  great:()=>{noise(0.06,0.2,700);[620,880,1200,1600].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.2),i*60));},
+  whiff:()=>{noise(0.14,0.16,400);tone(200,0.16,'sawtooth',0.12,-70);},
+  drop:()=>{tone(240,0.3,'sawtooth',0.2,-120);setTimeout(()=>tone(170,0.28,'sawtooth',0.16,-70),120);},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- geometry ----------
+const PLATE={x:450,y:498};
+const CATCH_R=42;         // positional tolerance
+const CATCH_H=36;         // ball height below which the catch window opens
+const BOUND={x0:110,x1:790,y0:150,y1:520};
+
+// ---------- state ----------
+let state='title', phase='ready', t=0, plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('foulpop_best')||0);
+let outs=0, drops=0, lvl=1;
+let cat={x:450,y:470,tx:450,ty:470};
+let P=null, result=null, resultT=0, msg='', msg2='';
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[], pointerActive=false;
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function chance(p){return Math.random()<p;}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+
+function reset(){state='title';score=0;combo=0;outs=0;drops=0;lvl=1;plays=0;P=null;result=null;parts=[];pops=[];cat={x:450,y:470,tx:450,ty:470};}
+
+function newPop(){
+  plays++;
+  lvl=Math.min(6,1+Math.floor(plays/3));
+  const hang=Math.max(1500,2300-lvl*130);
+  const peak=200+rnd(-20,30);
+  // start near plate, drift toward infield (up) + lateral, with a curl
+  const sx=PLATE.x+rnd(-70,70), sy=PLATE.y-rnd(0,20);
+  const driftUp=rnd(150,250)+lvl*10;
+  const driftLat=rnd(-230,230);
+  const curl=rnd(-1,1)*(60+lvl*16);
+  P={hang,peak,sx,sy, fx:clamp(sx+driftLat,BOUND.x0+30,BOUND.x1-30), fy:clamp(sy-driftUp,BOUND.y0+20,BOUND.y1-40),
+     curl, t:0, shx:sx, shy:sy, h:0, caught:false, tapped:false};
+  result=null; phase='air'; t=0;
+  cat.tx=cat.x; cat.ty=cat.y;
+  S.pop();
+  msg='落下点へ入れ！'; msg2='バックスピンで内野側へ流れる';
+}
+
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; newPop(); }
+
+// ---------- catch ----------
+function shadowAt(p){
+  // eased drift start->final with a lateral curl bump
+  const e=p*p*(3-2*p); // smoothstep
+  const x=P.sx+(P.fx-P.sx)*e + P.curl*Math.sin(p*Math.PI);
+  const y=P.sy+(P.fy-P.sy)*e;
+  return {x,y};
+}
+function heightAt(p){ return Math.sin(p*Math.PI)*P.peak; }
+
+function tryCatch(){
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.5){reset();start();} return; }
+  if(state!=='play'||phase!=='air'||!P||P.tapped) return;
+  const dist=Math.hypot(cat.x-P.shx, cat.y-P.shy);
+  const windowOpen = P.h<=CATCH_H && (P.t/P.hang)>0.52; // only on the descent
+  if(windowOpen && dist<=CATCH_R){
+    P.tapped=true; P.caught=true;
+    const great = dist<16;
+    applyResult(great?'great':'catch');
+  } else if(windowOpen && dist<=CATCH_R+40){
+    // close but reached late/off -> bobble
+    P.tapped=true; applyResult('bobble');
+  } else {
+    // tapped too early (ball still high) or way off -> whiff, ball keeps falling
+    P.tapped=true; S.whiff();
+    // ball will land; resolve as drop at land unless... keep as failed attempt
+    P.failedTap=true;
+  }
+}
+
+function applyResult(kind){
+  result=kind; resultT=0; phase='resolve';
+  const sp=shadowAt(1);
+  if(kind==='catch'||kind==='great'){
+    combo++; const mult=1+Math.min(6,combo-1)*0.22; const base=kind==='great'?170:110; const add=Math.round(base*mult);
+    score+=add; outs++;
+    if(kind==='great')S.great(); else S.catch();
+    flash=1;flashCol=kind==='great'?'#ffe08a':'#8ff0b8'; shake=kind==='great'?12:6;
+    burst(P.shx,P.shy,kind==='great'?'#ffe08a':'#bfffd0',kind==='great'?26:16,6);
+    pop(P.shx,P.shy-30,(kind==='great'?'ナイスキャッチ！ ':'キャッチ！ ')+'+'+add,'#eaffef');
+    if(combo>=2)pop(P.shx,P.shy-54,'コンボ x'+combo,'#ffe08a');
+    msg=kind==='great'?'ナイスキャッチ！ 難しい小フライを好捕':'キャッチ！ アウト'; msg2='';
+  } else {
+    combo=0; drops++;
+    S.drop();
+    flash=1;flashCol='#ff6b6b'; shake=10;
+    burst(P.shx,P.shy,'#ff8a8a',16,5);
+    if(kind==='bobble'){msg='ファンブル！ 目測が甘い';msg2='もっと落下点の真下へ';}
+    else if(P.failedTap){msg='空振り！ 掴むのが早い';msg2='ミットに収まる瞬間に';}
+    else {msg='落球…目測を誤った';msg2='流れる軌道を先読みして';}
+    pop(P.shx,P.shy-24,'ドロップ','#ffb3b3');
+  }
+}
+
+// ---------- input ----------
+function moveTo(x,y){ cat.tx=clamp(x,BOUND.x0,BOUND.x1); cat.ty=clamp(y,BOUND.y0,BOUND.y1); }
+cv.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  if(state==='title'||state==='over'){ tryCatch(); return; }
+  const r=cv.getBoundingClientRect(); const x=((e.clientX-r.left)/r.width)*W, y=((e.clientY-r.top)/r.height)*H;
+  // tap far from catcher = move; tap near/on catcher = catch. Use two-finger? simpler: drag to move, tap(no move) near catcher = catch
+  pointerActive=true; moveTo(x,y);
+});
+cv.addEventListener('pointermove',e=>{ if(pointerActive){const r=cv.getBoundingClientRect();moveTo(((e.clientX-r.left)/r.width)*W,((e.clientY-r.top)/r.height)*H);} });
+addEventListener('pointerup',e=>{ pointerActive=false; });
+// dedicated catch button = space / click when close is ambiguous; use a right side tap? Use keyboard for catch, and on touch a quick tap near catcher.
+addEventListener('keydown',e=>{
+  if(e.code==='Space'||e.code==='Enter'){e.preventDefault();tryCatch();}
+  else if(e.code==='ArrowLeft'){moveTo(cat.tx-40,cat.ty);}
+  else if(e.code==='ArrowRight'){moveTo(cat.tx+40,cat.ty);}
+  else if(e.code==='ArrowUp'){moveTo(cat.tx,cat.ty-40);}
+  else if(e.code==='ArrowDown'){moveTo(cat.tx,cat.ty+40);}
+});
+// double-tap / tap on catcher to catch (touch friendly)
+cv.addEventListener('pointerdown',e=>{
+  if(state!=='play'||phase!=='air')return;
+  const r=cv.getBoundingClientRect(); const x=((e.clientX-r.left)/r.width)*W, y=((e.clientY-r.top)/r.height)*H;
+  if(Math.hypot(x-cat.x,y-cat.y)<70){ tryCatch(); }
+});
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7);
+  for(const p of parts){p.vx*=0.96;p.vy=p.vy*0.96+0.3;p.x+=p.vx*dt/16.7;p.y+=p.vy*dt/16.7;p.life-=dt/16.7*0.026;}
+  parts=parts.filter(p=>p.life>0);
+  for(const p of pops){p.y-=dt/16.7*0.5;p.life-=dt/16.7*0.018;}
+  pops=pops.filter(p=>p.life>0);
+  // ease catcher
+  const sp=6.4;
+  cat.x+=(cat.tx-cat.x)*Math.min(1,dt/16.7*0.18);
+  cat.y+=(cat.ty-cat.y)*Math.min(1,dt/16.7*0.18);
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  t+=dt;
+
+  if(phase==='air'){
+    P.t+=dt; const p=clamp(P.t/P.hang,0,1);
+    const s=shadowAt(p); P.shx=s.x; P.shy=s.y; P.h=heightAt(p);
+    if(p>=1 && !P.tapped){
+      // ball landed without a successful catch attempt
+      const dist=Math.hypot(cat.x-P.shx,cat.y-P.shy);
+      if(dist<=CATCH_R*0.7){ applyResult('catch'); } // right under it at land = catch
+      else applyResult('drop');
+    } else if(p>=1 && P.failedTap){
+      applyResult('drop');
+    }
+    return;
+  }
+  if(phase==='resolve'){
+    resultT+=dt/1000;
+    if(resultT>1.0){
+      if(drops>=3){ state='over'; resultT=0; S.over(); if(score>best){best=score;localStorage.setItem('foulpop_best',best);} }
+      else newPop();
+    }
+    return;
+  }
+}
+
+// ---------- render ----------
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function drawScene(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#1c5233');g.addColorStop(0.6,'#3a2a1c');g.addColorStop(1,'#4a3320');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // grass at top (infield edge)
+  ctx.fillStyle='rgba(34,110,60,0.5)';ctx.fillRect(0,0,W,180);
+  // dirt circle (catcher area)
+  ctx.fillStyle='rgba(150,95,55,0.4)';ctx.beginPath();ctx.ellipse(450,430,340,150,0,0,6.28);ctx.fill();
+  // backstop hint at very bottom
+  ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1;
+  for(let x=80;x<W;x+=26){ctx.beginPath();ctx.moveTo(x,H-40);ctx.lineTo(x+18,H);ctx.stroke();}
+  // plate
+  ctx.fillStyle='#eee';ctx.beginPath();ctx.moveTo(PLATE.x,PLATE.y+8);ctx.lineTo(PLATE.x-14,PLATE.y);ctx.lineTo(PLATE.x-14,PLATE.y-8);ctx.lineTo(PLATE.x+14,PLATE.y-8);ctx.lineTo(PLATE.x+14,PLATE.y);ctx.closePath();ctx.fill();
+}
+
+function drawShadow(){
+  if(state!=='play'||!P)return;
+  const p=clamp(P.t/P.hang,0,1);
+  const near=P.h<=CATCH_H && p>0.52;
+  // landing marker (fades/hidden at high level)
+  const showMark = lvl<4 || near;
+  if(showMark){
+    ctx.strokeStyle=near?'rgba(126,240,176,0.9)':'rgba(255,255,255,0.4)';
+    ctx.lineWidth=near?4:2; ctx.setLineDash(near?[]:[5,6]);
+    ctx.beginPath();ctx.ellipse(P.shx,P.shy,CATCH_R*0.8,CATCH_R*0.4,0,0,6.28);ctx.stroke();ctx.setLineDash([]);
+  }
+  // small ground shadow
+  ctx.fillStyle='rgba(0,0,0,0.22)';ctx.beginPath();ctx.ellipse(P.shx,P.shy,9-p*3,4,0,0,6.28);ctx.fill();
+}
+
+function drawBall(){
+  if(state!=='play'||!P||phase!=='air')return;
+  const x=P.shx, y=P.shy-P.h;
+  // trail
+  ctx.strokeStyle='rgba(255,255,255,0.18)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(P.shx,P.shy);ctx.lineTo(x,y);ctx.stroke();
+  const r=6+ (1-Math.min(1,P.h/P.peak))*3;
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,r,0,6.28);ctx.fill();
+  ctx.strokeStyle='#c33';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(x,y,r,0.4,2.3);ctx.stroke();
+}
+
+function drawCatcher(){
+  const x=cat.x,y=cat.y;
+  const near=state==='play'&&P&&phase==='air'&&P.h<=CATCH_H&&(P.t/P.hang)>0.52&&Math.hypot(x-P.shx,y-P.shy)<CATCH_R;
+  ctx.fillStyle='rgba(0,0,0,0.24)';ctx.beginPath();ctx.ellipse(x,y+16,14,5,0,0,6.28);ctx.fill();
+  // catch-ready ring
+  if(near){ctx.strokeStyle='rgba(126,240,176,0.85)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y-2,CATCH_R,0,6.28);ctx.stroke();}
+  ctx.fillStyle='#2a86a8'; rr(x-9,y-8,18,24,6);ctx.fill();
+  ctx.fillStyle='#1c5f78';rr(x-12,y-14,24,20,6);ctx.fill();
+  ctx.fillStyle='#f2c9a0';ctx.beginPath();ctx.arc(x,y-20,8,0,6.28);ctx.fill();
+  ctx.strokeStyle='#333';ctx.lineWidth=1.4;for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(x+i*5,y-28);ctx.lineTo(x+i*5,y-12);ctx.stroke();}
+  // mitt up
+  ctx.fillStyle='#6a3f22';ctx.beginPath();ctx.arc(x+2,y-30,10,0,6.28);ctx.fill();
+}
+
+function drawHUD(){
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,36);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='14px sans-serif';ctx.fillText('捕球 '+outs+'  Lv.'+lvl,W-20,26);
+  ctx.fillText('落球',W-92,50);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-66+i*22,46,7,0,6.28);ctx.fillStyle=i<drops?'#ff5b5b':'rgba(255,255,255,0.25)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='left';ctx.fillStyle='#ffe08a';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,20,60);}
+}
+
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawScene();
+  drawShadow();
+  drawCatcher();
+  drawBall();
+
+  for(const p of parts){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const p of pops){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.fillText(p.txt,p.x,p.y);}
+  ctx.globalAlpha=1;
+
+  drawHUD();
+
+  if(state==='play'&&(msg||msg2)){
+    ctx.textAlign='center';
+    const good=result==='catch'||result==='great';
+    ctx.fillStyle=result?(good?'#8ff0b8':'#ff9a9a'):'rgba(255,255,255,0.92)';
+    ctx.font='bold 26px sans-serif';ctx.fillText(msg,W/2,120);
+    if(msg2){ctx.fillStyle='rgba(255,255,255,0.72)';ctx.font='15px sans-serif';ctx.fillText(msg2,W/2,146);}
+  }
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(6,10,18,0.66)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 48px sans-serif';ctx.fillText('ファウルフライ',W/2,196);
+    ctx.fillStyle='#8ff0b8';ctx.font='bold 22px sans-serif';ctx.fillText('Chase the Pop',W/2,232);
+    ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='18px sans-serif';
+    ctx.fillText('捕手を動かして（ドラッグ / 矢印）落下点の真下へ入り込め',W/2,294);
+    ctx.fillText('ミットに収まる瞬間にキャッチ（SPACE / 捕手をタップ）',W/2,322);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='15px sans-serif';
+    ctx.fillText('バックスピンで内野側へ流れる軌道を先読み。早掴みは空振り／目測ミスは落球',W/2,364);
+    ctx.fillText('真下でジャストに掴めば好捕で加点。3落球で交代',W/2,388);
+    ctx.fillStyle='#ffe08a';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,446);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best,W/2,478);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(6,10,18,0.74)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 46px sans-serif';ctx.fillText('3落球…交代',W/2,230);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,296);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='20px sans-serif';ctx.fillText('捕球 '+outs+'   BEST '+best,W/2,336);
+    ctx.fillStyle='#8ff0b8';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,408);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='13px sans-serif';
+  ctx.fillText('流れる落下点の真下へ入り、ミットに収まる瞬間にキャッチ（SPACE/捕手タップ）。3落球で交代',W/2,H-8);
+}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__fp={
+  start, tryCatch, moveTo,
+  get state(){return state;},
+  get score(){return score;},
+  get outs(){return outs;},
+  get drops(){return drops;},
+  get info(){return {state,phase, shx:P?P.shx:0, shy:P?P.shy:0, fx:P?P.fx:0, fy:P?P.fy:0,
+    h:P?P.h:0, catchH:CATCH_H, catchR:CATCH_R, catX:cat.x, catY:cat.y, p:P?P.t/P.hang:0,
+    windowOpen: !!(P&&phase==='air'&&P.h<=CATCH_H&&(P.t/P.hang)>0.52), result,outs,drops,lvl};}
+};
+})();
+</script>
+</body>
+</html>
