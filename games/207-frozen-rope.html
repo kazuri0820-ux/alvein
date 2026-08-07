@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>レーザービーム (Frozen Rope)</title>
+<style>
+  html,body{margin:0;height:100%;background:#0c1119;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  lock:()=>{tone(560,0.05,'square',0.1);},
+  fire:()=>{noise(0.05,0.24,1100);tone(420,0.06,'square',0.12,180);},
+  out:()=>{[720,960,1200].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.18),i*70));},
+  safe:()=>{tone(300,0.26,'sawtooth',0.18,-150);setTimeout(()=>tone(200,0.24,'sawtooth',0.14,-70),110);},
+  wild:()=>{noise(0.12,0.2,500);tone(240,0.18,'sawtooth',0.14,-90);},
+  streak:()=>{[660,880,1100].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*60));},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- geometry ----------
+const OF={x:110,y:250}, PLATE={x:770,y:470};
+const AMIN=16, AMAX=66;        // launch angle range (deg, visual/speed)
+const PSTAR=66;                // power to land on the plate
+
+// ---------- state ----------
+let state='title', phase='angle', t=0, plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('frope_best')||0);
+let outsMade=0, safes=0, lvl=1;
+let ang=AMIN, angDir=1, power=0, lockedAng=0, lockedPow=0, clock=0;
+let ball=null, runner=0, outcome=null, result=null, resultT=0, msg='', msg2='';
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[];
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,u){return a+(b-a)*u;}
+
+function params(){ return { angSpeed:0.05+lvl*0.006, powRate:0.09+lvl*0.006,
+  powTol:9-lvl*0.6, trun:940-lvl*40, shotClock:3000-lvl*130 }; }
+function flightTime(a){ return 600 + (a-AMIN)/(AMAX-AMIN)*920; }
+
+function reset(){state='title';score=0;combo=0;outsMade=0;safes=0;lvl=1;plays=0;ball=null;result=null;parts=[];pops=[];}
+function newPlay(){
+  plays++; lvl=Math.min(7,1+Math.floor(outsMade/4));
+  ang=AMIN; angDir=1; power=0; lockedAng=0; lockedPow=0; clock=0; ball=null; runner=0; outcome=null;
+  phase='angle'; result=null; msg=''; msg2='';
+}
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; newPlay(); }
+
+function tap(){
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.4){reset();start();} return; }
+  if(state!=='play')return;
+  if(phase==='angle'){ lockedAng=ang; phase='power'; power=0; S.lock(); }
+  else if(phase==='power'){ lockedPow=power; S.lock(); fire(); }
+}
+function fire(){
+  const p=params();
+  const off=lockedPow-PSTAR, aoff=Math.abs(off);
+  const ft=flightTime(lockedAng);
+  let out;
+  if(aoff>p.powTol){ out=off>0?'over':'short'; }     // off-target throw -> wild/safe
+  else if(ft<=p.trun) out='out';                      // on-target rope beats the runner
+  else out='late';                                    // on-target but too loopy/slow
+  outcome=out;
+  ball={t:0,dur:ft, ang:lockedAng, land: 110 + (lockedPow/PSTAR)*(PLATE.x-110)};
+  runnerDur=p.trun;
+  phase='fly'; S.fire();
+}
+let runnerDur=940;
+
+function resolve(){
+  phase='resolve'; result=outcome; resultT=0;
+  if(outcome==='out'){
+    outsMade++; combo++; const marg=Math.round(params().trun-flightTime(lockedAng));
+    const add=Math.round((marg>200?170:110)*(1+Math.min(9,combo-1)*0.16)); score+=add;
+    S.out(); flash=1;flashCol='#8fe0a0';shake=11; burst(PLATE.x,PLATE.y-10,'#cfffe0',24,7);
+    pop(PLATE.x,PLATE.y-34,'アウト！ +'+add,'#dfffe6');
+    if(marg>200)pop(PLATE.x,PLATE.y-60,'完璧なレーザービーム！','#fff3c4');
+    if(combo>=2)pop(PLATE.x,PLATE.y-84,'コンボ x'+combo,'#ffd24d');
+    if(combo>0&&combo%5===0)S.streak();
+    msg='アウト！ 低い一直線の送球で刺した'; msg2='';
+  } else {
+    safes++; combo=0; flash=1;flashCol='#ff5b5b';shake=9;
+    if(outcome==='over'){S.wild();msg='大暴投！ 山なりで捕手の頭上へ';}
+    else if(outcome==='short'){S.wild();msg='ショートバウンド！ 届かず逸らした';}
+    else {S.safe();msg='遅い…山なりで送球、走者生還';}
+    msg2 = safes>=3?'':'あと'+(3-safes)+'回で交代';
+    pop(PLATE.x,PLATE.y-34,outcome==='late'?'セーフ':'暴投','#ffb0b0');
+  }
+  if(safes>=3){ state='over'; resultT=0; S.over(); if(score>best){best=score;localStorage.setItem('frope_best',best);} }
+}
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{e.preventDefault();tap();});
+addEventListener('keydown',e=>{ if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'){e.preventDefault();tap();} });
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7);
+  for(const p of parts){p.vx*=0.96;p.vy=p.vy*0.96+0.28;p.x+=p.vx*dt/16.7;p.y+=p.vy*dt/16.7;p.life-=dt/16.7*0.028;}
+  parts=parts.filter(p=>p.life>0);
+  for(const p of pops){p.y-=dt/16.7*0.5;p.life-=dt/16.7*0.02;}
+  pops=pops.filter(p=>p.life>0);
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  t+=dt; const p=params();
+  if(phase==='angle'){ ang+=angDir*p.angSpeed*dt*10; if(ang>=AMAX){ang=AMAX;angDir=-1;} if(ang<=AMIN){ang=AMIN;angDir=1;}
+    clock+=dt; if(clock>p.shotClock){ outcome='late'; safes++; combo=0; flash=1;flashCol='#ff5b5b';shake=8; phase='resolve'; result='late'; resultT=0; msg='送球が遅れて生還…'; msg2=safes>=3?'':'あと'+(3-safes)+'回で交代'; if(safes>=3){state='over';resultT=0;S.over();if(score>best){best=score;localStorage.setItem('frope_best',best);}} }
+    return; }
+  if(phase==='power'){ power+=p.powRate*dt; if(power>=100){lockedPow=100;fire();} clock+=dt; return; }
+  if(phase==='fly'){ ball.t+=dt; runner=clamp(ball.t/runnerDur,0,1); if(ball.t>=ball.dur) resolve(); return; }
+  if(phase==='resolve'){ resultT+=dt/1000; if(resultT>1.1 && state==='play') newPlay(); return; }
+}
+
+// ---------- render ----------
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function arcPoint(f,ang,land){ // parabola from OF to landing, peak height from angle
+  const x=lerp(OF.x,land,f);
+  const peak=40 + (ang-AMIN)/(AMAX-AMIN)*230;
+  const y=lerp(OF.y,PLATE.y,f) - Math.sin(f*Math.PI)*peak;
+  return {x,y};
+}
+function drawField(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#16233a');g.addColorStop(0.5,'#1a3324');g.addColorStop(1,'#20442d');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(150,95,55,0.34)';ctx.beginPath();ctx.ellipse(PLATE.x,PLATE.y+6,120,54,0,0,6.28);ctx.fill();
+  // plate + catcher
+  ctx.fillStyle='#eee';ctx.beginPath();ctx.moveTo(PLATE.x,PLATE.y+10);ctx.lineTo(PLATE.x-12,PLATE.y+2);ctx.lineTo(PLATE.x-12,PLATE.y-6);ctx.lineTo(PLATE.x+12,PLATE.y-6);ctx.lineTo(PLATE.x+12,PLATE.y+2);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#3a4a6a';ctx.beginPath();ctx.arc(PLATE.x+18,PLATE.y-14,13,0,6.28);ctx.fill();
+  ctx.fillStyle='#caa15a';ctx.beginPath();ctx.arc(PLATE.x+6,PLATE.y-20,10,0,6.28);ctx.fill();
+  // outfielder
+  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(OF.x,OF.y+16,14,5,0,0,6.28);ctx.fill();
+  ctx.fillStyle='#2b6cff';rr(OF.x-9,OF.y-10,18,26,7);ctx.fill();ctx.fillStyle='#f2c9a0';ctx.beginPath();ctx.arc(OF.x,OF.y-18,7.5,0,6.28);ctx.fill();
+}
+function drawRunner(){
+  // runner racing toward the plate along the baseline
+  const rx=lerp(PLATE.x-260,PLATE.x-16,runner), ry=lerp(PLATE.y+70,PLATE.y+22,runner);
+  ctx.fillStyle='rgba(0,0,0,0.24)';ctx.beginPath();ctx.ellipse(rx,ry+12,12,4,0,0,6.28);ctx.fill();
+  ctx.fillStyle='#e23c3c';rr(rx-8,ry-8,16,22,6);ctx.fill();ctx.fillStyle='#f2c9a0';ctx.beginPath();ctx.arc(rx,ry-15,6.5,0,6.28);ctx.fill();
+}
+
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawField();
+
+  if(state==='play'){
+    // aim preview arc during angle/power
+    if(phase==='angle'||phase==='power'){
+      const a=phase==='angle'?ang:lockedAng;
+      const landPreview = phase==='power'? 110+(power/PSTAR)*(PLATE.x-110) : PLATE.x;
+      ctx.strokeStyle= phase==='power'? 'rgba(255,224,138,0.8)':'rgba(150,220,255,0.6)';ctx.lineWidth=2;ctx.setLineDash([5,7]);
+      ctx.beginPath();for(let f=0;f<=1.001;f+=0.05){const pt=arcPoint(f,a,landPreview);if(f===0)ctx.moveTo(pt.x,pt.y);else ctx.lineTo(pt.x,pt.y);}ctx.stroke();ctx.setLineDash([]);
+      // arm angle line
+      const rad=a*Math.PI/180; ctx.strokeStyle='#ffe08a';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(OF.x,OF.y-6);ctx.lineTo(OF.x+Math.cos(-rad)*40,OF.y-6-Math.sin(rad)*40);ctx.stroke();
+    }
+    if(phase==='fly'&&ball){ const pt=arcPoint(clamp(ball.t/ball.dur,0,1),ball.ang,ball.land);
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(pt.x,pt.y,7,0,6.28);ctx.fill();
+      ctx.strokeStyle='#c33';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(pt.x,pt.y,7,0.4,2.3);ctx.stroke(); }
+    if(phase==='fly'||phase==='angle'||phase==='power') drawRunner();
+    else if(phase==='resolve') drawRunner();
+  }
+
+  for(const p of parts){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const p of pops){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.fillText(p.txt,p.x,p.y);}
+  ctx.globalAlpha=1;
+
+  // meters
+  if(state==='play'&&(phase==='angle'||phase==='power')){
+    const p=params();
+    // angle gauge (left) - low is good
+    const gx=44,gy=150,gw=26,gh=300;
+    ctx.fillStyle='rgba(0,0,0,0.4)';rr(gx,gy,gw,gh,7);ctx.fill();
+    const goodTop = gy; const angForTrun = AMIN + (p.trun-600)/920*(AMAX-AMIN);
+    const yA=v=>gy+gh*((v-AMIN)/(AMAX-AMIN));
+    ctx.fillStyle='rgba(150,230,170,0.3)';ctx.fillRect(gx,gy,gw,yA(angForTrun)-gy); // fast-enough zone (low angle)
+    const shownA=phase==='angle'?ang:lockedAng;
+    ctx.fillStyle='#8fd0ff';ctx.fillRect(gx,yA(shownA)-2,gw,4);
+    ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=2;rr(gx,gy,gw,gh,7);ctx.stroke();
+    ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.7)';ctx.font='11px sans-serif';ctx.fillText('弾道',gx+gw/2,gy-8);
+    ctx.fillStyle='rgba(150,230,170,0.9)';ctx.fillText('低い',gx+gw/2+2,gy+16);ctx.fillStyle='rgba(255,140,140,0.8)';ctx.fillText('山なり',gx+gw/2+4,gy+gh-6);
+    // power gauge (bottom) - hit PSTAR
+    const bx=250,by=H-44,bw=400,bh=20;
+    ctx.fillStyle='rgba(0,0,0,0.4)';rr(bx,by,bw,bh,8);ctx.fill();
+    const pc=bx+bw*(PSTAR/100), pw=bw*(p.powTol/100);
+    ctx.fillStyle='rgba(150,230,170,0.45)';ctx.fillRect(pc-pw,by,pw*2,bh);
+    const shownP=phase==='power'?power:0;
+    ctx.fillStyle='#ffd24d';rr(bx,by,bw*(shownP/100),bh,8);ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=2;rr(bx,by,bw,bh,8);ctx.stroke();
+    ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.6)';ctx.font='12px sans-serif';ctx.fillText('送球の強さ（塁へピタリ）',pc,by-8);
+  }
+
+  // HUD
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,36);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='14px sans-serif';ctx.fillText('補殺 '+outsMade+'  Lv'+lvl,W-20,24);
+  ctx.fillText('生還',W-92,46);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-60+i*20,41,7,0,6.28);ctx.fillStyle=i<safes?'#ff5b5b':'rgba(255,255,255,0.22)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='center';ctx.fillStyle='#ffd24d';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,450,90);}
+
+  if(state==='play'){
+    ctx.textAlign='center';ctx.font='bold 16px sans-serif';
+    if(phase==='angle'){ctx.fillStyle='#8fd0ff';ctx.fillText('①弾道を“低く”合わせてタップ（山なりは走者生還）',450,44);}
+    else if(phase==='power'){ctx.fillStyle='#ffe08a';ctx.fillText('②送球の強さを本塁ピタリで止める！',450,44);}
+    else if(phase==='resolve'&&msg){ctx.fillStyle=result==='out'?'#9ff0b8':'#ff9a9a';ctx.font='bold 22px sans-serif';ctx.fillText(msg,450,44);}
+  }
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(6,10,18,0.68)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 46px sans-serif';ctx.fillText('レーザービーム',W/2,150);
+    ctx.fillStyle='#ffd24d';ctx.font='bold 22px sans-serif';ctx.fillText('Frozen Rope',W/2,186);
+    ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='16px sans-serif';
+    ctx.fillText('外野からの本塁返球で走者を刺す、弾道と強さの2段階コントロール',W/2,240);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='14px sans-serif';
+    ctx.fillText('①弾道（アーク）を合わせてタップ＝低い一直線ほど速く走者に勝てる（山なりは遅く生還される）',W/2,280);
+    ctx.fillText('②送球の強さを“本塁ピタリ”のゾーンで止める＝逸れると暴投／ショートバウンド',W/2,302);
+    ctx.fillText('低い弾道×正確な強さで矢のような送球＝補殺（アウト）。上級ほど速くシビア。3生還で交代',W/2,324);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,404);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best+'　　1ボタン・2タップ（弾道→強さ）',W/2,436);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(6,10,18,0.76)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 44px sans-serif';ctx.fillText('3生還…交代',W/2,222);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,290);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='19px sans-serif';ctx.fillText('補殺 '+outsMade+'   BEST '+best,W/2,330);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,402);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+  ctx.fillText('①弾道を低く合わせる→②強さを本塁ピタリで止める。低い一直線で走者に勝つ。山なり/逸れはセーフ。3生還で交代',W/2,H-8);
+}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__fr={
+  start, tap:()=>tap(),
+  get state(){return state;},
+  get score(){return score;},
+  get outsMade(){return outsMade;},
+  get safes(){return safes;},
+  get info(){const p=params(); const angForTrun=AMIN+(p.trun-600)/920*(AMAX-AMIN);
+    return {state,phase, ang, power, lockedAng, lockedPow, pstar:PSTAR, powTol:p.powTol, angForTrun, amin:AMIN,
+    outsMade, safes, lvl};}
+};
+})();
+</script>
+</body>
+</html>
