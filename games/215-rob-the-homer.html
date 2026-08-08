@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ホームランキャッチ (Rob the Homer)</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a1220;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  crack:()=>{noise(0.04,0.16,900);tone(240,0.08,'triangle',0.12,-80);},
+  jump:()=>{tone(300,0.12,'sine',0.1,260);},
+  rob:()=>{noise(0.05,0.14,700);[720,960,1200,1440].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.2),i*80));},
+  hr:()=>{noise(0.16,0.16,300);tone(150,0.3,'sawtooth',0.14,-60);},
+  streak:()=>{[660,880,1100,1320].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*60));},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- geometry ----------
+const FENCE=206, ROBLINE=FENCE+8, TRACKY=452, GLOVE_STAND=354, JUMPH=162;
+
+// ---------- state ----------
+let state='title', phase='fly', t=0, plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('robhr_best')||0);
+let robs=0, hrs=0, lvl=1;
+let clock=0, travelT=1000, jumpDur=520, robThresh=230, catchW=52;
+let jumping=false, jt=0, gloveY=GLOVE_STAND;
+let outX=450, ballX=450, ballY=-10, cx=450, bx0=450, resolved=false, caught=false;
+let result=null, resultT=0, msg='', ballOverY=0;
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[], crowd=[];
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function chance(p){return Math.random()<p;}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,u){return a+(b-a)*u;}
+function easeOut(u){return 1-Math.pow(1-u,2);}
+
+function params(){ return { travel:Math.max(600,1040-lvl*66), jumpDur:Math.max(360,540-lvl*26), thresh:FENCE+(26-lvl*2), catchW:Math.max(30,54-lvl*3.4) }; }
+
+for(let i=0;i<70;i++)crowd.push({x:rnd(0,W),y:rnd(20,FENCE-24),c:['#e7c9a0','#d98f6a','#c7d2e0','#e0d0b0','#b9c6a0'][i%5]});
+
+function reset(){state='title';score=0;combo=0;robs=0;hrs=0;lvl=1;plays=0;result=null;parts=[];pops=[];}
+function newBall(){
+  plays++; lvl=Math.min(7,1+Math.floor(robs/4));
+  const p=params(); travelT=p.travel; jumpDur=p.jumpDur; robThresh=p.thresh; catchW=p.catchW;
+  cx=rnd(230,670); bx0=cx+rnd(-120,120);
+  ballX=bx0; ballY=-10; clock=0; jumping=false; jt=0; gloveY=GLOVE_STAND;
+  resolved=false; caught=false; result=null; phase='fly'; msg=''; ballOverY=0;
+  S.crack();
+}
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; outX=450; newBall(); }
+
+function jump(){
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.4){reset();start();} return; }
+  if(state!=='play'||phase!=='fly'||jumping||resolved) return;
+  jumping=true; jt=0; S.jump();
+}
+
+function resolve(kind){
+  phase='result'; result=kind; resultT=0; resolved=true;
+  if(kind==='rob'){
+    robs++; combo++; const q=1-Math.min(1,Math.abs(jt-jumpDur*0.5)/(jumpDur*0.35));
+    const add=Math.round((100+q*90)*(1+Math.min(9,combo-1)*0.16)); score+=add;
+    S.rob(); flash=1;flashCol='#ffe08a';shake=10; burst(ballX,FENCE,'#ffe08a',24,7);
+    pop(ballX, FENCE-30,'ホームラン強奪！ +'+add,'#fff3c4');
+    if(q>0.7)pop(ballX,FENCE-56,'塀際の魔術師！','#ffe08a');
+    if(combo>=2)pop(ballX,FENCE-4,'コンボ x'+combo,'#ffd24d');
+    if(combo>0&&combo%5===0)S.streak();
+    msg='フェンス越えをもぎ取った！';
+  } else {
+    hrs++; combo=0; flash=1;flashCol='#ff5b5b';shake=8; S.hr();
+    msg = jumping? (jt<jumpDur*0.4?'早い！ グラブが下りる前に越えられた':'遅い！ 跳ぶのが間に合わず被弾') : '見送り…そのままスタンドイン';
+    pop(ballX, FENCE-24,'被弾','#ffb0b0');
+  }
+  if(hrs>=3){ state='over'; resultT=0; S.over(); if(score>best){best=score;localStorage.setItem('robhr_best',best);} }
+}
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{e.preventDefault();jump();});
+addEventListener('keydown',e=>{ if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'){e.preventDefault();jump();} });
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7);
+  for(const p of parts){p.vx*=0.96;p.vy=p.vy*0.96+0.28;p.x+=p.vx*dt/16.7;p.y+=p.vy*dt/16.7;p.life-=dt/16.7*0.026;}
+  parts=parts.filter(p=>p.life>0);
+  for(const p of pops){p.y-=dt/16.7*0.5;p.life-=dt/16.7*0.02;}
+  pops=pops.filter(p=>p.life>0);
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  t+=dt;
+  // outfielder auto-runs to the landing spot (limited speed)
+  const vmax=0.72; const d=cx-outX; outX += clamp(d,-vmax*dt,vmax*dt);
+  // jump arc
+  if(jumping){ jt+=dt; const u=clamp(jt/jumpDur,0,1); gloveY=GLOVE_STAND - JUMPH*Math.sin(Math.PI*u); if(jt>=jumpDur){jumping=false;gloveY=GLOVE_STAND;} }
+  else gloveY=GLOVE_STAND;
+
+  if(phase==='fly'){
+    clock+=dt;
+    ballY = -10 + (ROBLINE+10)*(clock/travelT);
+    ballX = lerp(bx0,cx,easeOut(Math.min(1,clock/travelT)));
+    if(!resolved && ballY>=ROBLINE){
+      const gloveUp = jumping && gloveY<=robThresh;
+      const positioned = Math.abs(ballX-outX)<catchW;
+      if(gloveUp && positioned) resolve('rob'); else { resolve('hr'); ballOverY=ballY; }
+    }
+    return;
+  }
+  if(phase==='result'){
+    resultT+=dt/1000;
+    if(result==='rob'){ ballX=lerp(ballX,outX,0.2); ballY=lerp(ballY,gloveY,0.3); }
+    else { ballOverY += 0.16*dt; }  // ball carries into the stands
+    if(resultT>1.15 && state==='play') newBall();
+    return;
+  }
+}
+
+// ---------- render ----------
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function drawScene(){
+  // sky
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#173a5e');g.addColorStop(0.34,'#2b5f86');g.addColorStop(0.35,'#1f7a34');g.addColorStop(1,'#155f27');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // stands + crowd (above the fence)
+  ctx.fillStyle='#20304a';ctx.fillRect(0,0,W,FENCE-18);
+  for(const c of crowd){ctx.fillStyle=c.c;ctx.fillRect(c.x,c.y,5,5);}
+  // fence
+  ctx.fillStyle='#0f5f2a';ctx.fillRect(0,FENCE-18,W,26);
+  ctx.fillStyle='#ffd23e';ctx.fillRect(0,FENCE-18,W,4);           // yellow home-run line on top of the wall
+  ctx.strokeStyle='rgba(0,0,0,0.25)';ctx.lineWidth=1;
+  for(let x=0;x<W;x+=26){ctx.beginPath();ctx.moveTo(x,FENCE-14);ctx.lineTo(x,FENCE+8);ctx.stroke();}
+  // warning track
+  ctx.fillStyle='rgba(150,96,54,0.5)';ctx.fillRect(0,FENCE+8,W,44);
+  // grass stripes
+  for(let i=0;i<7;i++){ctx.fillStyle=i%2?'rgba(255,255,255,0.045)':'rgba(0,0,0,0.05)';ctx.fillRect(0,FENCE+52+i*70,W,35);}
+}
+function drawFielder(x,gy){
+  const jumpingNow = gy<GLOVE_STAND-2;
+  const feetY = jumpingNow ? TRACKY - (GLOVE_STAND-gy)*0.62 : TRACKY;
+  ctx.fillStyle='rgba(0,0,0,0.22)';ctx.beginPath();ctx.ellipse(x,TRACKY+12,18,5,0,0,6.28);ctx.fill();
+  // body
+  ctx.fillStyle='#2b6cff';rr(x-12,feetY-46,24,44,8);ctx.fill();
+  ctx.fillStyle='#f2c9a0';ctx.beginPath();ctx.arc(x,feetY-54,9,0,6.28);ctx.fill();
+  // glove arm reaching up
+  ctx.strokeStyle='#2b6cff';ctx.lineWidth=6;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(x,feetY-40);ctx.lineTo(x-4,gy+8);ctx.stroke();
+  ctx.fillStyle='#7a4a22';ctx.beginPath();ctx.arc(x-5,gy,11,0,6.28);ctx.fill();
+  ctx.fillStyle='#8a5a2c';ctx.beginPath();ctx.arc(x-5,gy,6,0,6.28);ctx.fill();
+}
+function drawBall(x,y){
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,8,0,6.28);ctx.fill();
+  ctx.strokeStyle='#d23c3c';ctx.lineWidth=1.3;ctx.beginPath();ctx.arc(x-3,y,6,-0.7,0.7);ctx.stroke();ctx.beginPath();ctx.arc(x+3,y,6,Math.PI-0.7,Math.PI+0.7);ctx.stroke();
+}
+
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawScene();
+
+  if(state==='play'){
+    // landing marker on the track
+    ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=2;ctx.setLineDash([4,5]);
+    ctx.beginPath();ctx.arc(cx,FENCE+2,12,0,6.28);ctx.stroke();ctx.setLineDash([]);
+    // fielder
+    drawFielder(outX,gloveY);
+    // ball
+    let bx=ballX, by=ballY;
+    if(phase==='result'&&result==='hr'){ by=ballOverY; }
+    if(!(phase==='result'&&result==='rob'&&resultT>0.6)) drawBall(bx,by);
+    // "JUMP" prompt as ball nears
+    if(phase==='fly'&&!jumping&&clock>travelT*0.35){ctx.fillStyle='rgba(255,255,255,0.7)';ctx.font='bold 15px sans-serif';ctx.textAlign='center';ctx.fillText('跳べ！',outX,GLOVE_STAND-70);}
+  }
+
+  for(const p of parts){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const p of pops){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.font='bold 22px sans-serif';ctx.textAlign='center';ctx.fillText(p.txt,p.x,p.y);}
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,36);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='14px sans-serif';ctx.fillText('強奪 '+robs+'  Lv'+lvl,W-20,24);
+  ctx.fillText('被弾',W-92,46);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-60+i*20,41,7,0,6.28);ctx.fillStyle=i<hrs?'#ff5b5b':'rgba(255,255,255,0.25)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='center';ctx.fillStyle='#ffd24d';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,W/2,H-64);}
+
+  if(state==='play'&&phase==='fly'){ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='bold 15px sans-serif';
+    ctx.fillText('フェンスを越える打球を、跳んでグラブが塀の上に来る“瞬間”に合わせてもぎ取れ（タップ/SPACE）',W/2,H-26);}
+  if(state==='play'&&phase==='result'&&msg){ctx.textAlign='center';ctx.fillStyle=result==='rob'?'#9ff0b8':'#ff9a9a';ctx.font='bold 22px sans-serif';ctx.fillText(msg,W/2,H-26);}
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(6,12,20,0.72)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 44px sans-serif';ctx.fillText('ホームランキャッチ',W/2,140);
+    ctx.fillStyle='#ffd23e';ctx.font='bold 22px sans-serif';ctx.fillText('Rob the Homer',W/2,176);
+    ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='16px sans-serif';
+    ctx.fillText('フェンス際の魔術師。スタンドインしかけの打球を跳んでもぎ取れ',W/2,228);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='14px sans-serif';
+    ctx.fillText('野手は落下点へ自動で走る。君の仕事は“跳ぶタイミング”だけ（タップ/クリック/SPACE）',W/2,266);
+    ctx.fillText('グラブが塀の上に来た瞬間にボールが届くよう跳べ＝ホームラン強奪',W/2,288);
+    ctx.fillText('早いとグラブが下りてから届き被弾、遅いと跳び切れず被弾、見送りもスタンドイン',W/2,310);
+    ctx.fillText('ドンピシャの跳躍ほど高得点＆コンボ。上級ほど打球が速く跳躍の窓も短い。3被弾で交代',W/2,332);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,402);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best+'　　塀の上に来る瞬間で跳ぶ',W/2,434);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(6,12,20,0.8)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 46px sans-serif';ctx.fillText('3被弾…交代',W/2,222);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,290);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='19px sans-serif';ctx.fillText('強奪 '+robs+'   BEST '+best,W/2,330);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,402);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+  ctx.fillText('野手は自動で落下点へ。グラブが塀の上に来る瞬間に打球が届くよう跳べ。早い/遅い/見送りは被弾。3被弾で交代',W/2,H-8);
+}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__rh={
+  start, jump:()=>jump(),
+  get state(){return state;},
+  get score(){return score;},
+  get robs(){return robs;},
+  get hrs(){return hrs;},
+  get info(){return {state,phase,clock,travelT,jumpDur,robThresh,jumping,jt,gloveY,outX,cx,ballX,ballY,catchW,
+    canRob:(jumping&&gloveY<=robThresh&&Math.abs(ballX-outX)<catchW), result,robs,hrs,lvl};}
+};
+})();
+</script>
+</body>
+</html>
