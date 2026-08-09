@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>クリア・オフ・ザ・ライン (Off the Line)</title>
+<style>
+  html,body{margin:0;height:100%;background:#06110a;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  clear:()=>{noise(0.07,0.2,500);tone(300,0.08,'square',0.12,220);},
+  perfect:()=>{noise(0.06,0.18,600);[540,760,1010,1300].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.18),i*55));},
+  slide:()=>{noise(0.14,0.13,300);},
+  goal:()=>{noise(0.22,0.24,240);tone(150,0.3,'sawtooth',0.14,-60);},
+  streak:()=>{[700,930,1170,1400].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*60));},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- geometry ----------
+const ZC=450, GOAL_Y=496, POSTL=286, POSTR=614, CROSS=300;
+
+// ---------- state ----------
+let state='title', phase='fly', t=0, plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('offline_best')||0);
+let outs=0, fails=0, lvl=1;   // outs = successful clearances
+let clock=0, vy=0.36, sy=88, sx=450, tx=450;
+let tCross=1000, slideDur=240, active=160, sweetTol=52;
+let pressed=false, tp=0, blockStart=0, blockEnd=0, resolved=false, result=null, resultT=0, msg='';
+let ballRef=null; // {vx,vy,x,y} after a clear
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[], netRip=0;
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,u){return a+(b-a)*u;}
+function easeOut(u){return 1-Math.pow(1-u,2);}
+
+function reset(){state='title';score=0;combo=0;outs=0;fails=0;lvl=1;plays=0;result=null;parts=[];pops=[];}
+function newShot(){
+  plays++; lvl=Math.min(7,1+Math.floor(outs/4));
+  active=Math.max(130,178-lvl*7); slideDur=240; sweetTol=active*0.32;
+  const vbase=0.30+lvl*0.026;
+  vy=vbase*(0.9+Math.random()*0.30);
+  sy=88; sx=ZC+rnd(-46,46); tx=ZC+rnd(-132,132);
+  clock=0; pressed=false; resolved=false; result=null; phase='fly';
+  tCross=(GOAL_Y-sy)/vy; blockStart=0; blockEnd=0; resultT=0; msg=''; ballRef=null;
+}
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; newShot(); }
+
+function ballPos(){
+  const by=sy+vy*clock;
+  const u=clamp((by-sy)/(GOAL_Y-sy),0,1);
+  const bx=lerp(sx,tx,easeOut(u));
+  return {x:bx,y:by,u};
+}
+
+function press(){
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.4){reset();start();} return; }
+  if(state!=='play'||phase!=='fly'||pressed||resolved) return;
+  pressed=true; tp=clock; blockStart=tp+slideDur; blockEnd=blockStart+active;
+  S.slide();
+}
+
+function resolve(k){
+  phase='result'; result=k; resultT=0;
+  const good=(k==='clear'||k==='perfect');
+  const bp=ballPos();
+  if(good){
+    outs++; combo++;
+    let add;
+    // reflect ball back up-field
+    ballRef={x:bp.x,y:GOAL_Y-4,vx:(ZC-bp.x)*0.006+rnd(-0.05,0.05),vy:-rnd(0.5,0.75)};
+    if(k==='perfect'){ add=Math.round(240*(1+Math.min(9,combo-1)*0.14)); S.perfect();
+      flash=1;flashCol='#8affa0';shake=10; burst(bp.x,GOAL_Y-4,'#8affa0',26,9); pop(bp.x,GOAL_Y-60,'ドンピシャ・クリア！ +'+add,'#d6ffe0'); pop(ZC,150,'完璧なタイミングで掻き出した！','#8affa0'); }
+    else { add=Math.round(130*(1+Math.min(9,combo-1)*0.16)); S.clear();
+      flash=1;flashCol='#ffe08a';shake=6; burst(bp.x,GOAL_Y-4,'#ffe08a',14,6); pop(bp.x,GOAL_Y-60,'クリア！ +'+add,'#fff3c4'); }
+    score+=add;
+    if(combo>=2&&k!=='perfect')pop(ZC,150,'コンボ x'+combo,'#ffd24d');
+    if(combo>0&&combo%5===0)S.streak();
+    msg=k==='perfect'?'ライン上でドンピシャ！ 値千金のクリア':'間一髪、ゴールライン上で掻き出した！';
+  } else {
+    fails++; combo=0; flash=1;flashCol='#ff5b5b';shake=9; S.goal(); netRip=1;
+    if(result==='late') msg='遅い！ 飛び込む前にライン内へ…失点';
+    else if(result==='early') msg='早すぎた！ 空を切って通り抜けられた…失点';
+    else msg='見てるだけ…ゴールへ流し込まれた…失点';
+    pop(ZC,GOAL_Y-60,'失点…','#ffb0b0');
+  }
+  if(fails>=3){ state='over'; resultT=0; S.over(); if(score>best){best=score;localStorage.setItem('offline_best',best);} }
+}
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{e.preventDefault();press();});
+addEventListener('keydown',e=>{ if(e.repeat)return; if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'||e.code==='KeyZ'){e.preventDefault();press();} });
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7);
+  if(netRip>0)netRip=Math.max(0,netRip-dt/500);
+  for(const p of parts){p.vx*=0.96;p.vy=p.vy*0.96+0.28;p.x+=p.vx*dt/16.7;p.y+=p.vy*dt/16.7;p.life-=dt/16.7*0.026;}
+  parts=parts.filter(p=>p.life>0);
+  for(const p of pops){p.y-=dt/16.7*0.5;p.life-=dt/16.7*0.02;}
+  pops=pops.filter(p=>p.life>0);
+  if(ballRef){ ballRef.x+=ballRef.vx*dt; ballRef.y+=ballRef.vy*dt; ballRef.vy+=0.0009*dt; }
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  t+=dt;
+  if(phase==='fly'){
+    clock+=dt;
+    if(!resolved && clock>=tCross){
+      resolved=true;
+      if(pressed && tCross>=blockStart && tCross<=blockEnd){
+        const err=Math.abs(tCross-(blockStart+blockEnd)/2);
+        resolve(err<=sweetTol?'perfect':'clear');
+      } else {
+        resolve(pressed ? (tCross<blockStart?'late':'early') : 'watch');
+      }
+    }
+    return;
+  }
+  if(phase==='result'){ resultT+=dt/1000; if(resultT>1.15 && state==='play') newShot(); return; }
+}
+
+// ---------- render ----------
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function drawScene(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0f3d24');g.addColorStop(0.6,'#12653a');g.addColorStop(1,'#0c4d2c');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // mowing stripes
+  for(let i=0;i<7;i++){ ctx.fillStyle=i%2?'rgba(255,255,255,0.03)':'rgba(0,0,0,0.03)'; ctx.fillRect(0,60+i*76,W,76); }
+  // penalty arc + box hint
+  ctx.strokeStyle='rgba(255,255,255,0.28)';ctx.lineWidth=2;
+  ctx.strokeRect(ZC-190,GOAL_Y-92,380,92);
+  // goal: net behind line (below), posts, crossbar as line
+  const ny=GOAL_Y, nd=64;
+  ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(POSTL,ny,POSTR-POSTL,nd);
+  ctx.strokeStyle='rgba(255,255,255,0.22)';ctx.lineWidth=1;
+  for(let x=POSTL;x<=POSTR;x+=16){ const rip=(netRip>0?Math.sin((x)*0.15)*netRip*5:0); ctx.beginPath();ctx.moveTo(x,ny);ctx.lineTo(x+rip,ny+nd);ctx.stroke(); }
+  for(let y=ny;y<=ny+nd;y+=14){ ctx.beginPath();ctx.moveTo(POSTL,y);ctx.lineTo(POSTR,y);ctx.stroke(); }
+  // goal line (the line we defend)
+  ctx.strokeStyle='#eef3f0';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(POSTL,ny);ctx.lineTo(POSTR,ny);ctx.stroke();
+  // posts
+  ctx.fillStyle='#f4f7f5';ctx.fillRect(POSTL-5,ny-6,7,10);ctx.fillRect(POSTR-2,ny-6,7,10);
+  ctx.fillStyle='rgba(244,247,245,0.85)';ctx.fillRect(POSTL-5,CROSS,POSTR-POSTL+12,5);
+  ctx.fillRect(POSTL-5,CROSS,6,ny-CROSS);ctx.fillRect(POSTR-1,CROSS,6,ny-CROSS);
+}
+
+function drawDefender(){
+  // idle spot: near the near post relative to tx, slides toward tx on press
+  const restX = tx<ZC? POSTL+40 : POSTR-40;
+  let dx=restX, dy=GOAL_Y-4, sliding=0;
+  if(pressed){
+    const sp=clamp((clock-tp)/slideDur,0,1);
+    dx=lerp(restX,tx,easeOut(sp)); sliding=sp;
+  }
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,0.24)';ctx.beginPath();ctx.ellipse(dx,dy+8,18,5,0,0,6.28);ctx.fill();
+  ctx.save();ctx.translate(dx,dy);
+  if(sliding>0.15){ // sliding pose: extended leg toward line
+    const dir=tx<ZC?1:-1;
+    ctx.fillStyle='#ffcf3a';rr(-10,-20,20,20,7);ctx.fill();
+    ctx.fillStyle='#f2c9a0';ctx.beginPath();ctx.arc(0,-26,7,0,6.28);ctx.fill();
+    ctx.strokeStyle='#ffcf3a';ctx.lineWidth=7;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(0,-4);ctx.lineTo(-dir*34,-2);ctx.stroke(); // extended leg
+    // boot at line reaching for ball x
+  } else {
+    ctx.fillStyle='#ffcf3a';rr(-9,-30,18,30,7);ctx.fill();
+    ctx.fillStyle='#f2c9a0';ctx.beginPath();ctx.arc(0,-38,7.5,0,6.28);ctx.fill();
+  }
+  ctx.restore();
+  // block-zone indicator on the line during active window
+  if(pressed && clock>=blockStart && clock<=blockEnd && phase==='fly'){
+    ctx.strokeStyle='rgba(140,255,160,0.9)';ctx.lineWidth=4;
+    ctx.beginPath();ctx.moveTo(tx-30,GOAL_Y);ctx.lineTo(tx+30,GOAL_Y);ctx.stroke();
+  }
+}
+
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawScene();
+
+  if(state==='play'){
+    drawDefender();
+    // shooter marker up-field
+    ctx.fillStyle='#d24b4b';ctx.beginPath();ctx.arc(sx,72,9,0,6.28);ctx.fill();
+
+    if(phase==='fly'){
+      const b=ballPos();
+      // motion trail
+      for(let k=1;k<=4;k++){ const uy=b.y-k*vy*40; if(uy<sy)break; const uu=clamp((uy-sy)/(GOAL_Y-sy),0,1); const ux=lerp(sx,tx,easeOut(uu));
+        ctx.globalAlpha=0.12*(4-k)/4;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ux,uy,7,0,6.28);ctx.fill(); }
+      ctx.globalAlpha=1;
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(b.x,b.y,8,0,6.28);ctx.fill();
+      ctx.strokeStyle='#222';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(b.x,b.y,8,0.4,2.0);ctx.stroke();
+      // danger target reticle on the line
+      ctx.strokeStyle='rgba(255,90,90,0.5)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(tx,GOAL_Y,11,0,6.28);ctx.stroke();
+    } else if(ballRef){
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ballRef.x,ballRef.y,8,0,6.28);ctx.fill();
+    } else {
+      // goal conceded: ball resting in net
+      ctx.globalAlpha=clamp(1.3-resultT,0,1);
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(tx,GOAL_Y+34,8,0,6.28);ctx.fill();ctx.globalAlpha=1;
+    }
+  }
+
+  for(const p of parts){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const p of pops){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.font='bold 22px sans-serif';ctx.textAlign='center';ctx.fillText(p.txt,p.x,p.y);}
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,36);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='14px sans-serif';ctx.fillText('掻き出し '+outs+'  Lv'+lvl,W-20,24);
+  ctx.fillText('失点',W-92,46);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-60+i*20,41,7,0,6.28);ctx.fillStyle=i<fails?'#ff5b5b':'rgba(255,255,255,0.25)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='center';ctx.fillStyle='#ffd24d';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,W/2,112);}
+
+  if(state==='play'&&phase==='fly'){ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='bold 15px sans-serif';
+    ctx.fillText('シュートの速さを読め。飛び込みは一瞬遅れて届く——ライン上に“ちょうど”間に合うよう早めに仕掛けろ',W/2,44);}
+  if(state==='play'&&phase==='result'&&msg){ctx.textAlign='center';ctx.fillStyle=(result==='clear'||result==='perfect')?'#9ff0b8':'#ff9a9a';ctx.font='bold 20px sans-serif';ctx.fillText(msg,W/2,44);}
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(4,10,7,0.78)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('クリア・オフ・ザ・ライン',W/2,108);
+    ctx.fillStyle='#ffd23e';ctx.font='bold 22px sans-serif';ctx.fillText('Off the Line',W/2,144);
+    ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='16px sans-serif';
+    ctx.fillText('キーパーが弾いたこぼれ球——ゴールラインを割る寸前で掻き出す最後の砦だ',W/2,196);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='14px sans-serif';
+    ctx.fillText('ボールがゴールラインに“届く瞬間”に飛び込む（タップ/クリック/SPACE）＝クリア',W/2,236);
+    ctx.fillText('飛び込みは一瞬（約0.24秒）遅れて届く。反応してからでは間に合わない——速さを読んで“早め”に仕掛けろ',W/2,258);
+    ctx.fillText('早すぎると空を切って通され、遅すぎるとライン内へ流し込まれる。ライン上ドンピシャで大量得点',W/2,280);
+    ctx.fillText('シュートは毎回速さが違う。落ち着いて弾道を読め。3失点で交代',W/2,302);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,372);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best,W/2,404);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(4,10,7,0.84)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 46px sans-serif';ctx.fillText('3失点…交代',W/2,222);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,290);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='19px sans-serif';ctx.fillText('掻き出し '+outs+'   BEST '+best,W/2,330);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,402);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+  ctx.fillText('飛び込みは遅れて届く。シュートの速さを読み、ライン上に間に合うよう早めに仕掛けて掻き出せ。3失点で交代',W/2,H-8);
+}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__ol2={
+  start, press:()=>press(),
+  get state(){return state;},
+  get score(){return score;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get info(){return {state,phase,clock,vy,sy,GOAL_Y,sx,tx,tCross,slideDur,active,sweetTol,
+    blockStart,blockEnd,pressed,resolved,result,outs,fails,lvl,
+    canPress:(phase==='fly'&&!pressed&&!resolved)};}
+};
+})();
+</script>
+</body>
+</html>
