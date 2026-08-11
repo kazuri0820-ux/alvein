@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ショルダーチャージ (Shoulder to Shoulder)</title>
+<style>
+  html,body{margin:0;height:100%;background:#06110a;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  whistle:()=>{tone(1800,0.12,'square',0.06);},
+  grunt:()=>{noise(0.05,0.09,180);tone(150,0.05,'square',0.05);},
+  win:()=>{[600,840,1080,1320].forEach((f,i)=>setTimeout(()=>tone(f,0.11,'triangle',0.16),i*70));},
+  lose:()=>{noise(0.2,0.2,240);tone(150,0.24,'sawtooth',0.12,-50);},
+  streak:()=>{[700,930,1170,1400].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*60));},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- state ----------
+let state='title', phase='duel', plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('sc_best')||0);
+let outs=0, fails=0, lvl=1;    // outs = duels won, fails = lost
+let elapsed=0, dur=2500, P=0.5, drainRate=0.2, winThresh=0.54, tough=false;
+let gain=0.05, mashCd=55, lastMash=-999, mashCount=0;
+let result=null, resultT=0, reason='', leanAnim=0, ballTo=0;
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[];
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,u){return a+(b-a)*u;}
+function easeOut(u){return 1-Math.pow(1-u,2);}
+
+function reset(){state='title';score=0;combo=0;outs=0;fails=0;lvl=1;plays=0;result=null;parts=[];pops=[];}
+
+function newPlay(){
+  plays++; lvl=Math.min(7,1+Math.floor(outs/4));
+  dur=clamp(2500-lvl*70,2010,2500);
+  drainRate=clamp(0.18+lvl*0.02,0.18,0.32);
+  tough=Math.random()<clamp(0.22+lvl*0.03,0.22,0.46);
+  if(tough)drainRate+=0.05;
+  winThresh=clamp(0.54+lvl*0.008,0.54,0.6);
+  P=0.5; elapsed=0; lastMash=-999; mashCount=0;
+  result=null; reason=''; resultT=0; leanAnim=0; ballTo=0;
+  phase='duel'; S.whistle();
+}
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; newPlay(); }
+
+function mash(){
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.4){reset();start();} return; }
+  if(state!=='play'||phase!=='duel') return;
+  if(elapsed-lastMash>=mashCd){ P=Math.min(1,P+gain); lastMash=elapsed; mashCount++; S.grunt(); shake=Math.max(shake,2.5); }
+}
+
+function resolve(k){
+  phase='result'; result=k; resultT=0; leanAnim=0; ballTo=(k==='won')?1:-1;
+  if(k==='won'){
+    outs++; combo++;
+    const margin=clamp((P-winThresh)/(1-winThresh),0,1);
+    const mult=1+Math.min(9,combo-1)*0.14;
+    const add=Math.round((70+Math.round(margin*80)+(tough?90:0))*mult); score+=add;
+    S.win(); flash=1;flashCol='#8affa0';shake=6; burst(470,330,'#8affa0',20,7);
+    reason=(margin>0.6)?'完全に競り勝った！ 相手を弾いてマイボール':'体を入れて競り勝ち！ ボールをキープ';
+    pop(470,270,(tough?'強敵に競り勝ち！ +':'競り勝ち！ +')+add,'#d6ffe0');
+    if(combo>=2)pop(W/2,150,'コンボ x'+combo,'#ffd24d');
+    if(combo>0&&combo%5===0)S.streak();
+  } else {
+    fails++; combo=0; flash=1;flashCol='#ff5b5b';shake=9; S.lose();
+    reason=(P<=0)?'完全に押し負けた…相手にボールを奪われる':'体を入れられず競り負け…相手ボール';
+    pop(470,270,'競り負け…','#ffb0b0');
+  }
+  if(fails>=3){ state='over'; resultT=0; S.over(); if(score>best){best=score;localStorage.setItem('sc_best',best);} }
+}
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{e.preventDefault();mash();});
+addEventListener('keydown',e=>{ if(e.repeat)return;
+  if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'||e.code==='KeyF'||e.code==='KeyJ'){e.preventDefault();mash();} });
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7);
+  for(const p of parts){p.vx*=0.96;p.vy=p.vy*0.96+0.28;p.x+=p.vx*dt/16.7;p.y+=p.vy*dt/16.7;p.life-=dt/16.7*0.026;}
+  parts=parts.filter(p=>p.life>0);
+  for(const p of pops){p.y-=dt/16.7*0.5;p.life-=dt/16.7*0.02;}
+  pops=pops.filter(p=>p.life>0);
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  if(phase==='duel'){ elapsed+=dt; P-=drainRate*dt/1000;
+    if(P<=0){ P=0; resolve('lost'); return; }
+    if(elapsed>=dur){ resolve(P>=winThresh?'won':'lost'); return; }
+    return; }
+  if(phase==='result'){ resultT+=dt/1000; leanAnim=Math.min(1,leanAnim+dt/500); if(resultT>1.5) newPlay(); return; }
+}
+
+// ---------- render ----------
+function drawPitch(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#12703f');g.addColorStop(0.55,'#0f5e34');g.addColorStop(1,'#0c4c2b');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  for(let i=0;i<9;i++){ ctx.fillStyle=i%2?'rgba(255,255,255,0.03)':'rgba(0,0,0,0.03)'; ctx.fillRect(i*100,0,100,H); }
+}
+
+function player(x,y,col,lean){
+  ctx.save();ctx.translate(x,y);ctx.rotate(lean);
+  ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(0,0,16,24,0,0,6.28);ctx.fill();       // torso
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(0,-30,11,0,6.28);ctx.fill();          // head
+  ctx.restore();
+}
+
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawPitch();
+
+  if(state==='play'||state==='over'){
+    // the loose ball ahead
+    let ballX=470, ballY=250;
+    if(phase==='result'){ ballX=lerp(470,ballTo>0?430:520,easeOut(leanAnim)); ballY=lerp(250,330,easeOut(leanAnim)); }
+    // players lean based on P (you push right, opp pushes left). center ~470
+    const off=(P-0.5); // -0.5..0.5
+    const youX=lerp(430,455,P), oppX=lerp(515,490,P); // as P rises you edge forward/into opp
+    const youLean=off*0.6+ (phase==='result'&&result==='won'?0.3*leanAnim:0);
+    const oppLean=-off*0.6- (phase==='result'&&result==='won'?0.3*leanAnim:0);
+    player(oppX,340,'#d0403a',oppLean);
+    player(youX,340,'#2b6fd6',youLean);
+    // ball
+    ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(ballX,ballY+12,10,4,0,0,6.28);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ballX,ballY,11,0,6.28);ctx.fill();
+    ctx.strokeStyle='#222';ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.moveTo(ballX-6,ballY-4);ctx.lineTo(ballX+2,ballY-9);ctx.lineTo(ballX+7,ballY-2);ctx.lineTo(ballX+3,ballY+6);ctx.lineTo(ballX-6,ballY+5);ctx.closePath();ctx.stroke();
+
+    // POSITION tug bar
+    if(state==='play'){
+      const bx=W/2-190,by=90,bw=380,bh=26;
+      ctx.fillStyle='rgba(0,0,0,0.35)';rr(bx,by,bw,bh,8);ctx.fill();
+      // opponent side (left, red) and your side (right, blue) fill from center by P
+      const cx=bx+bw*0.5;
+      const px=bx+bw*P;
+      // fill your side up to px
+      ctx.fillStyle='rgba(43,111,214,0.55)';ctx.fillRect(bx,by,bw*P,bh);
+      ctx.fillStyle='rgba(208,64,58,0.5)';ctx.fillRect(bx+bw*P,by,bw*(1-P),bh);
+      // win threshold line
+      const wx=bx+bw*winThresh;
+      ctx.strokeStyle='#8affa0';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(wx,by-5);ctx.lineTo(wx,by+bh+5);ctx.stroke();
+      ctx.fillStyle='#8affa0';ctx.font='10px sans-serif';ctx.textAlign='center';ctx.fillText('勝ちライン',wx,by-8);
+      // divider (current)
+      ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(px,by);ctx.lineTo(px,by+bh);ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=2;rr(bx,by,bw,bh,8);ctx.stroke();
+      ctx.fillStyle='#8ec7ff';ctx.font='bold 12px sans-serif';ctx.textAlign='left';ctx.fillText('あなた',bx,by+bh+16);
+      ctx.fillStyle='#ff9a8a';ctx.textAlign='right';ctx.fillText('相手',bx+bw,by+bh+16);
+      // duel timer
+      const tp=clamp(elapsed/dur,0,1);
+      ctx.fillStyle='rgba(255,255,255,0.2)';ctx.fillRect(bx,by+bh+24,bw,5);
+      ctx.fillStyle='#ffd24d';ctx.fillRect(bx,by+bh+24,bw*(1-tp),5);
+    }
+
+    // cue
+    ctx.textAlign='center';
+    if(state==='play'&&phase==='duel'){
+      ctx.fillStyle='rgba(255,220,90,0.96)';ctx.font='bold 23px sans-serif';ctx.fillText('連打！ 肩で競り勝て！',W/2,52);
+      ctx.fillStyle='rgba(255,255,255,0.6)';ctx.font='13px sans-serif';ctx.fillText('タップ / SPACE を連打して押し込み、ボール到達までに勝ちラインを越えろ',W/2,H-34);
+    }
+  }
+
+  for(const p of parts){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const p of pops){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.fillText(p.txt,p.x,p.y);}
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,36);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='14px sans-serif';ctx.fillText('競り勝ち '+outs+'  Lv'+lvl,W-20,24);
+  ctx.fillText('競り負け',W-104,46);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-60+i*20,41,7,0,6.28);ctx.fillStyle=i<fails?'#ff5b5b':'rgba(255,255,255,0.25)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='center';ctx.fillStyle='#ffd24d';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,W/2,178);}
+
+  if(state==='play'&&phase==='result'&&reason){ctx.textAlign='center';ctx.fillStyle=result==='won'?'#9ff0b8':'#ff9a9a';ctx.font='bold 18px sans-serif';ctx.fillText(reason,W/2,H-64);}
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(4,10,7,0.82)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 38px sans-serif';ctx.fillText('ショルダーチャージ',W/2,90);
+    ctx.fillStyle='#ffd23e';ctx.font='bold 22px sans-serif';ctx.fillText('Shoulder to Shoulder',W/2,126);
+    ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='16px sans-serif';
+    ctx.fillText('こぼれ球への50/50。相手と肩をぶつけ合い、体を入れて競り勝ちマイボールにしろ',W/2,182);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='14px sans-serif';
+    ctx.fillText('タップ / SPACE を連打して“ポジション”を押し込む（相手も押し返してくる）',W/2,220);
+    ctx.fillText('ボールが転がり着くまで（タイマー）に、ポジションを緑の「勝ちライン」より自分側へ',W/2,244);
+    ctx.fillText('連打が弱いと押し負けてボールを奪われる。押し切れば競り勝ってキープ（完勝は加点）',W/2,268);
+    ctx.fillText('上級ほど相手の押しが強くタイマーも短い。3競り負けで交代',W/2,292);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,360);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best,W/2,392);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(4,10,7,0.84)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 46px sans-serif';ctx.fillText('3競り負け…交代',W/2,222);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,290);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='19px sans-serif';ctx.fillText('競り勝ち '+outs+'   BEST '+best,W/2,330);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,402);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+  ctx.fillText('ショルダーチャージ：連打でポジションを押し込み、ボール到達までに勝ちラインを越えて競り勝つ。押し負けは相手ボール、3競り負けで交代',W/2,H-8);
+}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__sc={
+  start, mash:()=>mash(),
+  get state(){return state;},
+  get score(){return score;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get info(){return {state,phase,elapsed,dur,P,drainRate,winThresh,tough,mashCount,result,outs,fails,lvl,
+    dueling:(phase==='duel')};}
+};
+})();
+</script>
+</body>
+</html>
