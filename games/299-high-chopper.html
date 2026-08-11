@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>叩きつけ (High Chopper)</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a1207;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  chop:()=>{noise(0.05,0.16,400);tone(220,0.06,'square',0.08,-60);},
+  bounce:()=>{tone(520,0.05,'sine',0.06,-120);},
+  glove:()=>{noise(0.05,0.16,900);tone(360,0.05,'square',0.06);},
+  good:()=>{[680,940,1220].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*55));},
+  big:()=>{[600,800,1000,1250].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.17),i*80));},
+  bad:()=>{noise(0.18,0.22,300);tone(150,0.22,'sawtooth',0.12,-40);},
+  streak:()=>{[700,930,1170,1400].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*60));},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- geometry ----------
+const GY=470;               // ground line
+const HOME={x:210,y:GY};    // home plate / batter
+const FLD={x:470,y:GY};     // fielder base position (charges in front)
+const FIRST={x:770,y:GY};   // first base
+const BW=300,BY=506,BH=66,BX=W/2-BW/2;
+
+// ---------- state ----------
+let state='title', phase='chop', plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('hc_best')||0);
+let outs=0, fails=0, lvl=1;
+let clock=0, apexT=320, apexH=300, fieldOpen=700, w=430, fallRate=0.26, tough=false, fast=false;
+let decided=false, result=null, resultT=0, msg='', msgOk=false, fieldClock=0;
+let runnerU=0, ballGone=false, throwU=0, laser=false;
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[];
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,u){return a+(b-a)*u;}
+
+function reset(){state='title';score=0;combo=0;outs=0;fails=0;lvl=1;plays=0;result=null;parts=[];pops=[];}
+
+function ballHeight(t){
+  if(t<=0)return 0;
+  if(t<apexT) return apexH*Math.sin((t/apexT)*(Math.PI/2));
+  return apexH - fallRate*(t-apexT);       // gentle descent through glove band
+}
+
+function newPlay(){
+  plays++; lvl=Math.min(7,1+Math.floor(outs/4));
+  fieldOpen=clamp(760-lvl*34,520,760);
+  w=clamp(470-lvl*26,300,470);
+  apexT=fieldOpen*0.46;
+  apexH=rnd(280,340);                       // bounce height varies -> must read the arc
+  // descend so ball is ~chest at fieldOpen, ~shin at fieldOpen+w
+  fallRate=(apexH-90)/(fieldOpen+w*0.5-apexT);
+  tough=Math.random()<clamp(0.18+lvl*0.05,0.18,0.5);
+  fast=Math.random()<0.42;
+  phase='chop'; clock=0; decided=false; result=null; resultT=0; msg=''; msgOk=false; fieldClock=0;
+  runnerU=0; ballGone=false; throwU=0; laser=false;
+  S.chop();
+}
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; newPlay(); }
+
+function makeField(){
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.4){reset();start();} return; }
+  if(state!=='play'||phase!=='chop'||decided) return;
+  decided=true; fieldClock=clock;
+  if(clock<fieldOpen){ resolve('early'); return; }
+  if(clock<=fieldOpen+w){ resolve('good'); return; }
+  resolve('late');
+}
+
+function resolve(k){
+  phase='result'; result=k; resultT=0;
+  if(k==='good'){
+    outs++; combo++;
+    // fielding cleanly and quickly (early in the window) = strong throw that guns even a fast runner
+    laser = (fieldClock<=fieldOpen+w*0.42);
+    let base=tough?230:150; if(laser)base+=fast?150:80;
+    let add=Math.round(base*(1+Math.min(9,combo-1)*0.14)); score+=add;
+    S.glove(); setTimeout(S.good,70); if(laser)setTimeout(S.big,130);
+    msgOk=true; flash=1;flashCol='#8affa0';shake=5; burst(FLD.x,FLD.y-60,'#8affa0',18,7);
+    pop(FLD.x,FLD.y-120,(laser?(fast?'俊足を封殺！ レーザー +':'好チャージ処理！ +'):'アウト！ +')+add,'#d6ffe0');
+    if(combo>=2)pop(W/2,150,'コンボ x'+combo,'#ffd24d');
+    if(combo>0&&combo%5===0)S.streak();
+    msg = laser?'高い弾みが落ちる一瞬をチャージして素早く処理——好送球でアウト':'落ちてくる打球を捕れる高さで処理——アウト';
+  } else {
+    fails++; combo=0; msgOk=false; flash=1;flashCol='#ff5b5b';shake=9; S.bad();
+    if(k==='early') msg='高すぎ…弾みが落ちてくる前にグラブを出して弾いた（内野安打）';
+    else msg='遅い…大きな弾みを待ちすぎて頭を越え、俊足に一塁を陥れられた（内野安打）';
+    pop(FLD.x,FLD.y-120,k==='early'?'弾いた…':'間に合わない…','#ffb0b0');
+  }
+  if(fails>=3){ state='over'; resultT=0; S.over(); if(score>best){best=score;localStorage.setItem('hc_best',best);} }
+}
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{e.preventDefault();makeField();});
+addEventListener('keydown',e=>{ if(e.repeat)return;
+  if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'||e.code==='KeyF'){e.preventDefault();makeField();} });
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7);
+  for(const p of parts){p.vx*=0.96;p.vy=p.vy*0.96+0.28;p.x+=p.vx*dt/16.7;p.y+=p.vy*dt/16.7;p.life-=dt/16.7*0.026;}
+  parts=parts.filter(p=>p.life>0);
+  for(const p of pops){p.y-=dt/16.7*0.5;p.life-=dt/16.7*0.02;}
+  pops=pops.filter(p=>p.life>0);
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  if(phase==='chop'){ clock+=dt;
+    if(Math.abs(clock-apexT)<9) S.bounce();
+    runnerU=clamp(clock/(fieldOpen+w+(fast?150:250)),0,1);
+    if(!decided && clock>fieldOpen+w){ decided=true; fieldClock=clock; resolve('late'); }
+    return; }
+  if(phase==='result'){ resultT+=dt/1000;
+    // throw animation on good
+    if(result==='good') throwU=clamp(throwU+dt/(laser?150:220),0,1);
+    else runnerU=clamp(runnerU+dt/300,0,1);
+    if(resultT>1.6) newPlay(); return; }
+}
+
+// ---------- render ----------
+function drawField(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#123f22');g.addColorStop(0.55,'#0f5e34');g.addColorStop(1,'#0b3f24');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // dirt infield arc
+  ctx.fillStyle='#7a5433';ctx.beginPath();ctx.moveTo(HOME.x,GY+30);
+  ctx.quadraticCurveTo(FLD.x,GY-190,FIRST.x+30,GY+30);ctx.lineTo(FIRST.x+30,H);ctx.lineTo(HOME.x-60,H);ctx.closePath();ctx.fill();
+  // baseline
+  ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(HOME.x,GY);ctx.lineTo(FIRST.x,GY);ctx.stroke();
+  // home plate + first base
+  ctx.fillStyle='#eee';ctx.beginPath();ctx.moveTo(HOME.x-9,GY-6);ctx.lineTo(HOME.x+9,GY-6);ctx.lineTo(HOME.x+9,GY+2);ctx.lineTo(HOME.x,GY+9);ctx.lineTo(HOME.x-9,GY+2);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#fff';ctx.fillRect(FIRST.x-9,GY-9,18,18);
+}
+
+function batter(x,y){
+  ctx.fillStyle='#c23b34';ctx.beginPath();ctx.ellipse(x,y-24,11,17,0,0,6.28);ctx.fill();
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(x,y-48,9,0,6.28);ctx.fill();
+}
+
+function fielder(x,y,by,reach){
+  // body
+  ctx.fillStyle='#2b6fd6';ctx.beginPath();ctx.ellipse(x,y-22,13,20,0,0,6.28);ctx.fill();
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(x,y-50,10,0,6.28);ctx.fill();
+  // glove reaches toward ball height when in range
+  const gx=x-20, gy=reach?clamp(by,y-150,y-6):y-40;
+  ctx.strokeStyle='#2b6fd6';ctx.lineWidth=8;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(x-6,y-30);ctx.lineTo(gx,gy);ctx.stroke();ctx.lineCap='butt';
+  ctx.fillStyle='#5b3a1c';ctx.beginPath();ctx.arc(gx,gy,10,0,6.28);ctx.fill();
+  ctx.fillStyle='#7a5027';ctx.beginPath();ctx.arc(gx,gy,6,0,6.28);ctx.fill();
+  return {gx,gy};
+}
+
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawField();
+
+  if(state==='play'||state==='over'){
+    const h=ballHeight(clock);
+    const inWin=(phase==='chop'&&clock>=fieldOpen&&clock<=fieldOpen+w);
+    // ball horizontal drifts from home toward fielder
+    const bxu=clamp(clock/(fieldOpen+w*0.7),0,1);
+    let bx=lerp(HOME.x+20,FLD.x-14,bxu);
+    let by=GY-Math.max(h,0);
+
+    // runner position (home -> first)
+    const rx=lerp(HOME.x,FIRST.x,phase==='result'&&result!=='good'?runnerU:runnerU);
+    // batter (in box) fades as runner leaves
+    if(runnerU<0.12) batter(HOME.x,GY);
+    // runner sprite
+    ctx.fillStyle=fast?'#ffd24d':'#e8e8e8';ctx.beginPath();ctx.ellipse(rx,GY-22,10,17,0,0,6.28);ctx.fill();
+    ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(rx,GY-46,8,0,6.28);ctx.fill();
+    if(fast&&phase==='chop'){ctx.fillStyle='rgba(255,210,77,0.9)';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText('俊足',rx,GY-64);}
+
+    // fielder + glove
+    const reach=(phase==='chop'&&clock>fieldOpen-160)||phase==='result';
+    const gl=fielder(FLD.x,FLD.y, by, reach);
+
+    if(phase==='result'&&result==='good'){
+      // caught: ball at glove then thrown to first
+      const sx=gl.gx, sy=gl.gy;
+      const tx=lerp(sx,FIRST.x,throwU), ty=lerp(sy,GY-10,throwU);
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(tx,ty,8,0,6.28);ctx.fill();
+      if(laser){ctx.strokeStyle='rgba(255,240,120,0.6)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(tx,ty);ctx.stroke();}
+    } else {
+      // ball in flight / bouncing
+      ctx.fillStyle='rgba(0,0,0,0.18)';ctx.beginPath();ctx.ellipse(bx,GY+4,10*(1-h/500),3,0,0,6.28);ctx.fill();
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,8.5,0,6.28);ctx.fill();
+      ctx.strokeStyle='#c33';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(bx-2,by-2,5,0.6,2.6);ctx.stroke();
+    }
+
+    // glove-height band indicator during window
+    if(inWin){
+      ctx.strokeStyle='rgba(140,255,160,0.9)';ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(bx,by,15,0,6.28);ctx.stroke();
+    }
+
+    // cue banner + timer
+    ctx.textAlign='center';
+    if(state==='play'&&phase==='chop'){
+      if(clock<fieldOpen){ ctx.fillStyle='rgba(255,220,90,0.95)';ctx.font='bold 21px sans-serif';ctx.fillText('叩きつけ！ 高く弾んだ——落ちてくるのを待て',W/2,52); }
+      else { ctx.fillStyle='rgba(150,255,170,0.98)';ctx.font='bold 23px sans-serif';ctx.fillText('今だ！ 捕れる高さ——処理しろ',W/2,52);
+        const p=clamp((clock-fieldOpen)/w,0,1),bw=250,x=W/2-bw/2,y=64;
+        ctx.fillStyle='rgba(255,255,255,0.18)';ctx.fillRect(x,y,bw,7);ctx.fillStyle=p<0.42?'#8affa0':(p<1?'#ffd24d':'#ff5b5b');ctx.fillRect(x,y,bw*p,7); }
+    }
+
+    if(state==='play'){
+      const active=phase==='chop'&&clock>=fieldOpen;
+      ctx.fillStyle=active?'#3fc46b':'rgba(255,255,255,0.10)';rr(BX,BY,BW,BH,12);ctx.fill();
+      ctx.fillStyle=active?'#08130c':'rgba(255,255,255,0.5)';ctx.textAlign='center';ctx.font='bold 22px sans-serif';ctx.fillText('処理する！',BX+BW/2,BY+30);
+      ctx.font='12px sans-serif';ctx.fillText('タップ / SPACE / ↑ ・ 早すぎると弾く',BX+BW/2,BY+50);
+    }
+  }
+
+  for(const p of parts){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const p of pops){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.fillText(p.txt,p.x,p.y);}
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,36);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='14px sans-serif';ctx.fillText('アウト '+outs+'  Lv'+lvl,W-20,24);
+  ctx.fillText('失',W-92,46);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-60+i*20,41,7,0,6.28);ctx.fillStyle=i<fails?'#ff5b5b':'rgba(255,255,255,0.25)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='center';ctx.fillStyle='#ffd24d';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,W/2,110);}
+
+  if(state==='play'&&phase==='result'&&msg){ctx.textAlign='center';ctx.fillStyle=msgOk?'#9ff0b8':'#ff9a9a';ctx.font='bold 16px sans-serif';ctx.fillText(msg,W/2,470);}
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(4,10,7,0.82)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 42px sans-serif';ctx.fillText('叩きつけ',W/2,92);
+    ctx.fillStyle='#ffd23e';ctx.font='bold 22px sans-serif';ctx.fillText('High Chopper',W/2,128);
+    ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='16px sans-serif';
+    ctx.fillText('バットで叩きつけた打球が高く弾む“内野安打”性の当たり。落ちてくる一瞬を狙って処理しろ',W/2,184);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='14px sans-serif';
+    ctx.fillText('大きく弾んだ打球が“捕れる高さ”に落ちてくる瞬間に処理（タップ / SPACE / ↑）＝アウト',W/2,222);
+    ctx.fillText('落ちる前の高い所でグラブを出すと弾く（早すぎ）／待ちすぎると頭を越えて内野安打（遅い）',W/2,246);
+    ctx.fillText('落ち際をチャージして素早く処理すれば好送球で俊足も封殺＝大量加点。弾む高さは毎回違う',W/2,270);
+    ctx.fillText('上級ほど弾みが低く速く猶予も短い。3失で交代',W/2,294);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,360);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best,W/2,392);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(4,10,7,0.84)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 46px sans-serif';ctx.fillText('3失…守備交代',W/2,222);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,290);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='19px sans-serif';ctx.fillText('アウト '+outs+'   BEST '+best,W/2,330);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,402);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+  ctx.fillText('叩きつけ：高く弾む打球が捕れる高さに落ちる一瞬で処理＝アウト。高い所で捕ろうとして弾く/待ちすぎて頭を越すと内野安打、3失で交代',W/2,H-8);
+}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__hc={
+  start, field:()=>makeField(),
+  get state(){return state;},
+  get score(){return score;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get info(){return {state,phase,clock,apexT,fieldOpen,w,tough,fast,decided,result,outs,fails,lvl,
+    pre:(clock<fieldOpen),inWindow:(phase==='chop'&&clock>=fieldOpen&&clock<=fieldOpen+w),
+    canAct:(phase==='chop'&&!decided)};}
+};
+})();
+</script>
+</body>
+</html>
