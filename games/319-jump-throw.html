@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ジャンピングスロー (Jump Throw)</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0d08;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  jump:()=>{tone(360,0.16,'sine',0.06,220);},
+  fire:()=>{noise(0.05,0.16,900);tone(520,0.05,'square',0.08,260);},
+  mitt:()=>{noise(0.05,0.18,1300);tone(240,0.05,'square',0.07,-60);},
+  out:()=>{[640,880,1150].forEach((f,i)=>setTimeout(()=>tone(f,0.11,'triangle',0.16),i*58));},
+  big:()=>{[600,800,1000,1250].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.17),i*80));},
+  safe:()=>{noise(0.16,0.18,300);tone(170,0.2,'sawtooth',0.12,-40);},
+  streak:()=>{[700,930,1170,1400].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*60));},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- geometry ----------
+const SS={x:648,y:388};       // shortstop deep in the hole (ground level)
+const JH=92;                  // jump height (px)
+const FIRST={x:212,y:206};    // first base
+const HOME={x:452,y:520};
+
+// ---------- state ----------
+let state='title', phase='jump', plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('jt_best')||0);
+let outs=0, fails=0, lvl=1;   // outs = throw-outs
+let clock=0, jumpDur=1080, apexT=540, pw=120, tough=false;
+let released=false, relT=0, result=null, resultT=0, msg='', msgOk=false, flyT=0, runU0=0;
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[];
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,u){return a+(b-a)*u;}
+function easeOut(u){return 1-Math.pow(1-u,2);}
+function hAt(t){return Math.max(0,Math.sin(Math.PI*clamp(t/jumpDur,0,1)));}   // 0..1..0 jump arc
+
+function reset(){state='title';score=0;combo=0;outs=0;fails=0;lvl=1;plays=0;result=null;parts=[];pops=[];}
+
+function newPlay(){
+  plays++; lvl=Math.min(7,1+Math.floor(outs/4));
+  jumpDur=clamp(1120-lvl*56,720,1120); apexT=jumpDur/2;
+  pw=clamp(126-lvl*9,72,126);
+  tough=Math.random()<clamp(0.2+lvl*0.05,0.2,0.5);
+  if(tough)pw*=0.82;
+  runU0=rnd(0.03,0.14);   // runner's head start (how far along at release-ideal)
+  phase='jump'; clock=0; released=false; relT=0; result=null; resultT=0; msg=''; msgOk=false; flyT=0;
+  S.jump();
+}
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; newPlay(); }
+
+function fire(){
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.4){reset();start();} return; }
+  if(state!=='play'||phase!=='jump'||released) return;
+  released=true; relT=clock;
+  if(Math.abs(clock-apexT)<=pw){ resolve('out'); }
+  else if(clock<apexT-pw) resolve('early');
+  else resolve('late');
+}
+
+function resolve(k){
+  phase='result'; result=k; resultT=0; flyT=0;
+  if(k==='out'){
+    outs++; combo++;
+    const q=1-Math.abs(relT-apexT)/pw; const perfect=q>=0.8;
+    let add=Math.round((tough?250:150)*(1+Math.min(9,combo-1)*0.14)); score+=add;
+    S.fire(); setTimeout(S.mitt,260); setTimeout(S.out,320); if(tough)setTimeout(S.big,400);
+    msgOk=true; flash=1;flashCol='#8affa0';shake=5;
+    pop(W/2,250,(perfect?'頂点で矢のような送球！ +':'アウト！ +')+add,'#d6ffe0');
+    if(combo>=2)pop(W/2,150,'コンボ x'+combo,'#ffd24d');
+    if(combo>0&&combo%5===0)S.streak();
+    msg='跳躍の頂点で放った矢のような送球——深い所から俊足を刺す美技';
+  } else {
+    fails++; combo=0; msgOk=false; flash=1;shake=8; S.safe();
+    if(k==='early'){ flashCol='#ff5b5b'; msg='早い…上がりきる前の体勢で放り、力が乗らず高く逸れてセーフ'; pop(W/2,250,'悪送球…','#ffb0b0'); }
+    else if(k==='late'){ flashCol='#ff8b3b'; msg='遅い…落ちながらの送球は力が抜け、ショートバウンドで間に合わずセーフ'; pop(W/2,250,'間に合わず…','#ffcf9a'); }
+    else { flashCol='#ff5b5b'; msg='投げあぐねた…握ったまま着地、送球できず内野安打'; pop(W/2,250,'握ったまま…','#ffb0b0'); }
+  }
+  if(fails>=3){ state='over'; resultT=0; S.over(); if(score>best){best=score;localStorage.setItem('jt_best',best);} }
+}
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{e.preventDefault();fire();});
+addEventListener('keydown',e=>{ if(e.repeat)return;
+  if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'||e.code==='KeyF'||e.code==='KeyJ'){e.preventDefault();fire();} });
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// runner progress toward first (0..1). Reaches base ~ when a good throw would just beat him.
+function runnerU(){
+  if(phase==='jump') return runU0 + (clock/jumpDur)*(0.92-runU0);
+  // result: keep advancing to the bag
+  return clamp(runU0 + ((relT||apexT)/jumpDur)*(0.92-runU0) + resultT*0.7, 0, 1);
+}
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7);
+  for(const q of parts){q.vx*=0.96;q.vy=q.vy*0.96+0.28;q.x+=q.vx*dt/16.7;q.y+=q.vy*dt/16.7;q.life-=dt/16.7*0.026;}
+  parts=parts.filter(q=>q.life>0);
+  for(const q of pops){q.y-=dt/16.7*0.5;q.life-=dt/16.7*0.02;}
+  pops=pops.filter(q=>q.life>0);
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  if(phase==='jump'){ clock+=dt;
+    if(!released && clock>=jumpDur){ released=true; relT=jumpDur; resolve('nothrow'); }
+    return; }
+  if(phase==='result'){ resultT+=dt/1000; flyT=Math.min(1,flyT+dt/(result==='out'?300:480));
+    if(resultT>1.6) newPlay(); return; }
+}
+
+// ---------- render ----------
+function drawField(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#12703f');g.addColorStop(0.5,'#0f5e34');g.addColorStop(1,'#0c4c2b');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // infield dirt
+  ctx.fillStyle='#6a4a30';ctx.beginPath();ctx.moveTo(452,540);ctx.lineTo(150,250);ctx.lineTo(452,120);ctx.lineTo(760,300);ctx.closePath();ctx.fill();
+  // basepath home->first
+  ctx.strokeStyle='rgba(210,180,140,0.5)';ctx.lineWidth=22;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(HOME.x,HOME.y);ctx.lineTo(FIRST.x,FIRST.y);ctx.stroke();ctx.lineCap='butt';
+  // first base
+  ctx.fillStyle='#f2f2f2';ctx.save();ctx.translate(FIRST.x,FIRST.y);ctx.rotate(0.785);ctx.fillRect(-13,-13,26,26);ctx.restore();
+  // home plate
+  ctx.fillStyle='#e8e4d8';ctx.beginPath();ctx.moveTo(HOME.x-12,HOME.y-8);ctx.lineTo(HOME.x+12,HOME.y-8);ctx.lineTo(HOME.x+12,HOME.y+2);ctx.lineTo(HOME.x,HOME.y+12);ctx.lineTo(HOME.x-12,HOME.y+2);ctx.closePath();ctx.fill();
+}
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawField();
+
+  if(state==='play'||state==='over'){
+    // runner sprinting to first
+    const ru=runnerU(); const rx=lerp(HOME.x,FIRST.x,ru), ry=lerp(HOME.y,FIRST.y,ru);
+    ctx.save();ctx.translate(rx,ry);ctx.rotate(-0.5);
+    ctx.fillStyle='#d0403a';ctx.beginPath();ctx.ellipse(0,-8,10,15,0,0,6.28);ctx.fill();
+    ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(0,-28,7,0,6.28);ctx.fill();
+    ctx.restore();
+
+    // first baseman at the bag
+    ctx.fillStyle='#2b6fd6';ctx.beginPath();ctx.ellipse(FIRST.x+14,FIRST.y-10,10,15,0,0,6.28);ctx.fill();
+    ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(FIRST.x+14,FIRST.y-30,7,0,6.28);ctx.fill();
+    ctx.fillStyle='#7a4a22';ctx.beginPath();ctx.arc(FIRST.x-2,FIRST.y-14,8,0,6.28);ctx.fill();
+
+    // shortstop leaping (h = jump height)
+    const h=(phase==='jump')? hAt(clock) : hAt(relT);
+    const ssx=SS.x, ssy=SS.y - h*JH;
+    // shadow
+    ctx.fillStyle='rgba(0,0,0,0.18)';ctx.beginPath();ctx.ellipse(ssx,SS.y+14,13*(1-h*0.4),5*(1-h*0.4),0,0,6.28);ctx.fill();
+    ctx.save();ctx.translate(ssx,ssy);
+    const lean=(phase==='result'&&(result==='out'||result==='early'||result==='late'))?-0.5:0;
+    ctx.rotate(lean);
+    ctx.fillStyle='#2b6fd6';ctx.beginPath();ctx.ellipse(0,-16,11,17,0,0,6.28);ctx.fill();
+    ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(0,-38,8,0,6.28);ctx.fill();
+    // throwing arm up
+    ctx.strokeStyle='#2b6fd6';ctx.lineWidth=6;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(4,-26);ctx.lineTo(16,-46);ctx.stroke();ctx.lineCap='butt';
+    ctx.restore();
+
+    // thrown ball (result)
+    if(phase==='result'&&result!=='nothrow'){
+      const u=easeOut(flyT); let ex=FIRST.x-2, ey=FIRST.y-14;
+      if(result==='early'){ ex=FIRST.x-6; ey=FIRST.y-70; }        // sails high
+      else if(result==='late'){ ex=FIRST.x+30; ey=FIRST.y+22; }   // short-hops / off
+      const bx=lerp(ssx+14,ex,u), by=lerp(ssy-42,ey,u)-(result==='out'?Math.sin(u*Math.PI)*14:0);
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,7,0,6.28);ctx.fill();
+      ctx.strokeStyle='#c33';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(bx,by,7,0.4,2.2);ctx.stroke();
+      if(result==='out'&&u>=1&&parts.length<2)burst(ex,ey,'#8affa0',14,6);
+    }
+
+    // apex timing bar
+    ctx.textAlign='center';
+    if(state==='play'&&phase==='jump'){
+      ctx.fillStyle='rgba(255,220,90,0.96)';ctx.font='bold 22px sans-serif';ctx.fillText('跳躍の“頂点”で送球しろ！',W/2,50);
+      const bw=280,x=W/2-bw/2,y=66;
+      ctx.fillStyle='rgba(255,255,255,0.15)';ctx.fillRect(x,y,bw,9);
+      const gx0=x+bw*clamp((apexT-pw)/jumpDur,0,1), gx1=x+bw*clamp((apexT+pw)/jumpDur,0,1);
+      ctx.fillStyle='rgba(90,240,130,0.5)';ctx.fillRect(gx0,y,gx1-gx0,9);
+      // apex tick
+      ctx.fillStyle='#7dff9a';ctx.fillRect(x+bw*(apexT/jumpDur)-1,y-3,2,15);
+      const px=x+bw*clamp(clock/jumpDur,0,1);
+      ctx.fillStyle='#ffe14d';ctx.fillRect(px-2,y-4,4,17);
+      ctx.fillStyle='rgba(255,255,255,0.55)';ctx.font='12px sans-serif';ctx.fillText('タップ / SPACE ＝ 頂点でリリース（早いと逸れ・遅いと力抜け）',W/2,H-30);
+    }
+  }
+
+  for(const q of parts){ctx.globalAlpha=Math.max(0,q.life);ctx.fillStyle=q.c;ctx.beginPath();ctx.arc(q.x,q.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const q of pops){ctx.globalAlpha=Math.max(0,q.life);ctx.fillStyle=q.c;ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.fillText(q.txt,q.x,q.y);}
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,36);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='14px sans-serif';ctx.fillText('アウト '+outs+'  Lv'+lvl,W-20,24);
+  ctx.fillText('失敗',W-92,46);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-60+i*20,41,7,0,6.28);ctx.fillStyle=i<fails?'#ff5b5b':'rgba(255,255,255,0.25)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='center';ctx.fillStyle='#ffd24d';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,W/2,112);}
+
+  if(state==='play'&&phase==='result'&&msg){ctx.textAlign='center';ctx.fillStyle=msgOk?'#9ff0b8':'#ffb38a';ctx.font='bold 16px sans-serif';ctx.fillText(msg,W/2,470);}
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(4,8,4,0.83)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('ジャンピングスロー',W/2,86);
+    ctx.fillStyle='#ffd23e';ctx.font='bold 22px sans-serif';ctx.fillText('Jump Throw',W/2,122);
+    ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='16px sans-serif';
+    ctx.fillText('三遊間の深い所で逆シングル、跳び上がって一塁へ矢のような送球——“跳躍の頂点”で放って俊足を刺せ',W/2,182);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='14px sans-serif';
+    ctx.fillText('遊撃手がジャンプ（上がって→落ちる）、その最高到達点＝頂点の緑窓でタップ/SPACE＝力の乗った送球',W/2,220);
+    ctx.fillText('上がりきる前に放る（早い）＝体勢が崩れて高く逸れる・落ちながら放る（遅い）＝力が抜けて間に合わず',W/2,244);
+    ctx.fillText('頂点ど真ん中の“会心の送球”は大量加点。握ったまま着地も内野安打。上級ほど跳躍が速く頂点の窓が狭い',W/2,268);
+    ctx.fillText('3失敗で交代',W/2,292);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,360);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best,W/2,392);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(4,8,4,0.85)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 46px sans-serif';ctx.fillText('3失敗…交代',W/2,222);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,290);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='19px sans-serif';ctx.fillText('アウト '+outs+'   BEST '+best,W/2,330);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,402);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+  ctx.fillText('ジャンピングスロー：跳躍の最高到達点＝頂点で一塁送球して俊足を刺す。早い＝逸れ/遅い＝力抜け/無投＝内野安打、3失敗で交代',W/2,H-8);
+}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__jt={
+  start, fire,
+  get state(){return state;},
+  get score(){return score;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get info(){return {state,phase,clock,jumpDur,apexT,pw,tough,released,relT,result,outs,fails,lvl,
+    inApex:(phase==='jump'&&Math.abs(clock-apexT)<=pw)};}
+};
+})();
+</script>
+</body>
+</html>
