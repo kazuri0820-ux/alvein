@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>スコーピオン (Scorpion Kick)</title>
+<style>
+  html,body{margin:0;height:100%;background:#070a0f;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  dive:()=>{tone(300,0.18,'sine',0.06,200);},
+  boot:()=>{noise(0.05,0.18,700);tone(160,0.08,'square',0.10,-60);},
+  clear:()=>{[560,820,1080].forEach((f,i)=>setTimeout(()=>tone(f,0.11,'triangle',0.16),i*58));},
+  big:()=>{[600,800,1000,1250].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.17),i*80));},
+  net:()=>{noise(0.2,0.16,240);tone(150,0.24,'sawtooth',0.12,-50);},
+  whistle:()=>{tone(2100,0.18,'square',0.05);setTimeout(()=>tone(2350,0.2,'square',0.05),120);},
+  streak:()=>{[700,930,1170,1400].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*60));},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- geometry ----------
+const GOAL={x:452,y:150,w:300,h:96};   // goal mouth (top), net behind keeper
+const KP={x:452,y:352};                 // keeper hips (ground / dive origin)
+const REACH=150;                        // how high the heels flick up (px)
+
+// ---------- state ----------
+let state='title', phase='kick', plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('sk_best')||0);
+let outs=0, fails=0, lvl=1;   // outs = clearances (saves)
+let clock=0, kickDur=1080, apexT=540, pw=120, tough=false;
+let released=false, relT=0, result=null, resultT=0, msg='', msgOk=false, flyT=0, ballX0=452;
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[];
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,u){return a+(b-a)*u;}
+function easeOut(u){return 1-Math.pow(1-u,2);}
+function hAt(t){return Math.max(0,Math.sin(Math.PI*clamp(t/kickDur,0,1)));}   // 0..1..0 heel arc
+
+function reset(){state='title';score=0;combo=0;outs=0;fails=0;lvl=1;plays=0;result=null;parts=[];pops=[];}
+
+function newPlay(){
+  plays++; lvl=Math.min(7,1+Math.floor(outs/4));
+  kickDur=clamp(1120-lvl*56,720,1120); apexT=kickDur/2;
+  pw=clamp(126-lvl*9,72,126);
+  tough=Math.random()<clamp(0.2+lvl*0.05,0.2,0.5);
+  if(tough)pw*=0.82;
+  ballX0=rnd(384,520);   // where the lofted ball crosses (slight variety)
+  phase='kick'; clock=0; released=false; relT=0; result=null; resultT=0; msg=''; msgOk=false; flyT=0;
+  S.dive();
+}
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; newPlay(); }
+
+function kick(){
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.4){reset();start();} return; }
+  if(state!=='play'||phase!=='kick'||released) return;
+  released=true; relT=clock;
+  if(Math.abs(clock-apexT)<=pw){ resolve('clear'); }
+  else if(clock<apexT-pw) resolve('early');
+  else resolve('late');
+}
+
+function resolve(k){
+  phase='result'; result=k; resultT=0; flyT=0;
+  if(k==='clear'){
+    outs++; combo++;
+    const q=1-Math.abs(relT-apexT)/pw; const perfect=q>=0.8;
+    let add=Math.round((tough?250:150)*(1+Math.min(9,combo-1)*0.14)); score+=add;
+    S.boot(); setTimeout(S.clear,120); setTimeout(S.whistle,60); if(tough||perfect)setTimeout(S.big,300);
+    msgOk=true; flash=1;flashCol='#8affa0';shake=6; burst(KP.x,KP.y-REACH,'#8affa0',16,7);
+    pop(W/2,250,(perfect?'頂点で完璧なスコーピオン！ +':'かかとで蹴り出した！ +')+add,'#d6ffe0');
+    if(combo>=2)pop(W/2,150,'コンボ x'+combo,'#ffd24d');
+    if(combo>0&&combo%5===0)S.streak();
+    msg='背走から反転、跳ね上げたかかとの頂点で枠上のループを蹴り出す——ヒギータの魔技';
+  } else {
+    fails++; combo=0; msgOk=false; flash=1;shake=9; S.net();
+    if(k==='early'){ flashCol='#ff5b5b'; msg='早い…かかとが上がりきる前に振り、ボールの下を空振り——頭上を越えて失点'; pop(W/2,250,'空振り…失点','#ffb0b0'); }
+    else if(k==='late'){ flashCol='#ff8b3b'; msg='遅い…かかとが落ちかけ、ボールはもう頭上を越えていた——ネットへ'; pop(W/2,250,'間に合わず失点','#ffcf9a'); }
+    else { flashCol='#ff5b5b'; msg='蹴れなかった…ループはそのまま枠内へ吸い込まれた——失点'; pop(W/2,250,'見送り…失点','#ffb0b0'); }
+  }
+  if(fails>=3){ state='over'; resultT=0; S.over(); if(score>best){best=score;localStorage.setItem('sk_best',best);} }
+}
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{e.preventDefault();kick();});
+addEventListener('keydown',e=>{ if(e.repeat)return;
+  if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'||e.code==='KeyF'||e.code==='KeyJ'){e.preventDefault();kick();} });
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// descending lofted ball height above ground (1 at top, 0 at heel-clear level) during the kick wind
+function ballDrop(){ return clamp(clock/kickDur,0,1); }   // 0..1 as it descends to heel level at apex..end
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7);
+  for(const q of parts){q.vx*=0.96;q.vy=q.vy*0.96+0.28;q.x+=q.vx*dt/16.7;q.y+=q.vy*dt/16.7;q.life-=dt/16.7*0.026;}
+  parts=parts.filter(q=>q.life>0);
+  for(const q of pops){q.y-=dt/16.7*0.5;q.life-=dt/16.7*0.02;}
+  pops=pops.filter(q=>q.life>0);
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  if(phase==='kick'){ clock+=dt;
+    if(!released && clock>=kickDur){ released=true; relT=kickDur; resolve('nokick'); }
+    return; }
+  if(phase==='result'){ resultT+=dt/1000; flyT=Math.min(1,flyT+dt/(result==='clear'?300:520));
+    if(resultT>1.6) newPlay(); return; }
+}
+
+// ---------- render ----------
+function drawField(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0c3f24');g.addColorStop(0.5,'#0f5e34');g.addColorStop(1,'#0c4c2b');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // mow stripes
+  ctx.globalAlpha=0.06;for(let i=0;i<7;i++){ctx.fillStyle=i%2?'#fff':'#000';ctx.fillRect(0,120+i*70,W,70);}ctx.globalAlpha=1;
+  // goal net behind keeper
+  const gx0=GOAL.x-GOAL.w/2, gx1=GOAL.x+GOAL.w/2, gy0=GOAL.y-GOAL.h, gy1=GOAL.y;
+  ctx.fillStyle='rgba(255,255,255,0.05)';ctx.fillRect(gx0,gy0,GOAL.w,GOAL.h);
+  ctx.strokeStyle='rgba(255,255,255,0.18)';ctx.lineWidth=1;
+  for(let x=gx0;x<=gx1;x+=15){ctx.beginPath();ctx.moveTo(x,gy0);ctx.lineTo(x,gy1);ctx.stroke();}
+  for(let y=gy0;y<=gy1;y+=15){ctx.beginPath();ctx.moveTo(gx0,y);ctx.lineTo(gx1,y);ctx.stroke();}
+  // goal frame
+  ctx.strokeStyle='#f4f4f4';ctx.lineWidth=6;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(gx0,gy1);ctx.lineTo(gx0,gy0);ctx.lineTo(gx1,gy0);ctx.lineTo(gx1,gy1);ctx.stroke();ctx.lineCap='butt';
+  // goal-line
+  ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,gy1);ctx.lineTo(W,gy1);ctx.stroke();
+}
+function drawKeeper(h,lean){
+  // h = heel arc height (0..1); lean tips the torso forward for the scorpion
+  const hy=-REACH*h, hx=-4-14*h;       // heel position (rises & tucks back over the body)
+  ctx.save();ctx.translate(KP.x,KP.y);
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,0.22)';ctx.beginPath();ctx.ellipse(6,16,22*(1-h*0.3),6*(1-h*0.3),0,0,6.28);ctx.fill();
+  // planted hands on the ground in front (support)
+  ctx.fillStyle='#eafcff';ctx.beginPath();ctx.arc(30,14,5,0,6.28);ctx.fill();ctx.beginPath();ctx.arc(22,17,5,0,6.28);ctx.fill();
+  // both arms bracing down to the hands
+  ctx.strokeStyle='#e8b23a';ctx.lineWidth=6;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(4,-4);ctx.quadraticCurveTo(20,2,30,14);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(6,-2);ctx.quadraticCurveTo(16,6,22,17);ctx.stroke();
+  // curved back / torso pitched forward and down
+  ctx.strokeStyle='#e8b23a';ctx.lineWidth=17;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-6,-6);ctx.quadraticCurveTo(6,0,14,6);ctx.stroke();
+  // head down/forward
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(20,10,8,0,6.28);ctx.fill();
+  ctx.fillStyle='#caa25a';ctx.beginPath();ctx.arc(20,7,8.5,Math.PI,0);ctx.fill();   // hair
+  // thighs whipping up, then shins tucking back over the body toward the heels
+  ctx.strokeStyle='#173a6b';ctx.lineWidth=9;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-6,-6);ctx.quadraticCurveTo(-24,hy*0.45,hx-2,hy);ctx.stroke();       // leg 1
+  ctx.strokeStyle='#1d4d86';ctx.lineWidth=9;
+  ctx.beginPath();ctx.moveTo(-2,-6);ctx.quadraticCurveTo(-10,hy*0.5,hx+13,hy+2);ctx.stroke();      // leg 2 (splayed)
+  ctx.lineCap='butt';
+  // boots (heels) — the striking surface
+  ctx.fillStyle='#0c0c0c';ctx.beginPath();ctx.ellipse(hx-2,hy,8,5.5,-0.5,0,6.28);ctx.fill();
+  ctx.beginPath();ctx.ellipse(hx+13,hy+2,8,5.5,-0.35,0,6.28);ctx.fill();
+  // sock cuffs
+  ctx.fillStyle='#eafcff';ctx.beginPath();ctx.arc(hx+4,hy+9,3.5,0,6.28);ctx.fill();ctx.beginPath();ctx.arc(hx+19,hy+11,3.5,0,6.28);ctx.fill();
+  ctx.restore();
+  return {hx:KP.x+hx+5, hy:KP.y+hy};
+}
+
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawField();
+
+  if(state==='play'||state==='over'){
+    const h=(phase==='kick')? hAt(clock) : hAt(relT);
+    const lean=(phase==='result'&&result==='clear')?-0.25:0.15+h*0.15;
+    const heel=drawKeeper(h,lean);
+
+    // the lofted ball
+    let bx,by;
+    const heelTargetY=KP.y-REACH;             // ball meets heels at apex height
+    if(phase==='kick'){
+      const d=ballDrop();
+      bx=lerp(ballX0, KP.x-2, d);
+      by=lerp(60, heelTargetY, easeOut(d));    // descends toward heel-clear height
+    } else {
+      const u=easeOut(flyT);
+      if(result==='clear'){ bx=lerp(heel.hx,heel.hx-190,u); by=lerp(heel.hy,heel.hy-120,u)-Math.sin(u*Math.PI)*30; } // booted up & away
+      else if(result==='early'){ bx=lerp(KP.x-2,GOAL.x-30,u); by=lerp(heelTargetY,GOAL.y-GOAL.h*0.5,u); }  // drops over into net
+      else if(result==='late'){ bx=lerp(KP.x-2,GOAL.x+34,u); by=lerp(heelTargetY,GOAL.y-GOAL.h*0.55,u); }   // sails over into net
+      else { bx=lerp(KP.x-2,GOAL.x,u); by=lerp(heelTargetY,GOAL.y-GOAL.h*0.5,u); }                          // nokick -> net
+    }
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,8,0,6.28);ctx.fill();
+    ctx.strokeStyle='#222';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(bx,by,8,0.3,2.0);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(bx-4,by-3);ctx.lineTo(bx+3,by+4);ctx.stroke();
+
+    // apex timing bar
+    ctx.textAlign='center';
+    if(state==='play'&&phase==='kick'){
+      ctx.fillStyle='rgba(255,220,90,0.96)';ctx.font='bold 22px sans-serif';ctx.fillText('かかとの“頂点”で蹴り出せ！',W/2,50);
+      const bw=280,x=W/2-bw/2,y=66;
+      ctx.fillStyle='rgba(255,255,255,0.15)';ctx.fillRect(x,y,bw,9);
+      const gx0=x+bw*clamp((apexT-pw)/kickDur,0,1), gx1=x+bw*clamp((apexT+pw)/kickDur,0,1);
+      ctx.fillStyle='rgba(90,240,130,0.5)';ctx.fillRect(gx0,y,gx1-gx0,9);
+      ctx.fillStyle='#7dff9a';ctx.fillRect(x+bw*(apexT/kickDur)-1,y-3,2,15);
+      const px=x+bw*clamp(clock/kickDur,0,1);
+      ctx.fillStyle='#ffe14d';ctx.fillRect(px-2,y-4,4,17);
+      ctx.fillStyle='rgba(255,255,255,0.55)';ctx.font='12px sans-serif';ctx.fillText('タップ / SPACE ＝ 頂点で蹴る（早いと空振り・遅いと頭上を越える）',W/2,H-30);
+    }
+  }
+
+  for(const q of parts){ctx.globalAlpha=Math.max(0,q.life);ctx.fillStyle=q.c;ctx.beginPath();ctx.arc(q.x,q.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const q of pops){ctx.globalAlpha=Math.max(0,q.life);ctx.fillStyle=q.c;ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.fillText(q.txt,q.x,q.y);}
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,36);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='14px sans-serif';ctx.fillText('クリア '+outs+'  Lv'+lvl,W-20,24);
+  ctx.fillText('失点',W-92,46);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-60+i*20,41,7,0,6.28);ctx.fillStyle=i<fails?'#ff5b5b':'rgba(255,255,255,0.25)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='center';ctx.fillStyle='#ffd24d';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,W/2,112);}
+
+  if(state==='play'&&phase==='result'&&msg){ctx.textAlign='center';ctx.fillStyle=msgOk?'#9ff0b8':'#ffb38a';ctx.font='bold 16px sans-serif';ctx.fillText(msg,W/2,470);}
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(3,6,9,0.85)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 44px sans-serif';ctx.fillText('スコーピオン',W/2,86);
+    ctx.fillStyle='#ffd23e';ctx.font='bold 22px sans-serif';ctx.fillText('Scorpion Kick',W/2,122);
+    ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='16px sans-serif';
+    ctx.fillText('枠へ吸い込まれるループシュートを、GKが反転しかかとを跳ね上げて掻き出す魔技——“頂点”で蹴り出せ',W/2,182);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='14px sans-serif';
+    ctx.fillText('かかとが上がって→落ちる、その最高到達点＝頂点の緑窓でタップ/SPACE＝ボールをかかとで蹴り出す',W/2,220);
+    ctx.fillText('上がりきる前に振る（早い）＝ボールの下を空振り・落ちながら振る（遅い）＝頭上を越えられて失点',W/2,244);
+    ctx.fillText('頂点ど真ん中の“会心のスコーピオン”は大量加点。見送りも失点。上級ほど速く頂点の窓が狭い',W/2,268);
+    ctx.fillText('3失点で交代',W/2,292);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,360);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best,W/2,392);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(3,6,9,0.86)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 46px sans-serif';ctx.fillText('3失点…交代',W/2,222);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,290);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='19px sans-serif';ctx.fillText('クリア '+outs+'   BEST '+best,W/2,330);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,402);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+  ctx.fillText('スコーピオン：跳ね上げたかかとの頂点でループを掻き出す。早い＝空振り/遅い＝頭上越え/見送り＝失点、3失点で交代',W/2,H-8);
+}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__sk={
+  start, kick,
+  get state(){return state;},
+  get score(){return score;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get info(){return {state,phase,clock,kickDur,apexT,pw,tough,released,relT,result,outs,fails,lvl,
+    inApex:(phase==='kick'&&Math.abs(clock-apexT)<=pw)};}
+};
+})();
+</script>
+</body>
+</html>
