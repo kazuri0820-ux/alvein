@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>壁の下 (Under the Wall)</title>
+<style>
+  html,body{margin:0;height:100%;background:#06120a;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  jump:()=>{tone(400,0.1,'sine',0.05,120);},
+  kick:()=>{noise(0.05,0.16,500);tone(240,0.06,'square',0.09,-70);},
+  goal:()=>{[680,940,1220].forEach((f,i)=>setTimeout(()=>tone(f,0.11,'triangle',0.17),i*60));},
+  cheeky:()=>{[600,820,1080,1360,1650].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.18),i*72));},
+  block:()=>{noise(0.08,0.2,400);tone(180,0.1,'square',0.12,-40);},
+  bad:()=>{noise(0.16,0.2,300);tone(150,0.2,'sawtooth',0.11,-40);},
+  streak:()=>{[700,930,1170,1400].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*60));},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- geometry ----------
+const SPOT={x:450,y:520}, WALLY=352, WALLN=4;
+const GL=330,GR=570,GBAR=112,GBOT=196;
+
+// ---------- state ----------
+let state='title', phase='live', plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('utw_best')||0);
+let outs=0, fails=0, lvl=1;   // outs = goals
+let t=0, openT=540, w=440, riseT=150, tough=false;
+let decided=false, result=null, resultT=0, msg='', msgOk=false, kickAt=0;
+let ballU=0;
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[];
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,u){return a+(b-a)*u;}
+function easeOut(u){return 1-Math.pow(1-u,2);}
+
+function reset(){state='title';score=0;combo=0;outs=0;fails=0;lvl=1;plays=0;result=null;parts=[];pops=[];}
+
+// wall height 0(ground)..1(top of jump)
+function wallH(tt){
+  if(tt<openT-riseT) return 0;
+  if(tt<openT) return (tt-(openT-riseT))/riseT;          // rising
+  if(tt<=openT+w) return 1;                              // airborne (feet up)
+  if(tt<openT+w+riseT) return 1-(tt-(openT+w))/riseT;    // landing
+  return 0;
+}
+
+function newPlay(){
+  plays++; lvl=Math.min(7,1+Math.floor(outs/4));
+  openT=clamp(560-lvl*22,400,560)+rnd(-40,70);           // jump timing varies -> must watch
+  w=clamp(450-lvl*24,300,450);
+  riseT=clamp(160-lvl*6,110,160);
+  tough=Math.random()<clamp(0.18+lvl*0.05,0.18,0.5);
+  phase='live'; t=0; decided=false; result=null; resultT=0; msg=''; msgOk=false; kickAt=0;
+  ballU=0;
+}
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; newPlay(); }
+
+function act(){
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.4){reset();start();} return; }
+  if(state!=='play'||phase!=='live'||decided) return;
+  decided=true; kickAt=t; S.kick();
+  if(t<openT){ resolve('early'); return; }
+  if(t<=openT+w){ resolve('goal'); return; }
+  resolve('late');
+}
+
+function resolve(k){
+  phase='result'; result=k; resultT=0;
+  if(k==='goal'){
+    outs++; combo++;
+    const apex=Math.abs(kickAt-(openT+w/2)); const cheeky=(apex<w*0.22);
+    let base=tough?250:150; if(cheeky)base+=90;
+    let add=Math.round(base*(1+Math.min(9,combo-1)*0.14)); score+=add;
+    setTimeout(S.goal,220); if(cheeky||tough)setTimeout(S.cheeky,300);
+    msgOk=true; flash=1;flashCol='#8affa0';shake=6; burst((GL+GR)/2,GBAR+40,'#8affa0',20,8);
+    pop((GL+GR)/2,GBAR-16,(cheeky?'壁の下を完璧に通した！ +':'壁の下を抜けてゴール！ +')+add,'#d6ffe0');
+    if(combo>=2)pop(W/2,150,'コンボ x'+combo,'#ffd24d');
+    if(combo>0&&combo%5===0)S.streak();
+    msg=cheeky?'ジャンプの頂点ドンピシャ——足の下を狙い澄まして通した会心の一撃':'壁が跳んだ一瞬に低く速い一撃——足の下を抜けてゴール！';
+  } else {
+    fails++; combo=0; msgOk=false; flash=1;flashCol='#ff5b5b';shake=9; S.block();
+    if(k==='early') msg='早い…壁がまだ跳ぶ前で、低い弾道が足に当たってブロック';
+    else msg='遅い…壁が着地してしまい、低い弾道が足に当たってブロック';
+    pop((GL+GR)/2,WALLY-30,'ブロック…','#ffb0b0');
+  }
+  if(fails>=3){ state='over'; resultT=0; setTimeout(S.over,200); if(score>best){best=score;localStorage.setItem('utw_best',best);} }
+}
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{e.preventDefault();act();});
+addEventListener('keydown',e=>{ if(e.repeat)return;
+  if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'||e.code==='KeyF'){e.preventDefault();act();} });
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7);
+  for(const p of parts){p.vx*=0.96;p.vy=p.vy*0.96+0.28;p.x+=p.vx*dt/16.7;p.y+=p.vy*dt/16.7;p.life-=dt/16.7*0.026;}
+  parts=parts.filter(p=>p.life>0);
+  for(const p of pops){p.y-=dt/16.7*0.5;p.life-=dt/16.7*0.02;}
+  pops=pops.filter(p=>p.life>0);
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  if(phase==='live'){ t+=dt;
+    if(Math.abs(t-(openT-riseT))<9) S.jump();
+    if(!decided && t>openT+w){ decided=true; kickAt=t; resolve('late'); }
+    return; }
+  if(phase==='result'){ resultT+=dt/1000;
+    if(result==='goal') ballU=Math.min(1,ballU+dt/300);
+    else ballU=Math.min(1,ballU+dt/(kickAt<openT?260:260));
+    if(resultT>1.5) newPlay(); return; }
+}
+
+// ---------- render ----------
+function drawScene(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0d5330');g.addColorStop(0.5,'#12703f');g.addColorStop(1,'#0b4c2b');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  for(let i=0;i<6;i++){ctx.fillStyle=i%2?'rgba(255,255,255,0.03)':'rgba(0,0,0,0.03)';ctx.fillRect(0,GBOT+i*70,W,70);}
+  // goal
+  ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(GL,GBAR,GR-GL,GBOT-GBAR);
+  ctx.strokeStyle='rgba(255,255,255,0.13)';ctx.lineWidth=1;
+  for(let x=GL;x<=GR;x+=15){ctx.beginPath();ctx.moveTo(x,GBAR);ctx.lineTo(x,GBOT);ctx.stroke();}
+  ctx.strokeStyle='#f2f2f2';ctx.lineWidth=7;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(GL,GBOT);ctx.lineTo(GL,GBAR);ctx.lineTo(GR,GBAR);ctx.lineTo(GR,GBOT);ctx.stroke();ctx.lineCap='butt';
+}
+function jumper(x,y,jump){
+  const jy=y-jump*46;
+  ctx.fillStyle='#2b6fd6';ctx.beginPath();ctx.ellipse(x,jy-22,11,20,0,0,6.28);ctx.fill();
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(x,jy-48,8,0,6.28);ctx.fill();
+  // arms up when jumping
+  ctx.strokeStyle='#2b6fd6';ctx.lineWidth=6;ctx.lineCap='round';
+  const ar=jump>0.2?-1:0.3;
+  ctx.beginPath();ctx.moveTo(x-8,jy-34);ctx.lineTo(x-16,jy-34+ar*20);ctx.moveTo(x+8,jy-34);ctx.lineTo(x+16,jy-34+ar*20);ctx.stroke();ctx.lineCap='butt';
+  // legs (gap opens under feet when up)
+  ctx.strokeStyle='#1b1b2a';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(x-5,jy-2);ctx.lineTo(x-5,jy+12);ctx.moveTo(x+5,jy-2);ctx.lineTo(x+5,jy+12);ctx.stroke();
+  return jy;
+}
+
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawScene();
+
+  if(state==='play'||state==='over'){
+    const h=(phase==='live')?wallH(t):((phase==='result')?wallH(kickAt):0);
+    // keeper
+    person((GL+GR)/2+40,GBAR+30,'#23c36a',0.9);
+    // wall
+    const wx0=(GL+GR)/2-((WALLN-1)*26)/2;
+    for(let i=0;i<WALLN;i++) jumper(wx0+i*26, WALLY, h);
+    // gap-under highlight when airborne
+    if(phase==='live'&&t>=openT&&t<=openT+w){
+      ctx.strokeStyle='rgba(140,255,160,0.85)';ctx.lineWidth=3;ctx.setLineDash([6,6]);
+      ctx.strokeRect(wx0-16,WALLY-6,(WALLN-1)*26+32,16);ctx.setLineDash([]);
+      ctx.fillStyle='rgba(150,255,170,0.9)';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText('足の下が空いた！',(GL+GR)/2,WALLY+30);
+    }
+
+    // ball
+    let bx,by;
+    if(phase==='live'){ bx=SPOT.x; by=SPOT.y; }
+    else if(result==='goal'){ const u=easeOut(ballU); bx=lerp(SPOT.x,(GL+GR)/2-24,u); by=lerp(SPOT.y,GBAR+30,u); }
+    else { const u=easeOut(ballU); bx=lerp(SPOT.x,(GL+GR)/2,Math.min(u,1)*0.62); by=lerp(SPOT.y,WALLY+6,Math.min(u,1)*0.62); } // blocked at wall
+    ctx.fillStyle='rgba(0,0,0,0.16)';ctx.beginPath();ctx.ellipse(bx,by+8,9,3,0,0,6.28);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,8,0,6.28);ctx.fill();
+    ctx.strokeStyle='#222';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(bx-5,by-3);ctx.lineTo(bx+3,by-6);ctx.lineTo(bx+6,by);ctx.lineTo(bx+2,by+5);ctx.lineTo(bx-5,by+4);ctx.closePath();ctx.stroke();
+
+    // shooter
+    person(SPOT.x-30,SPOT.y+6,'#d0403a',0.95);
+
+    // cue + timer
+    ctx.textAlign='center';
+    if(state==='play'&&phase==='live'){
+      if(t<openT){ ctx.fillStyle='rgba(255,220,90,0.95)';ctx.font='bold 21px sans-serif';ctx.fillText('壁が跳ぶ！ 足の下を狙って低く撃て',W/2,52); }
+      else { ctx.fillStyle='rgba(150,255,170,0.98)';ctx.font='bold 22px sans-serif';ctx.fillText('今だ！ 壁の下へ！',W/2,52);
+        const p=clamp((t-openT)/w,0,1),bw=250,x=W/2-bw/2,y=64;
+        ctx.fillStyle='rgba(255,255,255,0.18)';ctx.fillRect(x,y,bw,7);
+        // center = apex bonus
+        ctx.fillStyle='#8affa0';ctx.fillRect(x,y,bw*p,7);
+        ctx.fillStyle='rgba(255,220,90,0.9)';ctx.fillRect(x+bw*0.28,y-2,bw*0.44,2); }
+    }
+    if(state==='play'){ ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='12px sans-serif';ctx.textAlign='center';
+      ctx.fillText('タップ／SPACE：壁がジャンプした一瞬（頂点）に低く撃つ＝足の下を通す（早い/遅いはブロック）',W/2,H-16); }
+  }
+
+  for(const p of parts){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const p of pops){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.fillText(p.txt,p.x,p.y);}
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,36);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='14px sans-serif';ctx.fillText('ゴール '+outs+'  Lv'+lvl,W-20,470);
+  ctx.fillText('失',W-92,492);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-60+i*20,487,7,0,6.28);ctx.fillStyle=i<fails?'#ff5b5b':'rgba(255,255,255,0.25)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='center';ctx.fillStyle='#ffd24d';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,W/2,90);}
+
+  if(state==='play'&&phase==='result'&&msg){ctx.textAlign='center';ctx.fillStyle=msgOk?'#9ff0b8':'#ff9a9a';ctx.font='bold 16px sans-serif';ctx.fillText(msg,W/2,H-40);}
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(4,10,7,0.82)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 42px sans-serif';ctx.fillText('壁の下',W/2,92);
+    ctx.fillStyle='#ffd23e';ctx.font='bold 22px sans-serif';ctx.fillText('Under the Wall',W/2,128);
+    ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='16px sans-serif';
+    ctx.fillText('フリーキック。壁は“上”を警戒してジャンプする——その一瞬、足の下の隙間を低い弾道で撃ち抜け',W/2,184);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='14px sans-serif';
+    ctx.fillText('壁がジャンプして足が浮いた瞬間（頂点）にタップ／SPACE＝低いシュートが足の下を通ってゴール',W/2,222);
+    ctx.fillText('跳ぶ前に撃つと足に当たってブロック、着地してから撃ってもブロック（どちらも失敗）',W/2,246);
+    ctx.fillText('ジャンプの頂点ドンピシャで通すほど大量加点。ジャンプのタイミングは毎回わずかに変わる',W/2,270);
+    ctx.fillText('上級ほど壁が速く低く跳び猶予も短い。3失敗で交代',W/2,294);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,362);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best,W/2,394);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(4,10,7,0.84)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 46px sans-serif';ctx.fillText('3失敗…交代',W/2,224);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,292);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='19px sans-serif';ctx.fillText('ゴール '+outs+'   BEST '+best,W/2,332);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,404);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+  ctx.fillText('壁の下：壁がジャンプした頂点で低く撃ち足の下を通す＝ゴール。跳ぶ前/着地後はブロック、3失敗で交代',W/2,H-2);
+}
+function person(x,y,col,s){s=s||1;ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(x,y-15*s,10*s,16*s,0,0,6.28);ctx.fill();
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(x,y-34*s,7.5*s,0,6.28);ctx.fill();}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__utw={
+  start, act:()=>act(),
+  get state(){return state;},
+  get score(){return score;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get info(){return {state,phase,t,openT,w,riseT,tough,decided,result,outs,fails,lvl,
+    pre:(t<openT),airborne:(phase==='live'&&t>=openT&&t<=openT+w),apexT:(openT+w/2),canAct:(phase==='live'&&!decided)};}
+};
+})();
+</script>
+</body>
+</html>
