@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>シミュレーション判定 (Dive or Foul?)</title>
+<style>
+  html,body{margin:0;height:100%;background:#07120b;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  run:()=>{tone(300,0.06,'sine',0.04,60);},
+  contact:()=>{noise(0.06,0.2,300);tone(180,0.06,'square',0.08,-40);},
+  whistle:()=>{tone(1800,0.14,'square',0.08);setTimeout(()=>tone(2000,0.1,'square',0.06),80);},
+  wave:()=>{tone(520,0.1,'triangle',0.08,120);},
+  good:()=>{[680,940,1220].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*55));},
+  big:()=>{[600,800,1000,1250].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.17),i*80));},
+  bad:()=>{noise(0.18,0.22,300);tone(160,0.22,'sawtooth',0.12,-50);},
+  streak:()=>{[700,930,1170,1400].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*60));},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- geometry ----------
+const SPOT={x:452,y:360};      // where the challenge happens
+const BTN=[
+  {k:'pk',   x:150,label:'ファウル！ PK ←',sub:'接触あり＝ペナルティ',col:'#3fc46b'},
+  {k:'dive', x:520,label:'シミュレーション →',sub:'接触なし＝ダイブ',col:'#e0a23b'}
+];
+const BW=230, BY=505, BH=64;
+
+// ---------- state ----------
+let state='title', phase='play', plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('sim_best')||0);
+let outs=0, fails=0, lvl=1;   // outs = correct calls
+let clock=0, revealT=520, callWin=980, kind='foul', tough=false;
+let decided=false, call=null, result=null, resultT=0, msg='', msgOk=false;
+let downU=0;
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[];
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,u){return a+(b-a)*u;}
+function easeOut(u){return 1-Math.pow(1-u,2);}
+
+function reset(){state='title';score=0;combo=0;outs=0;fails=0;lvl=1;plays=0;result=null;parts=[];pops=[];downU=0;}
+
+function newPlay(){
+  plays++; lvl=Math.min(7,1+Math.floor(outs/4));
+  revealT=clamp(560-lvl*24,360,560);
+  callWin=clamp(1020-lvl*70,560,1020);
+  tough=Math.random()<clamp(0.2+lvl*0.05,0.2,0.5);
+  kind=(Math.random()<0.5?'foul':'dive');   // foul=contact (PK) / dive=no contact (simulation)
+  phase='play'; clock=0; decided=false; call=null; result=null; resultT=0; msg=''; msgOk=false; downU=0;
+  S.run();
+}
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; newPlay(); }
+
+function correctCall(){ return kind==='foul'?'pk':'dive'; }
+
+function makeCall(c){
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.4){reset();start();} return; }
+  if(state!=='play'||phase!=='play'||decided) return;
+  if(clock<revealT){ decided=true; call=c; resolve('early'); return; }
+  decided=true; call=c;
+  resolve(c===correctCall()?'good':'wrong');
+}
+
+function resolve(k){
+  phase='result'; result=k; resultT=0;
+  if(k==='good'){
+    outs++; combo++;
+    let add=Math.round((tough?250:150)*(1+Math.min(9,combo-1)*0.14)); score+=add;
+    if(kind==='foul'){S.whistle();} else {S.wave();} setTimeout(S.good,90); if(tough)setTimeout(S.big,150);
+    msgOk=true; flash=1;flashCol='#8affa0';shake=5; burst(SPOT.x,SPOT.y+20,'#8affa0',16,7);
+    pop(W/2,240,(tough?'際どい判定を的中！ +':'好判定！ +')+add,'#d6ffe0');
+    if(combo>=2)pop(W/2,150,'コンボ x'+combo,'#ffd24d');
+    if(combo>0&&combo%5===0)S.streak();
+    msg=(kind==='foul')?'足を刈られて接触あり——ファウルでPKを与えて正解':'接触なしで倒れた——シミュレーション（ダイブ）を見抜いて正解';
+  } else {
+    fails++; combo=0; msgOk=false; flash=1;flashCol='#ff5b5b';shake=9; S.bad();
+    if(k==='early') msg='判断が早い…接触の有無を見極める前に笛を吹くな';
+    else msg=(kind==='foul')?'誤審…足に接触がありPKだった（ダイブと誤判定）':'誤審…接触はなくダイブだった（PKを与えてしまった）';
+    pop(W/2,240,'誤審…','#ffb0b0');
+  }
+  if(fails>=3){ state='over'; resultT=0; S.over(); if(score>best){best=score;localStorage.setItem('sim_best',best);} }
+}
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{e.preventDefault();
+  if(state!=='play'||phase!=='play'){ makeCall('pk'); return; }
+  const r=cv.getBoundingClientRect(); const x=(e.clientX-r.left)/r.width*W, y=(e.clientY-r.top)/r.height*H;
+  for(const b of BTN){ if(x>=b.x&&x<=b.x+BW&&y>=BY&&y<=BY+BH){ makeCall(b.k); return; } }
+  makeCall(x<W*0.5?'pk':'dive');
+});
+addEventListener('keydown',e=>{ if(e.repeat)return;
+  if(e.code==='ArrowLeft'||e.code==='KeyA'){e.preventDefault();makeCall('pk');}
+  else if(e.code==='ArrowRight'||e.code==='KeyD'){e.preventDefault();makeCall('dive');}
+  else if(e.code==='Space'||e.code==='Enter'){e.preventDefault(); if(state!=='play')makeCall('pk');} });
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7);
+  for(const p of parts){p.vx*=0.96;p.vy=p.vy*0.96+0.28;p.x+=p.vx*dt/16.7;p.y+=p.vy*dt/16.7;p.life-=dt/16.7*0.026;}
+  parts=parts.filter(p=>p.life>0);
+  for(const p of pops){p.y-=dt/16.7*0.5;p.life-=dt/16.7*0.02;}
+  pops=pops.filter(p=>p.life>0);
+  const revealed=(phase==='play'&&clock>=revealT)||phase==='result';
+  if(revealed) downU=lerp(downU,1,0.16);   // attacker goes to ground (either way)
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  if(phase==='play'){ clock+=dt;
+    if(clock<revealT) downU=0;
+    if(clock>=revealT && !decided && Math.abs(clock-revealT)<20 && kind==='foul') S.contact();
+    if(!decided && clock>revealT+callWin){ decided=true; call=null; resolve('late'); }
+    return; }
+  if(phase==='result'){ resultT+=dt/1000; if(resultT>1.6) newPlay(); return; }
+}
+
+// ---------- render ----------
+function drawField(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0f5e34');g.addColorStop(0.5,'#12703f');g.addColorStop(1,'#0c4c2b');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  for(let i=0;i<8;i++){ctx.fillStyle=i%2?'rgba(255,255,255,0.03)':'rgba(0,0,0,0.03)';ctx.fillRect(0,i*80,W,80);}
+  // penalty box + spot + arc
+  ctx.strokeStyle='rgba(255,255,255,0.28)';ctx.lineWidth=2;ctx.strokeRect(210,150,480,300);
+  ctx.strokeRect(330,150,240,110);
+  ctx.fillStyle='#e8e4d8';ctx.beginPath();ctx.arc(450,300,4,0,6.28);ctx.fill();   // penalty spot
+  ctx.strokeStyle='#f4f4f4';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(390,150);ctx.lineTo(510,150);ctx.stroke();
+}
+// a standing/falling player
+function player(x,y,col,fall,dir){ // fall 0..1
+  ctx.save();ctx.translate(x,y);
+  if(fall>0.05){ ctx.rotate((dir||1)*fall*1.15);
+    ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(0,0,17*1,10,0,0,6.28);ctx.fill();
+    ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(-20,-4,7.5,0,6.28);ctx.fill();
+    ctx.restore(); return; }
+  ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(0,-16,11,17,0,0,6.28);ctx.fill();
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(0,-38,8,0,6.28);ctx.fill();
+  ctx.restore();
+}
+
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawField();
+
+  if(state==='play'||state==='over'){
+    const revealed=(phase==='play'&&clock>=revealT)||phase==='result';
+    // defender (red) making the challenge — leg extended
+    const dx=SPOT.x+42, dy=SPOT.y-4;
+    player(dx,dy,'#d0403a',0,1);
+    // defender's sliding leg toward the attacker
+    ctx.strokeStyle='#d0403a';ctx.lineWidth=7;ctx.lineCap='round';
+    const legReach=revealed?(kind==='foul'?SPOT.x-2:SPOT.x+14):SPOT.x+22;
+    ctx.beginPath();ctx.moveTo(dx-6,dy-6);ctx.lineTo(legReach,SPOT.y+6);ctx.stroke();ctx.lineCap='butt';
+
+    // attacker (blue) — drives in, then goes down (either way) once revealed
+    player(SPOT.x-8,SPOT.y,'#2b6fd6',downU,-1);
+
+    // contact / no-contact indicator at reveal
+    if(revealed){
+      if(kind==='foul'){
+        ctx.fillStyle='rgba(255,90,80,0.95)';ctx.font='bold 16px sans-serif';ctx.textAlign='center';ctx.fillText('接触あり！',SPOT.x,SPOT.y-52);
+        // contact spark
+        ctx.fillStyle='rgba(255,220,90,0.9)';for(let i=0;i<6;i++){const a=i/6*6.28;ctx.beginPath();ctx.moveTo(SPOT.x,SPOT.y+2);ctx.lineTo(SPOT.x+Math.cos(a)*13,SPOT.y+2+Math.sin(a)*13);ctx.lineTo(SPOT.x+Math.cos(a+0.4)*6,SPOT.y+2+Math.sin(a+0.4)*6);ctx.closePath();ctx.fill();}
+      } else {
+        ctx.fillStyle='rgba(150,220,255,0.95)';ctx.font='bold 16px sans-serif';ctx.textAlign='center';ctx.fillText('接触なし（空振り）',SPOT.x-6,SPOT.y-52);
+        // gap marker between leg and attacker
+        ctx.strokeStyle='rgba(150,220,255,0.9)';ctx.lineWidth=2;ctx.setLineDash([3,3]);
+        ctx.beginPath();ctx.moveTo(legReach,SPOT.y+6);ctx.lineTo(SPOT.x-2,SPOT.y+2);ctx.stroke();ctx.setLineDash([]);
+      }
+    }
+
+    // cue banner + timer
+    ctx.textAlign='center';
+    if(state==='play'&&phase==='play'){
+      if(clock<revealT){ ctx.fillStyle='rgba(255,220,90,0.95)';ctx.font='bold 20px sans-serif';ctx.fillText('ボックス内で交錯！ 接触があったか見極めろ',W/2,50); }
+      else { ctx.fillStyle='rgba(255,220,120,0.98)';ctx.font='bold 22px sans-serif';ctx.fillText('判定！ ファウルか、シミュレーションか',W/2,50);
+        const p=clamp((clock-revealT)/callWin,0,1),bw=250,x=W/2-bw/2,y=62;
+        ctx.fillStyle='rgba(255,255,255,0.18)';ctx.fillRect(x,y,bw,7);ctx.fillStyle=p<0.7?'#8affa0':(p<1?'#ffd24d':'#ff5b5b');ctx.fillRect(x,y,bw*p,7); }
+    }
+
+    if(state==='play'){
+      for(const b of BTN){ const active=phase==='play'&&clock>=revealT;
+        ctx.fillStyle=active?b.col:'rgba(255,255,255,0.10)';rr(b.x,BY,BW,BH,10);ctx.fill();
+        ctx.fillStyle=active?'#08130c':'rgba(255,255,255,0.5)';ctx.textAlign='center';ctx.font='bold 18px sans-serif';ctx.fillText(b.label,b.x+BW/2,BY+27);
+        ctx.font='11px sans-serif';ctx.fillText(b.sub,b.x+BW/2,BY+47); }
+      ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('タップ / ←=PK ・ →=シミュレーション',W/2,BY+BH+18);
+    }
+  }
+
+  for(const p of parts){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const p of pops){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.fillText(p.txt,p.x,p.y);}
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,36);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='14px sans-serif';ctx.fillText('好判定 '+outs+'  Lv'+lvl,W-20,24);
+  ctx.fillText('誤審',W-92,46);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-60+i*20,41,7,0,6.28);ctx.fillStyle=i<fails?'#ff5b5b':'rgba(255,255,255,0.25)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='center';ctx.fillStyle='#ffd24d';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,W/2,112);}
+
+  if(state==='play'&&phase==='result'&&msg){ctx.textAlign='center';ctx.fillStyle=msgOk?'#9ff0b8':'#ff9a9a';ctx.font='bold 16px sans-serif';ctx.fillText(msg,W/2,466);}
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(4,10,7,0.83)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 36px sans-serif';ctx.fillText('シミュレーション判定',W/2,84);
+    ctx.fillStyle='#ffd23e';ctx.font='bold 22px sans-serif';ctx.fillText('Dive or Foul?',W/2,120);
+    ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='16px sans-serif';
+    ctx.fillText('主審として、ボックス内で倒れた選手が“本当にファウルされたか、ダイブ（シミュレーション）か”を判定',W/2,178);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='14px sans-serif';
+    ctx.fillText('カギは接触の有無——足に接触があって倒れた＝ファウルでPK（←/画面左）',W/2,216);
+    ctx.fillText('接触がないのに倒れた＝シミュレーション（ダイブ）＝ノーファウル（→/画面右）',W/2,240);
+    ctx.fillText('選手はどちらでも倒れるので“接触があったか”を見極める。接触が分かる前の判定＝早すぎ',W/2,264);
+    ctx.fillText('誤審は失格ポイント、際どい判定を当てると大量加点。上級ほど速く際どい。3誤審で交代',W/2,288);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,356);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best,W/2,388);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(4,10,7,0.85)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 46px sans-serif';ctx.fillText('3誤審…主審交代',W/2,222);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,290);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='19px sans-serif';ctx.fillText('好判定 '+outs+'   BEST '+best,W/2,330);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,402);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+  ctx.fillText('シミュレーション判定：接触あり＝ファウル(PK)／接触なしで倒れた＝ダイブ(ノーファウル)。早判定/誤審は失敗、3つで交代',W/2,H-8);
+}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__sim={
+  start, makeCall:(c)=>makeCall(c),
+  get state(){return state;},
+  get score(){return score;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get info(){return {state,phase,clock,revealT,callWin,kind,tough,decided,call,result,outs,fails,lvl,
+    revealed:(clock>=revealT),correctCall:correctCall(),canAct:(phase==='play'&&!decided)};}
+};
+})();
+</script>
+</body>
+</html>
