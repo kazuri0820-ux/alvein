@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>GKをだましてフィニッシュ (Sell the Keeper)</title>
+<style>
+  html,body{margin:0;height:100%;background:#06110a;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  fake:()=>{tone(420,0.05,'square',0.08,60);},
+  goal:()=>{noise(0.05,0.1,600);[560,820,1080,1360].forEach((f,i)=>setTimeout(()=>tone(f,0.11,'triangle',0.17),i*52));},
+  bad:()=>{noise(0.18,0.22,300);tone(160,0.2,'sawtooth',0.12,-50);},
+  streak:()=>{[700,930,1170,1400].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*60));},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- geometry ----------
+const YOU={x:640,y:340}, GOALX=120, GY0=H/2-78, GY1=H/2+78;
+
+// ---------- state ----------
+let state='title', phase='closein', t=0, plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('sk_best')||0);
+let outs=0, fails=0, lvl=1;   // outs = goals
+let clock=0, sellIdeal=520, sellW=140, turnIdeal=300, turnW=130, sellGrace=90;
+let acted=false, faked=false, fakeAt=0, result=null, resultT=0, msg='', animU=0, quick=false, gkSide=1;
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[];
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,u){return a+(b-a)*u;}
+function easeOut(u){return 1-Math.pow(1-u,2);}
+
+function params(){ return {
+  sellIdeal:rnd(440,640)-lvl*6,
+  sellW:Math.max(90,150-lvl*8),
+  turnIdeal:rnd(250,360),
+  turnW:Math.max(90,150-lvl*8)
+};}
+
+function reset(){state='title';score=0;combo=0;outs=0;fails=0;lvl=1;plays=0;result=null;parts=[];pops=[];}
+function newPlay(){
+  plays++; lvl=Math.min(7,1+Math.floor(outs/4));
+  const p=params(); sellIdeal=Math.max(300,p.sellIdeal); sellW=p.sellW; turnIdeal=p.turnIdeal; turnW=p.turnW;
+  gkSide=Math.random()<0.5?-1:1;   // which way the GK commits (you finish the other way)
+  phase='closein'; clock=0; acted=false; faked=false; fakeAt=0; result=null; resultT=0; msg=''; animU=0; quick=false;
+}
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; newPlay(); }
+
+function act(){
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.4){reset();start();} return; }
+  if(state!=='play') return;
+  if(phase==='closein'&&!faked){
+    const err=clock-sellIdeal;
+    if(err< -sellW){ acted=true; resolve('earlyFake'); return; }   // too far out, GK doesn't buy it
+    if(err> sellW){ acted=true; resolve('lateFake'); return; }     // too close, GK smothers
+    faked=true; fakeAt=clock; S.fake(); phase='finish'; clock=0;    // good fake -> GK commits/dives
+    return;
+  }
+  if(phase==='finish'&&!acted){
+    const err=clock-turnIdeal;
+    if(err< -turnW){ acted=true; resolve('earlyTurn'); return; }    // GK hasn't committed yet -> straight at him
+    if(err> turnW){ acted=true; resolve('lateTurn'); return; }      // GK recovered
+    acted=true; quick=Math.abs(err)<=turnW*0.4; resolve('escaped');
+    return;
+  }
+}
+
+function resolve(k){
+  phase='result'; result=k; resultT=0; animU=0;
+  if(k==='escaped'){
+    outs++; combo++;
+    let add=Math.round((quick?240:140)*(1+Math.min(9,combo-1)*0.14)); S.goal();
+    flash=1;flashCol='#8affa0';shake=9; burst(GOALX+40,H/2,'#8affa0',22,8);
+    pop(W/2,150,quick?'GKを完全に外して流し込み！ +'+add:'GKを釣ってゴール！ +'+add,'#d6ffe0');
+    score+=add;
+    if(combo>=2&&!quick)pop(W/2,190,'コンボ x'+combo,'#ffd24d');
+    if(combo>0&&combo%5===0)S.streak();
+    msg=quick?'狙い澄ましたシュートフェイクでGKの重心を外し、逆サイドへ流し込んだ！':'シュートと見せてGKを釣り、空いた逆サイドへ決めた！';
+  } else {
+    fails++; combo=0; flash=1;flashCol='#ff5b5b';shake=8; S.bad();
+    if(result==='earlyFake') msg='フェイクが早い…まだ遠く、GKが食いつかず正面で構えられた';
+    else if(result==='lateFake') msg='フェイクが遅い…間合いを詰められ、GKに突っ込まれてブロックされた';
+    else if(result==='earlyTurn') msg='決めるのが早い…GKがまだ動く前で、正面に止められた';
+    else msg='決めるのが遅い…GKが体勢を立て直してセーブ';
+    pop(W/2,150,(result==='earlyFake'||result==='lateFake')?'フェイク失敗…':'セーブされた…','#ffb0b0');
+  }
+  if(fails>=3){ state='over'; resultT=0; S.over(); if(score>best){best=score;localStorage.setItem('sk_best',best);} }
+}
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{e.preventDefault();act();});
+addEventListener('keydown',e=>{ if(e.repeat)return; if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'||e.code==='KeyZ'){e.preventDefault();act();} });
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7);
+  for(const p of parts){p.vx*=0.96;p.vy=p.vy*0.96+0.28;p.x+=p.vx*dt/16.7;p.y+=p.vy*dt/16.7;p.life-=dt/16.7*0.026;}
+  parts=parts.filter(p=>p.life>0);
+  for(const p of pops){p.y-=dt/16.7*0.5;p.life-=dt/16.7*0.02;}
+  pops=pops.filter(p=>p.life>0);
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  t+=dt;
+  if(phase==='closein'){ clock+=dt; if(!acted && clock>sellIdeal+sellW+sellGrace){ acted=true; resolve('lateFake'); } return; }
+  if(phase==='finish'){ clock+=dt; if(!acted && clock>turnIdeal+turnW){ acted=true; resolve('lateTurn'); } return; }
+  if(phase==='result'){ resultT+=dt/1000; animU=Math.min(1,animU+dt/620); if(resultT>1.3 && state==='play') newPlay(); return; }
+}
+
+// ---------- render ----------
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function figure(x,y,col,sc,lean){ sc=sc||1; lean=lean||0;
+  ctx.fillStyle='rgba(0,0,0,0.22)';ctx.beginPath();ctx.ellipse(x,y+13*sc,12*sc,4*sc,0,0,6.28);ctx.fill();
+  ctx.save();ctx.translate(x,y);ctx.rotate(lean);
+  ctx.fillStyle=col;rr(-7*sc,-22*sc,14*sc,24*sc,6*sc);ctx.fill();
+  ctx.fillStyle='#f2c9a0';ctx.beginPath();ctx.arc(0,-27*sc,6*sc,0,6.28);ctx.fill();
+  ctx.restore();
+}
+function drawScene(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0f3d24');g.addColorStop(0.6,'#12653a');g.addColorStop(1,'#0c4d2c');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  for(let i=0;i<7;i++){ ctx.fillStyle=i%2?'rgba(255,255,255,0.03)':'rgba(0,0,0,0.03)'; ctx.fillRect(0,50+i*80,W,80); }
+  // goal at left with net
+  ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(GOALX-40,GY0,40,GY1-GY0);
+  ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;
+  for(let y=GY0;y<=GY1;y+=12){ctx.beginPath();ctx.moveTo(GOALX-40,y);ctx.lineTo(GOALX,y);ctx.stroke();}
+  for(let x=GOALX-40;x<=GOALX;x+=13){ctx.beginPath();ctx.moveTo(x,GY0);ctx.lineTo(x,GY1);ctx.stroke();}
+  ctx.strokeStyle='#eef3f0';ctx.lineWidth=5;
+  ctx.beginPath();ctx.moveTo(GOALX,GY0);ctx.lineTo(GOALX,GY1);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(GOALX-40,GY0);ctx.lineTo(GOALX,GY0);ctx.moveTo(GOALX-40,GY1);ctx.lineTo(GOALX,GY1);ctx.stroke();
+  // penalty arc hint
+  ctx.strokeStyle='rgba(255,255,255,0.14)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(GOALX,H/2,300,-0.9,0.9);ctx.stroke();
+}
+
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawScene();
+
+  if(state==='play'){
+    // GK: closes down the angle during 'closein', commits/dives during 'finish'
+    let gx, gy=YOU.y, gl=0;
+    if(phase==='closein'){ gx=lerp(GOALX+40, YOU.x-120, clamp(clock/(sellIdeal+sellW),0,1)); }
+    else if(phase==='finish'){ const u=clamp(clock/(turnIdeal+turnW),0,1); gx=lerp(YOU.x-120, YOU.x-150, u); gy=YOU.y+gkSide*60*easeOut(u); gl=gkSide*0.7*easeOut(u); }
+    else { // result
+      if(result==='escaped'){ gx=YOU.x-150; gy=YOU.y+gkSide*74; gl=gkSide*0.9; }        // dived the wrong way
+      else if(result==='earlyTurn'){ gx=YOU.x-140; gy=YOU.y; }                            // still central
+      else if(result==='lateTurn'){ gx=YOU.x-150; gy=YOU.y+gkSide*30; gl=gkSide*0.4; }    // recovered
+      else if(result==='lateFake'){ gx=YOU.x-40; gy=YOU.y; }                              // smothered you
+      else { gx=YOU.x-150; gy=YOU.y; }                                                    // earlyFake: stayed set
+    }
+    figure(gx, gy, '#ffd23e', 1.05, gl);
+
+    // you
+    let yx=YOU.x, yy=YOU.y, ylean=0;
+    if(phase==='result'&&result==='escaped'){ yx=lerp(YOU.x, YOU.x-40, easeOut(animU)); }
+    figure(yx, yy, '#3aa0ff', 1.0, ylean);
+
+    // ball
+    let bx=yx-14, by=yy+12;
+    if(phase==='closein'||phase==='finish'){ bx=yx-16; by=yy+12; }
+    if(phase==='result'){
+      if(result==='escaped'){ const u=easeOut(animU); bx=lerp(yx-16, GOALX-6, u); by=lerp(yy+12, H/2-gkSide*46, u); }
+      else if(result==='earlyTurn'||result==='lateTurn'){ const u=easeOut(animU); bx=lerp(yx-16, YOU.x-142, u); by=lerp(yy+12, YOU.y+ (result==='lateTurn'?gkSide*24:0), u); }
+      else if(result==='lateFake'){ bx=yx-30; by=yy+12; }
+      else { bx=yx-16; by=yy+12; }
+    }
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,7,0,6.28);ctx.fill();
+    ctx.strokeStyle='#222';ctx.lineWidth=1;ctx.beginPath();ctx.arc(bx,by,7,0.4,2.2);ctx.stroke();
+
+    // beat cues + timing rings
+    if(phase==='closein'){
+      const inWin=Math.abs(clock-sellIdeal)<=sellW;
+      ctx.strokeStyle=inWin?'rgba(140,255,160,0.95)':'rgba(255,220,90,0.7)';ctx.lineWidth=4;
+      const rem=clamp(1-clock/(sellIdeal),0,1);
+      ctx.beginPath();ctx.arc(YOU.x, YOU.y-2, 16+rem*46, 0, 6.28);ctx.stroke();
+      ctx.textAlign='center';ctx.fillStyle=inWin?'rgba(140,255,160,0.95)':'rgba(255,255,255,0.85)';ctx.font='bold 16px sans-serif';
+      ctx.fillText(inWin?'① 今だ！ シュートフェイクでGKを釣れ':'① GKを引きつけて…',W/2,44);
+    } else if(phase==='finish'){
+      const inWin=Math.abs(clock-turnIdeal)<=turnW;
+      ctx.strokeStyle=inWin?'rgba(140,255,160,0.95)':'rgba(255,220,90,0.7)';ctx.lineWidth=4;
+      const rem=clamp(1-clock/(turnIdeal),0,1);
+      ctx.beginPath();ctx.arc(YOU.x, YOU.y-2, 16+rem*46, 0, 6.28);ctx.stroke();
+      ctx.textAlign='center';ctx.fillStyle=inWin?'rgba(140,255,160,0.95)':'rgba(255,255,255,0.85)';ctx.font='bold 16px sans-serif';
+      ctx.fillText(inWin?'② 今だ！ 空いた逆サイドへ流し込め':'② GKが食いついた…引きつけて',W/2,44);
+    }
+  }
+
+  for(const p of parts){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const p of pops){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.fillText(p.txt,p.x,p.y);}
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,36);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='14px sans-serif';ctx.fillText('得点 '+outs+'  Lv'+lvl,W-20,24);
+  ctx.fillText('セーブ',W-104,46);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-60+i*20,41,7,0,6.28);ctx.fillStyle=i<fails?'#ff5b5b':'rgba(255,255,255,0.25)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='center';ctx.fillStyle='#ffd24d';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,W/2,112);}
+
+  if(state==='play'&&phase==='result'&&msg){ctx.textAlign='center';ctx.fillStyle=result==='escaped'?'#9ff0b8':'#ff9a9a';ctx.font='bold 17px sans-serif';ctx.fillText(msg,W/2,476);}
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(4,10,7,0.78)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 38px sans-serif';ctx.fillText('GKをだましてフィニッシュ',W/2,100);
+    ctx.fillStyle='#ffd23e';ctx.font='bold 22px sans-serif';ctx.fillText('Sell the Keeper',W/2,136);
+    ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='16px sans-serif';
+    ctx.fillText('GKと1対1——シュートと見せてGKを食いつかせ、外した逆サイドへ流し込む“2拍”のフィニッシュ',W/2,188);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='14px sans-serif';
+    ctx.fillText('① 迫るGKに“ちょうど”の間合い（緑リング）でシュートフェイク（タップ/クリック/SPACE）',W/2,226);
+    ctx.fillText('　早いとGKが食いつかず、遅いと間合いを詰められてブロック',W/2,250);
+    ctx.fillText('② フェイクに食いついてGKが跳んだ“その瞬間”（緑リング）にもう一度＝空いた逆へ流し込む',W/2,274);
+    ctx.fillText('　早いとGKの正面、遅いと立て直されてセーブ。2拍を素早く決めるほど高得点',W/2,298);
+    ctx.fillText('上級ほどGKの寄せが速く間合いも一瞬。3セーブで交代',W/2,322);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,384);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best,W/2,416);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(4,10,7,0.84)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 46px sans-serif';ctx.fillText('3セーブ…交代',W/2,222);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,290);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='19px sans-serif';ctx.fillText('得点 '+outs+'   BEST '+best,W/2,330);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,402);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+  ctx.fillText('GKをだましてフィニッシュ：①間合いでシュートフェイク→②GKが跳んだ瞬間に逆サイドへ流し込む2拍。早い/遅いは失敗、3セーブで交代',W/2,H-8);
+}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__sk={
+  start, act:()=>act(),
+  get state(){return state;},
+  get score(){return score;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get info(){return {state,phase,clock,sellIdeal,sellW,turnIdeal,turnW,faked,acted,result,outs,fails,lvl,gkSide,
+    canAct:((phase==='closein'&&!faked)||(phase==='finish'&&!acted))};}
+};
+})();
+</script>
+</body>
+</html>
