@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ライン際を締めろ (Guard the Line)</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0d08;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  crack:()=>{noise(0.04,0.16,500);tone(240,0.06,'square',0.08,-30);},
+  glove:()=>{noise(0.05,0.2,900);tone(230,0.05,'square',0.08,-60);},
+  out:()=>{[640,900,1180].forEach((f,i)=>setTimeout(()=>tone(f,0.11,'triangle',0.16),i*56));},
+  big:()=>{[600,800,1000,1250].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.17),i*80));},
+  double:()=>{noise(0.14,0.18,300);setTimeout(()=>tone(180,0.16,'sawtooth',0.12,-40),40);},
+  streak:()=>{[700,930,1170,1400].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*60));},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- geometry (home -> third baseman -> LF corner, along the line) ----------
+const HOME={x:452,y:544}, FIELD={x:256,y:309}, CORNER={x:92,y:112};
+
+// ---------- state ----------
+let state='title', phase='hit', plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('gl_best')||0);
+let outs=0, fails=0, lvl=1;   // outs = balls speared at the line
+let clock=0, arriveT=880, w=140, tough=false;
+let acted=false, actT=0, result=null, resultT=0, msg='', msgOk=false, quality=0, gone=0;
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[];
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,u){return a+(b-a)*u;}
+function easeOut(u){return 1-Math.pow(1-u,2);}
+
+function reset(){state='title';score=0;combo=0;outs=0;fails=0;lvl=1;plays=0;result=null;parts=[];pops=[];}
+
+function newPlay(){
+  plays++; lvl=Math.min(7,1+Math.floor(outs/4));
+  arriveT=clamp(900-lvl*52,560,900);
+  w=clamp(148-lvl*10,86,148);
+  tough=Math.random()<clamp(0.2+lvl*0.05,0.2,0.5);
+  if(tough)w*=0.8;
+  phase='hit'; clock=0; acted=false; actT=0; result=null; resultT=0; msg=''; msgOk=false; quality=0; gone=0;
+  S.crack();
+}
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; newPlay(); }
+
+function snag(){
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.4){reset();start();} return; }
+  if(state!=='play'||phase!=='hit'||acted) return;
+  acted=true; actT=clock; S.glove();
+  if(clock<arriveT-w){ resolve('early'); }
+  else if(clock<=arriveT+w){ quality=1-Math.abs(clock-arriveT)/w; resolve('out'); }
+  else resolve('late');
+}
+
+function resolve(k){
+  phase='result'; result=k; resultT=0; gone=0;
+  if(k==='out'){
+    outs++; combo++;
+    const perfect=quality>=0.8;
+    let add=Math.round((tough?250:150)*(1+Math.min(9,combo-1)*0.14)); score+=add;
+    setTimeout(S.out,40); if(perfect||tough)setTimeout(S.big,150);
+    msgOk=true; flash=1;flashCol='#8affa0';shake=5; burst(FIELD.x,FIELD.y,'#8affa0',15,6);
+    pop(W/2,186,(perfect?'ライン際で完璧に締めた！美技！ +':'バックハンドで好捕！アウト！ +')+add,'#d6ffe0');
+    if(combo>=2)pop(W/2,150,'コンボ x'+combo,'#ffd24d');
+    if(combo>0&&combo%5===0)S.streak();
+    msg='三塁線への痛烈な当たりをバックハンドで刺し、二塁打を消した——ライン際の美技';
+  } else {
+    fails++; combo=0; msgOk=false; flash=1;shake=8; S.double();
+    if(k==='early'){ flashCol='#ff5b5b'; msg='早い…グラブを出すのが早く、打球が下を抜けた——三塁線を破られて二塁打'; pop(W/2,186,'下を抜かれた…二塁打','#ffb0b0'); }
+    else if(k==='late'){ flashCol='#ff8b3b'; msg='遅い…速い当たりにグラブが遅れ、横を抜かれた——ライン際を破られて二塁打'; pop(W/2,186,'抜かれた…二塁打','#ffcf9a'); }
+    else { flashCol='#ff5b5b'; msg='反応できず…痛烈な当たりがライン際を破って長打'; pop(W/2,186,'破られた…二塁打','#ffb0b0'); }
+  }
+  if(fails>=3){ state='over'; resultT=0; S.over(); if(score>best){best=score;localStorage.setItem('gl_best',best);} }
+}
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{e.preventDefault();snag();});
+addEventListener('keydown',e=>{ if(e.repeat)return;
+  if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'||e.code==='KeyF'||e.code==='KeyJ'){e.preventDefault();snag();} });
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// grounder along the line: home -> fielder (u=1) -> corner
+function ballPos(){
+  const u=clock/arriveT;
+  if(u<=1){ const e=0.15*u+0.85*easeOut(u); return {x:lerp(HOME.x,FIELD.x,e), y:lerp(HOME.y,FIELD.y,e), u}; }
+  const v=clamp((u-1)/0.85,0,1);
+  return {x:lerp(FIELD.x,CORNER.x,v), y:lerp(FIELD.y,CORNER.y,v), u};
+}
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7);
+  for(const q of parts){q.vx*=0.96;q.vy=q.vy*0.96+0.28;q.x+=q.vx*dt/16.7;q.y+=q.vy*dt/16.7;q.life-=dt/16.7*0.026;}
+  parts=parts.filter(q=>q.life>0);
+  for(const q of pops){q.y-=dt/16.7*0.5;q.life-=dt/16.7*0.02;}
+  pops=pops.filter(q=>q.life>0);
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  if(phase==='hit'){ clock+=dt;
+    if(!acted && clock>arriveT+w*2){ acted=true; actT=clock; resolve('miss'); }
+    return; }
+  if(phase==='result'){ resultT+=dt/1000; gone=Math.min(1,gone+dt/460);
+    if(resultT>1.5) newPlay(); return; }
+}
+
+// ---------- render ----------
+function drawField(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#123a1f');g.addColorStop(0.5,'#0f5e34');g.addColorStop(1,'#0c4c2b');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // infield dirt wedge around home & the third-base side
+  ctx.fillStyle='#6a4a30';ctx.beginPath();ctx.moveTo(HOME.x,HOME.y);ctx.lineTo(760,HOME.y);ctx.lineTo(560,150);ctx.lineTo(HOME.x-40,200);ctx.closePath();ctx.fill();
+  // the third-base foul line (home -> corner), extended
+  ctx.strokeStyle='rgba(245,245,245,0.92)';ctx.lineWidth=4;ctx.setLineDash([]);
+  ctx.beginPath();ctx.moveTo(HOME.x,HOME.y);ctx.lineTo(CORNER.x,CORNER.y);ctx.stroke();
+  // third base bag near the fielder
+  ctx.save();ctx.translate(FIELD.x+30,FIELD.y+34);ctx.rotate(0.72);ctx.fillStyle='#e8e4d8';ctx.fillRect(-13,-13,26,26);ctx.restore();
+  // home plate
+  ctx.fillStyle='#e8e4d8';ctx.beginPath();ctx.moveTo(HOME.x-13,HOME.y-9);ctx.lineTo(HOME.x+13,HOME.y-9);ctx.lineTo(HOME.x+13,HOME.y+1);ctx.lineTo(HOME.x,HOME.y+12);ctx.lineTo(HOME.x-13,HOME.y+1);ctx.closePath();ctx.fill();
+}
+function person(x,y,col,s,lean){s=s||1;lean=lean||0;
+  ctx.save();ctx.translate(x,y);ctx.rotate(lean);
+  ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(0,-15*s,10*s,15*s,0,0,6.28);ctx.fill();
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(0,-34*s,7.5*s,0,6.28);ctx.fill();
+  ctx.restore();
+}
+
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawField();
+
+  if(state==='play'||state==='over'){
+    // batter at home
+    person(HOME.x-30,HOME.y-40,'#c23a3a',0.82,0.2);
+
+    // you: third baseman guarding the line; dive-lean toward the line on a snag
+    const diving=(phase==='result'&&result==='out');
+    const gl=diving?-0.5:0;
+    person(FIELD.x, FIELD.y, '#2b6fd6', 0.98, gl);
+    // glove reach toward the line when snagging
+    if(diving){ ctx.fillStyle='#5a3d1a';ctx.beginPath();ctx.arc(FIELD.x-14,FIELD.y-20,9,0,6.28);ctx.fill(); }
+
+    // the ball along the line
+    let bx,by;
+    if(phase==='hit'){ const p=ballPos(); bx=p.x; by=p.y; }
+    else {
+      if(result==='out'){ bx=FIELD.x-14; by=FIELD.y-20; }              // in the glove at the line
+      else { const u=easeOut(gone); const v=0.35+0.65*u;               // skips past down the line to the corner
+        bx=lerp(FIELD.x,CORNER.x,v); by=lerp(FIELD.y,CORNER.y,v); }
+    }
+    if(!(phase==='result'&&result==='out'&&gone>0.4)){
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,7,0,6.28);ctx.fill();
+      ctx.strokeStyle='#c33';ctx.lineWidth=1.1;ctx.beginPath();ctx.arc(bx,by,7,0.4,2.2);ctx.stroke();
+    }
+
+    // cue banner + timing bar
+    ctx.textAlign='center';
+    if(state==='play'&&phase==='hit'){
+      ctx.fillStyle='rgba(255,220,90,0.96)';ctx.font='bold 20px sans-serif';ctx.fillText('ライン際へ痛烈な当たり！ グラブで締めろ',W/2,42);
+      const bw=280,x=W/2-bw/2,y=56, span=arriveT+w*2.2;
+      ctx.fillStyle='rgba(255,255,255,0.16)';ctx.fillRect(x,y,bw,9);
+      const gx0=x+bw*clamp((arriveT-w)/span,0,1), gx1=x+bw*clamp((arriveT+w)/span,0,1);
+      ctx.fillStyle='rgba(90,240,130,0.5)';ctx.fillRect(gx0,y,gx1-gx0,9);
+      const px=x+bw*clamp(clock/span,0,1);
+      ctx.fillStyle='#ffe14d';ctx.fillRect(px-2,y-3,4,15);
+      ctx.fillStyle='rgba(255,255,255,0.55)';ctx.font='12px sans-serif';ctx.fillText('タップ / SPACE ＝ グラブで捕る（早いと下を抜かれ・遅いと横を抜かれる）',W/2,H-28);
+    }
+  }
+
+  for(const q of parts){ctx.globalAlpha=Math.max(0,q.life);ctx.fillStyle=q.c;ctx.beginPath();ctx.arc(q.x,q.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const q of pops){ctx.globalAlpha=Math.max(0,q.life);ctx.fillStyle=q.c;ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.fillText(q.txt,q.x,q.y);}
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,36);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='14px sans-serif';ctx.fillText('好捕 '+outs+'  Lv'+lvl,W-20,24);
+  ctx.fillText('二塁打',W-108,46);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-60+i*20,41,7,0,6.28);ctx.fillStyle=i<fails?'#ff5b5b':'rgba(255,255,255,0.25)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='center';ctx.fillStyle='#ffd24d';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,W/2,110);}
+
+  if(state==='play'&&phase==='result'&&msg){ctx.textAlign='center';ctx.fillStyle=msgOk?'#9ff0b8':'#ffb38a';ctx.font='bold 15px sans-serif';ctx.fillText(msg,W/2,470);}
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(4,8,4,0.83)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('ライン際を締めろ',W/2,84);
+    ctx.fillStyle='#ffd23e';ctx.font='bold 22px sans-serif';ctx.fillText('Guard the Line',W/2,120);
+    ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='16px sans-serif';
+    ctx.fillText('三塁手として、三塁線を破ろうとする痛烈な当たりをバックハンドで締め、二塁打を消し続ける反射勝負',W/2,180);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='14px sans-serif';
+    ctx.fillText('ライン際へ鋭いゴロが飛ぶ——自分に到達する“ちょうど”の緑窓でタップ/SPACE＝グラブで捕る',W/2,218);
+    ctx.fillText('早い＝グラブを出すのが早く打球が下を抜ける／遅い＝速い当たりに遅れて横を抜かれる（どちらも二塁打）',W/2,242);
+    ctx.fillText('ジャストで締めれば好捕＝アウト。ど真ん中で仕留めるほど大量加点',W/2,266);
+    ctx.fillText('上級ほど当たりが速く窓が狭い。3二塁打を許すと交代',W/2,290);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,356);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best,W/2,388);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(4,8,4,0.85)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 46px sans-serif';ctx.fillText('3二塁打…交代',W/2,222);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,290);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='19px sans-serif';ctx.fillText('好捕 '+outs+'   BEST '+best,W/2,330);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,402);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+  ctx.fillText('ライン際を締めろ：三塁線への痛烈な当たりをジャストで捕ればアウト。早い＝下を抜かれ/遅い＝横を抜かれ二塁打、3つで交代',W/2,H-8);
+}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__gl={
+  start, snag,
+  get state(){return state;},
+  get score(){return score;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get info(){return {state,phase,clock,arriveT,w,tough,acted,actT,result,outs,fails,lvl,
+    inWin:(phase==='hit'&&Math.abs(clock-arriveT)<=w)};}
+};
+})();
+</script>
+</body>
+</html>
