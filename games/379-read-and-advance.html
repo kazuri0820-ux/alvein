@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>打球を読んで進め (Read and Advance)</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0d08;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  hit:()=>{noise(0.04,0.16,1100);tone(400,0.05,'square',0.08,-100);},
+  go:()=>{tone(520,0.08,'triangle',0.10);},
+  safe:()=>{[620,880,1150].forEach((f,i)=>setTimeout(()=>tone(f,0.11,'triangle',0.16),i*56));},
+  big:()=>{[600,800,1000,1250].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.17),i*80));},
+  bad:()=>{noise(0.2,0.24,260);tone(150,0.24,'sawtooth',0.13,-50);},
+  streak:()=>{[700,930,1170,1400].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*60));},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- geometry ----------
+const SECOND={x:452,y:170}, THIRD={x:232,y:320}, FIRST={x:672,y:320}, HOME={x:452,y:474};
+const RLEAD={x:410,y:196};                              // runner leading off second toward third
+function runnerPos(fr){ return {x:lerp(RLEAD.x,THIRD.x+16,easeOut(fr)), y:lerp(RLEAD.y,THIRD.y-6,easeOut(fr))}; }
+const HITL={x:322,y:352}, HITR={x:598,y:356};            // grounder fielded left (SS/3B) or right (1B/2B)
+
+// ---------- state ----------
+let state='title', phase='set', plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('rn_best')||0);
+let outs=0, fails=0, lvl=1;   // outs = correct reads (safe advances + correct holds)
+let clock=0, revealT=520, callWin=980, call='ADVANCE', tough=false;   // ADVANCE=grounder right side(GOなら正解) / HOLD=left side(自重が正解)
+let decided=false, acted=false, result=null, resultT=0, msg='', msgOk=false, anim=0;
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[];
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,u){return a+(b-a)*u;}
+function easeOut(u){return 1-Math.pow(1-u,2);}
+function ballSpot(){ return call==='ADVANCE'?HITR:HITL; }
+
+function reset(){state='title';score=0;combo=0;outs=0;fails=0;lvl=1;plays=0;result=null;parts=[];pops=[];}
+
+function newPlay(){
+  plays++; lvl=Math.min(7,1+Math.floor(outs/4));
+  revealT=clamp(560-lvl*24,360,560);
+  callWin=clamp(1020-lvl*70,560,1020);
+  tough=Math.random()<clamp(0.2+lvl*0.05,0.2,0.5);
+  call=(Math.random()<0.5?'ADVANCE':'HOLD');
+  phase='set'; clock=0; decided=false; acted=false; result=null; resultT=0; msg=''; msgOk=false; anim=0;
+  S.hit();
+}
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; newPlay(); }
+
+function go(){   // break for third
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.4){reset();start();} return; }
+  if(state!=='play'||phase!=='set'||decided) return;
+  decided=true; acted=true; S.go();
+  if(clock<revealT){ resolve('early'); return; }
+  resolve(call==='ADVANCE'?'safe':'tagged');
+}
+
+function resolve(k){
+  phase='result'; result=k; resultT=0; anim=0;
+  if(k==='safe'||k==='held'){
+    outs++; combo++;
+    let add=Math.round((tough?230:150)*(1+Math.min(9,combo-1)*0.14)); score+=add;
+    setTimeout(S.safe,120); if(tough)setTimeout(S.big,200);
+    msgOk=true; flash=1;flashCol='#8affa0';shake=5; burst(k==='safe'?THIRD.x:SECOND.x,k==='safe'?THIRD.y:SECOND.y,'#8affa0',16,7);
+    pop(W/2,250,(k==='safe'?'右方向へのゴロ——一気に三塁へ！好走塁！ +':'左方向のゴロは自重が正解——無理せずキープ！ +')+add,'#d6ffe0');
+    if(combo>=2)pop(W/2,214,'コンボ x'+combo,'#ffd24d');
+    if(combo>0&&combo%5===0)S.streak();
+    msg=(k==='safe')?'一・二塁間へのゴロで打球が背後（右方向）へ——迷わずスタートを切って楽々三塁へ進塁！':'三遊間（左方向）のゴロは目の前——飛び出せば刺される、冷静に二塁で止まって正解！';
+  } else {
+    fails++; combo=0; msgOk=false; flash=1;flashCol='#ff5b5b';shake=9; S.bad();
+    if(k==='early') msg='判断が早い…打球の方向が分かる前に飛び出し、正面のゴロを処理した野手に戻れず刺された';
+    else if(k==='tagged') msg='突っ込み過ぎ…左方向（三遊間）のゴロなのに走り、目の前の野手にタッチアウト（走塁死）';
+    else msg='自重し過ぎ…右方向のゴロで進める場面を見送り、進塁のチャンスを逃した（消極）';
+    pop(W/2,250,(k==='tagged')?'走塁死…':(k==='early')?'飛び出し…':'好機逸…','#ffb0b0');
+  }
+  if(fails>=3){ state='over'; resultT=0; S.over(); if(score>best){best=score;localStorage.setItem('rn_best',best);} }
+}
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{e.preventDefault();
+  if(state!=='play'||phase!=='set'){ go(); return; }
+  // tap the left side of the screen = HOLD (do nothing effectively), right/anywhere = GO. Simpler: any tap = GO (break for third).
+  go();
+});
+addEventListener('keydown',e=>{ if(e.repeat)return;
+  if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'||e.code==='ArrowLeft'||e.code==='KeyF'){e.preventDefault();go();} });
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7);
+  for(const p of parts){p.vx*=0.96;p.vy=p.vy*0.96+0.28;p.x+=p.vx*dt/16.7;p.y+=p.vy*dt/16.7;p.life-=dt/16.7*0.026;}
+  parts=parts.filter(p=>p.life>0);
+  for(const p of pops){p.y-=dt/16.7*0.5;p.life-=dt/16.7*0.02;}
+  pops=pops.filter(p=>p.life>0);
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  if(phase==='set'){ const wasBefore=clock<revealT; clock+=dt;
+    if(wasBefore&&clock>=revealT)S.go();
+    if(clock>=revealT) anim=Math.min(1,anim+dt/240);
+    if(!decided && clock>revealT+callWin){ decided=true; resolve(call==='HOLD'?'held':'missed'); }  // no break: correct only if HOLD
+    return; }
+  if(phase==='result'){ resultT+=dt/1000; anim=Math.min(1,anim+dt/360); if(resultT>1.55) newPlay(); return; }
+}
+
+// ---------- render ----------
+function drawScene(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#12703f');g.addColorStop(0.5,'#0f5e34');g.addColorStop(1,'#0c4c2b');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // infield dirt diamond
+  ctx.fillStyle='#6a4a30';ctx.beginPath();ctx.moveTo(HOME.x,HOME.y+22);ctx.lineTo(FIRST.x+24,FIRST.y);ctx.lineTo(SECOND.x,SECOND.y-24);ctx.lineTo(THIRD.x-24,THIRD.y);ctx.closePath();ctx.fill();
+  // basepaths
+  ctx.strokeStyle='rgba(230,210,150,0.5)';ctx.lineWidth=7;
+  ctx.beginPath();ctx.moveTo(HOME.x,HOME.y);ctx.lineTo(FIRST.x,FIRST.y);ctx.lineTo(SECOND.x,SECOND.y);ctx.lineTo(THIRD.x,THIRD.y);ctx.closePath();ctx.stroke();
+  // bags
+  for(const B of [FIRST,SECOND,THIRD]){ ctx.save();ctx.translate(B.x,B.y);ctx.rotate(0.785);ctx.fillStyle='#eef0f2';ctx.fillRect(-10,-10,20,20);ctx.restore(); }
+  ctx.fillStyle='#eef0f2';ctx.beginPath();ctx.moveTo(HOME.x-13,HOME.y-7);ctx.lineTo(HOME.x+13,HOME.y-7);ctx.lineTo(HOME.x+13,HOME.y+2);ctx.lineTo(HOME.x,HOME.y+13);ctx.lineTo(HOME.x-13,HOME.y+2);ctx.closePath();ctx.fill();
+}
+function person(x,y,col,s,lean){s=s||1;lean=lean||0;
+  ctx.save();ctx.translate(x,y);ctx.rotate(lean);
+  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,13*s,10*s,4*s,0,0,6.28);ctx.fill();
+  ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(0,-14*s,9*s,14*s,0,0,6.28);ctx.fill();
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(0,-31*s,7*s,0,6.28);ctx.fill();
+  ctx.restore();
+}
+function slider(x,y,col,lean){ ctx.save();ctx.translate(x,y);ctx.rotate(lean);
+  ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(0,-6,16,8,0,0,6.28);ctx.fill();
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(-16,-9,6.5,0,6.28);ctx.fill();
+  ctx.strokeStyle=col;ctx.lineWidth=6;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(9,-4);ctx.lineTo(24,-2);ctx.stroke();ctx.restore(); }
+
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawScene();
+
+  if(state==='play'||state==='over'){
+    const revealed=(phase==='set'&&clock>=revealT)||phase==='result';
+    const spot=ballSpot();
+
+    // fielder at the ball's side
+    person(spot.x,spot.y+2,'#c85049',0.86,0);
+    // batter at home (just hit it)
+    person(HOME.x+6,HOME.y+8,'#c9782f',0.72,0);
+
+    // the grounder: rolls from home toward its side (revealed after revealT)
+    let b;
+    if(phase==='set'){ const u=easeOut(clamp(clock/(revealT+220),0,1)); const mid={x:HOME.x,y:HOME.y-30};
+      if(clock<revealT){ b={x:lerp(HOME.x,HOME.x+(call==='ADVANCE'?30:-30)*clamp(clock/revealT,0,1),1), y:lerp(HOME.y-8,HOME.y-60,clamp(clock/revealT,0,1))}; }
+      else { const uu=easeOut(clamp((clock-revealT)/300,0,1)); b={x:lerp(HOME.x+(call==='ADVANCE'?30:-30),spot.x,uu), y:lerp(HOME.y-60,spot.y,uu)}; }
+    } else { b=spot; }
+
+    // runner fraction (leads off second, breaks for third on GO)
+    let rf;
+    if(phase==='set') rf=clamp((clock/(revealT+callWin))*0.12,0,0.12);
+    else {
+      if(result==='safe') rf=clamp(0.12+easeOut(anim)*0.86,0,1);          // reaches third
+      else if(result==='tagged') rf=clamp(0.12+easeOut(anim)*0.4,0,0.55);  // caught advancing, tagged
+      else if(result==='held') rf=0.06;                                     // stayed on second
+      else if(result==='missed') rf=0.06;                                   // stayed (should've gone)
+      else rf=clamp(0.12+easeOut(anim)*0.25,0,0.4);                         // early: jumped, tagged
+    }
+    const rp=runnerPos(rf);
+    const sliding=(phase==='result'&&(result==='safe'||result==='tagged'||result==='early'));
+    if(sliding) slider(rp.x,rp.y,(result==='safe')?'#4fa3ff':'#d0403a',-0.5); else person(rp.x,rp.y,'#3aa0ff',0.95,result==='safe'?-0.3:0);
+
+    // ball
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(b.x,b.y,7,0,6.28);ctx.fill();
+    ctx.strokeStyle='#c33';ctx.lineWidth=1;ctx.beginPath();ctx.arc(b.x,b.y,7,0.4,2.2);ctx.stroke();
+
+    // reveal tell
+    ctx.textAlign='center';
+    if(revealed){
+      ctx.fillStyle=call==='ADVANCE'?'rgba(120,205,255,0.98)':'rgba(255,200,110,0.98)';ctx.font='bold 20px sans-serif';
+      ctx.fillText(call==='ADVANCE'?'右方向（背後）のゴロ！ 進める！':'左方向（目の前）のゴロ！ 自重！', W/2, 250);
+    }
+    if(state==='play'&&phase==='set'){
+      if(clock<revealT){ ctx.fillStyle='rgba(255,220,90,0.95)';ctx.font='bold 20px sans-serif';ctx.fillText('二塁走者——ゴロがどっちへ転がるか見極めろ',W/2,44); }
+      else { ctx.fillStyle='rgba(255,220,120,0.98)';ctx.font='bold 22px sans-serif';ctx.fillText(call==='ADVANCE'?'今だ！ 三塁へ走れ！':'走るな！ 二塁でストップ！',W/2,44);
+        const p=clamp((clock-revealT)/callWin,0,1),bw=250,x=W/2-bw/2,y=60;
+        ctx.fillStyle='rgba(255,255,255,0.18)';ctx.fillRect(x,y,bw,7);ctx.fillStyle=p<0.7?'#8affa0':(p<1?'#ffd24d':'#ff5b5b');ctx.fillRect(x,y,bw*p,7); }
+    }
+    if(state==='play'){
+      // two guide buttons
+      const active=phase==='set'&&clock>=revealT;
+      ctx.fillStyle=active?'#3aa0ff':'rgba(255,255,255,0.10)';rr(150,506,230,62,10);ctx.fill();
+      ctx.fillStyle=active?'#08130c':'rgba(255,255,255,0.5)';ctx.textAlign='center';ctx.font='bold 19px sans-serif';ctx.fillText('三塁へ走る',150+115,506+26);
+      ctx.font='11px sans-serif';ctx.fillText('右方向のゴロ＝進塁（タップ/SPACE）',150+115,506+45);
+      ctx.fillStyle=active?'#e0a24b':'rgba(255,255,255,0.10)';rr(520,506,230,62,10);ctx.fill();
+      ctx.fillStyle=active?'#08130c':'rgba(255,255,255,0.5)';ctx.fillText('二塁で止まる',520+115,506+26);
+      ctx.font='11px sans-serif';ctx.fillText('左方向のゴロ＝自重（何もしない）',520+115,506+45);
+      ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='12px sans-serif';ctx.fillText('右方向（背後）のゴロは走る（タップ）・左方向（目の前）は走らず自重',W/2,506+62+16);
+    }
+  }
+
+  function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+  for(const p of parts){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const p of pops){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.fillText(p.txt,p.x,p.y);}
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,36);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='14px sans-serif';ctx.fillText('好判断 '+outs+'  Lv'+lvl,W-20,24);
+  ctx.fillText('失敗',W-92,46);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-60+i*20,41,7,0,6.28);ctx.fillStyle=i<fails?'#ff5b5b':'rgba(255,255,255,0.25)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='center';ctx.fillStyle='#ffd24d';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,W/2,112);}
+
+  if(state==='play'&&phase==='result'&&msg){ctx.textAlign='center';ctx.fillStyle=msgOk?'#9ff0b8':'#ff9a9a';ctx.font='bold 15px sans-serif';ctx.fillText(msg,W/2,300);}
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(4,8,4,0.84)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('打球を読んで進め',W/2,80);
+    ctx.fillStyle='#ffd23e';ctx.font='bold 22px sans-serif';ctx.fillText('Read and Advance',W/2,116);
+    ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='16px sans-serif';
+    ctx.fillText('二塁走者として、飛んだゴロの“方向”を読み、三塁へ進むか二塁で止まるかを瞬時に判断する走塁術',W/2,172);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='14px sans-serif';
+    ctx.fillText('ゴロの方向が判明した瞬間、右方向（背後・一二塁間）のゴロ＝タップ/クリック/SPACEで三塁へ進塁',W/2,210);
+    ctx.fillText('左方向（目の前・三遊間）のゴロ＝走らず“何もしない”で二塁にキープ（走ると刺される）',W/2,234);
+    ctx.fillText('左方向で走る＝目の前の野手にタッチアウト／右方向で止まる＝進塁の好機を逃す（消極）',W/2,258);
+    ctx.fillText('方向が分かる前に飛び出す＝戻れず刺される。際どい打球（tough）を捌くと大量加点。上級ほど速い',W/2,282);
+    ctx.fillText('3失敗で交代',W/2,306);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,366);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best,W/2,398);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(4,8,4,0.86)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 46px sans-serif';ctx.fillText('3失敗…交代',W/2,222);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,290);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='19px sans-serif';ctx.fillText('好判断 '+outs+'   BEST '+best,W/2,330);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,402);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+  ctx.fillText('打球を読んで進め：右方向のゴロは三塁へ走る（タップ）・左方向は走らず自重。逆の判断や飛び出しは失敗、3失敗で交代',W/2,H-8);
+}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__rn={
+  start, go:()=>go(),
+  get state(){return state;},
+  get score(){return score;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get info(){return {state,phase,clock,revealT,callWin,call,tough,decided,result,outs,fails,lvl,
+    shouldGo:(call==='ADVANCE'),revealed:(clock>=revealT),canAct:(phase==='set'&&!decided)};}
+};
+})();
+</script>
+</body>
+</html>
