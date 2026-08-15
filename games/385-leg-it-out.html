@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>内野安打をもぎ取れ (Leg It Out)</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0d08;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  hit:()=>{noise(0.04,0.14,900);tone(300,0.05,'square',0.07,-80);},
+  step:()=>{tone(150+Math.random()*30,0.03,'square',0.035);},
+  field:()=>{tone(360,0.05,'sine',0.06);noise(0.03,0.06,600);},
+  safe:()=>{[620,880,1150].forEach((f,i)=>setTimeout(()=>tone(f,0.11,'triangle',0.16),i*56));},
+  big:()=>{[600,800,1000,1250].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.17),i*80));},
+  out:()=>{noise(0.2,0.24,240);tone(150,0.24,'sawtooth',0.13,-50);},
+  streak:()=>{[700,930,1170,1400].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*60));},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- geometry ----------
+const HOME={x:452,y:474}, FIRST={x:686,y:352}, SECOND={x:452,y:200}, THIRD={x:218,y:352};
+const GTYPES={
+  slow:{pos:{x:250,y:330}, name:'三塁線への遅いゴロ', fieldFrac:0.5},
+  chop:{pos:{x:452,y:296}, name:'高く弾むチョッパー', fieldFrac:0.46},
+  sharp:{pos:{x:372,y:250}, name:'三遊間への速いゴロ', fieldFrac:0.4}
+};
+function runnerPos(fr){ return {x:lerp(HOME.x,FIRST.x-14,easeOut(fr)), y:lerp(HOME.y-2,FIRST.y+6,easeOut(fr))}; }
+
+// ---------- state ----------
+let state='title', phase='run', plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('lo_best')||0);
+let outs=0, fails=0, lvl=1;   // outs = infield hits
+let rp=0, tp=0, throwT=3000, lastTap=-999, tclk=0, margin=0, gtype='chop', ff=0.46, firstTap=true, goodJump=false, jumpFlash=0;
+const STEP=0.05, TAPCD=52;
+let result=null, resultT=0, msg='', msgOk=false, anim=0, tapPulse=0;
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[];
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,u){return a+(b-a)*u;}
+function easeOut(u){return 1-Math.pow(1-u,2);}
+
+function reset(){state='title';score=0;combo=0;outs=0;fails=0;lvl=1;plays=0;result=null;parts=[];pops=[];}
+
+function newPlay(){
+  plays++; lvl=Math.min(7,1+Math.floor(outs/4));
+  const keys=['slow','chop','sharp']; gtype=keys[Math.floor(Math.random()*3)]; ff=GTYPES[gtype].fieldFrac;
+  if(gtype==='slow') throwT=clamp(3400-lvl*60,3000,3400);
+  else if(gtype==='chop') throwT=clamp(3050-lvl*60,2650,3050);
+  else throwT=clamp(2820-lvl*60,2480,2820);
+  rp=0; tp=0; lastTap=-999; tclk=0; margin=0; firstTap=true; goodJump=false; jumpFlash=0;
+  phase='run'; result=null; resultT=0; msg=''; msgOk=false; anim=0;
+  S.hit();
+}
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; newPlay(); }
+
+function tap(){
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.4){reset();start();} return; }
+  if(state!=='play'||phase!=='run') return;
+  if(tclk-lastTap<TAPCD) return;                 // rate cap (no superhuman mashing)
+  if(firstTap){ firstTap=false; if(tclk<=260){ goodJump=true; rp=clamp(rp+0.06,0,1); jumpFlash=1; S.field(); } }  // good jump out of the box
+  lastTap=tclk; rp=clamp(rp+STEP,0,1); tapPulse=1; S.step();
+  if(rp>=1){ margin=clamp(1-tp,0,1); resolve('safe'); }
+}
+
+function resolve(k){
+  phase='result'; result=k; resultT=0; anim=0;
+  if(k==='safe'){
+    outs++; combo++;
+    const bang=margin<0.12;
+    let add=Math.round((80+Math.round((1-margin)*150)+(goodJump?40:0))*(1+Math.min(9,combo-1)*0.14)); score+=add;
+    setTimeout(S.safe,120); if(bang||margin>0.4)setTimeout(S.big,200);
+    msgOk=true; flash=1;flashCol='#8affa0';shake=7; burst(FIRST.x,FIRST.y,'#8affa0',22,8);
+    pop(W/2,250,(bang?'際どいバンバンを制してヘッドスライディングでセーフ！内野安打！ +':'快足で送球を上回った——内野安打！ +')+add,'#d6ffe0');
+    if(combo>=2)pop(W/2,214,'コンボ x'+combo,'#ffd24d');
+    if(combo>0&&combo%5===0)S.streak();
+    msg=bang?'一塁ベース上で頭から滑り込み、送球と同時にセーフ——痺れるバンバンプレーをもぎ取った！':(goodJump?'好スタートから全力疾走、俊足で野手の送球より先に一塁を駆け抜けた——内野安打！':'全力疾走で送球を上回り一塁セーフ——足で稼いだ内野安打！');
+  } else {
+    fails++; combo=0; msgOk=false; flash=1;flashCol='#ff5b5b';shake=8; S.out();
+    msg='送球が先に一塁へ——アウト。ダッシュ（連打）が足りず、俊足の一塁到達が間に合わなかった';
+    pop(W/2,250,'一塁でアウト…','#ffb0b0');
+  }
+  if(fails>=3){ state='over'; resultT=0; S.over(); if(score>best){best=score;localStorage.setItem('lo_best',best);} }
+}
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{e.preventDefault();tap();});
+addEventListener('keydown',e=>{ if(e.repeat)return; if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowRight'||e.code==='KeyF'||e.code==='KeyJ'){e.preventDefault();tap();} });
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7); tapPulse*=Math.pow(0.8,dt/16.7); jumpFlash*=Math.pow(0.9,dt/16.7);
+  for(const p of parts){p.vx*=0.96;p.vy=p.vy*0.96+0.28;p.x+=p.vx*dt/16.7;p.y+=p.vy*dt/16.7;p.life-=dt/16.7*0.026;}
+  parts=parts.filter(p=>p.life>0);
+  for(const p of pops){p.y-=dt/16.7*0.5;p.life-=dt/16.7*0.02;}
+  pops=pops.filter(p=>p.life>0);
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  if(phase==='run'){ tclk+=dt; const prev=tp; tp=clamp(tp+dt/throwT,0,1);
+    if(prev<ff&&tp>=ff)S.field();                     // the fielder gloves it
+    if(tp>=1 && rp<1){ margin=0; resolve('out'); }
+    return; }
+  if(phase==='result'){ resultT+=dt/1000; anim=Math.min(1,anim+dt/500); if(resultT>1.6) newPlay(); return; }
+}
+
+// ---------- render ----------
+function drawScene(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#12703f');g.addColorStop(0.5,'#0f5e34');g.addColorStop(1,'#0c4c2b');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#6a4a30';ctx.beginPath();ctx.moveTo(HOME.x,HOME.y+24);ctx.lineTo(FIRST.x+24,FIRST.y);ctx.lineTo(SECOND.x,SECOND.y-24);ctx.lineTo(THIRD.x-24,THIRD.y);ctx.closePath();ctx.fill();
+  // running lane home->first highlighted
+  ctx.strokeStyle='rgba(230,210,150,0.7)';ctx.lineWidth=9;ctx.beginPath();ctx.moveTo(HOME.x,HOME.y);ctx.lineTo(FIRST.x,FIRST.y);ctx.stroke();
+  ctx.strokeStyle='rgba(230,210,150,0.4)';ctx.lineWidth=7;
+  ctx.beginPath();ctx.moveTo(FIRST.x,FIRST.y);ctx.lineTo(SECOND.x,SECOND.y);ctx.lineTo(THIRD.x,THIRD.y);ctx.lineTo(HOME.x,HOME.y);ctx.stroke();
+  for(const B of [FIRST,SECOND,THIRD]){ ctx.save();ctx.translate(B.x,B.y);ctx.rotate(0.785);ctx.fillStyle='#eef0f2';ctx.fillRect(-10,-10,20,20);ctx.restore(); }
+  ctx.fillStyle='#eef0f2';ctx.beginPath();ctx.moveTo(HOME.x-12,HOME.y-7);ctx.lineTo(HOME.x+12,HOME.y-7);ctx.lineTo(HOME.x+12,HOME.y+1);ctx.lineTo(HOME.x,HOME.y+12);ctx.lineTo(HOME.x-12,HOME.y+1);ctx.closePath();ctx.fill();
+}
+function person(x,y,col,s,lean){s=s||1;lean=lean||0;
+  ctx.save();ctx.translate(x,y);ctx.rotate(lean);
+  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,13*s,10*s,4*s,0,0,6.28);ctx.fill();
+  ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(0,-14*s,9*s,14*s,0,0,6.28);ctx.fill();
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(0,-31*s,7*s,0,6.28);ctx.fill();
+  ctx.restore();
+}
+function slider(x,y,col,lean){ ctx.save();ctx.translate(x,y);ctx.rotate(lean);
+  ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(0,-6,17,8,0,0,6.28);ctx.fill();
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(15,-9,6.5,0,6.28);ctx.fill();
+  ctx.strokeStyle=col;ctx.lineWidth=6;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-8,-4);ctx.lineTo(-24,-1);ctx.stroke();ctx.restore(); }
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawScene();
+
+  if(state==='play'){
+    const fp=GTYPES[gtype].pos;
+    // fielder — charges to the ball during fielding, then set to throw
+    let felderX=fp.x, felderY=fp.y;
+    person(felderX,felderY,'#c85049',0.9,0);
+    // first baseman at the bag
+    person(FIRST.x+20,FIRST.y-6,'#c85049',0.86,0);
+
+    // ball: home->fielder (tp<ff) then fielder->first (tp>=ff)
+    let b;
+    if(tp<ff){ const u=tp/ff; b={x:lerp(HOME.x,fp.x,u), y:lerp(HOME.y-6,fp.y,u)}; }
+    else { const u=(tp-ff)/(1-ff); b={x:lerp(fp.x,FIRST.x,easeOut(u)), y:lerp(fp.y,FIRST.y,easeOut(u))}; }
+    if(phase==='result'&&result==='safe'&&tp<1){ /* keep last ball pos */ }
+
+    // runner
+    const rpos=runnerPos(rp);
+    const sliding=(phase==='result'&&result==='safe')||rp>0.9;
+    if(sliding) slider(rpos.x,rpos.y,'#2b6fd6',-0.35); else person(rpos.x,rpos.y,'#2b6fd6',1.0, phase==='run'?(0.12+0.06*Math.sin(tclk/70)):0);
+
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(b.x,b.y,7,0,6.28);ctx.fill();
+    ctx.strokeStyle='#c33';ctx.lineWidth=1;ctx.beginPath();ctx.arc(b.x,b.y,7,0.4,2.2);ctx.stroke();
+
+    // race bars: runner (blue) vs throw (red)
+    const bx=W/2-150, by=70, bw=300;
+    ctx.textAlign='center';ctx.font='bold 13px sans-serif';
+    ctx.fillStyle='rgba(255,255,255,0.16)';rr(bx,by,bw,12,6);ctx.fill();
+    ctx.fillStyle='#3aa0ff';rr(bx,by,bw*rp,12,6);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.16)';rr(bx,by+18,bw,12,6);ctx.fill();
+    ctx.fillStyle=tp<ff?'#e0a24b':'#ff5b5b';rr(bx,by+18,bw*tp,12,6);ctx.fill();
+    ctx.fillStyle='#bfe0ff';ctx.textAlign='left';ctx.fillText('走者',bx-2,by+11);
+    ctx.fillStyle='#ffc99a';ctx.fillText(tp<ff?'捕球中':'送球',bx-2,by+29);
+    // banner
+    ctx.textAlign='center';ctx.fillStyle='rgba(255,220,90,0.96)';ctx.font='bold 21px sans-serif';
+    ctx.fillText('連打で全力疾走！ 送球より先に一塁を駆け抜けろ',W/2,40);
+    ctx.fillStyle='rgba(255,255,255,0.7)';ctx.font='13px sans-serif';ctx.fillText(GTYPES[gtype].name+'（'+(gtype==='slow'?'余裕あり':gtype==='sharp'?'際どい':'普通')+'）',W/2,H-40);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='12px sans-serif';ctx.fillText('タップ / クリック / SPACE 連打 ＝ 走る（打った直後の好スタートでボーナス）',W/2,H-20);
+    if(jumpFlash>0.05){ ctx.fillStyle='rgba(140,255,160,'+jumpFlash+')';ctx.font='bold 22px sans-serif';ctx.fillText('好スタート！',W/2,150); }
+  }
+
+  for(const p of parts){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const p of pops){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.fillText(p.txt,p.x,p.y);}
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,34);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='14px sans-serif';ctx.fillText('内野安打 '+outs+'  Lv'+lvl,W-20,22);
+  ctx.fillText('アウト',W-100,44);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-64+i*20,39,7,0,6.28);ctx.fillStyle=i<fails?'#ff5b5b':'rgba(255,255,255,0.25)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='center';ctx.fillStyle='#ffd24d';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,W/2,110);}
+
+  if(state==='play'&&phase==='result'&&msg){ctx.textAlign='center';ctx.fillStyle=msgOk?'#9ff0b8':'#ff9a9a';ctx.font='bold 15px sans-serif';ctx.fillText(msg,W/2,300);}
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(4,8,4,0.84)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('内野安打をもぎ取れ',W/2,80);
+    ctx.fillStyle='#ffd23e';ctx.font='bold 22px sans-serif';ctx.fillText('Leg It Out',W/2,116);
+    ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='16px sans-serif';
+    ctx.fillText('内野へのゴロを打った俊足打者として、連打で全力疾走し、野手の送球より先に一塁を駆け抜けろ',W/2,172);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='14px sans-serif';
+    ctx.fillText('タップ/クリック/SPACEを連打＝走る（青バー）。野手が捕って一塁へ送球（赤バー）する前に到達＝内野安打',W/2,210);
+    ctx.fillText('打った“直後”に走り出すと好スタートでボーナス。ギリギリのバンバンをヘッドスライディングで制すと大量加点',W/2,234);
+    ctx.fillText('打球は毎回変化——三塁線の遅いゴロ（余裕）／高いチョッパー（普通）／三遊間の速いゴロ（際どい）',W/2,258);
+    ctx.fillText('連打が足りず送球が先に届くとアウト。上級ほど送球が速い。3アウトで交代',W/2,282);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,350);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best,W/2,382);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(4,8,4,0.86)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 46px sans-serif';ctx.fillText('3アウト…交代',W/2,222);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,290);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='19px sans-serif';ctx.fillText('内野安打 '+outs+'   BEST '+best,W/2,330);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,402);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+  ctx.fillText('内野安打をもぎ取れ：連打で全力疾走し、野手の送球（赤）より先に一塁へ（青）。連打不足で送球が先着ならアウト、3アウトで交代',W/2,H-8);
+}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__lo={
+  start, tap:()=>tap(),
+  get state(){return state;},
+  get score(){return score;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get info(){return {state,phase,rp,tp,throwT,gtype,margin,goodJump,result,outs,fails,lvl,tclk,canAct:(phase==='run')};}
+};
+})();
+</script>
+</body>
+</html>
