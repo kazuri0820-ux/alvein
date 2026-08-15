@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ループヘッド (Loop It Over the Keeper)</title>
+<style>
+  html,body{margin:0;height:100%;background:#07100a;overflow:hidden;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100vw;height:100vh;max-width:calc(100vh*1.5);max-height:calc(100vw/1.5);aspect-ratio:900/600;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:6px;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const W=900,H=600,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let DPR=1;
+function fit(){DPR=Math.min(2,window.devicePixelRatio||1);cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+fit();addEventListener('resize',fit);
+
+// ---------- audio ----------
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=ac();if(!a)return;const t=a.currentTime,o=a.createOscillator(),g=a.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(sweep)o.frequency.exponentialRampToValueAtTime(Math.max(40,f+sweep),t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v||0.2,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+0.02);}
+function noise(d,v,hp){const a=ac();if(!a)return;const t=a.currentTime,n=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,n,a.sampleRate),ch=buf.getChannelData(0);
+  for(let i=0;i<n;i++)ch[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource();s.buffer=buf;
+  const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||600;const g=a.createGain();g.gain.value=v||0.2;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+d+0.02);}
+const S={
+  cross:()=>{tone(300,0.05,'sine',0.04);},
+  head:()=>{tone(360,0.05,'square',0.08);noise(0.03,0.06,700);},
+  good:()=>{[680,940,1220].forEach((f,i)=>setTimeout(()=>tone(f,0.11,'triangle',0.16),i*56));},
+  big:()=>{[600,800,1000,1250].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.17),i*80));},
+  bad:()=>{noise(0.2,0.24,240);tone(150,0.24,'sawtooth',0.13,-50);},
+  streak:()=>{[700,930,1170,1400].forEach((f,i)=>setTimeout(()=>tone(f,0.1,'triangle',0.16),i*60));},
+  over:()=>{[440,330,247,175].forEach((f,i)=>setTimeout(()=>tone(f,0.3,'triangle',0.2),i*160));}
+};
+
+// ---------- geometry ----------
+const GOAL={x:452,y:128}, GW=300, GH=70;
+const KEEP={x:452,y:250};                          // keeper rushed off his line, stranded
+const HEADER={x:452,y:392};                        // you, arriving to meet the cross
+const MEET={x:452,y:312};                          // head height at the apex of your leap
+const CROSS={x:812,y:176};                         // cross comes in from the right
+function bez(p0,c,p1,u){ const k=1-u; return {x:k*k*p0.x+2*k*u*c.x+u*u*p1.x, y:k*k*p0.y+2*k*u*c.y+u*u*p1.y}; }
+
+// ---------- state ----------
+let state='title', phase='set', plays=0;
+let score=0, combo=0, best=+(localStorage.getItem('lh_best')||0);
+let outs=0, fails=0, lvl=1;   // outs = looped goals
+let clock=0, apexT=900, pw=180, tough=false;
+let decided=false, result=null, resultT=0, msg='', msgOk=false, quality=0, anim=0;
+let shake=0, flash=0, flashCol='#fff', last=performance.now();
+let parts=[], pops=[];
+
+function rnd(a,b){return a+Math.random()*(b-a);}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function lerp(a,b,u){return a+(b-a)*u;}
+function easeOut(u){return 1-Math.pow(1-u,2);}
+
+function reset(){state='title';score=0;combo=0;outs=0;fails=0;lvl=1;plays=0;result=null;parts=[];pops=[];}
+
+function newPlay(){
+  plays++; lvl=Math.min(7,1+Math.floor(outs/4));
+  apexT=clamp(1020-lvl*40,720,1020);              // the cross drops to head height sooner at higher levels
+  pw=clamp(190-lvl*15,95,190);                     // the apex window shrinks
+  tough=Math.random()<clamp(0.2+lvl*0.05,0.2,0.5); // a fast, awkward cross
+  if(tough)pw*=0.82;
+  phase='set'; clock=0; decided=false; result=null; resultT=0; msg=''; msgOk=false; quality=0; anim=0;
+  S.cross();
+}
+function start(){ if(!ac())ac(); if(AC&&AC.state==='suspended')AC.resume(); reset(); state='play'; newPlay(); }
+
+// leap head-height arc (0 ground, 1 full stretch); peaks at apexT
+function leapArc(t){ const u=clamp(t/(apexT*2),0,1); return Math.max(0,Math.sin(Math.PI*u)); }
+
+function head(){   // glance the header at the top of your leap
+  if(state==='title'){start();return;}
+  if(state==='over'){ if(resultT>0.4){reset();start();} return; }
+  if(state!=='play'||phase!=='set'||decided) return;
+  decided=true;
+  if(clock<apexT-pw){ resolve('early'); }
+  else if(clock>apexT+pw){ resolve('late'); }
+  else { quality=1-Math.abs(clock-apexT)/pw; resolve('loop'); }
+}
+
+function resolve(k){
+  phase='result'; result=k; resultT=0; anim=0;
+  if(k==='loop'){
+    outs++; combo++;
+    const perfect=quality>=0.72;
+    let add=Math.round((60+Math.round(quality*150)+(tough?70:0))*(1+Math.min(9,combo-1)*0.14)); score+=add;
+    S.head(); setTimeout(S.good,110); if(perfect||tough)setTimeout(S.big,190);
+    msgOk=true; flash=1;flashCol='#8affa0';shake=5; burst(GOAL.x,GOAL.y+GH*0.5,'#8affa0',18,7);
+    pop(W/2,250,(perfect?'完璧な打点！繊細なループヘッドで無人のゴールへ！ +':'頭でふわりと越えてゴール！ +')+add,'#d6ffe0');
+    if(combo>=2)pop(W/2,214,'コンボ x'+combo,'#ffd24d');
+    if(combo>0&&combo%5===0)S.streak();
+    msg=perfect?'跳躍の頂点でボールに繊細に触れ、飛び出したGKの頭上をふわりと越えて無人のゴールへ吸い込まれた——芸術的なループヘッド！':'最高到達点でこすり上げるように当て、GKの頭上を越えるループヘッドでゴール！';
+  } else {
+    fails++; combo=0; msgOk=false; flash=1;flashCol='#ff5b5b';shake=9; S.bad();
+    if(k==='early') msg='合わせるのが早い…跳ぶ途中の低い打点で当て、ボールが伸びず飛び出したGKの正面に収まった';
+    else if(k==='late') msg='合わせるのが遅い…落ちてくる球に差し込まれ、頭を叩きつける形になってGKの足元へ弱々しく';
+    else msg='見送った…絶好のクロスに誰も合わせられず、飛び出したGKに難なく処理された';
+    pop(W/2,250,(k==='early')?'早い…GK正面':(k==='late')?'遅い…叩きつけ':'見送り…','#ffb0b0');
+  }
+  if(fails>=3){ state='over'; resultT=0; S.over(); if(score>best){best=score;localStorage.setItem('lh_best',best);} }
+}
+
+// ---------- input ----------
+cv.addEventListener('pointerdown',e=>{e.preventDefault();head();});
+addEventListener('keydown',e=>{ if(e.repeat)return; if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'||e.code==='KeyF'){e.preventDefault();head();} });
+
+// ---------- particles ----------
+function burst(x,y,c,n,sp){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=rnd(sp*0.3,sp);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,c});}}
+function pop(x,y,txt,c){pops.push({x,y,txt,c,life:1});}
+
+// ---------- update ----------
+function update(dt){
+  shake*=Math.pow(0.86,dt/16.7); if(shake<0.3)shake=0;
+  flash*=Math.pow(0.9,dt/16.7);
+  for(const p of parts){p.vx*=0.96;p.vy=p.vy*0.96+0.28;p.x+=p.vx*dt/16.7;p.y+=p.vy*dt/16.7;p.life-=dt/16.7*0.026;}
+  parts=parts.filter(p=>p.life>0);
+  for(const p of pops){p.y-=dt/16.7*0.5;p.life-=dt/16.7*0.02;}
+  pops=pops.filter(p=>p.life>0);
+
+  if(state!=='play'){ if(state==='over')resultT+=dt/1000; return; }
+  if(phase==='set'){ clock+=dt;
+    if(!decided && clock>apexT+pw+120){ decided=true; resolve('miss'); }
+    return; }
+  if(phase==='result'){ resultT+=dt/1000; anim=Math.min(1,anim+dt/420); if(resultT>1.55) newPlay(); return; }
+}
+
+// ---------- render ----------
+function drawField(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0f5e34');g.addColorStop(0.55,'#0e5230');g.addColorStop(1,'#0c4429');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(255,255,255,0.03)';for(let i=0;i<6;i++){ if(i%2===0)ctx.fillRect(0,80+i*95,W,95); }
+  ctx.strokeStyle='rgba(255,255,255,0.26)';ctx.lineWidth=3;ctx.strokeRect(GOAL.x-240,GOAL.y+GH,480,270);ctx.strokeRect(GOAL.x-110,GOAL.y+GH,220,96);
+  ctx.fillStyle='rgba(0,0,0,0.28)';ctx.fillRect(GOAL.x-GW/2-4,GOAL.y-4,GW+8,GH+4);
+  ctx.strokeStyle='rgba(255,255,255,0.34)';ctx.lineWidth=1;
+  for(let gx=GOAL.x-GW/2;gx<=GOAL.x+GW/2;gx+=16){ctx.beginPath();ctx.moveTo(gx,GOAL.y);ctx.lineTo(gx,GOAL.y+GH);ctx.stroke();}
+  for(let gy=GOAL.y;gy<=GOAL.y+GH;gy+=13){ctx.beginPath();ctx.moveTo(GOAL.x-GW/2,gy);ctx.lineTo(GOAL.x+GW/2,gy);ctx.stroke();}
+  ctx.strokeStyle='#f2f2f2';ctx.lineWidth=6;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(GOAL.x-GW/2,GOAL.y+GH);ctx.lineTo(GOAL.x-GW/2,GOAL.y);ctx.lineTo(GOAL.x+GW/2,GOAL.y);ctx.lineTo(GOAL.x+GW/2,GOAL.y+GH);ctx.stroke();
+  ctx.lineCap='butt';
+}
+function person(x,y,col,s,rise,arms){s=s||1;rise=rise||0;
+  ctx.save();ctx.translate(x,y-rise);
+  ctx.fillStyle='rgba(0,0,0,0.2)';ctx.beginPath();ctx.ellipse(0,(13*s)+rise,11*s,4*s,0,0,6.28);ctx.fill();
+  ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(0,-15*s,10*s,15*s,0,0,6.28);ctx.fill();
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(0,-34*s,7.5*s,0,6.28);ctx.fill();
+  if(arms){ ctx.strokeStyle=col;ctx.lineWidth=5*s;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(-8*s,-24*s);ctx.lineTo(-15*s,-40*s);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(8*s,-24*s);ctx.lineTo(15*s,-40*s);ctx.stroke(); }
+  ctx.restore();
+}
+
+function render(){
+  ctx.save();
+  if(shake>0)ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+  drawField();
+
+  if(state==='play'||state==='over'){
+    // keeper (rushed out, stranded) — reaches back on a loop
+    let kRise=0, kLean=0;
+    if(phase==='result'&&result==='loop'){ kRise=easeOut(anim)*26; kLean=0; }
+    person(KEEP.x,KEEP.y,'#e8c23a',0.98,kRise, phase==='result'&&result==='loop');
+
+    // you (attacker) — leap to the apex
+    let rise=0;
+    if(phase==='set') rise=leapArc(clock)*80;
+    else if(result==='loop') rise=lerp(leapArc(apexT)*80,86,easeOut(anim));
+    else rise=lerp(leapArc(clock)*80,0,easeOut(anim));
+    person(HEADER.x,HEADER.y,'#2b6fd6',1.02,rise,false);
+
+    // ball
+    let b;
+    if(phase==='set'){ const u=clamp(clock/apexT,0,1); b={x:lerp(CROSS.x,MEET.x,easeOut(u)), y:lerp(CROSS.y,MEET.y,u*u)}; }
+    else {
+      const u=easeOut(anim);
+      if(result==='loop'){ b=bez(MEET,{x:452,y:176},{x:GOAL.x,y:GOAL.y+GH*0.5},u); }              // loops up and over the keeper into goal
+      else if(result==='early'){ b={x:lerp(MEET.x,KEEP.x,u),y:lerp(MEET.y,KEEP.y-16,u)}; }          // flat into the keeper
+      else if(result==='late'){ b={x:lerp(MEET.x,KEEP.x-6,u),y:lerp(MEET.y,KEEP.y+30,u*0.7)}; }      // headed down, weak to the keeper
+      else { b={x:MEET.x,y:lerp(MEET.y,KEEP.y,u)}; }                                                 // miss: cross reaches the keeper
+    }
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(b.x,b.y,8,0,6.28);ctx.fill();
+    ctx.strokeStyle='#333';ctx.lineWidth=1.1;ctx.beginPath();ctx.arc(b.x,b.y,8,0.4,2.2);ctx.stroke();
+
+    // apex ring cue at the meet point + banner + timing bar
+    if(state==='play'&&phase==='set'){
+      const near=Math.abs(clock-apexT)<=pw;
+      ctx.strokeStyle=near?'rgba(140,255,160,0.95)':'rgba(255,220,90,0.7)';ctx.lineWidth=4;
+      const rem=clamp(1-clock/apexT,0,1);
+      ctx.beginPath();ctx.arc(MEET.x,MEET.y,14+rem*52,0,6.28);ctx.stroke();
+      ctx.textAlign='center';
+      ctx.fillStyle=near?'rgba(140,255,160,0.98)':'rgba(255,220,120,0.95)';ctx.font='bold 21px sans-serif';
+      ctx.fillText(near?'今だ！ 頂点で頭に当てて越えろ！':'GKが飛び出した——跳躍の頂点でクロスに合わせろ',W/2,46);
+      const p=clamp(clock/(apexT+pw),0,1),bw=250,x=W/2-bw/2,y=62;
+      ctx.fillStyle='rgba(255,255,255,0.16)';ctx.fillRect(x,y,bw,7);
+      const wl=x+bw*((apexT-pw)/(apexT+pw)), ww=bw*(2*pw/(apexT+pw));
+      ctx.fillStyle='rgba(120,255,150,0.5)';ctx.fillRect(wl,y,ww,7);
+      ctx.fillStyle='#ffe14d';ctx.fillRect(x+bw*p-2,y-3,4,13);
+    }
+    // "空いたゴール" hint (empty net behind the stranded keeper)
+    if(state==='play'&&phase==='set'&&clock<apexT*0.6){ ctx.fillStyle='rgba(140,255,160,0.5)';ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('ゴールはがら空き',GOAL.x,GOAL.y+GH*0.5+4); }
+  }
+
+  for(const p of parts){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,6.28);ctx.fill();}
+  ctx.globalAlpha=1;
+  for(const p of pops){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.c;ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.fillText(p.txt,p.x,p.y);}
+  ctx.globalAlpha=1;
+
+  // HUD
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('SCORE '+score,20,36);
+  ctx.textAlign='right';ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='14px sans-serif';ctx.fillText('ゴール '+outs+'  Lv'+lvl,W-20,24);
+  ctx.fillText('失敗',W-92,46);
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(W-60+i*20,41,7,0,6.28);ctx.fillStyle=i<fails?'#ff5b5b':'rgba(255,255,255,0.25)';ctx.fill();}
+  if(combo>=2){ctx.textAlign='center';ctx.fillStyle='#ffd24d';ctx.font='bold 18px sans-serif';ctx.fillText('コンボ x'+combo,W/2,112);}
+
+  if(state==='play'&&phase==='result'&&msg){ctx.textAlign='center';ctx.fillStyle=msgOk?'#9ff0b8':'#ff9a9a';ctx.font='bold 15px sans-serif';ctx.fillText(msg,W/2,470);}
+
+  if(state==='title'){
+    ctx.fillStyle='rgba(3,10,6,0.84)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 42px sans-serif';ctx.fillText('ループヘッド',W/2,82);
+    ctx.fillStyle='#ffd23e';ctx.font='bold 22px sans-serif';ctx.fillText('Loop It Over the Keeper',W/2,118);
+    ctx.fillStyle='rgba(255,255,255,0.92)';ctx.font='16px sans-serif';
+    ctx.fillText('飛び出してきたGKの頭上を、跳躍の“最高到達点”で繊細に触れたループヘッドで越えて無人のゴールへ流し込め',W/2,172);
+    ctx.fillStyle='rgba(255,255,255,0.66)';ctx.font='14px sans-serif';
+    ctx.fillText('クロスが頭の高さに落ちてくる→跳んだ頭が届く“頂点（緑リング／緑帯）”の瞬間にタップ/クリック/SPACE/↑＝ヘッド',W/2,212);
+    ctx.fillText('頂点ど真ん中で繊細に触れるほどふわりと越える完璧なループ＝大量加点。早い＝低い打点でGK正面／遅い＝叩きつけ',W/2,236);
+    ctx.fillText('見送り＝好機を逃す。速く難しいクロス（tough）を合わせるとボーナス',W/2,260);
+    ctx.fillText('上級ほどクロスが速く頂点の窓が狭い。3失敗で交代',W/2,284);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で開始',W/2,350);
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='14px sans-serif';ctx.fillText('BEST '+best,W/2,382);
+  }
+  if(state==='over'){
+    ctx.fillStyle='rgba(3,10,6,0.86)';ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';ctx.fillStyle='#ff6b6b';ctx.font='bold 46px sans-serif';ctx.fillText('3失敗…交代',W/2,222);
+    ctx.fillStyle='#fff';ctx.font='bold 40px sans-serif';ctx.fillText('SCORE '+score,W/2,290);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='19px sans-serif';ctx.fillText('ゴール '+outs+'   BEST '+best,W/2,330);
+    ctx.fillStyle='#8fe0a0';ctx.font='bold 22px sans-serif';ctx.fillText('クリック / タップ で もう一度',W/2,402);
+  }
+
+  if(flash>0.02){ctx.globalAlpha=flash*0.5;ctx.fillStyle=flashCol;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  ctx.restore();
+
+  ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='12px sans-serif';
+  ctx.fillText('ループヘッド：飛び出したGKの頭上を、跳躍の頂点（緑帯）で繊細に当てるループヘッドで越えろ。早い/遅い/見送りは失敗、3失敗で交代',W/2,H-8);
+}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__lh={
+  start, head:()=>head(),
+  get state(){return state;},
+  get score(){return score;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get info(){return {state,phase,clock,apexT,pw,tough,decided,result,outs,fails,lvl,
+    inWindow:(phase==='set'&&clock>=apexT-pw&&clock<=apexT+pw),canAct:(phase==='set'&&!decided)};}
+};
+})();
+</script>
+</body>
+</html>
