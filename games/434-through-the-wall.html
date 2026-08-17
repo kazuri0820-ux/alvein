@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>壁の隙間を通せ (Through the Wall)</title>
+<style>
+  html,body{margin:0;padding:0;background:#07130c;overflow:hidden;font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;-webkit-user-select:none;user-select:none;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 28%,#123a20,#050d07 72%);}
+  #stage{position:relative;width:min(100vw,calc(100vh*1.5));aspect-ratio:900/600;max-width:900px;box-shadow:0 10px 60px rgba(0,0,0,.6);border-radius:8px;overflow:hidden;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const W=900,H=600;let DPR=Math.min(2,window.devicePixelRatio||1);
+function fit(){const r=cv.getBoundingClientRect();DPR=Math.min(2,window.devicePixelRatio||1);cv.width=Math.round(r.width*DPR);cv.height=Math.round(r.height*DPR);ctx.setTransform(cv.width/W,0,0,cv.height/H,0,0);}
+new ResizeObserver(fit).observe(cv);fit();
+
+// ---------- audio ----------
+let AC=null;function actx(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.type=type||'sine';o.frequency.value=f;if(sweep)o.frequency.linearRampToValueAtTime(sweep,a.currentTime+d);g.gain.value=0.0001;g.gain.exponentialRampToValueAtTime(v||0.2,a.currentTime+0.008);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d);o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d+0.02);}
+function noise(d,v,hp){const a=actx();if(!a)return;const n=a.createBufferSource(),b=a.createBuffer(1,a.sampleRate*d,a.sampleRate),dt=b.getChannelData(0);for(let i=0;i<dt.length;i++)dt[i]=Math.random()*2-1;n.buffer=b;const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||800;const g=a.createGain();g.gain.value=0.0001;g.gain.exponentialRampToValueAtTime(v||0.2,a.currentTime+0.01);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d);n.connect(f);f.connect(g);g.connect(a.destination);n.start();n.stop(a.currentTime+d+0.02);}
+const S={
+  swish(){tone(680,0.05,'sine',0.05);},
+  kick(){noise(0.05,0.2,600);tone(180,0.09,'square',0.16,90);},
+  net(){tone(200,0.14,'sine',0.14);noise(0.12,0.1,400);},
+  roar(){noise(0.5,0.14,300);},
+  block(){noise(0.09,0.24,400);tone(150,0.12,'square',0.16,90);},
+  wide(){tone(900,0.12,'square',0.14);tone(600,0.1,'square',0.1);},
+  goal(){tone(560,0.1,'triangle',0.2);setTimeout(function(){tone(760,0.14,'triangle',0.22);},110);setTimeout(function(){tone(1000,0.2,'triangle',0.22);},230);},
+  combo(n){tone(560+Math.min(n,8)*70,0.12,'triangle',0.16);},
+  over(){tone(330,0.3,'sine',0.2,160);setTimeout(function(){tone(220,0.5,'sine',0.2,110);},180);},
+  start(){tone(440,0.1,'triangle',0.18);setTimeout(function(){tone(660,0.16,'triangle',0.2);},110);},
+};
+
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function rnd(a,b){return a+Math.random()*(b-a);}
+
+// ---------- state ----------
+let state='title';
+let outs=0,fails=0,score=0,combo=0,lvl=1;   // outs = goals scored
+let best=0;try{best=parseInt(localStorage.getItem('tw_best')||'0')||0;}catch(e){}
+const TARGET=26;
+
+let phase='wind';  // wind | aim | result
+let pt=0, swp=0;
+let period=1400, bandW=0.24, bandC=0.5, deadT=3000, tough=false;
+let pos=0;
+let decided=false, result='', stopPos=0, quality=0;
+let parts=[];
+let shakeT=0,flash=0;
+let msg='',msgCol='#fff',msgT=0;
+let ballU=0;
+// wall geometry: aim sweeps across the wall; gap = band
+const WL=250, WR=650, WY=300, GTOP=98, GLINE=196;
+const SPOT=[450,528];
+function posX(p){return WL+(WR-WL)*clamp(p,0,1);}
+
+function reset(){outs=0;fails=0;score=0;combo=0;lvl=1;parts=[];}
+function newKick(){
+  lvl=Math.min(7,1+Math.floor(outs/4));
+  period=clamp(1560-lvl*110,860,1560);
+  tough=Math.random()<clamp(0.2+lvl*0.05,0.2,0.5);
+  bandW=clamp(0.26-lvl*0.02,0.12,0.26)*(tough?0.8:1);
+  bandC=rnd(0.2,0.8);   // gap can open anywhere in the wall
+  deadT=clamp(3200-lvl*180,1900,3200);
+  phase='wind';pt=0;swp=0;pos=0;decided=false;result='';stopPos=0;quality=0;ballU=0;
+}
+function startGame(){reset();state='play';newKick();S.start();}
+
+function burst(x,y,col,n,sp){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=rnd(0.4,1)*(sp||3);parts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,col:col,r:rnd(2,5)});}}
+
+function resolve(kind){
+  decided=true;stopPos=pos;ballU=0;
+  if(kind==='goal'){
+    result='goal';outs++;combo++;
+    const half=bandW/2;quality=clamp(1-Math.abs(pos-bandC)/half,0,1);
+    const cm=1+Math.min(combo-1,6)*0.14;
+    const add=Math.round((100+quality*130)*cm)*Math.max(1,lvl);
+    score+=add;lastAdd=add;
+    S.kick();setTimeout(S.net,300);setTimeout(S.goal,340);setTimeout(S.roar,420);if(combo>1)setTimeout(function(){S.combo(combo);},560);
+    flash=0.3;burst(posX(pos),GTOP+30,'#bfe9ff',14,3.2);
+    msg=(quality>0.7?'ゴラッソ！ 壁の隙間をズドン！':'ナイスコース！ 隙間を通した！')+'  +'+add;
+    msgCol='#5affa0';msgT=1;
+  }else if(kind==='timeout'){
+    result='timeout';combo=0;fails++;S.kick();setTimeout(S.block,260);flash=0.32;shakeT=0.7;
+    msg='蹴りあぐねた！ 壁に詰められてブロック';msgCol='#ff6a6a';msgT=1;
+  }else{ // miss: near the gap = hit the wall ; far = wide
+    combo=0;fails++;S.kick();flash=0.32;shakeT=0.7;
+    const d=Math.abs(pos-bandC);
+    if(d<bandW*0.9){result='blocked';setTimeout(S.block,260);msg='壁に当たった！ 隙間を外した';}
+    else{result='wide';setTimeout(S.wide,260);msg='ふかした！ 枠の外へ';}
+    msgCol='#ff6a6a';msgT=1;
+  }
+  phase='result';pt=0;
+}
+
+function shoot(){
+  if(state!=='play'||phase!=='aim'||decided)return;
+  const half=bandW/2;
+  if(Math.abs(pos-bandC)<=half)resolve('goal');
+  else resolve('miss');
+}
+
+// ---------- input ----------
+function act(){if(!AC)actx();if(state==='title'){startGame();return;}if(state==='over'){startGame();return;}shoot();}
+cv.addEventListener('mousedown',function(e){e.preventDefault();act();});
+cv.addEventListener('touchstart',function(e){e.preventDefault();act();},{passive:false});
+window.addEventListener('keydown',function(e){
+  if(e.code==='Space'||e.code==='ArrowUp'||e.code==='Enter'||e.code==='KeyK'){e.preventDefault();act();}
+});
+
+// ---------- update ----------
+let last=0;
+function update(dt){
+  if(flash>0)flash=Math.max(0,flash-dt/300);
+  if(shakeT>0)shakeT=Math.max(0,shakeT-dt/320);
+  if(msgT>0)msgT=Math.max(0,msgT-dt/1500);
+  for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.16;p.life-=dt/640;if(p.life<=0)parts.splice(i,1);}
+  if(state!=='play')return;
+  pt+=dt;
+  if(phase==='wind'){
+    if(pt>=420){phase='aim';pt=0;swp=0;}
+  }else if(phase==='aim'){
+    swp+=dt;
+    const ph=(swp%period)/period;
+    pos=1-Math.abs(2*ph-1);
+    if(Math.floor(swp/(period/2))!==Math.floor((swp-dt)/(period/2)))S.swish();
+    if(swp>=deadT&&!decided)resolve('timeout');
+  }else if(phase==='result'){
+    if(ballU<1)ballU=Math.min(1,ballU+dt/300);
+    if(result==='goal'&&ballU>0.7&&Math.random()<0.25)burst(posX(stopPos)+rnd(-14,14),GTOP+26,'#fff',1,1.4);
+    if(pt>=1180){
+      if(fails>=3){state='over';best=Math.max(best,score);try{localStorage.setItem('tw_best',String(best));}catch(e){}S.over();}
+      else if(outs>=TARGET){state='over';best=Math.max(best,score);try{localStorage.setItem('tw_best',String(best));}catch(e){}S.goal();}
+      else newKick();
+    }
+  }
+}
+
+// ---------- render ----------
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+const GL=300, GR=600;
+function drawPitch(){
+  for(let i=0;i<9;i++){ctx.fillStyle=i%2?'#2b6b3d':'#256036';ctx.fillRect(0,i*(H/9),W,H/9);}
+  // goal
+  ctx.fillStyle='rgba(255,255,255,.06)';ctx.fillRect(GL,GTOP,GR-GL,GLINE-GTOP);
+  ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=1;
+  for(let x=GL;x<=GR;x+=15){ctx.beginPath();ctx.moveTo(x,GTOP);ctx.lineTo(x,GLINE);ctx.stroke();}
+  for(let y=GTOP+12;y<GLINE;y+=13){ctx.beginPath();ctx.moveTo(GL,y);ctx.lineTo(GR,y);ctx.stroke();}
+  ctx.fillStyle='#f2f2f2';ctx.fillRect(GL-6,GTOP-5,6,GLINE-GTOP+6);ctx.fillRect(GR,GTOP-5,6,GLINE-GTOP+6);ctx.fillRect(GL-6,GTOP-5,GR-GL+12,6);
+  ctx.fillStyle='#fff';ctx.fillRect(GL-6,GLINE,GR-GL+12,3);
+  // keeper (leans to one side, out of position)
+  const kx=(bandC<0.5)?GR-40:GL+40;
+  ctx.save();ctx.translate(kx,GTOP+58);
+  ctx.fillStyle='#e9d84a';ctx.fillRect(-11,-14,22,26);ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(0,-22,8,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#e9d84a';ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-9,-6);ctx.lineTo(-20,-18);ctx.moveTo(9,-6);ctx.lineTo(20,-18);ctx.stroke();
+  ctx.restore();
+}
+
+function drawWall(){
+  // defenders line the wall except at the gap (band)
+  const gapX0=posX(bandC-bandW/2), gapX1=posX(bandC+bandW/2);
+  const n=8;
+  for(let i=0;i<n;i++){
+    const x=WL+ (i+0.5)*(WR-WL)/n;
+    if(x>gapX0-16 && x<gapX1+16) continue;  // leave the gap open
+    ctx.save();ctx.translate(x,WY);
+    ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(0,30,13,5,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#2a2a2a';ctx.fillRect(-7,4,6,26);ctx.fillRect(1,4,6,26);
+    ctx.fillStyle='#c0343a';ctx.fillRect(-11,-22,22,28);
+    ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(0,-32,8,0,Math.PI*2);ctx.fill();
+    // arms crossed over
+    ctx.fillStyle='#c0343a';ctx.fillRect(-13,-18,26,6);
+    ctx.restore();
+  }
+  // gap highlight
+  ctx.fillStyle='rgba(90,255,150,.14)';ctx.fillRect(gapX0,WY-42,gapX1-gapX0,84);
+  ctx.strokeStyle='rgba(120,255,170,.6)';ctx.lineWidth=1.5;ctx.strokeRect(gapX0,WY-42,gapX1-gapX0,84);
+  ctx.fillStyle='#aaffcf';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText('隙間',(gapX0+gapX1)/2,WY-48);
+}
+
+function drawAim(){
+  if(state!=='play')return;
+  let ax=(phase==='aim'&&!decided)?posX(pos):posX(stopPos);
+  const col=(phase==='result')?(result==='goal'?'#5affa0':'#ff6a6a'):'#fff';
+  // vertical aim line from spot area up to the goal
+  ctx.strokeStyle=col;ctx.lineWidth=3;ctx.setLineDash([6,5]);
+  ctx.beginPath();ctx.moveTo(ax,GTOP-2);ctx.lineTo(ax,WY+44);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle=col;ctx.beginPath();ctx.arc(ax,GLINE+2,7,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#132';ctx.beginPath();ctx.arc(ax,GLINE+2,3,0,Math.PI*2);ctx.fill();
+  // timer
+  if(phase==='aim'){const tl=clamp((deadT-swp)/deadT,0,1);const bw=300;roundRect(450-bw/2,WY+58,bw,7,3);ctx.fillStyle='rgba(0,0,0,.4)';ctx.fill();ctx.fillStyle=tl<0.28?'#ff6a6a':'#ffd23a';ctx.fillRect(450-bw/2,WY+58,bw*tl,7);}
+}
+
+function drawBallKicker(){
+  let bx=SPOT[0],by=SPOT[1]-40;
+  if(phase==='result'){
+    const u=ballU, ex=posX(stopPos);
+    if(result==='goal'){ by=(SPOT[1]-40)+(GTOP+30-(SPOT[1]-40))*u; bx=SPOT[0]+(ex-SPOT[0])*u; }
+    else if(result==='blocked'){ const wy=WY+6; by=(SPOT[1]-40)+(wy-(SPOT[1]-40))*Math.min(u*1.6,1); bx=SPOT[0]+(ex-SPOT[0])*Math.min(u*1.6,1); }
+    else if(result==='wide'){ by=(SPOT[1]-40)+(GTOP-30-(SPOT[1]-40))*u; const tx=(stopPos<0.5)?GL-40:GR+40; bx=SPOT[0]+(tx-SPOT[0])*u; }
+    else { by=SPOT[1]-40; bx=SPOT[0]; }
+  }
+  if(phase!=='result'||ballU<0.2){
+    ctx.save();ctx.translate(SPOT[0]-30,SPOT[1]);
+    ctx.fillStyle='rgba(0,0,0,.26)';ctx.beginPath();ctx.ellipse(0,4,14,5,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#222';ctx.fillRect(-8,-4,7,22);ctx.fillRect(1,-4,7,22);
+    ctx.fillStyle='#2f6fd0';ctx.fillRect(-11,-30,22,28);
+    ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(0,-40,8,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+  ctx.fillStyle='rgba(0,0,0,.2)';ctx.beginPath();ctx.ellipse(bx,by+8,8,3,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,8,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=1.3;ctx.stroke();
+  ctx.fillStyle='#1c1c1c';ctx.beginPath();ctx.arc(bx-2,by-2,2.4,0,Math.PI*2);ctx.fill();
+}
+
+function drawHUD(){
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  ctx.font='bold 20px sans-serif';ctx.fillStyle='#fff';
+  ctx.fillText('ゴール '+outs+' / '+TARGET,20,32);
+  ctx.font='14px sans-serif';ctx.fillStyle='#ffb14a';ctx.fillText('失敗 '+fails+' / 3',20,54);
+  ctx.textAlign='right';
+  ctx.font='bold 20px sans-serif';ctx.fillStyle='#ffe08a';ctx.fillText('SCORE '+score,W-20,32);
+  ctx.font='13px sans-serif';ctx.fillStyle='#bfe';ctx.fillText('BEST '+Math.max(best,score)+'   Lv.'+lvl,W-20,52);
+  if(combo>1){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillStyle='#5affa0';ctx.fillText(combo+' 連続ゴール!',450,420);}
+  if(phase==='aim'&&!decided){ctx.textAlign='center';ctx.font='bold 16px sans-serif';ctx.fillStyle='#ffe08a';ctx.fillText('左右に往復する照準を、壁の“隙間”でピタリと止めて蹴れ！',450,420);}
+}
+
+function drawMsg(){
+  if(msgT<=0)return;
+  ctx.save();ctx.globalAlpha=clamp(msgT*1.4,0,1);
+  ctx.textAlign='center';ctx.font='bold 23px sans-serif';
+  ctx.fillStyle='rgba(0,0,0,.6)';roundRect(450-300,444,600,42,10);ctx.fill();
+  ctx.fillStyle=msgCol;ctx.fillText(msg,450,472);
+  ctx.restore();
+}
+
+function drawTitle(){
+  drawPitch();drawWall();
+  ctx.save();ctx.textAlign='center';
+  ctx.fillStyle='rgba(0,0,0,.7)';roundRect(96,108,708,392,16);ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='bold 34px sans-serif';ctx.fillText('壁の隙間を通せ',450,164);
+  ctx.font='18px sans-serif';ctx.fillStyle='#9fe0bf';ctx.fillText('Through the Wall',450,194);
+  ctx.font='16px sans-serif';ctx.fillStyle='#e6fcef';
+  const lines=[
+    'あなたはフリーキッカー。人壁（ディフェンスの壁）には“隙間”がある——',
+    '左右を往復する“照準”を、その隙間でピタリと止めて',
+    '低い弾道で壁の隙間を撃ち抜きゴールへねじ込め！',
+    '隙間を外して壁側で止める＝壁に当たってブロック。',
+    '外し過ぎ＝枠の外へふかす。溜めすぎも壁に詰められる。',
+    'タップ / クリック / SPACE でシュート。3失敗で終了。',
+  ];
+  for(let i=0;i<lines.length;i++)ctx.fillText(lines[i],450,234+i*30);
+  ctx.fillStyle='#ffe08a';ctx.font='bold 22px sans-serif';
+  ctx.fillText('タップ / SPACE でスタート',450,476);
+  ctx.restore();
+}
+
+function drawOver(){
+  drawPitch();drawWall();
+  ctx.save();ctx.textAlign='center';
+  ctx.fillStyle='rgba(0,0,0,.7)';roundRect(190,150,520,300,16);ctx.fill();
+  const w2=outs>=TARGET;
+  ctx.fillStyle=w2?'#5affa0':'#ff8a5a';ctx.font='bold 34px sans-serif';
+  ctx.fillText(w2?'壁破りの名手！':'壁を破れず…',450,222);
+  ctx.fillStyle='#fff';ctx.font='20px sans-serif';
+  ctx.fillText('ゴール '+outs+' / '+TARGET,450,270);
+  ctx.fillText('スコア '+score,450,304);
+  ctx.fillStyle='#ffe08a';ctx.fillText('ベスト '+Math.max(best,score),450,336);
+  ctx.fillStyle='#9fe0bf';ctx.font='bold 20px sans-serif';
+  ctx.fillText('タップ / SPACE でもう一度',450,404);
+  ctx.restore();
+}
+
+function render(){
+  ctx.save();
+  if(shakeT>0){const s=shakeT*7;ctx.translate(rnd(-s,s),rnd(-s,s));}
+  if(state==='title'){drawTitle();}
+  else if(state==='over'){drawOver();}
+  else{
+    drawPitch();
+    drawAim();
+    drawWall();
+    drawBallKicker();
+    drawHUD();
+    drawMsg();
+  }
+  for(const p of parts){ctx.globalAlpha=clamp(p.life,0,1);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();}
+  ctx.globalAlpha=1;
+  ctx.restore();
+  if(flash>0){ctx.fillStyle='rgba(255,255,255,'+(flash*0.5)+')';ctx.fillRect(0,0,W,H);}
+}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__tw={
+  start:startGame,
+  shoot:shoot,
+  get state(){return state;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get score(){return score;},
+  get info(){return {state:state,phase:phase,swp:swp,pos:pos,bandC:bandC,bandW:bandW,period:period,deadT:deadT,timeLeft:(deadT-swp),tough:tough,decided:decided,result:result,quality:quality,outs:outs,fails:fails,lvl:lvl,inBand:(Math.abs(pos-bandC)<=bandW/2),dist:Math.abs(pos-bandC),canAct:(state==='play'&&phase==='aim'&&!decided)};}
+};
+})();
+</script>
+</body>
+</html>
