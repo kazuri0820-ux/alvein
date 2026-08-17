@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>三塁を刺せ (Back-Pick at Third)</title>
+<style>
+  html,body{margin:0;padding:0;background:#0a1410;overflow:hidden;font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;-webkit-user-select:none;user-select:none;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 30%,#173525,#060d09 72%);}
+  #stage{position:relative;width:min(100vw,calc(100vh*1.5));aspect-ratio:900/600;max-width:900px;box-shadow:0 10px 60px rgba(0,0,0,.6);border-radius:8px;overflow:hidden;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const W=900,H=600;let DPR=Math.min(2,window.devicePixelRatio||1);
+function fit(){const r=cv.getBoundingClientRect();DPR=Math.min(2,window.devicePixelRatio||1);cv.width=Math.round(r.width*DPR);cv.height=Math.round(r.height*DPR);ctx.setTransform(cv.width/W,0,0,cv.height/H,0,0);}
+new ResizeObserver(fit).observe(cv);fit();
+
+// ---------- audio ----------
+let AC=null;function actx(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.type=type||'sine';o.frequency.value=f;if(sweep)o.frequency.linearRampToValueAtTime(sweep,a.currentTime+d);g.gain.value=0.0001;g.gain.exponentialRampToValueAtTime(v||0.2,a.currentTime+0.008);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d);o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d+0.02);}
+function noise(d,v,hp){const a=actx();if(!a)return;const n=a.createBufferSource(),b=a.createBuffer(1,a.sampleRate*d,a.sampleRate),dt=b.getChannelData(0);for(let i=0;i<dt.length;i++)dt[i]=Math.random()*2-1;n.buffer=b;const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||800;const g=a.createGain();g.gain.value=0.0001;g.gain.exponentialRampToValueAtTime(v||0.2,a.currentTime+0.01);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d);n.connect(f);f.connect(g);g.connect(a.destination);n.start();n.stop(a.currentTime+d+0.02);}
+const S={
+  mitt(){noise(0.05,0.16,900);tone(300,0.05,'square',0.1);},        // pitch into the mitt
+  snap(){tone(520,0.07,'square',0.14,760);noise(0.03,0.05,700);},   // snap throw
+  out(){tone(520,0.1,'triangle',0.2);setTimeout(function(){tone(720,0.14,'triangle',0.22);},110);setTimeout(function(){tone(960,0.18,'triangle',0.2);},230);},
+  roar(){noise(0.5,0.14,300);},
+  waste(){noise(0.14,0.2,900);tone(280,0.16,'sawtooth',0.1,170);},  // wasted / errant throw
+  safe(){tone(300,0.16,'square',0.14,150);noise(0.1,0.14,500);},    // runner back safe
+  combo(n){tone(600+Math.min(n,8)*70,0.12,'triangle',0.16);},
+  over(){tone(330,0.3,'sine',0.2,160);setTimeout(function(){tone(220,0.5,'sine',0.2,110);},180);},
+  start(){tone(440,0.1,'triangle',0.18);setTimeout(function(){tone(660,0.16,'triangle',0.2);},110);},
+};
+
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function rnd(a,b){return a+Math.random()*(b-a);}
+
+// ---------- state ----------
+let state='title';
+let outs=0,fails=0,score=0,combo=0,lvl=1;   // outs = pickoffs at third
+let best=0;try{best=parseInt(localStorage.getItem('bt_best')||'0')||0;}catch(e){}
+const TARGET=26;
+
+let phase='wind';  // wind | watch(runner strays off 3B) | result
+let pt=0, clock=0;
+let arriveT=900, w=180, effW=180, deadEnd=1300, tough=false;
+let decided=false, result='', runClock=0, quality=0;
+let parts=[];
+let shakeT=0,flash=0;
+let msg='',msgCol='#fff',msgT=0;
+// scene
+const HOME=[452,486], THIRD=[176,300], SECOND=[452,150];
+let RUN_PEAK=[300,410];
+let ballX=452,ballY=486, runX=176,runY=300, backU=0;
+let lastAdd=0;
+
+function reset(){outs=0;fails=0;score=0;combo=0;lvl=1;parts=[];}
+function lerp(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];}
+function newPlay(){
+  lvl=Math.min(7,1+Math.floor(outs/4));
+  arriveT=clamp(1000-lvl*46,700,1000);
+  w=clamp(200-lvl*16,100,200);
+  tough=Math.random()<clamp(0.2+lvl*0.05,0.2,0.5);
+  effW=tough?w*0.82:w;
+  deadEnd=arriveT+effW+300;
+  RUN_PEAK=lerp(THIRD,HOME,tough?0.36:0.44);   // a bolder runner strays further
+  phase='wind';pt=0;clock=0;decided=false;result='';runClock=0;quality=0;backU=0;
+  ballX=HOME[0];ballY=HOME[1]-24;
+  const rp=runnerLead(0);runX=rp[0];runY=rp[1];
+}
+function startGame(){reset();state='play';newPlay();S.start();}
+
+function burst(x,y,col,n,sp){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=rnd(0.4,1)*(sp||3);parts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,col:col,r:rnd(2,5)});}}
+
+// runner's secondary lead: grows off 3B, peaks at arriveT, then eases back
+function runnerLead(c){
+  let leadU;
+  if(c<arriveT)leadU=c/arriveT;
+  else leadU=clamp(1-(c-arriveT)/(effW+280),0,1);
+  return lerp(THIRD,RUN_PEAK,clamp(leadU,0,1));
+}
+
+function resolve(kind){
+  decided=true;result=kind;runClock=clock;
+  const rp=runnerLead(clock);runX=rp[0];runY=rp[1];
+  if(kind==='pick'){
+    outs++;combo++;
+    quality=clamp(1-Math.abs(clock-arriveT)/effW,0,1);
+    const cm=1+Math.min(combo-1,6)*0.14;
+    const add=Math.round((100+quality*130)*cm)*Math.max(1,lvl);
+    score+=add;lastAdd=add;
+    S.snap();setTimeout(S.out,240);setTimeout(S.roar,320);if(combo>1)setTimeout(function(){S.combo(combo);},420);
+    flash=0.28;burst(THIRD[0],THIRD[1],'#5affa0',13,3);
+    msg=(quality>0.72?'ドンピシャの逆モーション送球！ 大きなリードを一発で刺した！':'逆を突いた！ 三塁で刺した！')+'  +'+add;msgCol='#5affa0';msgT=1;
+  }else{
+    combo=0;fails++;
+    if(result==='early'){S.waste();}else{S.safe();}
+    flash=0.30;shakeT=0.6;
+    if(result==='early')msg='仕掛けが早い！ 走者は戻れる位置——ムダな送球';
+    else msg='仕掛けが遅い！ 走者にリードを戻された';
+    msgCol='#ff6a6a';msgT=1;
+  }
+  phase='result';pt=0;
+}
+
+function run(){
+  if(state!=='play'||phase!=='watch'||decided)return;
+  const c=clock;
+  if(c<arriveT-effW)resolve('early');
+  else resolve('pick');
+}
+
+// ---------- input ----------
+function act(){if(!AC)actx();if(state==='title'){startGame();return;}if(state==='over'){startGame();return;}run();}
+cv.addEventListener('mousedown',function(e){e.preventDefault();act();});
+cv.addEventListener('touchstart',function(e){e.preventDefault();act();},{passive:false});
+window.addEventListener('keydown',function(e){
+  if(e.code==='Space'||e.code==='ArrowUp'||e.code==='Enter'||e.code==='KeyJ'){e.preventDefault();act();}
+});
+
+// ---------- update ----------
+let last=0;
+function update(dt){
+  if(flash>0)flash=Math.max(0,flash-dt/300);
+  if(shakeT>0)shakeT=Math.max(0,shakeT-dt/320);
+  if(msgT>0)msgT=Math.max(0,msgT-dt/1500);
+  for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.16;p.life-=dt/640;if(p.life<=0)parts.splice(i,1);}
+  if(state!=='play')return;
+  pt+=dt;
+  if(phase==='wind'){
+    if(pt>=460){phase='watch';pt=0;clock=0;S.mitt();}
+  }else if(phase==='watch'){
+    clock+=dt;
+    const rp=runnerLead(clock);runX=rp[0];runY=rp[1];
+    if(clock>=arriveT+effW&&!decided)resolve('late');
+  }else if(phase==='result'){
+    if(result==='pick'){
+      // throw beats the runner back to the bag
+      const bp=lerp([HOME[0],HOME[1]-24],THIRD,clamp(pt/240,0,1)); ballX=bp[0];ballY=bp[1];
+      if(pt>240){const rp=lerp([runX,runY],THIRD,clamp((pt-240)/240,0,1));} // runner scrambles but too late
+    }else if(result==='early'){
+      // wasted throw sails to third; runner dives back safely
+      const bp=lerp([HOME[0],HOME[1]-24],[THIRD[0]-16,THIRD[1]-14],clamp(pt/220,0,1)); ballX=bp[0];ballY=bp[1];
+      backU=Math.min(1,backU+dt/240); const rp=lerp([runX,runY],THIRD,backU); runX=rp[0];runY=rp[1];
+    }else{ // late: runner eases his lead back, no throw
+      backU=Math.min(1,backU+dt/300); const rp=lerp([runX,runY],THIRD,backU); runX=rp[0];runY=rp[1];
+    }
+    if(pt>=1180){
+      if(fails>=3){state='over';best=Math.max(best,score);try{localStorage.setItem('bt_best',String(best));}catch(e){}S.over();}
+      else if(outs>=TARGET){state='over';best=Math.max(best,score);try{localStorage.setItem('bt_best',String(best));}catch(e){}S.out();}
+      else newPlay();
+    }
+  }
+}
+
+// ---------- render ----------
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function drawField(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#2a5a3a');g.addColorStop(1,'#1c4a2c');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // infield dirt around home / third-base line
+  ctx.fillStyle='#8a5a34';ctx.beginPath();ctx.moveTo(HOME[0],HOME[1]+14);ctx.lineTo(THIRD[0]-30,THIRD[1]);ctx.lineTo(SECOND[0],SECOND[1]-20);ctx.lineTo(HOME[0]+150,HOME[1]+14);ctx.closePath();ctx.fill();
+  // base line 3B -> home (chalk)
+  ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(THIRD[0],THIRD[1]);ctx.lineTo(HOME[0],HOME[1]);ctx.stroke();
+  // lead-zone highlight along the base path (green when the runner is caught leaning)
+  const inWin=(phase==='watch'&&!decided&&clock>=arriveT-effW&&clock<=arriveT+effW);
+  const p0=lerp(THIRD,HOME,0.30), p1=lerp(THIRD,HOME,0.52);
+  ctx.strokeStyle=inWin?'rgba(90,255,150,.75)':'rgba(255,225,120,.4)';ctx.lineWidth=10;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(p0[0],p0[1]);ctx.lineTo(p1[0],p1[1]);ctx.stroke();ctx.lineCap='butt';
+  // bases
+  function base(p){ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(Math.PI/4);ctx.fillStyle='#eee';ctx.fillRect(-10,-10,20,20);ctx.restore();}
+  base(THIRD);base(SECOND);
+  // home plate
+  ctx.fillStyle='#eee';ctx.beginPath();ctx.moveTo(HOME[0],HOME[1]+12);ctx.lineTo(HOME[0]+10,HOME[1]+3);ctx.lineTo(HOME[0]+10,HOME[1]-5);ctx.lineTo(HOME[0]-10,HOME[1]-5);ctx.lineTo(HOME[0]-10,HOME[1]+3);ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.55)';ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.fillText('三塁',THIRD[0],THIRD[1]-18);
+}
+
+function person(x,y,col,glow,lean){
+  ctx.save();ctx.translate(x,y);if(lean)ctx.rotate(lean);
+  if(glow>0){ctx.strokeStyle='rgba(90,255,160,'+glow+')';ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,-18,26,0,Math.PI*2);ctx.stroke();}
+  ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(0,4,14,5,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#222';ctx.fillRect(-8,-4,7,22);ctx.fillRect(1,-4,7,22);
+  ctx.fillStyle=col;ctx.fillRect(-11,-30,22,28);
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(0,-40,8,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+function drawScene(){
+  drawField();
+  // third baseman covering the bag
+  person(THIRD[0]-24,THIRD[1]-2,'#c0343a',(phase==='result'&&result==='pick')?0.9:0,0.2);
+  // runner leading off third (red), leans toward home
+  const rlean=(phase==='watch')?0.12+clamp(clock/arriveT,0,1)*0.12:(result==='pick'?0.1:-0.2);
+  person(runX,runY,'#c0343a',0,rlean);
+  // catcher (you) at home
+  const ready=(phase==='watch'&&!decided&&clock>=arriveT-effW);
+  person(HOME[0]-4,HOME[1]+16,'#e8d24a',ready?0.9:0,(phase==='result'&&result==='pick')?-0.3:0);
+  // ball
+  ctx.fillStyle='rgba(0,0,0,.2)';ctx.beginPath();ctx.ellipse(ballX,ballY+7,6,3,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ballX,ballY,7,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#d33';ctx.lineWidth=1.1;ctx.beginPath();ctx.arc(ballX-2,ballY,5,-0.7,0.7);ctx.stroke();
+}
+
+function drawTimingBar(){
+  if(state!=='play')return;
+  const mx=180,mw=540,my=560,mh=18;
+  roundRect(mx,my,mw,mh,9);ctx.fillStyle='rgba(0,0,0,.45)';ctx.fill();
+  const gx0=mx+mw*clamp((arriveT-effW)/deadEnd,0,1), gx1=mx+mw*clamp((arriveT+effW)/deadEnd,0,1);
+  const gg=ctx.createLinearGradient(gx0,0,gx1,0);gg.addColorStop(0,'rgba(90,220,150,.4)');gg.addColorStop(0.5,'rgba(60,255,150,.9)');gg.addColorStop(1,'rgba(90,220,150,.4)');
+  ctx.fillStyle=gg;ctx.fillRect(gx0,my,gx1-gx0,mh);
+  ctx.fillStyle='rgba(210,70,70,.28)';ctx.fillRect(mx,my,gx0-mx,mh);
+  roundRect(mx,my,mw,mh,9);ctx.strokeStyle='rgba(255,255,255,.4)';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.font='11px sans-serif';ctx.textAlign='left';ctx.fillStyle='#ff9a9a';ctx.fillText('早い＝まだ戻れる',mx+4,my-6);
+  ctx.textAlign='center';ctx.fillStyle='#aaffcf';ctx.fillText('大きなリードの“今”で刺せ！',(gx0+gx1)/2,my-6);
+  ctx.textAlign='right';ctx.fillStyle='#ff9a9a';ctx.fillText('遅い＝戻られる',mx+mw-4,my-6);
+  if(phase==='watch'||phase==='result'){
+    const cc=(phase==='watch')?clock:runClock;
+    const px=mx+mw*clamp((result==='late'?arriveT+effW:cc)/deadEnd,0,1);
+    ctx.fillStyle=(phase==='result')?(result==='pick'?'#5affa0':'#ff6a6a'):'#fff';
+    ctx.fillRect(px-2,my-5,4,mh+10);
+  }
+}
+
+function drawHUD(){
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  ctx.font='bold 20px sans-serif';ctx.fillStyle='#fff';
+  ctx.fillText('刺殺 '+outs+' / '+TARGET,20,32);
+  ctx.font='14px sans-serif';ctx.fillStyle='#ffb14a';ctx.fillText('失敗 '+fails+' / 3',20,54);
+  ctx.textAlign='right';
+  ctx.font='bold 20px sans-serif';ctx.fillStyle='#ffe08a';ctx.fillText('SCORE '+score,W-20,32);
+  ctx.font='13px sans-serif';ctx.fillStyle='#bfe';ctx.fillText('BEST '+Math.max(best,score)+'   Lv.'+lvl,W-20,52);
+  if(combo>1){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillStyle='#5affa0';ctx.fillText(combo+' 連続刺殺!',450,96);}
+  if(phase==='watch'&&!decided){ctx.textAlign='center';ctx.font='bold 15px sans-serif';ctx.fillStyle='#ffe08a';ctx.fillText('走者が二次リード——大きく離れた“その瞬間”に逆モーションで送球！',450,124);}
+}
+
+function drawMsg(){
+  if(msgT<=0)return;
+  ctx.save();ctx.globalAlpha=clamp(msgT*1.4,0,1);
+  ctx.textAlign='center';ctx.font='bold 23px sans-serif';
+  ctx.fillStyle='rgba(0,0,0,.6)';roundRect(450-300,150,600,42,10);ctx.fill();
+  ctx.fillStyle=msgCol;ctx.fillText(msg,450,178);
+  ctx.restore();
+}
+
+function drawTitle(){
+  drawField();person(THIRD[0]-24,THIRD[1]-2,'#c0343a',0,0);person(RUN_PEAK[0],RUN_PEAK[1],'#c0343a',0,0.15);person(HOME[0]-4,HOME[1]+16,'#e8d24a',0,0);
+  ctx.save();ctx.textAlign='center';
+  ctx.fillStyle='rgba(0,0,0,.66)';roundRect(96,96,708,404,16);ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='bold 34px sans-serif';ctx.fillText('三塁を刺せ',450,152);
+  ctx.font='18px sans-serif';ctx.fillStyle='#9fe0bf';ctx.fillText('Back-Pick at Third',450,182);
+  ctx.font='16px sans-serif';ctx.fillStyle='#e6fcef';
+  const lines=[
+    'あなたは捕手。三塁走者が投球後に“二次リード”で塁を大きく離れる——',
+    '一番大きく離れた“その瞬間”に、逆モーションで三塁へ逆を突く送球！',
+    'ドンピシャなら戻り切れずタッチアウト（バックピック）。',
+    '早いと走者はまだ戻れる位置＝ムダな（暴投になりかねない）送球。',
+    '遅いと走者にリードを戻されて刺せない。',
+    'タップ / クリック / SPACE で送球。26刺殺で達成、3失敗で終了。',
+  ];
+  for(let i=0;i<lines.length;i++)ctx.fillText(lines[i],450,226+i*30);
+  ctx.fillStyle='#ffe08a';ctx.font='bold 22px sans-serif';
+  ctx.fillText('タップ / SPACE でスタート',450,480);
+  ctx.restore();
+}
+
+function drawOver(){
+  drawField();
+  ctx.save();ctx.textAlign='center';
+  ctx.fillStyle='rgba(0,0,0,.66)';roundRect(190,150,520,300,16);ctx.fill();
+  const w2=outs>=TARGET;
+  ctx.fillStyle=w2?'#5affa0':'#ff8a5a';ctx.font='bold 34px sans-serif';
+  ctx.fillText(w2?'強肩の司令塔！':'刺し切れず…',450,222);
+  ctx.fillStyle='#fff';ctx.font='20px sans-serif';
+  ctx.fillText('刺殺 '+outs+' / '+TARGET,450,270);
+  ctx.fillText('スコア '+score,450,304);
+  ctx.fillStyle='#ffe08a';ctx.fillText('ベスト '+Math.max(best,score),450,336);
+  ctx.fillStyle='#9fe0bf';ctx.font='bold 20px sans-serif';
+  ctx.fillText('タップ / SPACE でもう一度',450,404);
+  ctx.restore();
+}
+
+function render(){
+  ctx.save();
+  if(shakeT>0){const s=shakeT*7;ctx.translate(rnd(-s,s),rnd(-s,s));}
+  if(state==='title'){drawTitle();}
+  else if(state==='over'){drawOver();}
+  else{
+    drawScene();
+    drawTimingBar();
+    drawHUD();
+    drawMsg();
+  }
+  for(const p of parts){ctx.globalAlpha=clamp(p.life,0,1);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();}
+  ctx.globalAlpha=1;
+  ctx.restore();
+  if(flash>0){ctx.fillStyle='rgba(255,255,255,'+(flash*0.5)+')';ctx.fillRect(0,0,W,H);}
+}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__bt={
+  start:startGame,
+  run:run,
+  get state(){return state;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get score(){return score;},
+  get info(){return {state:state,phase:phase,clock:clock,arriveT:arriveT,w:w,effW:effW,deadEnd:deadEnd,tough:tough,decided:decided,result:result,quality:quality,outs:outs,fails:fails,lvl:lvl,inWindow:(clock>=arriveT-effW&&clock<arriveT+effW),canAct:(state==='play'&&phase==='watch'&&!decided)};}
+};
+})();
+</script>
+</body>
+</html>
