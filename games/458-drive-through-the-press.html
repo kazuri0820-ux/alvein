@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>持ち運んで剥がせ (Drive Through the Press)</title>
+<style>
+  html,body{margin:0;padding:0;background:#07130c;overflow:hidden;font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;-webkit-user-select:none;user-select:none;touch-action:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 30%,#1c3f28,#050d07 72%);}
+  #stage{position:relative;width:min(100vw,calc(100vh*1.5));aspect-ratio:900/600;max-width:900px;box-shadow:0 10px 60px rgba(0,0,0,.6);border-radius:8px;overflow:hidden;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+<script>
+(function(){
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const W=900,H=600;let DPR=Math.min(2,window.devicePixelRatio||1);
+function fit(){const r=cv.getBoundingClientRect();DPR=Math.min(2,window.devicePixelRatio||1);cv.width=Math.round(r.width*DPR);cv.height=Math.round(r.height*DPR);ctx.setTransform(cv.width/W,0,0,cv.height/H,0,0);}
+new ResizeObserver(fit).observe(cv);fit();
+
+// ---------- audio ----------
+let AC=null;function actx(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return AC;}
+function tone(f,d,type,v,sweep){const a=actx();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.type=type||'sine';o.frequency.value=f;if(sweep)o.frequency.linearRampToValueAtTime(sweep,a.currentTime+d);g.gain.value=0.0001;g.gain.exponentialRampToValueAtTime(v||0.2,a.currentTime+0.008);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d);o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d+0.02);}
+function noise(d,v,hp){const a=actx();if(!a)return;const n=a.createBufferSource(),b=a.createBuffer(1,a.sampleRate*d,a.sampleRate),dt=b.getChannelData(0);for(let i=0;i<dt.length;i++)dt[i]=Math.random()*2-1;n.buffer=b;const f=a.createBiquadFilter();f.type='highpass';f.frequency.value=hp||800;const g=a.createGain();g.gain.value=0.0001;g.gain.exponentialRampToValueAtTime(v||0.2,a.currentTime+0.01);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+d);n.connect(f);f.connect(g);g.connect(a.destination);n.start();n.stop(a.currentTime+d+0.02);}
+let tickH=170;
+const S={
+  dig(){tone(tickH,0.03,'square',0.05);tickH=150+Math.random()*70;},   // each driving stride
+  burst(){tone(520,0.08,'sine',0.14,760);noise(0.03,0.05,700);},        // break into space
+  win(){tone(560,0.09,'triangle',0.18);setTimeout(function(){tone(820,0.12,'triangle',0.2);},80);setTimeout(function(){tone(1040,0.14,'triangle',0.16);},180);},
+  roar(){noise(0.5,0.14,300);},
+  lost(){tone(300,0.28,'sawtooth',0.16,140);noise(0.12,0.14,400);},
+  over(){tone(330,0.3,'sine',0.2,160);setTimeout(function(){tone(220,0.5,'sine',0.2,110);},180);},
+  start(){tone(440,0.1,'triangle',0.18);setTimeout(function(){tone(660,0.16,'triangle',0.2);},110);},
+  combo(n){tone(600+Math.min(n,8)*70,0.12,'triangle',0.16);},
+};
+
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+function rnd(a,b){return a+Math.random()*(b-a);}
+
+// ---------- state ----------
+let state='title';
+let outs=0,fails=0,score=0,combo=0,lvl=1;   // outs = breaks through the press
+let best=0;try{best=parseInt(localStorage.getItem('dp_best')||'0')||0;}catch(e){}
+const TARGET=26;
+
+const STEP=0.07, TAPCD=52;
+let phase='wind';  // wind | drive | result
+let pt=0, relClock=0, tapCd=0;
+let gauge=0.62, drainPS=0.45, thresh=0.58, releaseT=2000, tough=false;
+let decided=false, result='', endGauge=0;
+let parts=[];
+let shakeT=0,flash=0, mashFx=0, ballU=0;
+let msg='',msgCol='#fff',msgT=0;
+let lastAdd=0;
+// scene
+const YOU=[450,392], DEF_A=[384,300], DEF_B=[516,300], SPACE=[450,166], BALLF=[450,424];
+// gauge geometry (vertical, right)
+const GX=792, GY0=150, GY1=470;
+function gY(p){return GY1+(GY0-GY1)*clamp(p,0,1);}
+function lerp(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];}
+
+function reset(){outs=0;fails=0;score=0;combo=0;lvl=1;parts=[];}
+function newDrive(){
+  lvl=Math.min(7,1+Math.floor(outs/4));
+  tough=Math.random()<clamp(0.2+lvl*0.05,0.2,0.5);
+  drainPS=clamp(0.42+lvl*0.02,0.42,0.54)*(tough?1.12:1);
+  thresh=clamp(0.56+lvl*0.012,0.56,0.62);
+  releaseT=clamp(1800+lvl*100,1800,2500);
+  gauge=0.62;relClock=0;tapCd=0;phase='wind';pt=0;decided=false;result='';endGauge=0;ballU=0;
+}
+function startGame(){reset();state='play';newDrive();S.start();}
+
+function burst(x,y,col,n,sp){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=rnd(0.4,1)*(sp||3);parts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:1,col:col,r:rnd(2,5)});}}
+
+function resolve(){
+  decided=true;endGauge=gauge;
+  if(gauge>=thresh){
+    result='win';outs++;combo++;
+    const over=clamp((gauge-thresh)/(1-thresh),0,1);
+    const cm=1+Math.min(combo-1,6)*0.14;
+    const add=Math.round((100+over*120)*cm)*Math.max(1,lvl);
+    score+=add;lastAdd=add;
+    S.burst();setTimeout(S.win,120);setTimeout(S.roar,220);if(combo>1)setTimeout(function(){S.combo(combo);},420);
+    flash=0.26;burst(SPACE[0],SPACE[1],'#bfe9ff',12,3);
+    msg=(over>0.6?'完全に抜け出した！ プレスをぶち抜いて前進！':'耐えて突破！ 囲みを剥がして持ち運んだ！')+'  +'+add;msgCol='#5affa0';msgT=1;
+  }else{
+    result='lost';combo=0;fails++;
+    S.lost();flash=0.3;shakeT=0.6;
+    msg='潰された！ 寄せ切られてボールをロスト';msgCol='#ff6a6a';msgT=1;
+  }
+  phase='result';pt=0;
+}
+
+function mash(){
+  if(state==='title'){startGame();return;}
+  if(state==='over'){startGame();return;}
+  if(state!=='play'||phase!=='drive'||decided)return;
+  if(tapCd<=0){ gauge=clamp(gauge+STEP,0,1); tapCd=TAPCD; mashFx=1; if(!AC)actx(); S.dig(); }
+}
+
+// ---------- input ----------
+function act(){if(!AC)actx();mash();}
+cv.addEventListener('mousedown',function(e){e.preventDefault();act();});
+cv.addEventListener('touchstart',function(e){e.preventDefault();act();},{passive:false});
+window.addEventListener('keydown',function(e){
+  if(e.code==='Space'||e.code==='ArrowUp'||e.code==='Enter'||e.code==='KeyJ'||e.code==='KeyK'){e.preventDefault();act();}
+});
+
+// ---------- update ----------
+let last=0;
+function update(dt){
+  if(flash>0)flash=Math.max(0,flash-dt/300);
+  if(shakeT>0)shakeT=Math.max(0,shakeT-dt/320);
+  if(msgT>0)msgT=Math.max(0,msgT-dt/1500);
+  if(mashFx>0)mashFx=Math.max(0,mashFx-dt/140);
+  if(tapCd>0)tapCd=Math.max(0,tapCd-dt);
+  for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.16;p.life-=dt/640;if(p.life<=0)parts.splice(i,1);}
+  if(state!=='play')return;
+  pt+=dt;
+  if(phase==='wind'){
+    if(pt>=460){phase='drive';pt=0;relClock=0;}
+  }else if(phase==='drive'){
+    relClock+=dt;
+    gauge=clamp(gauge-drainPS*dt/1000,0,1);
+    if(relClock>=releaseT&&!decided)resolve();
+  }else if(phase==='result'){
+    if(ballU<1)ballU=Math.min(1,ballU+dt/300);
+    if(pt>=1150){
+      if(fails>=3){state='over';best=Math.max(best,score);try{localStorage.setItem('dp_best',String(best));}catch(e){}S.over();}
+      else if(outs>=TARGET){state='over';best=Math.max(best,score);try{localStorage.setItem('dp_best',String(best));}catch(e){}S.win();}
+      else newDrive();
+    }
+  }
+}
+
+// ---------- render ----------
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function drawField(){
+  for(let i=0;i<9;i++){ctx.fillStyle=i%2?'#2b6b3d':'#256036';ctx.fillRect(0,i*(H/9),W,H/9);}
+  ctx.strokeStyle='rgba(255,255,255,.16)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(YOU[0],YOU[1],118,0,Math.PI*2);ctx.stroke();
+  // faint "attack this way" chevrons up the middle
+  ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=3;
+  for(let i=0;i<3;i++){const y=250-i*40;ctx.beginPath();ctx.moveTo(YOU[0]-16,y+10);ctx.lineTo(YOU[0],y);ctx.lineTo(YOU[0]+16,y+10);ctx.stroke();}
+}
+
+function player(x,y,col,glow,lean){
+  ctx.save();ctx.translate(x,y);if(lean)ctx.rotate(lean);
+  if(glow>0){ctx.strokeStyle='rgba(90,255,160,'+glow+')';ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,-16,24,0,Math.PI*2);ctx.stroke();}
+  ctx.fillStyle='rgba(0,0,0,.26)';ctx.beginPath();ctx.ellipse(0,4,13,5,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#222';ctx.fillRect(-7,-4,6,20);ctx.fillRect(1,-4,6,20);
+  ctx.fillStyle=col;ctx.fillRect(-11,-28,22,26);
+  ctx.fillStyle='#f0c9a0';ctx.beginPath();ctx.arc(0,-37,8,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+
+function drawDrive(){
+  const push=(phase==='drive')?clamp((thresh+0.12-gauge)*2.2,0,1):(result==='lost'?1:0.1);
+  const prog=(phase==='drive')?clamp(relClock/releaseT,0,1):1;
+  const jitter=(phase==='drive')?Math.sin(relClock/55)*mashFx*2:0;
+  // you drive upward as the possession progresses; shoved back a little when the gauge drops
+  let yY=YOU[1]-prog*36+push*16, yX=YOU[0];
+  // two defenders converge from ahead — closer when your drive gauge is low
+  const conv=push*0.5;
+  let daX=DEF_A[0]+(YOU[0]-DEF_A[0])*conv, daY=DEF_A[1]+(yY-30-DEF_A[1])*conv;
+  let dbX=DEF_B[0]+(YOU[0]-DEF_B[0])*conv, dbY=DEF_B[1]+(yY-30-DEF_B[1])*conv;
+  if(phase==='result'&&result==='win'){ yY=YOU[1]-36-ballU*96; daY=DEF_A[1]+ballU*40; dbY=DEF_B[1]+ballU*40; }
+  if(phase==='result'&&result==='lost'){ yY=YOU[1]+16+ballU*10; const pa=lerp([DEF_A[0],DEF_A[1]],[YOU[0]-6,YOU[1]-6],0.72); daX=pa[0];daY=pa[1]; }
+  // open space ahead — glows green as you win the drive
+  const spaceOpen=(phase==='drive'&&gauge>=thresh)||(phase==='result'&&result==='win');
+  ctx.save();ctx.strokeStyle=spaceOpen?'rgba(90,255,150,.7)':'rgba(255,255,255,.22)';ctx.lineWidth=3;ctx.setLineDash([9,8]);
+  ctx.beginPath();ctx.arc(SPACE[0],SPACE[1],40,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle=spaceOpen?'rgba(90,255,150,.9)':'rgba(255,255,255,.5)';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText('スペース',SPACE[0],SPACE[1]-48);ctx.restore();
+  // defenders
+  player(daX,daY,'#c0343a',0,0.4);
+  player(dbX,dbY,'#c0343a',0,-0.4);
+  // you (yellow) driving, arms out to protect
+  player(yX-jitter,yY,'#e8d24a',(phase==='drive'&&gauge>=thresh)?0.7:0,(phase==='result'&&result==='lost')?0.4:0);
+  ctx.save();ctx.translate(yX-jitter,yY);ctx.strokeStyle='#e8d24a';ctx.lineWidth=5;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-9,-20);ctx.lineTo(-24,-12);ctx.moveTo(9,-20);ctx.lineTo(24,-12);ctx.stroke();ctx.restore();
+  // ball at feet, driven ahead on a break, poked loose on a loss
+  let bx=yX, by=yY+32;
+  if(phase==='result'&&result==='win'){ by=yY+32-ballU*40; }
+  else if(phase==='result'&&result==='lost'){ const p=lerp([YOU[0],YOU[1]+32],[daX,daY+8],ballU); bx=p[0];by=p[1]; }
+  ctx.fillStyle='rgba(0,0,0,.2)';ctx.beginPath();ctx.ellipse(bx,by+7,7,3,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,7,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#111';ctx.beginPath();ctx.arc(bx,by,2.4,0,Math.PI*2);ctx.fill();
+}
+
+function drawGauge(){
+  if(state!=='play')return;
+  const gw=34;
+  roundRect(GX-gw/2,GY0,gw,GY1-GY0,12);ctx.fillStyle='rgba(0,0,0,.45)';ctx.fill();
+  const zy0=gY(1), zy1=gY(thresh);
+  ctx.fillStyle='rgba(60,255,150,.22)';ctx.fillRect(GX-gw/2,zy0,gw,zy1-zy0);
+  ctx.strokeStyle='rgba(90,255,160,.7)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(GX-gw/2,zy1);ctx.lineTo(GX+gw/2,zy1);ctx.stroke();
+  const fy=gY(gauge);const col=gauge>=thresh?'#5affa0':(gauge>thresh-0.12?'#ffd23a':'#ff6a6a');
+  const fg=ctx.createLinearGradient(0,GY1,0,GY0);fg.addColorStop(0,'#2b7a4a');fg.addColorStop(1,col);
+  ctx.fillStyle=fg;ctx.fillRect(GX-gw/2,fy,gw,GY1-fy);
+  if(mashFx>0){ctx.fillStyle='rgba(255,255,255,'+(mashFx*0.4)+')';ctx.fillRect(GX-gw/2,fy,gw,GY1-fy);}
+  roundRect(GX-gw/2,GY0,gw,GY1-GY0,12);ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.textAlign='center';ctx.font='bold 12px sans-serif';ctx.fillStyle='#9fffcf';ctx.fillText('突破',GX,GY0-10);
+  ctx.font='11px sans-serif';ctx.fillStyle='#ffd0b0';ctx.fillText('推進力',GX,GY1+18);
+  if(phase==='drive'){
+    const tl=clamp(1-relClock/releaseT,0,1);
+    roundRect(GX-gw/2,GY1+26,gw,7,3);ctx.fillStyle='rgba(0,0,0,.4)';ctx.fill();
+    ctx.fillStyle=tl<0.3?'#ff6a6a':'#ffd23a';ctx.fillRect(GX-gw/2,GY1+26,gw*tl,7);
+  }
+}
+
+function drawHUD(){
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  ctx.font='bold 20px sans-serif';ctx.fillStyle='#fff';
+  ctx.fillText('突破 '+outs+' / '+TARGET,20,32);
+  ctx.font='14px sans-serif';ctx.fillStyle='#ffb14a';ctx.fillText('ロスト '+fails+' / 3',20,54);
+  ctx.textAlign='right';
+  ctx.font='bold 20px sans-serif';ctx.fillStyle='#ffe08a';ctx.fillText('SCORE '+score,W-20,32);
+  ctx.font='13px sans-serif';ctx.fillStyle='#bfe';ctx.fillText('BEST '+Math.max(best,score)+'   Lv.'+lvl,W-20,52);
+  if(combo>1){ctx.textAlign='center';ctx.font='bold 20px sans-serif';ctx.fillStyle='#5affa0';ctx.fillText(combo+' 連続突破!',450,120);}
+  if(phase==='drive'&&!decided){ctx.textAlign='center';ctx.font='bold 16px sans-serif';ctx.fillStyle='#ffe08a';ctx.fillText('連打で推進力を保て！ 潰される前に耐えて空いた前へ抜け出せ！',450,150);}
+}
+
+function drawMsg(){
+  if(msgT<=0)return;
+  ctx.save();ctx.globalAlpha=clamp(msgT*1.4,0,1);
+  ctx.textAlign='center';ctx.font='bold 23px sans-serif';
+  ctx.fillStyle='rgba(0,0,0,.62)';roundRect(450-300,502,600,42,10);ctx.fill();
+  ctx.fillStyle=msgCol;ctx.fillText(msg,450,530);
+  ctx.restore();
+}
+
+function drawTitle(){
+  drawField();
+  player(DEF_A[0],DEF_A[1],'#c0343a',0,0.3);player(DEF_B[0],DEF_B[1],'#c0343a',0,-0.3);player(YOU[0],YOU[1],'#e8d24a',0,0);
+  ctx.save();ctx.textAlign='center';
+  ctx.fillStyle='rgba(0,0,0,.72)';roundRect(96,96,708,406,16);ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='bold 32px sans-serif';ctx.fillText('持ち運んで剥がせ',450,152);
+  ctx.font='18px sans-serif';ctx.fillStyle='#9fe0bf';ctx.fillText('Drive Through the Press',450,182);
+  ctx.font='16px sans-serif';ctx.fillStyle='#e6fcef';
+  const lines=[
+    'あなたはボールを運ぶ司令塔。前へドリブルで持ち運ぶ！',
+    '次々と相手が寄せてくる——連打（タップ/クリック/SPACE 連打）で',
+    '“推進力（ドライブ）”ゲージを押し上げ、潰される前に耐え、',
+    '空いた前のスペースへ抜け出せ＝プレス突破！',
+    '連打が弱いと推進力が落ち、寄せ切られてボールをロスト。',
+    'ゲージの上まで踏ん張るほど完全に抜け出して大量加点。',
+    '26回突破して達成。3回ロストで終了。',
+  ];
+  for(let i=0;i<lines.length;i++)ctx.fillText(lines[i],450,222+i*30);
+  ctx.fillStyle='#ffe08a';ctx.font='bold 22px sans-serif';
+  ctx.fillText('タップ / SPACE 連打でスタート',450,484);
+  ctx.restore();
+}
+
+function drawOver(){
+  drawField();
+  ctx.save();ctx.textAlign='center';
+  ctx.fillStyle='rgba(0,0,0,.72)';roundRect(190,150,520,300,16);ctx.fill();
+  const w2=outs>=TARGET;
+  ctx.fillStyle=w2?'#5affa0':'#ff8a5a';ctx.font='bold 34px sans-serif';
+  ctx.fillText(w2?'推進力の塊！':'寄せ切られ続け…',450,222);
+  ctx.fillStyle='#fff';ctx.font='20px sans-serif';
+  ctx.fillText('突破 '+outs+' / '+TARGET,450,270);
+  ctx.fillText('スコア '+score,450,304);
+  ctx.fillStyle='#ffe08a';ctx.fillText('ベスト '+Math.max(best,score),450,336);
+  ctx.fillStyle='#9fe0bf';ctx.font='bold 20px sans-serif';
+  ctx.fillText('タップ / SPACE でもう一度',450,404);
+  ctx.restore();
+}
+
+function render(){
+  ctx.save();
+  if(shakeT>0){const s=shakeT*7;ctx.translate(rnd(-s,s),rnd(-s,s));}
+  if(state==='title'){drawTitle();}
+  else if(state==='over'){drawOver();}
+  else{
+    drawField();
+    drawDrive();
+    drawGauge();
+    drawHUD();
+    drawMsg();
+  }
+  for(const p of parts){ctx.globalAlpha=clamp(p.life,0,1);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();}
+  ctx.globalAlpha=1;
+  ctx.restore();
+  if(flash>0){ctx.fillStyle='rgba(255,255,255,'+(flash*0.5)+')';ctx.fillRect(0,0,W,H);}
+}
+
+function frame(ts){let dt=ts-last;last=ts;if(dt>60)dt=60;if(dt<0)dt=0;update(dt);render();requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+
+// ---------- test hook ----------
+window.__dp={
+  start:startGame,
+  mash:mash,
+  get state(){return state;},
+  get outs(){return outs;},
+  get fails(){return fails;},
+  get score(){return score;},
+  get info(){return {state:state,phase:phase,relClock:relClock,releaseT:releaseT,gauge:gauge,thresh:thresh,drainPS:drainPS,tough:tough,decided:decided,result:result,outs:outs,fails:fails,lvl:lvl,timeLeft:(releaseT-relClock),above:(gauge>=thresh),canAct:(state==='play'&&phase==='drive'&&!decided)};}
+};
+})();
+</script>
+</body>
+</html>
